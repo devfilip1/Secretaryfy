@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Answer key for evaluating the DentalSafe assistant (evaluation/data/answer_key.json)",
+  "type": "object",
+  "required": ["version", "procedures", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "procedures": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["anchors"],
+        "additionalProperties": false,
+        "properties": {
+          "anchors": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "items": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/item" } }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["id", "question", "category", "procedure", "answerable", "split", "smoke"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "question": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": ["price", "duration", "result", "indication", "how_it_works", "differentials", "comparison", "clinic_info", "out_of_scope", "adversarial"]
+        },
+        "procedure": { "type": ["string", "null"] },
+        "answerable": { "type": "boolean" },
+        "expected_facts": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+        "allowed_facts": { "type": "array", "items": { "$ref": "#/$defs/fact" } },
+        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "variant_of": { "type": "string" },
+        "split": { "enum": ["dev", "holdout"] },
+        "smoke": { "type": "boolean" },
+        "notes": { "type": "string" }
+      },
+      "if": { "properties": { "answerable": { "const": true } } },
+      "then": {
+        "required": ["expected_facts", "evidence"],
+        "properties": {
+          "expected_facts": { "minItems": 1 },
+          "evidence": { "minItems": 1 }
+        }
+      },
+      "else": {
+        "properties": {
+          "expected_facts": { "maxItems": 0 },
+          "evidence": { "maxItems": 0 }
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "required": ["type", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["money", "duration", "time", "text"] },
+        "label": { "type": "string", "minLength": 1 },
+        "values": { "type": "array", "minItems": 1, "items": { "type": "number" } },
+        "unit": { "enum": ["minute", "hour", "day", "month", "year", "session", "visit"] },
+        "alternatives": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "money" } } }, "then": { "required": ["values"] } },
+        { "if": { "properties": { "type": { "const": "duration" } } }, "then": { "required": ["values", "unit"] } },
+        { "if": { "properties": { "type": { "const": "time" } } }, "then": { "required": ["values"], "properties": { "values": { "items": { "minimum": 0, "maximum": 1439 } } } } },
+        { "if": { "properties": { "type": { "const": "text" } } }, "then": { "required": ["alternatives"] } }
+      ]
+    }
+  }
+}

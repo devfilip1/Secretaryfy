@@ -1,0 +1,72 @@
+# Search experiments.
+# Run all of them and compare: python -m evaluation experiments
+#
+# Fields of each experiment:
+#   exp_name         unique name
+#   collection       name of a strategy from config/strategies.yaml
+#   search_type      hybrid (vector + word-based), vector, or bm25
+#   match_count      maximum number of chunks sent to the model
+#   match_threshold  minimum similarity of a chunk, from 0 to 1 (0 turns it off; default 0)
+#   use_hyde         search with a hypothetical answer instead of the question (default false)
+#   prompt           rules (the assistant's prompt, default) or original (the prompt the project started with)
+
+# The experiment that the chat and the answer evaluation use.
+# To change the assistant's configuration, change this name.
+assistant: section_hybrid
+
+experiments:
+  # --- The assistant's configuration ---
+  - exp_name: section_hybrid
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    match_threshold: 0.0
+    use_hyde: false
+
+  # --- Where the project started: 500-character chunks, vector search with 3 chunks, and a generic prompt ---
+  # Kept to show the improvement. Measure its answers with:
+  #   python -m evaluation run --no-judge --experiment original_baseline
+  - exp_name: original_baseline
+    collection: recursive_500_200
+    search_type: vector
+    match_count: 3
+    match_threshold: 0.7
+    prompt: original
+
+  # --- Contribution of each search, with the assistant's strategy ---
+  - exp_name: section_vector
+    collection: section
+    search_type: vector
+    match_count: 4
+
+  - exp_name: section_bm25
+    collection: section
+    search_type: bm25
+    match_count: 4
+
+  # --- Options measured on 2026-10-11 and not adopted. Uncomment to measure again. ---
+  # Other chunking strategies, same search. Per page: same True Rate (44/44), but each chunk carries a whole page.
+  # - exp_name: page_hybrid
+  #   collection: page
+  #   search_type: hybrid
+  #   match_count: 4
+
+  # By characters: the evidence stopped reaching the model in 3 questions (41/44) and lost its treatment name in others.
+  # - exp_name: recursive_500_200_hybrid
+  #   collection: recursive_500_200
+  #   search_type: hybrid
+  #   match_count: 4
+
+  # Threshold: with 0.6, the evidence stopped reaching the model in 8 questions (36/44).
+  # - exp_name: section_hybrid_t60
+  #   collection: section
+  #   search_type: hybrid
+  #   match_count: 4
+  #   match_threshold: 0.6
+
+  # HyDE: same True Rate (44/44), with about 1.2 s more per question.
+  # - exp_name: section_hybrid_hyde
+  #   collection: section
+  #   search_type: hybrid
+  #   match_count: 4
+  #   use_hyde: true

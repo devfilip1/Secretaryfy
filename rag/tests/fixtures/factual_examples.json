@@ -1,0 +1,153 @@
+[
+  {
+    "name": "range with dollar signs and a dash",
+    "answer": "Teeth whitening costs $180–$450.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "range with a thousands separator",
+    "answer": "A dental implant costs between $900 and $2,000, depending on the case.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [900, 2000] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "the word dollars after the number",
+    "answer": "The price goes from 180 to 450 dollars.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "cents",
+    "answer": "The price is $180.00 to $450.00.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "value written in words",
+    "answer": "It costs from nine hundred to two thousand dollars.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [900, 2000] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "dollar sign only on the first value of the range",
+    "answer": "A dental implant goes for $900 to 2,000.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [900, 2000] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "number with k",
+    "answer": "A dental implant costs from $900 to $2k.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [900, 2000] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "price of another procedure (known error)",
+    "answer": "Teeth whitening costs between $40 and $85.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": false
+  },
+  {
+    "name": "right value next to a wrong value",
+    "answer": "Teeth whitening costs $180–$450, or $40–$85 on sale.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": false
+  },
+  {
+    "name": "only one of the values of the range",
+    "answer": "Teeth whitening starts at $180.",
+    "expected_facts": [{ "type": "money", "label": "price", "values": [180, 450] }],
+    "expected_verdict": false
+  },
+  {
+    "name": "two money facts",
+    "answer": "The initial cost is $180–$450 and the monthly fee is $35–$90.",
+    "expected_facts": [
+      { "type": "money", "label": "initial cost", "values": [180, 450] },
+      { "type": "money", "label": "monthly", "values": [35, 90] }
+    ],
+    "expected_verdict": true
+  },
+  {
+    "name": "range of minutes",
+    "answer": "A dental cleaning takes 30 to 50 minutes.",
+    "expected_facts": [{ "type": "duration", "label": "duration", "values": [30, 50], "unit": "minute" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "an hour is 60 minutes",
+    "answer": "A filling takes from 30 minutes to 1 hour.",
+    "expected_facts": [{ "type": "duration", "label": "duration", "values": [30, 60], "unit": "minute" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "weeks are days",
+    "answer": "The full whitening treatment takes up to 2 weeks.",
+    "expected_facts": [{ "type": "duration", "label": "full treatment", "values": [14], "unit": "day" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "abbreviated hours and the same time in days",
+    "answer": "You get an appointment within 72h, that is, in 3 days.",
+    "expected_facts": [{ "type": "duration", "label": "wait", "values": [72], "unit": "hour" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "years written in words",
+    "answer": "The result lasts up to three years.",
+    "expected_facts": [{ "type": "duration", "label": "lasting", "values": [3], "unit": "year" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "sessions written in words, with a pronoun that is not a number",
+    "answer": "It takes one to three sessions. Schedule an assessment and find the one that fits you!",
+    "expected_facts": [{ "type": "duration", "label": "sessions", "values": [1, 3], "unit": "session" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "duration of another procedure",
+    "answer": "A dental implant takes 3 to 6 months and requires 2 to 3 appointments.",
+    "expected_facts": [{ "type": "duration", "label": "duration", "values": [3, 6], "unit": "month" }],
+    "expected_verdict": false
+  },
+  {
+    "name": "an allowed value does not count as an error",
+    "answer": "The result lasts up to 3 years and the full treatment takes up to 14 days.",
+    "expected_facts": [{ "type": "duration", "label": "lasting", "values": [3], "unit": "year" }],
+    "allowed_facts": [{ "type": "duration", "label": "full treatment", "values": [14], "unit": "day" }],
+    "expected_verdict": true
+  },
+  {
+    "name": "text fact in another case and with a number in words",
+    "answer": "Your teeth get up to eight shades whiter, with shells made of PORCELAIN.",
+    "expected_facts": [
+      { "type": "text", "label": "shades", "alternatives": ["8 shades"] },
+      { "type": "text", "label": "material", "alternatives": ["ceramic", "porcelain"] }
+    ],
+    "expected_verdict": true
+  },
+  {
+    "name": "opening hours with AM and PM",
+    "answer": "We are open Monday to Friday from 9:00 AM to 6:00 PM.",
+    "expected_facts": [{ "type": "time", "label": "weekday hours", "values": [540, 1080] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "opening hours written the short way",
+    "answer": "On Saturdays we open 9am-2pm.",
+    "expected_facts": [{ "type": "time", "label": "Saturday hours", "values": [540, 840] }],
+    "expected_verdict": true
+  },
+  {
+    "name": "wrong closing time",
+    "answer": "On Saturdays we are open from 9:00 AM to 6:00 PM.",
+    "expected_facts": [{ "type": "time", "label": "Saturday hours", "values": [540, 840] }],
+    "expected_verdict": false
+  },
+  {
+    "name": "phone written with dashes",
+    "answer": "You can call us at 305-555-0148.",
+    "expected_facts": [{ "type": "text", "label": "phone", "alternatives": ["(305) 555-0148", "305-555-0148"] }],
+    "expected_verdict": true
+  }
+]

@@ -1,0 +1,5 @@
+﻿experiment,search_type,collection,match_threshold,match_count,use_hyde,score,hits,total,true_rate,anchored_rate,avg_latency_ms,status,reason,answer_key_version,embedding_model
+section_hybrid,hybrid,section,0.00,4,false,0.6572,44,44,1.0000,1.0000,44.0,ok,,2026-10-11.1,nomic-embed-text
+section_bm25,bm25,section,0.00,4,false,0.6351,44,44,1.0000,1.0000,34.1,ok,,2026-10-11.1,nomic-embed-text
+section_vector,vector,section,0.00,4,false,0.6415,43,44,0.9773,1.0000,36.5,ok,,2026-10-11.1,nomic-embed-text
+original_baseline,vector,recursive_500_200,0.70,3,false,0.5056,26,44,0.5909,0.6410,36.5,ok,,2026-10-11.1,nomic-embed-text

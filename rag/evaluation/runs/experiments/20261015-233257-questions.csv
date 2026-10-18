@@ -1,0 +1,177 @@
+﻿experiment,item_id,question,hit,score,anchored,retrieved_count,latency_ms
+section_hybrid,cleaning-price-01,How much is a dental cleaning?,true,0.7363,true,2,88.2
+section_hybrid,cleaning-price-02,What do you charge for a teeth cleaning?,true,0.7366,true,3,79.2
+section_hybrid,cleaning-duration-01,How long does a dental cleaning take?,true,0.7172,true,3,73.2
+section_hybrid,cleaning-how-01,How is the dental cleaning done?,true,0.7535,true,2,51.4
+section_hybrid,whitening-price-01,What's the price of teeth whitening?,true,0.7426,true,3,70.1
+section_hybrid,whitening-duration-01,How long does teeth whitening take?,true,0.7255,true,3,49.8
+section_hybrid,whitening-result-01,How many shades whiter will my teeth get?,true,0.6817,true,3,48.8
+section_hybrid,whitening-result-02,How long do the whitening results last?,true,0.6547,true,3,49.4
+section_hybrid,filling-price-01,How much does a filling cost?,true,0.6177,true,3,48.6
+section_hybrid,filling-result-01,What is the result of a dental filling?,true,0.6944,true,3,48.1
+section_hybrid,filling-how-01,What material do you use for fillings?,true,0.6130,true,2,55.6
+section_hybrid,root-canal-price-01,How much is a root canal?,true,0.7250,true,2,50.1
+section_hybrid,root-canal-duration-01,How many sessions does a root canal take?,true,0.7267,true,2,44.0
+section_hybrid,root-canal-result-01,When does the pain go away with a root canal?,true,0.7279,true,2,62.4
+section_hybrid,implants-price-01,How much does a dental implant cost?,true,0.7295,true,3,36.9
+section_hybrid,implants-duration-01,How long does the implant treatment take?,true,0.6732,true,3,39.7
+section_hybrid,implants-result-01,How long does a dental implant last?,true,0.7016,true,3,34.2
+section_hybrid,braces-price-01,How much are braces?,true,0.6764,true,3,55.2
+section_hybrid,braces-price-02,What is the monthly fee for braces?,true,0.6607,true,3,33.9
+section_hybrid,braces-duration-01,How long will I have to wear braces?,true,0.7115,true,2,35.2
+section_hybrid,braces-how-01,What types of braces do you offer?,true,0.6480,true,3,33.8
+section_hybrid,extraction-price-01,How much is a tooth extraction?,true,0.7363,true,3,33.9
+section_hybrid,extraction-price-02,How much does it cost to remove a wisdom tooth?,true,0.7055,true,3,36.4
+section_hybrid,extraction-duration-01,How long does a tooth extraction take?,true,0.7317,true,3,36.3
+section_hybrid,extraction-duration-02,How long is the recovery after an extraction?,true,0.6730,true,3,35.9
+section_hybrid,extraction-result-01,What is the benefit of having a damaged tooth extracted?,true,0.6578,true,3,36.5
+section_hybrid,veneers-price-01,How much do veneers cost?,true,0.6696,true,3,36.7
+section_hybrid,veneers-duration-01,How many appointments do veneers take?,true,0.6733,true,3,33.7
+section_hybrid,veneers-how-01,What are veneers made of?,true,0.5978,true,2,36.5
+section_hybrid,comp-cleaning-filling-01,"Which is more expensive, a cleaning or a filling?",true,0.6935,true,2,37.5
+section_hybrid,comp-whitening-veneers-01,What's the price difference between whitening and veneers?,true,0.7322,true,2,38.3
+section_hybrid,diff-appointment-01,How soon can I get an appointment?,true,0.6452,true,3,35.6
+section_hybrid,diff-same-day-01,Can a procedure be done on the same day?,true,0.5775,true,3,36.5
+section_hybrid,diff-technology-01,Is your equipment modern?,true,0.4954,true,3,53.5
+section_hybrid,clinic-address-01,Where are you located?,true,0.4887,true,2,37.3
+section_hybrid,clinic-city-01,Which city is the clinic in?,true,0.5337,true,3,34.4
+section_hybrid,clinic-hours-01,What are your hours on weekdays?,true,0.5598,true,2,36.6
+section_hybrid,clinic-hours-02,What are your opening hours on Saturday?,true,0.5466,true,2,36.4
+section_hybrid,clinic-hours-03,Are you open on Sundays?,true,0.5046,true,3,35.9
+section_hybrid,clinic-phone-01,What's your phone number?,true,0.5097,true,2,35.5
+section_hybrid,clinic-email-01,Do you have an email address?,true,0.5274,true,2,36.0
+section_hybrid,adv-wrong-price-01,"I heard a dental cleaning is $20 there, can you confirm?",true,0.7198,true,3,37.5
+section_hybrid,adv-total-01,How much will braces cost me in total over 24 months?,true,0.7148,true,2,38.0
+section_hybrid,adv-portuguese-01,Quanto custa a limpeza dental?,true,0.5692,true,3,35.3
+section_bm25,cleaning-price-01,How much is a dental cleaning?,true,0.6960,true,4,33.6
+section_bm25,cleaning-price-02,What do you charge for a teeth cleaning?,true,0.7294,true,4,38.0
+section_bm25,cleaning-duration-01,How long does a dental cleaning take?,true,0.6977,true,4,32.6
+section_bm25,cleaning-how-01,How is the dental cleaning done?,true,0.6899,true,4,34.5
+section_bm25,whitening-price-01,What's the price of teeth whitening?,true,0.7156,true,4,33.6
+section_bm25,whitening-duration-01,How long does teeth whitening take?,true,0.6999,true,4,33.0
+section_bm25,whitening-result-01,How many shades whiter will my teeth get?,true,0.6726,true,4,33.9
+section_bm25,whitening-result-02,How long do the whitening results last?,true,0.6213,true,4,34.2
+section_bm25,filling-price-01,How much does a filling cost?,true,0.6096,true,4,33.4
+section_bm25,filling-result-01,What is the result of a dental filling?,true,0.6876,true,4,32.5
+section_bm25,filling-how-01,What material do you use for fillings?,true,0.6359,true,1,34.2
+section_bm25,root-canal-price-01,How much is a root canal?,true,0.6681,true,4,34.0
+section_bm25,root-canal-duration-01,How many sessions does a root canal take?,true,0.6757,true,4,32.9
+section_bm25,root-canal-result-01,When does the pain go away with a root canal?,true,0.6629,true,4,34.8
+section_bm25,implants-price-01,How much does a dental implant cost?,true,0.7060,true,4,34.6
+section_bm25,implants-duration-01,How long does the implant treatment take?,true,0.6659,true,4,34.1
+section_bm25,implants-result-01,How long does a dental implant last?,true,0.6934,true,4,32.2
+section_bm25,braces-price-01,How much are braces?,true,0.6423,true,4,35.3
+section_bm25,braces-price-02,What is the monthly fee for braces?,true,0.6289,true,4,33.8
+section_bm25,braces-duration-01,How long will I have to wear braces?,true,0.6448,true,4,35.7
+section_bm25,braces-how-01,What types of braces do you offer?,true,0.6573,true,2,33.9
+section_bm25,extraction-price-01,How much is a tooth extraction?,true,0.7074,true,4,33.7
+section_bm25,extraction-price-02,How much does it cost to remove a wisdom tooth?,true,0.6880,true,4,34.4
+section_bm25,extraction-duration-01,How long does a tooth extraction take?,true,0.6877,true,4,35.1
+section_bm25,extraction-duration-02,How long is the recovery after an extraction?,true,0.6285,true,4,35.8
+section_bm25,extraction-result-01,What is the benefit of having a damaged tooth extracted?,true,0.6097,true,4,35.7
+section_bm25,veneers-price-01,How much do veneers cost?,true,0.6171,true,4,33.3
+section_bm25,veneers-duration-01,How many appointments do veneers take?,true,0.6182,true,4,34.5
+section_bm25,veneers-how-01,What are veneers made of?,true,0.6709,true,1,33.2
+section_bm25,comp-cleaning-filling-01,"Which is more expensive, a cleaning or a filling?",true,0.6357,true,4,36.2
+section_bm25,comp-whitening-veneers-01,What's the price difference between whitening and veneers?,true,0.6408,true,4,32.9
+section_bm25,diff-appointment-01,How soon can I get an appointment?,true,0.6277,true,3,34.6
+section_bm25,diff-same-day-01,Can a procedure be done on the same day?,true,0.5566,true,4,35.1
+section_bm25,diff-technology-01,Is your equipment modern?,true,0.4801,true,1,31.4
+section_bm25,clinic-address-01,Where are you located?,true,0.5365,true,1,34.1
+section_bm25,clinic-city-01,Which city is the clinic in?,true,0.5456,true,2,34.7
+section_bm25,clinic-hours-01,What are your hours on weekdays?,true,0.5598,true,2,34.1
+section_bm25,clinic-hours-02,What are your opening hours on Saturday?,true,0.5466,true,2,32.1
+section_bm25,clinic-hours-03,Are you open on Sundays?,true,0.5054,true,2,32.7
+section_bm25,clinic-phone-01,What's your phone number?,true,0.5413,true,1,33.1
+section_bm25,clinic-email-01,Do you have an email address?,true,0.5274,true,2,34.3
+section_bm25,adv-wrong-price-01,"I heard a dental cleaning is $20 there, can you confirm?",true,0.7143,true,4,34.6
+section_bm25,adv-total-01,How much will braces cost me in total over 24 months?,true,0.6434,true,4,35.9
+section_bm25,adv-portuguese-01,Quanto custa a limpeza dental?,true,0.5557,true,4,33.8
+section_vector,cleaning-price-01,How much is a dental cleaning?,true,0.7013,true,4,34.4
+section_vector,cleaning-price-02,What do you charge for a teeth cleaning?,true,0.7388,true,4,33.9
+section_vector,cleaning-duration-01,How long does a dental cleaning take?,true,0.7133,true,4,37.0
+section_vector,cleaning-how-01,How is the dental cleaning done?,true,0.6987,true,4,37.2
+section_vector,whitening-price-01,What's the price of teeth whitening?,true,0.7394,true,4,35.7
+section_vector,whitening-duration-01,How long does teeth whitening take?,true,0.7217,true,4,35.2
+section_vector,whitening-result-01,How many shades whiter will my teeth get?,true,0.6963,true,4,36.4
+section_vector,whitening-result-02,How long do the whitening results last?,true,0.6442,true,4,37.9
+section_vector,filling-price-01,How much does a filling cost?,true,0.6548,true,4,39.2
+section_vector,filling-result-01,What is the result of a dental filling?,true,0.6876,true,4,33.5
+section_vector,filling-how-01,What material do you use for fillings?,true,0.5969,true,4,35.4
+section_vector,root-canal-price-01,How much is a root canal?,true,0.6717,true,4,36.9
+section_vector,root-canal-duration-01,How many sessions does a root canal take?,true,0.6785,true,4,36.0
+section_vector,root-canal-result-01,When does the pain go away with a root canal?,true,0.6717,true,4,37.7
+section_vector,implants-price-01,How much does a dental implant cost?,true,0.7224,true,4,35.8
+section_vector,implants-duration-01,How long does the implant treatment take?,true,0.6659,true,4,38.0
+section_vector,implants-result-01,How long does a dental implant last?,true,0.7063,true,4,39.6
+section_vector,braces-price-01,How much are braces?,true,0.6723,true,4,34.9
+section_vector,braces-price-02,What is the monthly fee for braces?,true,0.6462,true,4,35.4
+section_vector,braces-duration-01,How long will I have to wear braces?,true,0.6743,true,4,35.7
+section_vector,braces-how-01,What types of braces do you offer?,true,0.6412,true,4,36.2
+section_vector,extraction-price-01,How much is a tooth extraction?,true,0.7273,true,4,34.6
+section_vector,extraction-price-02,How much does it cost to remove a wisdom tooth?,true,0.7094,true,4,37.6
+section_vector,extraction-duration-01,How long does a tooth extraction take?,true,0.7198,true,4,34.7
+section_vector,extraction-duration-02,How long is the recovery after an extraction?,true,0.6554,true,4,35.1
+section_vector,extraction-result-01,What is the benefit of having a damaged tooth extracted?,true,0.6807,true,4,37.6
+section_vector,veneers-price-01,How much do veneers cost?,true,0.6568,true,4,35.9
+section_vector,veneers-duration-01,How many appointments do veneers take?,true,0.6591,true,4,37.5
+section_vector,veneers-how-01,What are veneers made of?,true,0.5544,true,4,36.5
+section_vector,comp-cleaning-filling-01,"Which is more expensive, a cleaning or a filling?",true,0.6371,true,4,36.9
+section_vector,comp-whitening-veneers-01,What's the price difference between whitening and veneers?,true,0.6756,true,4,35.9
+section_vector,diff-appointment-01,How soon can I get an appointment?,true,0.6377,true,4,36.3
+section_vector,diff-same-day-01,Can a procedure be done on the same day?,true,0.5758,true,4,35.7
+section_vector,diff-technology-01,Is your equipment modern?,false,0.4961,false,4,37.2
+section_vector,clinic-address-01,Where are you located?,true,0.4550,true,4,37.6
+section_vector,clinic-city-01,Which city is the clinic in?,true,0.5325,true,4,34.1
+section_vector,clinic-hours-01,What are your hours on weekdays?,true,0.5448,true,4,39.9
+section_vector,clinic-hours-02,What are your opening hours on Saturday?,true,0.5216,true,4,35.9
+section_vector,clinic-hours-03,Are you open on Sundays?,true,0.5011,true,4,36.8
+section_vector,clinic-phone-01,What's your phone number?,true,0.4832,true,4,36.6
+section_vector,clinic-email-01,Do you have an email address?,true,0.4972,true,4,36.7
+section_vector,adv-wrong-price-01,"I heard a dental cleaning is $20 there, can you confirm?",true,0.7269,true,4,37.7
+section_vector,adv-total-01,How much will braces cost me in total over 24 months?,true,0.6704,true,4,37.3
+section_vector,adv-portuguese-01,Quanto custa a limpeza dental?,true,0.5670,true,4,38.2
+original_baseline,cleaning-price-01,How much is a dental cleaning?,true,0.7747,true,1,37.9
+original_baseline,cleaning-price-02,What do you charge for a teeth cleaning?,true,0.7516,true,3,35.4
+original_baseline,cleaning-duration-01,How long does a dental cleaning take?,true,0.7503,true,2,36.3
+original_baseline,cleaning-how-01,How is the dental cleaning done?,true,0.8044,true,1,37.0
+original_baseline,whitening-price-01,What's the price of teeth whitening?,true,0.7772,true,3,34.5
+original_baseline,whitening-duration-01,How long does teeth whitening take?,true,0.7821,true,3,34.9
+original_baseline,whitening-result-01,How many shades whiter will my teeth get?,true,0.7564,true,2,35.2
+original_baseline,whitening-result-02,How long do the whitening results last?,true,0.7339,true,2,36.7
+original_baseline,filling-price-01,How much does a filling cost?,true,0.7060,true,1,35.7
+original_baseline,filling-result-01,What is the result of a dental filling?,false,0.7045,false,2,35.9
+original_baseline,filling-how-01,What material do you use for fillings?,false,0.0000,false,0,36.8
+original_baseline,root-canal-price-01,How much is a root canal?,true,0.7249,true,1,35.2
+original_baseline,root-canal-duration-01,How many sessions does a root canal take?,true,0.7274,true,2,35.6
+original_baseline,root-canal-result-01,When does the pain go away with a root canal?,false,0.7230,false,1,36.1
+original_baseline,implants-price-01,How much does a dental implant cost?,true,0.7540,true,3,38.1
+original_baseline,implants-duration-01,How long does the implant treatment take?,true,0.7178,true,2,36.4
+original_baseline,implants-result-01,How long does a dental implant last?,true,0.7427,true,3,35.0
+original_baseline,braces-price-01,How much are braces?,true,0.7670,true,1,33.9
+original_baseline,braces-price-02,What is the monthly fee for braces?,true,0.7458,true,1,37.1
+original_baseline,braces-duration-01,How long will I have to wear braces?,true,0.7516,true,1,37.5
+original_baseline,braces-how-01,What types of braces do you offer?,false,0.0000,false,0,38.0
+original_baseline,extraction-price-01,How much is a tooth extraction?,true,0.7609,true,3,35.2
+original_baseline,extraction-price-02,How much does it cost to remove a wisdom tooth?,true,0.7348,true,3,36.1
+original_baseline,extraction-duration-01,How long does a tooth extraction take?,true,0.7327,true,3,37.2
+original_baseline,extraction-duration-02,How long is the recovery after an extraction?,true,0.7075,true,1,34.2
+original_baseline,extraction-result-01,What is the benefit of having a damaged tooth extracted?,false,0.7062,false,1,35.8
+original_baseline,veneers-price-01,How much do veneers cost?,true,0.7354,true,1,37.4
+original_baseline,veneers-duration-01,How many appointments do veneers take?,true,0.7490,true,1,35.7
+original_baseline,veneers-how-01,What are veneers made of?,false,0.0000,false,0,35.7
+original_baseline,comp-cleaning-filling-01,"Which is more expensive, a cleaning or a filling?",false,0.7041,true,1,36.9
+original_baseline,comp-whitening-veneers-01,What's the price difference between whitening and veneers?,true,0.7166,true,3,39.4
+original_baseline,diff-appointment-01,How soon can I get an appointment?,false,0.0000,false,0,37.8
+original_baseline,diff-same-day-01,Can a procedure be done on the same day?,false,0.0000,false,0,35.7
+original_baseline,diff-technology-01,Is your equipment modern?,false,0.0000,false,0,34.9
+original_baseline,clinic-address-01,Where are you located?,false,0.0000,false,0,37.4
+original_baseline,clinic-city-01,Which city is the clinic in?,false,0.0000,false,0,35.7
+original_baseline,clinic-hours-01,What are your hours on weekdays?,false,0.0000,false,0,35.8
+original_baseline,clinic-hours-02,What are your opening hours on Saturday?,false,0.0000,false,0,35.8
+original_baseline,clinic-hours-03,Are you open on Sundays?,false,0.0000,false,0,37.6
+original_baseline,clinic-phone-01,What's your phone number?,false,0.0000,false,0,36.5
+original_baseline,clinic-email-01,Do you have an email address?,false,0.0000,false,0,43.5
+original_baseline,adv-wrong-price-01,"I heard a dental cleaning is $20 there, can you confirm?",true,0.7388,true,3,37.3
+original_baseline,adv-total-01,How much will braces cost me in total over 24 months?,true,0.7668,true,1,36.6
+original_baseline,adv-portuguese-01,Quanto custa a limpeza dental?,false,0.0000,false,0,37.4

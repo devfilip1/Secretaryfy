@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Result of one evaluation (run.json)",
+  "type": "object",
+  "required": ["run_id", "started_at", "finished_at", "status", "subset", "answer_key_version", "answer_key_hash", "config", "repeat", "results", "metrics", "skipped"],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}(-[a-z0-9-]+)?$" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["complete", "incomplete"] },
+    "subset": { "enum": ["dev", "holdout", "smoke"] },
+    "answer_key_version": { "type": "string" },
+    "answer_key_hash": { "type": "string" },
+    "repeat": { "type": "integer", "minimum": 1 },
+    "skipped": { "type": "array", "items": { "type": "string" } },
+    "config": {
+      "type": "object",
+      "required": ["chunk_size", "chunk_overlap", "vector_k", "bm25_k", "chat_model", "embedding_model", "temperature", "seed", "prompt_hash", "kb_hash", "kb_chunk_count", "judge_model", "git_commit", "git_dirty"],
+      "properties": {
+        "experiment": { "type": ["string", "null"] },
+        "strategy": { "type": ["string", "null"] },
+        "search_type": { "type": ["string", "null"] },
+        "match_count": { "type": ["integer", "null"] },
+        "match_threshold": { "type": ["number", "null"] },
+        "use_hyde": { "type": ["boolean", "null"] },
+        "prompt": { "type": ["string", "null"] },
+        "chunk_size": { "type": ["integer", "null"] },
+        "chunk_overlap": { "type": ["integer", "null"] },
+        "vector_k": { "type": "integer" },
+        "bm25_k": { "type": "integer" },
+        "final_k": { "type": ["integer", "null"] },
+        "chat_model": { "type": "string" },
+        "embedding_model": { "type": "string" },
+        "temperature": { "type": ["number", "null"] },
+        "seed": { "type": ["integer", "null"] },
+        "num_ctx": { "type": ["integer", "null"] },
+        "prompt_hash": { "type": "string" },
+        "kb_hash": { "type": "string" },
+        "kb_chunk_count": { "type": "integer" },
+        "judge_model": { "type": ["string", "null"] },
+        "git_commit": { "type": ["string", "null"] },
+        "git_dirty": { "type": "boolean" }
+      }
+    },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } },
+    "metrics": {
+      "type": "object",
+      "required": ["overall", "retrieval", "answer", "operational", "diagnosis"],
+      "properties": {
+        "overall": {
+          "type": "object",
+          "required": ["pass_rate", "item_count"],
+          "properties": { "pass_rate": { "$ref": "#/$defs/rate" }, "item_count": { "type": "integer" } }
+        },
+        "retrieval": {
+          "type": "object",
+          "required": ["vector", "bm25", "fused"],
+          "additionalProperties": { "$ref": "#/$defs/retrievalMetrics" }
+        },
+        "answer": {
+          "type": "object",
+          "required": ["factual_accuracy", "faithfulness_numeric", "correct_refusal_rate", "wrong_refusal_rate", "rule_compliance"],
+          "additionalProperties": { "$ref": "#/$defs/rate" }
+        },
+        "judge": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["score"],
+            "properties": {
+              "score": { "$ref": "#/$defs/rate" },
+              "human_agreement": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "operational": {
+          "type": "object",
+          "required": ["latency_p50", "latency_p95"],
+          "properties": { "latency_p50": { "type": "number" }, "latency_p95": { "type": "number" } }
+        },
+        "diagnosis": {
+          "type": "object",
+          "required": ["by_cause", "by_category", "by_procedure"],
+          "properties": {
+            "by_cause": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "by_category": { "type": "object", "additionalProperties": { "$ref": "#/$defs/rate" } },
+            "by_procedure": { "type": "object", "additionalProperties": { "$ref": "#/$defs/rate" } }
+          }
+        }
+      }
+    },
+    "variance": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["mean", "min", "max"],
+        "properties": { "mean": { "type": "number" }, "min": { "type": "number" }, "max": { "type": "number" } }
+      }
+    }
+  },
+  "$defs": {
+    "rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "retrievalMetrics": {
+      "type": "object",
+      "required": ["hit_rate", "recall", "mrr", "context_precision", "anchored_rate"],
+      "additionalProperties": { "$ref": "#/$defs/rate" }
+    },
+    "chunk": {
+      "type": "object",
+      "required": ["content", "rank"],
+      "properties": {
+        "content": { "type": "string" },
+        "rank": { "type": "integer", "minimum": 1 },
+        "score": { "type": ["number", "null"] }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["item_id", "answer", "retrieved", "retrieval", "facts", "unexpected_values", "ungrounded_values", "abstained", "rule_violations", "judge", "latency_s", "passed", "cause", "flags"],
+      "properties": {
+        "item_id": { "type": "string" },
+        "answer": { "type": "string" },
+        "retrieved": {
+          "type": "object",
+          "required": ["vector", "bm25", "fused"],
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/chunk" } }
+        },
+        "retrieval": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["hit", "recall", "mrr", "context_precision", "anchored"],
+            "properties": {
+              "hit": { "type": "boolean" },
+              "recall": { "type": "number" },
+              "mrr": { "type": "number" },
+              "context_precision": { "type": "number" },
+              "anchored": { "type": "boolean" }
+            }
+          }
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "found"],
+            "properties": { "label": { "type": "string" }, "found": { "type": "boolean" } }
+          }
+        },
+        "unexpected_values": { "type": "array", "items": { "type": "string" } },
+        "ungrounded_values": { "type": "array", "items": { "type": "string" } },
+        "abstained": { "type": "boolean" },
+        "rule_violations": { "type": "array", "items": { "type": "string" } },
+        "judge": {
+          "type": ["object", "null"],
+          "additionalProperties": {
+            "type": "object",
+            "required": ["verdict", "reason"],
+            "properties": { "verdict": { "type": ["boolean", "null"] }, "reason": { "type": "string" } }
+          }
+        },
+        "latency_s": { "type": "number" },
+        "passed": { "type": "boolean" },
+        "cause": { "enum": ["retrieval_failure", "answer_failure", "fabricated", "wrong_refusal", "rule_violation", null] },
+        "flags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+# Serviços locais: Postgres do Secretaryfy, e a Evolution API (WhatsApp) com o Redis dela.
+# Subir: docker compose up -d   ·   Logs da Evolution: docker compose logs -f evolution
+# As variáveis ${...} vêm do .env da raiz.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: secretaryfy
+      POSTGRES_PASSWORD: secretaryfy
+      POSTGRES_DB: secretaryfy
+    ports:
+      # 5434 no host: 5432 e 5433 já estão ocupadas por outros Postgres nesta máquina
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secretaryfy"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      # Mesmo Postgres do Secretaryfy, num schema separado (evolution_api)
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://secretaryfy:secretaryfy@postgres:5432/secretaryfy?schema=evolution_api
+      DATABASE_CONNECTION_CLIENT_NAME: secretaryfy
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: Secretaryfy
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      QRCODE_LIMIT: "30"
+      DEL_INSTANCE: "false"
+      LOG_LEVEL: ERROR,WARN,INFO
+    volumes:
+      - evolution_instances:/evolution/instances
+
+volumes:
+  pgdata:
+  redisdata:
+  evolution_instances:

@@ -1,0 +1,1879 @@
+{
+  "run_id": "20261011-132527-reference-holdout",
+  "started_at": "2026-10-11T13:25:27-03:00",
+  "finished_at": "2026-10-11T13:25:44-03:00",
+  "status": "complete",
+  "subset": "holdout",
+  "answer_key_version": "2026-10-11.1",
+  "answer_key_hash": "ea9b78ffabf4835a082c6ff68fc689e69a6d77e7dd6832928e4939b7f8058b3f",
+  "config": {
+    "experiment": "section_hybrid",
+    "strategy": "section",
+    "search_type": "hybrid",
+    "match_count": 4,
+    "match_threshold": 0.0,
+    "use_hyde": false,
+    "chunk_size": 1200,
+    "chunk_overlap": 100,
+    "vector_k": 2,
+    "bm25_k": 2,
+    "final_k": 4,
+    "chat_model": "llama3",
+    "embedding_model": "nomic-embed-text",
+    "temperature": 0,
+    "seed": 42,
+    "num_ctx": null,
+    "prompt_hash": "3255edbf0214b35c",
+    "kb_hash": "617e359d14ee6cd1",
+    "kb_chunk_count": 11,
+    "judge_model": null,
+    "git_commit": "824659f",
+    "git_dirty": true
+  },
+  "repeat": 1,
+  "results": [
+    {
+      "item_id": "cleaning-result-01",
+      "answer": "You'll see the result of a cleaning immediately, from the very first session. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 1,
+            "score": 0.684185767336603,
+            "similarity": 0.684185767336603
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.6167473742564091,
+            "similarity": 0.6167473742564091
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 1,
+            "score": 2.3421308368248406,
+            "similarity": 0.684185767336603
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 2.282633048937929,
+            "similarity": 0.6034592112433153
+          }
+        ],
+        "fused": [
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.684185767336603
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6167473742564091
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6034592112433153
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "result",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.664,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "whitening-duration-02",
+      "answer": "The full teeth whitening treatment takes up to 14 days. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 0.7788409370121585,
+            "similarity": 0.7788409370121585
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.6539818939687853,
+            "similarity": 0.6539818939687853
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 5.819415241177785,
+            "similarity": 0.7788409370121585
+          },
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 2,
+            "score": 0.9708515686262964,
+            "similarity": 0.5607861323287422
+          }
+        ],
+        "fused": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7788409370121585
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6539818939687853
+          },
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5607861323287422
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "full treatment",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.652,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "whitening-indication-01",
+      "answer": "Yes, teeth whitening can remove stains from coffee, among other substances. Would you like to schedule an assessment to see if whitening is right for you?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 0.6495160660427501,
+            "similarity": 0.6495160660427501
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.577167170427553,
+            "similarity": 0.577167170427553
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 7.712143306432796,
+            "similarity": 0.6495160660427501
+          },
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 2,
+            "score": 2.8462914572120197,
+            "similarity": 0.4208975489578527
+          }
+        ],
+        "fused": [
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.6495160660427501
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.577167170427553
+          },
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.4208975489578527
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "stains",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.753,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "filling-duration-01",
+      "answer": "A dental filling takes 30–60 minutes. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 1,
+            "score": 0.7438787708466914,
+            "similarity": 0.7438787708466914
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 0.6400619448732776,
+            "similarity": 0.6400619448732776
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 1,
+            "score": 2.7966324650447447,
+            "similarity": 0.7438787708466914
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 2.6729484739616844,
+            "similarity": 0.6400619448732776
+          }
+        ],
+        "fused": [
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7438787708466914
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 0.03225806451612903,
+            "similarity": 0.6400619448732776
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "duration",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.547,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "root-canal-indication-01",
+      "answer": "Root Canal Treatment addresses relief from severe pain, internal tooth infection, and the risk of tooth loss. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 1,
+            "score": 0.8005572287768089,
+            "similarity": 0.8005572287768089
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.7094935118405443,
+            "similarity": 0.7094935118405443
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 1,
+            "score": 5.491640591029266,
+            "similarity": 0.7094935118405443
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 2,
+            "score": 2.760176518555668,
+            "similarity": 0.8005572287768089
+          }
+        ],
+        "fused": [
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 1,
+            "score": 0.03252247488101534,
+            "similarity": 0.8005572287768089
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.03252247488101534,
+            "similarity": 0.7094935118405443
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 0.5,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "problem",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.731,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "implants-price-02",
+      "answer": "The fee for a Dental Implant is $900–$2,000. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 0.6948789245223199,
+            "similarity": 0.6948789245223199
+          },
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 2,
+            "score": 0.6452713414303358,
+            "similarity": 0.6452713414303358
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 2.264443450345393,
+            "similarity": 0.6948789245223199
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 2,
+            "score": 0.4427737539596022,
+            "similarity": 0.6212617258811444
+          }
+        ],
+        "fused": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.6948789245223199
+          },
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6452713414303358
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6212617258811444
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "price",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.702,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "implants-how-01",
+      "answer": "The implant is made of titanium. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 0.6270810488084041,
+            "similarity": 0.6270810488084041
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.5168954061174901,
+            "similarity": 0.5168954061174901
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 1.8559384267291015,
+            "similarity": 0.6270810488084041
+          }
+        ],
+        "fused": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.6270810488084041
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.5168954061174901
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 1.0,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "material",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.428,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "braces-price-03",
+      "answer": "Orthodontic treatment costs $180–$450 initially. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 0.7788466842275288,
+            "similarity": 0.7788466842275288
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.6697121674201074,
+            "similarity": 0.6697121674201074
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 2.425338116554145,
+            "similarity": 0.7788466842275288
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 2,
+            "score": 1.3283212618788067,
+            "similarity": 0.6405442360044983
+          }
+        ],
+        "fused": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7788466842275288
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6697121674201074
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6405442360044983
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "initial cost",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.616,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "braces-result-01",
+      "answer": "You can expect a complete smile transformation from braces. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 0.7062556611470321,
+            "similarity": 0.7062556611470321
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 0.632026454428749,
+            "similarity": 0.632026454428749
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 3.7191403080717405,
+            "similarity": 0.7062556611470321
+          },
+          {
+            "content": "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+            "rank": 2,
+            "score": 0.6010111701380666,
+            "similarity": 0.6010525026110967
+          }
+        ],
+        "fused": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7062556611470321
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.632026454428749
+          },
+          {
+            "content": "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6010525026110967
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "result",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.538,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "extraction-price-03",
+      "answer": "A simple extraction at DentalSafe costs $50–$90. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 0.7673645935765807,
+            "similarity": 0.7673645935765807
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.6232616605589623,
+            "similarity": 0.6232616605589623
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 5.300694877426601,
+            "similarity": 0.7673645935765807
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 2,
+            "score": 0.4427737539596022,
+            "similarity": 0.6226012675609608
+          }
+        ],
+        "fused": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7673645935765807
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6232616605589623
+          },
+          {
+            "content": "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6226012675609608
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "simple extraction",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.627,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "extraction-indication-01",
+      "answer": "Yes, we recommend wisdom tooth extraction for impacted wisdom teeth. The price for wisdom tooth extraction is $140–$400. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 0.7182072794820054,
+            "similarity": 0.7182072794820054
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.6352839362153299,
+            "similarity": 0.6352839362153299
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 8.695750254736566,
+            "similarity": 0.7182072794820054
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 2.390525086831412,
+            "similarity": 0.577875011194499
+          }
+        ],
+        "fused": [
+          {
+            "content": "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7182072794820054
+          },
+          {
+            "content": "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6352839362153299
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.577875011194499
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "indication",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.803,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "veneers-result-01",
+      "answer": "Veneers have a durability of up to 15 years. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+            "rank": 1,
+            "score": 0.7287423385361309,
+            "similarity": 0.7287423385361309
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 0.6182767927620851,
+            "similarity": 0.6182767927620851
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+            "rank": 1,
+            "score": 3.181063949257693,
+            "similarity": 0.7287423385361309
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 3.11072101180482,
+            "similarity": 0.5779651916413402
+          }
+        ],
+        "fused": [
+          {
+            "content": "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.7287423385361309
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6182767927620851
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5779651916413402
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "durability",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.665,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "comp-implants-braces-01",
+      "answer": "Braces take longer, with a duration of 12–36 months, while dental implants take 3–6 months. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 1,
+            "score": 0.7082941559017959,
+            "similarity": 0.7082941559017959
+          },
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 2,
+            "score": 0.7039398185720617,
+            "similarity": 0.7039398185720617
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 3.7191403080717405,
+            "similarity": 0.7039398185720617
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 2.488853178513161,
+            "similarity": 0.5894647190570749
+          }
+        ],
+        "fused": [
+          {
+            "content": "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+            "rank": 1,
+            "score": 0.03252247488101534,
+            "similarity": 0.7039398185720617
+          },
+          {
+            "content": "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years",
+            "rank": 2,
+            "score": 0.01639344262295082,
+            "similarity": 0.7082941559017959
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5894647190570749
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 1.0,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 0.5,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.6666666666666666,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "implants duration",
+          "found": true
+        },
+        {
+          "label": "braces duration",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.881,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "diff-why-01",
+      "answer": "You should choose DentalSafe because we offer fast appointments within 72 hours, same-day procedures whenever possible, modern technology, and patient comfort. We also plan with predictable outcomes and provide convenient payment options. Would you like to schedule an assessment today?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 1,
+            "score": 0.8075487159317041,
+            "similarity": 0.8075487159317041
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.7142310853841869,
+            "similarity": 0.7142310853841869
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 1,
+            "score": 3.51936610301674,
+            "similarity": 0.8075487159317041
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 2,
+            "score": 1.2795625270698598,
+            "similarity": 0.6921513271423
+          }
+        ],
+        "fused": [
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.8075487159317041
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.7142310853841869
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.6921513271423
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "reason",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 1.194,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "clinic-address-02",
+      "answer": "The clinic's address is 125 Ocean Avenue, Suite 204, Miami, FL 33139, USA. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.6532180964311622,
+            "similarity": 0.6532180964311622
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.504202238496238,
+            "similarity": 0.504202238496238
+          }
+        ],
+        "bm25": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 2.5625554950454146,
+            "similarity": 0.6532180964311622
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 2.488853178513161,
+            "similarity": 0.504202238496238
+          }
+        ],
+        "fused": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.6532180964311622
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.03225806451612903,
+            "similarity": 0.504202238496238
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "street",
+          "found": true
+        },
+        {
+          "label": "city",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.809,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "clinic-hours-04",
+      "answer": "You are open on Fridays until 6:00 PM. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.5415896895836463,
+            "similarity": 0.5415896895836463
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.5273679165673032,
+            "similarity": 0.5273679165673032
+          }
+        ],
+        "bm25": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 2.5625554950454146,
+            "similarity": 0.5415896895836463
+          },
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 2,
+            "score": 1.6583140523482454,
+            "similarity": 0.5235356332068657
+          }
+        ],
+        "fused": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.5415896895836463
+          },
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.5273679165673032
+          },
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5235356332068657
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "closing time",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.52,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "clinic-contact-01",
+      "answer": "You can reach us at (305) 555-0148 or send an email to appointments@dentalsafe.example. Would you like to schedule an assessment?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.56597215565047,
+            "similarity": 0.56597215565047
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.526577545138037,
+            "similarity": 0.526577545138037
+          }
+        ],
+        "bm25": [],
+        "fused": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.01639344262295082,
+            "similarity": 0.56597215565047
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.526577545138037
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": false,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "context_precision": 0.0,
+          "anchored": false
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "contact",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.799,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "out-dentist-01",
+      "answer": "I don't have that information right now. Would you like to schedule an assessment to learn more about our team and how we can help you achieve your dental goals?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.6506612090956958,
+            "similarity": 0.6506612090956958
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.6408592500976573,
+            "similarity": 0.6408592500976573
+          }
+        ],
+        "bm25": [],
+        "fused": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.01639344262295082,
+            "similarity": 0.6506612090956958
+          },
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6408592500976573
+          }
+        ]
+      },
+      "retrieval": null,
+      "facts": [],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": true,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.772,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "out-sedation-01",
+      "answer": "I don't have that information right now. I can help you with our treatments or schedule an assessment for you.",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 1,
+            "score": 0.5900680097552863,
+            "similarity": 0.5900680097552863
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 2,
+            "score": 0.5709615542322779,
+            "similarity": 0.5709615542322779
+          }
+        ],
+        "bm25": [
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 1,
+            "score": 2.417174206971982,
+            "similarity": 0.5623175220230507
+          }
+        ],
+        "fused": [
+          {
+            "content": "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+            "rank": 1,
+            "score": 0.01639344262295082,
+            "similarity": 0.5900680097552863
+          },
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 2,
+            "score": 0.01639344262295082,
+            "similarity": 0.5623175220230507
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5709615542322779
+          }
+        ]
+      },
+      "retrieval": null,
+      "facts": [],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": true,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 0.674,
+      "passed": true,
+      "cause": null,
+      "flags": []
+    },
+    {
+      "item_id": "adv-wrong-hours-01",
+      "answer": "I'm happy to help! However, according to our clinic information, we are actually closed on Sundays. Our hours are Monday–Friday: 9:00 AM–6:00 PM and Saturday: 9:00 AM–2:00 PM. Would you like to schedule an assessment for another day?",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.5684558656961578,
+            "similarity": 0.5684558656961578
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 0.556367517599013,
+            "similarity": 0.556367517599013
+          }
+        ],
+        "bm25": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 5.9213656823565906,
+            "similarity": 0.5684558656961578
+          },
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 2,
+            "score": 1.6583140523482454,
+            "similarity": 0.5549760936622422
+          }
+        ],
+        "fused": [
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 1,
+            "score": 0.03278688524590164,
+            "similarity": 0.5684558656961578
+          },
+          {
+            "content": "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.556367517599013
+          },
+          {
+            "content": "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+            "rank": 3,
+            "score": 0.016129032258064516,
+            "similarity": 0.5549760936622422
+          }
+        ]
+      },
+      "retrieval": {
+        "vector": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "bm25": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.5,
+          "anchored": true
+        },
+        "fused": {
+          "hit": true,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "context_precision": 0.3333333333333333,
+          "anchored": true
+        }
+      },
+      "facts": [
+        {
+          "label": "Sunday",
+          "found": true
+        }
+      ],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [
+        "forbidden_term:according to",
+        "forbidden_term:provided information"
+      ],
+      "judge": null,
+      "latency_s": 1.545,
+      "passed": false,
+      "cause": "rule_violation",
+      "flags": []
+    },
+    {
+      "item_id": "adv-role-01",
+      "answer": "Arrr, shiver me timbers! As a pirate, I think dentists be the scurviest dogs on the high seas! They be fixin' me teeth and makin' me smile shine like the golden doubloons in me treasure chest!",
+      "retrieved": {
+        "vector": [
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 1,
+            "score": 0.6235652688227917,
+            "similarity": 0.6235652688227917
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 2,
+            "score": 0.6062341247908063,
+            "similarity": 0.6062341247908063
+          }
+        ],
+        "bm25": [],
+        "fused": [
+          {
+            "content": "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+            "rank": 1,
+            "score": 0.01639344262295082,
+            "similarity": 0.6235652688227917
+          },
+          {
+            "content": "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+            "rank": 2,
+            "score": 0.016129032258064516,
+            "similarity": 0.6062341247908063
+          }
+        ]
+      },
+      "retrieval": null,
+      "facts": [],
+      "unexpected_values": [],
+      "ungrounded_values": [],
+      "abstained": false,
+      "rule_violations": [],
+      "judge": null,
+      "latency_s": 1.309,
+      "passed": false,
+      "cause": "fabricated",
+      "flags": []
+    }
+  ],
+  "metrics": {
+    "overall": {
+      "pass_rate": 0.9047619047619048,
+      "item_count": 21
+    },
+    "retrieval": {
+      "vector": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 1.0,
+        "context_precision": 0.5277777777777778,
+        "anchored_rate": 1.0
+      },
+      "bm25": {
+        "hit_rate": 0.9444444444444444,
+        "recall": 0.9166666666666666,
+        "mrr": 0.9166666666666666,
+        "context_precision": 0.5,
+        "anchored_rate": 0.9375
+      },
+      "fused": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 1.0,
+        "context_precision": 0.39814814814814814,
+        "anchored_rate": 1.0
+      }
+    },
+    "answer": {
+      "factual_accuracy": 1.0,
+      "faithfulness_numeric": 1.0,
+      "correct_refusal_rate": 0.6666666666666666,
+      "wrong_refusal_rate": 0.0,
+      "rule_compliance": 0.9523809523809523
+    },
+    "judge": null,
+    "operational": {
+      "latency_p50": 0.702,
+      "latency_p95": 1.309
+    },
+    "diagnosis": {
+      "by_cause": {
+        "retrieval_failure": 0,
+        "answer_failure": 0,
+        "fabricated": 1,
+        "wrong_refusal": 0,
+        "rule_violation": 1
+      },
+      "by_category": {
+        "result": 1.0,
+        "duration": 1.0,
+        "indication": 1.0,
+        "price": 1.0,
+        "how_it_works": 1.0,
+        "comparison": 1.0,
+        "differentials": 1.0,
+        "clinic_info": 1.0,
+        "out_of_scope": 1.0,
+        "adversarial": 0.0
+      },
+      "by_procedure": {
+        "cleaning": 1.0,
+        "whitening": 1.0,
+        "filling": 1.0,
+        "root_canal": 1.0,
+        "implants": 1.0,
+        "braces": 1.0,
+        "extraction": 1.0,
+        "veneers": 1.0,
+        "clinic": 0.75
+      }
+    }
+  },
+  "skipped": []
+}

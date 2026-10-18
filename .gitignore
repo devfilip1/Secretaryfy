@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.log
+
+# Serviço RAG (rag/)
+rag/.venv/
+rag/.env
+rag/data/index/
+rag/evaluation/runs/_incomplete/
+__pycache__/
+.pytest_cache/
+web/dist/
+.playwright-mcp/

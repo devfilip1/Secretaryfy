@@ -1,0 +1,25 @@
+# Chunking strategies of the clinic brochure.
+# Each strategy builds its own index in data/index/<name>/.
+# After editing this file, rebuild the indexes: python -m assistant.ingest
+#
+# Available types:
+#   section  one chunk per section of the document (one treatment per chunk)
+#            optional parameters: max_chars (default 1200), overlap (default 100)
+#   split    splitting by characters
+#            required parameters: chunk_size, chunk_overlap
+#   page     one chunk per page, no parameters
+
+strategies:
+  # The chunking the assistant uses: each value stays next to the name of its treatment.
+  - name: section
+    type: section
+
+  # The project's original chunking.
+  - name: recursive_500_200
+    type: split
+    parameters:
+      chunk_size: 500
+      chunk_overlap: 200
+
+  - name: page
+    type: page

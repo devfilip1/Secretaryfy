@@ -1,0 +1,4 @@
+# Binary files: git must not convert line endings in them
+*.pdf binary
+*.sqlite3 binary
+*.bin binary

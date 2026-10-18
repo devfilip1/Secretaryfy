@@ -1,0 +1,347 @@
+{
+  "run_id": "20261011-132553-with-judge",
+  "instructions": "Fill each criterion under \"human\" with true (meets it) or false (does not).",
+  "criteria": {
+    "relevance": "The answer deals with what the customer asked. Saying it does not have the requested information also deals with the question.",
+    "tone": "The tone is friendly and professional, like a clinic attendant talking to a customer.",
+    "scheduling": "The answer explicitly invites the customer to schedule an appointment or an assessment.",
+    "conciseness": "The answer is direct: it gives the information without detours, without repeating the question, and without listing information that was not asked for.",
+    "faithfulness": "Everything the answer claims about the clinic and the procedures is in the available chunks. Invitations to schedule and courtesy phrases do not count as claims."
+  },
+  "samples": [
+    {
+      "item_id": "cleaning-price-01",
+      "question": "How much is a dental cleaning?",
+      "answer": "A dental cleaning costs $40–$85. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "cleaning-duration-01",
+      "question": "How long does a dental cleaning take?",
+      "answer": "A dental cleaning takes 30–50 minutes. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+        "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "cleaning-how-01",
+      "question": "How is the dental cleaning done?",
+      "answer": "The dental cleaning is done by removing plaque and tartar using ultrasound, followed by polishing. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "whitening-result-01",
+      "question": "How many shades whiter will my teeth get?",
+      "answer": "Up to 8 shades whiter, with results lasting up to 3 years. Would you like to schedule an assessment?",
+      "chunks": [
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "comp-cleaning-filling-01",
+      "question": "Which is more expensive, a cleaning or a filling?",
+      "answer": "A cleaning costs $40–$85, and a filling costs $50–$140. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "diff-appointment-01",
+      "question": "How soon can I get an appointment?",
+      "answer": "You can get an appointment within 72 hours. Would you like to schedule an assessment today?",
+      "chunks": [
+        "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+        "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+        "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "clinic-address-01",
+      "question": "Where are you located?",
+      "answer": "You are located at 125 Ocean Avenue, Suite 204, Miami, FL 33139, USA. Would you like to schedule an assessment?",
+      "chunks": [
+        "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "out-insurance-01",
+      "question": "Do you accept dental insurance?",
+      "answer": "I don't have that information right now. I can help you with our treatments or schedule an assessment for you.",
+      "chunks": [
+        "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+        "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "adv-wrong-price-01",
+      "question": "I heard a dental cleaning is $20 there, can you confirm?",
+      "answer": "I don't have that information right now. According to our information, a dental cleaning at DentalSafe costs $40–$85. Would you like to schedule an assessment to get a personalized quote?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+        "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "cleaning-price-02",
+      "question": "What do you charge for a teeth cleaning?",
+      "answer": "We charge $40–$85 for a teeth cleaning. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "whitening-duration-01",
+      "question": "How long does teeth whitening take?",
+      "answer": "Teeth whitening takes In-office: same day | Full treatment: up to 14 days. Would you like to schedule an assessment?",
+      "chunks": [
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "filling-how-01",
+      "question": "What material do you use for fillings?",
+      "answer": "We use aesthetic resin for our dental fillings. Would you like to schedule an assessment?",
+      "chunks": [
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain",
+        "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "whitening-result-02",
+      "question": "How long do the whitening results last?",
+      "answer": "The results of teeth whitening can last up to 3 years. Would you like to schedule an assessment?",
+      "chunks": [
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "comp-whitening-veneers-01",
+      "question": "What's the price difference between whitening and veneers?",
+      "answer": "Treatment whitening costs $180–$450 and treatment veneers costs $400–$950 per tooth. Would you like to schedule an assessment so we can see what is best for you?",
+      "chunks": [
+        "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "diff-same-day-01",
+      "question": "Can a procedure be done on the same day?",
+      "answer": "Yes, at DentalSafe, we offer same-day procedures whenever possible. Would you like to schedule an assessment today?",
+      "chunks": [
+        "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+        "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "clinic-city-01",
+      "question": "Which city is the clinic in?",
+      "answer": "The clinic is located in Miami, FL 33139, USA. Would you like to schedule an assessment?",
+      "chunks": [
+        "DentalSafe — Clinic Information\nTransform Your Smile with Safety, Speed, and Guaranteed Results\nLOCATION\n125 Ocean Avenue, Suite 204\nMiami, FL 33139, USA\nHOURS\nMonday–Friday: 9:00 AM–6:00 PM\nSaturday: 9:00 AM–2:00 PM\nSunday: Closed\nCONTACT\n(305) 555-0148\nappointments@dentalsafe.example\nAt DentalSafe, every treatment is planned to deliver visible results, comfort throughout the process, and maximum\ndurability. You are not just undergoing a procedure—you are investing in self-esteem, health, and confidence in your\neveryday life.",
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "out-installments-01",
+      "question": "Can I pay in installments?",
+      "answer": "I don't have that information right now. Would you like to schedule an assessment to discuss your treatment options and payment plans?",
+      "chunks": [
+        "Schedule Your Assessment Today\nThe longer you wait, the bigger the problem—and the higher the cost—may become. At DentalSafe, you can address\neverything from basic care to comprehensive treatments with safety and predictable outcomes.",
+        "Why Choose DentalSafe?\n- Fast appointments (within 72 hours)\n- Same-day procedures whenever possible\n- Modern technology and patient comfort\n- Planning with predictable outcomes\n- Convenient payment options",
+        "Dental Cleaning — The First Step Toward a Healthy Smile\nWhat you gain:\n- An immediate feeling of a clean mouth\n- Fresher breath\n- Prevention of more serious problems (saving money in the future)\nHow it works: Removal of plaque and tartar using ultrasound, followed by polishing.\nDuration: 30–50 minutes   |   Price: $40–$85\nResult: Immediate, from the very first session",
+        "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "adv-total-01",
+      "question": "How much will braces cost me in total over 24 months?",
+      "answer": "Braces take 12–36 months, but you're asking about a specific duration of 24 months. Since you're within the range, I'll provide the information. The initial cost for braces is $180–$450, and the monthly payment is $35–$90. To calculate the total cost, I'd need to know which option you choose, but I can tell you that the initial cost will be within this range, and the monthly payments will be within this range as well. Would you like to schedule an assessment to determine the best option for you?",
+      "chunks": [
+        "Braces and Orthodontic Treatment — A Straight, Harmonious Smile\nRecommended for:\n- Bite correction\n- Teeth alignment\n- Comprehensive aesthetic improvement\nHow it works: Options: Traditional braces, aesthetic braces, or clear aligners.\nDuration: 12–36 months   |   Initial cost: $180–$450   |   Monthly: $35–$90\nResult: A complete smile transformation",
+        "Dental Implants — Get Your Tooth Back Permanently\nIdeal for people who want to:\n- Chew confidently again\n- Improve the appearance of their smile\n- A long-term tooth replacement solution\nHow it works: A titanium post placed in the bone, topped with a natural-looking prosthetic tooth.\nDuration: 3–6 months   |   Price: $900–$2,000\nResult: A natural appearance and durability of more than 10 years"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "whitening-price-01",
+      "question": "What's the price of teeth whitening?",
+      "answer": "Teeth whitening costs $180–$450. Would you like to schedule an assessment?",
+      "chunks": [
+        "Teeth Whitening — Whiter Teeth in Just a Few Days\nIdeal for people who want to:\n- Improve their appearance quickly\n- Remove stains from coffee, wine, or cigarettes\n- Feel more confident when smiling\nHow it works: Professional whitening gel applied in the clinic or used at home under supervision.\nDuration: In-office: same day | Full treatment: up to 14 days   |   Price: $180–$450\nResult: Up to 8 shades whiter, with results lasting up to 3 years",
+        "Dental Veneers — Your Perfect Smile in Just a Few Days\nIdeal for people who want:\n- A celebrity-style smile\n- To correct tooth shape, color, and alignment\n- Immediate, striking results\nHow it works: Ultra-thin porcelain shells bonded to the teeth.\nDuration: 2–3 appointments   |   Price: $400–$950 per tooth\nResult: A beautiful smile, with durability of up to 15 years",
+        "Tooth Extraction — Fast, Safe Relief\nRecommended for:\n- Severely damaged teeth\n- Impacted wisdom teeth\n- Advanced infections\nDuration: 20–60 minutes   |   Price: Simple extraction: $50–$90 | Wisdom tooth: $140–$400\nResult: Pain relief and prevention of complications\nRecovery: 3–7 days"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    },
+    {
+      "item_id": "root-canal-duration-01",
+      "question": "How many sessions does a root canal take?",
+      "answer": "A root canal takes 1-3 sessions. Would you like to schedule an assessment?",
+      "chunks": [
+        "Root Canal Treatment — Relieve Pain Without Losing the Tooth\nWhat it addresses:\n- Relief from severe pain\n- Internal tooth infection\n- Risk of tooth loss\nHow it works: Removal of the internal infection and sealing of the tooth.\nDuration: 1–3 sessions   |   Price: $200–$500\nResult: Relief from the first session and preservation of the tooth",
+        "Dental Filling — Treat Cavities Before They Become a Bigger Problem\nWhy act quickly:\n- Avoid severe pain\n- Prevent the need for root canal treatment (which costs more)\n- Restore the tooth immediately\nHow it works: Removal of decay and reconstruction with aesthetic resin.\nDuration: 30–60 minutes   |   Price: $50–$140\nResult: A like-new tooth, without pain"
+      ],
+      "human": {
+        "relevance": null,
+        "tone": null,
+        "scheduling": null,
+        "conciseness": null,
+        "faithfulness": null
+      }
+    }
+  ]
+}

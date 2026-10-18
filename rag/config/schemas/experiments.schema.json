@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Search experiments (config/experiments.yaml)",
+  "type": "object",
+  "required": ["assistant", "experiments"],
+  "additionalProperties": false,
+  "properties": {
+    "assistant": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$" },
+    "experiments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/experiment" }
+    }
+  },
+  "$defs": {
+    "experiment": {
+      "type": "object",
+      "required": ["exp_name", "collection", "search_type", "match_count"],
+      "additionalProperties": false,
+      "properties": {
+        "exp_name": { "type": "string", "pattern": "^[a-z0-9]+(_[a-z0-9]+)*$" },
+        "collection": { "type": "string", "minLength": 1 },
+        "search_type": { "enum": ["hybrid", "vector", "bm25"] },
+        "match_count": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "match_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "use_hyde": { "type": "boolean" },
+        "prompt": { "enum": ["rules", "original"] }
+      }
+    }
+  }
+}
