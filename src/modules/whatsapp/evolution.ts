@@ -1,0 +1,143 @@
+import { env } from "../../config/env.js";
+import type { MessageType } from "../../db/schema.js";
+
+/** Envia uma mensagem de texto pela Evolution API (v2). `number` no formato 5511999999999. Devolve o id da mensagem. */
+export async function sendWhatsAppText(number: string, text: string): Promise<{ waId: string }> {
+  const res = await fetch(`${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
+    body: JSON.stringify({ number, text }),
+  });
+  if (!res.ok) {
+    throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
+  }
+  const body = (await res.json()) as { key?: { id?: string } };
+  if (!body.key?.id) throw new Error("Evolution API não devolveu key.id");
+  return { waId: body.key.id };
+}
+
+/** Mensagem individual recebida ou enviada pelo número conectado. */
+export interface IncomingMessage {
+  kind: "message";
+  /** id da mensagem no WhatsApp; usado para não registrar o mesmo evento duas vezes */
+  id: string;
+  phone: string;
+  pushName?: string;
+  fromMe: boolean;
+  type: MessageType;
+  /** texto, ou legenda da mídia; null para mídia sem legenda */
+  text: string | null;
+  sentAt: Date;
+}
+
+export interface ConnectionEvent {
+  kind: "connection";
+  state: "open" | "connecting" | "close";
+  number: string | null;
+}
+
+export interface QrCodeEvent {
+  kind: "qrcode";
+  qr: string;
+}
+
+export type EvolutionEvent = IncomingMessage | ConnectionEvent | QrCodeEvent;
+
+type RawMessage = Record<string, Record<string, unknown> | string | undefined>;
+
+/** Tipo e texto a partir da primeira chave conhecida de `data.message` (contracts/evolution.md). */
+function extractContent(message: RawMessage | undefined): { type: MessageType; text: string | null } | null {
+  if (!message) return null;
+  const field = (key: string, prop: string) => {
+    const v = (message[key] as Record<string, unknown> | undefined)?.[prop];
+    return typeof v === "string" && v.trim() ? v : null;
+  };
+
+  if (typeof message.conversation === "string") return { type: "text", text: message.conversation };
+  if (message.extendedTextMessage) return { type: "text", text: field("extendedTextMessage", "text") };
+  if (message.imageMessage) return { type: "image", text: field("imageMessage", "caption") };
+  if (message.videoMessage) return { type: "video", text: field("videoMessage", "caption") };
+  if (message.audioMessage) return { type: "audio", text: null };
+  if (message.documentMessage) {
+    return { type: "document", text: field("documentMessage", "caption") ?? field("documentMessage", "fileName") };
+  }
+  if (message.documentWithCaptionMessage) {
+    const inner = (message.documentWithCaptionMessage as { message?: RawMessage }).message;
+    const doc = inner?.documentMessage as Record<string, unknown> | undefined;
+    const caption = typeof doc?.caption === "string" && doc.caption.trim() ? doc.caption : null;
+    return { type: "document", text: caption };
+  }
+  if (message.stickerMessage) return { type: "sticker", text: null };
+  if (message.locationMessage || message.liveLocationMessage) return { type: "location", text: null };
+  if (message.contactMessage) return { type: "contact", text: field("contactMessage", "displayName") };
+  if (message.contactsArrayMessage) return { type: "contact", text: field("contactsArrayMessage", "displayName") };
+  // Reações, apagar e editar ficam fora do escopo
+  if (message.reactionMessage || message.protocolMessage) return null;
+  // Só metadados, sem conteúdo
+  if (Object.keys(message).every((key) => key === "messageContextInfo")) return null;
+  return { type: "other", text: null };
+}
+
+function toDate(timestamp: unknown): Date {
+  const seconds = typeof timestamp === "string" ? Number(timestamp) : timestamp;
+  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : new Date();
+}
+
+function jidToNumber(jid: unknown): string | null {
+  if (typeof jid !== "string" || !jid) return null;
+  return jid.split("@")[0].split(":")[0] || null;
+}
+
+function parseMessage(data: unknown): IncomingMessage | null {
+  const item = (Array.isArray(data) ? data[0] : data) as
+    | {
+        key?: { id?: string; remoteJid?: string; fromMe?: boolean };
+        pushName?: string;
+        messageTimestamp?: unknown;
+        message?: RawMessage;
+      }
+    | undefined;
+  const jid = item?.key?.remoteJid;
+  // Ignora grupos, status e listas de transmissão
+  if (!item?.key?.id || !jid || !jid.endsWith("@s.whatsapp.net")) return null;
+
+  const content = extractContent(item.message);
+  if (!content) return null;
+  if (content.type === "text" && !content.text?.trim()) return null;
+
+  const fromMe = item.key.fromMe === true;
+  return {
+    kind: "message",
+    id: item.key.id,
+    phone: jid.split("@")[0],
+    pushName: !fromMe && item.pushName ? item.pushName : undefined,
+    fromMe,
+    type: content.type,
+    text: content.text,
+    sentAt: toDate(item.messageTimestamp),
+  };
+}
+
+/** Interpreta um evento do webhook da Evolution API. Devolve null para o que não interessa. */
+export function parseEvolutionEvent(body: unknown): EvolutionEvent | null {
+  const event = body as { event?: string; data?: Record<string, unknown> } | null;
+  const name = event?.event?.toLowerCase().replace(/_/g, ".");
+  if (!name || !event?.data) return null;
+
+  switch (name) {
+    case "messages.upsert":
+    case "send.message":
+      return parseMessage(event.data);
+    case "connection.update": {
+      const raw = event.data.state;
+      const state = raw === "open" || raw === "connecting" ? raw : "close";
+      return { kind: "connection", state, number: jidToNumber(event.data.wuid) };
+    }
+    case "qrcode.updated": {
+      const qr = (event.data.qrcode as { base64?: string } | undefined)?.base64;
+      return qr ? { kind: "qrcode", qr } : null;
+    }
+    default:
+      return null;
+  }
+}
