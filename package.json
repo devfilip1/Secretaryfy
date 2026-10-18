@@ -1,0 +1,57 @@
+{
+  "name": "secretaryfy",
+  "version": "1.0.0",
+  "description": "Assistente de IA no WhatsApp para envio de emails e agendamento no Google Agenda",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "tsc && npm run build:web",
+    "start": "node --env-file=.env dist/index.js",
+    "typecheck": "tsc --noEmit && tsc -p web",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "test": "node --import tsx --import ./src/test/setup-env.ts --test \"src/**/*.test.ts\"",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "tsc -p web && vite build --config web/vite.config.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devfilip1/Secretaryfy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/devfilip1/Secretaryfy/issues"
+  },
+  "homepage": "https://github.com/devfilip1/Secretaryfy#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@fastify/cookie": "11.1.2",
+    "@fastify/static": "10.1.5",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.7",
+    "googleapis": "^186.0.0",
+    "luxon": "3.7.2",
+    "postgres": "^3.4.9",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
+    "@types/luxon": "3.7.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "drizzle-kit": "^0.31.11",
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "8.3.1"
+  },
+  "private": true
+}
