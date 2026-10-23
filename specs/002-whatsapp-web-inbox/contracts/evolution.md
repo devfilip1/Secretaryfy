@@ -1,5 +1,7 @@
 # Contract: integração com a Evolution API v2
 
+> A feature 004 estende este contrato: `sendText` com `delay` e `linkPreview`, `markMessageAsRead`, e o uso de `connection.update` para o freio e o aquecimento. Ver [specs/004-whatsapp-anti-ban/contracts/evolution.md](../../004-whatsapp-anti-ban/contracts/evolution.md).
+
 Este documento descreve o que o Secretaryfy **consome**: os eventos que chegam no webhook e as chamadas que faz à Evolution API. Todas as chamadas levam o header `apikey: ${EVOLUTION_API_KEY}` e usam a instância `${EVOLUTION_INSTANCE}`.
 
 > Os nomes vêm da documentação da v2 (ver [research.md R7](../research.md#r7-eventos-da-evolution-api)). O §0 do [quickstart.md](../quickstart.md) confere esses nomes contra a instância real antes da implementação.
