@@ -129,6 +129,35 @@ O roteiro completo de validação está em [specs/003-google-calendar-scheduling
 - Mensagens que não são texto (áudio, imagem) são registradas, mas não vão para o assistente. Grupos são ignorados.
 - Antes de responder, a mensagem é interpretada: pedidos de agendamento vão para o fluxo de agendamento, o resto vai para o folheto. O interpretador vê as últimas 20 mensagens da conversa; as respostas do folheto continuam sem histórico.
 
+### Proteção do número (anti-ban)
+
+O número é conectado por QR code, como o WhatsApp Web, e não pela plataforma oficial da Meta. Os termos do WhatsApp proíbem mensagens automatizadas não autorizadas, então **a proteção reduz o risco de banimento, mas não o elimina**. Só a plataforma oficial elimina esse risco.
+
+Todo envio, do assistente e do operador, passa pelo portão de `src/modules/antiban/` ([specs/004](specs/004-whatsapp-anti-ban/spec.md)):
+
+- **Ritmo:** marca como lida, mostra "digitando…" por um tempo proporcional e aleatório, e espera 4 s de silêncio do cliente para responder tudo de uma vez.
+- **Volume:** limites por minuto, por hora e de conversas por dia, com uma fila que espaça os envios sem rajada.
+- **Contato frio:** o assistente nunca escreve fora de 24 h da última mensagem do cliente; o operador recebe um aviso e confirma.
+- **Insistência, laço e repetição:** no máximo 3 mensagens seguidas sem resposta, nada de texto repetido e nada de link na primeira resposta. Um laço com outro robô pausa a conversa.
+- **Pedido de saída:** "stop", "parar" ou "sair" calam o assistente para aquele telefone, mesmo depois de desconectar; "start" ou o operador reativam.
+- **Aquecimento e freio:** um número novo começa com limites menores por 14 dias. Falhas de envio ou quedas seguidas pausam os envios automáticos por 30 min, com uma faixa no painel.
+
+Todos os limites mudam por variáveis `ANTIBAN_*` (veja o `.env.example`). As mais prováveis de ajustar:
+
+| Variável | Padrão | Para quê |
+|---|---|---|
+| `ANTIBAN_CONVERSATIONS_PER_DAY` | 150 | Conversas diferentes atendidas pelo assistente em 24 h |
+| `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` | 8 / 200 | Mensagens enviadas pelo número |
+| `ANTIBAN_ALLOWED_LINK_DOMAINS` | vazio | Domínios que o assistente pode mandar em links (o site da clínica) |
+| `ANTIBAN_WARMUP_DAYS` | 14 | Aquecimento de número novo; `0` desliga |
+
+O que fica fora do código e depende da clínica:
+
+- ter foto, nome e descrição no perfil do WhatsApp;
+- não usar número virtual, e esperar ao menos um dia entre registrar o número e parear o QR code;
+- pedir aos clientes que salvem o número, e divulgar o número com link `wa.me` para que o cliente escreva primeiro;
+- manter a Evolution API atualizada e baixada da fonte oficial; pacotes "anti-ban" de terceiros já foram pegos roubando sessões.
+
 ### Testes
 
 ```bash

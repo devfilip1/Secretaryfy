@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, getConnection, getSession, logout, setUnauthenticatedHandler, type Connection } from "./api";
+import {
+  ApiError,
+  getConnection,
+  getProtection,
+  getSession,
+  logout,
+  setUnauthenticatedHandler,
+  type Connection,
+  type Protection,
+} from "./api";
 import { ConnectionBadge } from "./components/ConnectionBadge";
+import { ProtectionBanner } from "./components/ProtectionBanner";
 import { CalendarPage } from "./pages/Calendar";
 import { ConnectionPage } from "./pages/Connection";
 import { Disabled } from "./pages/Disabled";
@@ -43,6 +53,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   const { status, subscribe } = useEventStream(onLoggedOut);
   const [view, setView] = useState<View>(viewFromHash);
   const [connection, setConnection] = useState<Connection | null>(null);
+  const [protection, setProtection] = useState<Protection | null>(null);
 
   useEffect(() => {
     const onHash = () => setView(viewFromHash());
@@ -57,6 +68,13 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   }, []);
   useEffect(loadConnection, [loadConnection]);
 
+  const loadProtection = useCallback(() => {
+    getProtection()
+      .then(setProtection)
+      .catch(() => {});
+  }, []);
+  useEffect(loadProtection, [loadProtection]);
+
   async function leave() {
     await logout().catch(() => {});
     onLoggedOut();
@@ -64,7 +82,14 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
 
   return (
     <EventsContext.Provider value={{ subscribe }}>
-      <ConnectionSync onChange={setConnection} onReconnect={loadConnection} />
+      <ConnectionSync
+        onChange={setConnection}
+        onProtection={setProtection}
+        onReconnect={() => {
+          loadConnection();
+          loadProtection();
+        }}
+      />
       <div className="shell">
         <header className="topbar">
           <span className="brand">Secretaryfy</span>
@@ -85,6 +110,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           </button>
         </header>
         {status === "reconnecting" && <div className="banner">Reconectando ao servidor…</div>}
+        <ProtectionBanner protection={protection} />
         {view === "inbox" && <Inbox connected={connection?.state === "open"} />}
         {view === "connection" && <ConnectionPage connection={connection} onChange={setConnection} />}
         {view === "calendar" && <CalendarPage />}
@@ -93,10 +119,22 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   );
 }
 
-/** Mantém o estado da conexão do WhatsApp em dia com o SSE. */
-function ConnectionSync({ onChange, onReconnect }: { onChange: (c: Connection) => void; onReconnect: () => void }) {
+/** Mantém o estado da conexão do WhatsApp e o da proteção do número em dia com o SSE. */
+function ConnectionSync({
+  onChange,
+  onProtection,
+  onReconnect,
+}: {
+  onChange: (c: Connection) => void;
+  onProtection: (p: Protection) => void;
+  onReconnect: () => void;
+}) {
   useInboxEvents((event) => {
     if (event.type === "connection.updated") onChange({ state: event.state, number: event.number, qr: event.qr });
+    if (event.type === "protection.updated") {
+      const { type: _type, ...protection } = event;
+      onProtection(protection);
+    }
     if (event.type === "reconnected") onReconnect();
   });
   return null;

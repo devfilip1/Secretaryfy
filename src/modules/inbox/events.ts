@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { ProtectionJson } from "../antiban/limits.js";
 import type { CalendarConnectionJson } from "../google/connection.js";
 import type { ConversationJson, MessageJson } from "./presenters.js";
 
@@ -13,8 +14,10 @@ export type InboxEvent =
   | { type: "message.created"; conversationId: string; message: MessageJson }
   | { type: "message.updated"; conversationId: string; message: MessageJson }
   | { type: "conversation.updated"; conversation: ConversationJson }
+  | { type: "conversations.cleared" }
   | ({ type: "connection.updated" } & ConnectionJson)
-  | { type: "calendar.updated"; connection: CalendarConnectionJson };
+  | { type: "calendar.updated"; connection: CalendarConnectionJson }
+  | ({ type: "protection.updated" } & ProtectionJson);
 
 export type Publish = (event: InboxEvent) => void;
 

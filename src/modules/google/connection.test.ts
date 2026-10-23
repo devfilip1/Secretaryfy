@@ -73,6 +73,18 @@ test("selectCalendar troca a agenda e markNeedsReauth muda o status, publicando 
   assert.equal(events.length, 3);
 });
 
+test("syncCalendar corrige o fuso e o nome da agenda escolhida quando mudam no Google", async () => {
+  await store.save({ email: "clinica@gmail.com", refreshToken: "t", scopes: "", calendar: { ...calendar, timeZone: "UTC" } });
+  events = [];
+
+  assert.equal(await store.syncCalendar([{ id: "outra", name: "X", timeZone: "UTC" }]), false);
+  assert.equal(await store.syncCalendar([{ id: "primary", name: "DentalSafe", timeZone: "America/Bahia" }]), true);
+  assert.equal((await store.get()).timeZone, "America/Bahia");
+  assert.deepEqual(events.map((e) => e.type), ["calendar.updated"]);
+  // Igual ao Google: nada muda
+  assert.equal(await store.syncCalendar([{ id: "primary", name: "DentalSafe", timeZone: "America/Bahia" }]), false);
+});
+
 test("remove apaga a conexão e as sessões de agendamento, e devolve o token para revogar", async () => {
   await store.save({ email: "clinica@gmail.com", refreshToken: "t", scopes: "", calendar });
   const [conv] = await testDb.db

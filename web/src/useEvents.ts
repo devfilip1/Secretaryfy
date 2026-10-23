@@ -1,12 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { CalendarConnection, Connection, Conversation, Message } from "./api";
+import type { CalendarConnection, Connection, Conversation, Message, Protection } from "./api";
 import { ApiError, getSession } from "./api";
 
 export type InboxEvent =
   | { type: "message.created" | "message.updated"; conversationId: string; message: Message }
   | { type: "conversation.updated"; conversation: Conversation }
+  /** O WhatsApp foi desconectado e todas as conversas foram apagadas. */
+  | { type: "conversations.cleared" }
   | ({ type: "connection.updated" } & Connection)
   | { type: "calendar.updated"; connection: CalendarConnection }
+  | ({ type: "protection.updated" } & Protection)
   /** Emitido pelo próprio painel quando o SSE volta depois de cair: hora de buscar tudo de novo. */
   | { type: "reconnected" };
 
@@ -17,8 +20,10 @@ const SERVER_EVENTS = [
   "message.created",
   "message.updated",
   "conversation.updated",
+  "conversations.cleared",
   "connection.updated",
   "calendar.updated",
+  "protection.updated",
 ] as const;
 const RETRY_MS = 3000;
 

@@ -8,22 +8,32 @@ import type { ConnectionJson, InboxEvent } from "../modules/inbox/events.js";
 import { createInboxRepository, type InboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService, type InboxService } from "../modules/inbox/service.js";
 import type { IncomingMessage } from "../modules/whatsapp/evolution.js";
-import { AlreadyConnected, EvolutionError } from "../modules/whatsapp/instance.js";
+import { createBreaker } from "../modules/antiban/breaker.js";
+import { createGate, type Gate } from "../modules/antiban/gate.js";
+import { createAntibanRepository, type AntibanRepository } from "../modules/antiban/repository.js";
+import { AlreadyConnected, EvolutionError, TooManyAttempts } from "../modules/whatsapp/instance.js";
+import { TEST_ANTIBAN } from "../test/antiban.js";
 import { createTestDb } from "../test/db.js";
 import { panelApiRoutes } from "./panel-api.js";
 import { registerPanelAuth } from "./panel-session.js";
 
 let close: () => Promise<unknown>;
 let repo: InboxRepository;
+let antibanRepo: AntibanRepository;
+let execute: (query: ReturnType<typeof sql>) => Promise<unknown>;
 let reset: () => Promise<unknown>;
 
 before(async () => {
   const testDb = await createTestDb();
   close = testDb.close;
   repo = createInboxRepository(testDb.db as never);
+  antibanRepo = createAntibanRepository(testDb.db as never);
+  execute = (query) => testDb.db.execute(query);
   reset = async () => {
     await testDb.db.execute(sql`delete from messages`);
     await testDb.db.execute(sql`delete from conversations`);
+    await testDb.db.execute(sql`delete from contact_preferences`);
+    await testDb.db.execute(sql`delete from protection_state`);
   };
 });
 after(() => close());
@@ -35,6 +45,8 @@ let connection: ConnectionJson;
 let sent: [string, string][];
 let sendFails: boolean;
 let qrError: Error | null;
+let gate: Gate;
+let clock: number;
 
 beforeEach(async () => {
   await reset();
@@ -43,7 +55,21 @@ beforeEach(async () => {
   sendFails = false;
   qrError = null;
   connection = { state: "open", number: "5511988887777", qr: null };
-  inbox = createInboxService({ repo, publish: (e) => events.push(e) });
+  clock = Date.now();
+  inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => clock, retryMinIntervalMs: 30_000 });
+  const breaker = createBreaker({ repo: antibanRepo, config: TEST_ANTIBAN });
+  gate = createGate({
+    config: TEST_ANTIBAN,
+    repo: antibanRepo,
+    inboxRepo: repo,
+    inbox,
+    breaker,
+    send: async () => ({ waId: "x" }),
+    markRead: async () => {},
+    connectedNumber: () => null,
+    publish: () => {},
+    log: { info: () => {}, warn: () => {}, error: () => {} } as never,
+  });
   app = Fastify();
   await app.register(cookie);
   registerPanelAuth(app, { password: "senha-do-operador", publicUrl: "http://localhost:3000" });
@@ -68,6 +94,7 @@ beforeEach(async () => {
         if (sendFails) throw new Error("Evolution API 500");
         return { waId: `OUT${sent.length}` };
       },
+      risks: (conversation) => gate.operatorRisks(conversation),
     }),
   );
 });
@@ -91,7 +118,7 @@ test("lista de conversas no formato do contrato, com busca", async () => {
   const all = (await get("/api/conversations")).json();
   assert.deepEqual(all.conversations.map((c: { name: string }) => c.name), ["João", "Maria"]);
   assert.deepEqual(Object.keys(all.conversations[0]).sort(), [
-    "assistantPaused", "id", "lastMessageAt", "lastMessagePreview", "name", "needsAttention", "phone", "unreadCount",
+    "assistantPaused", "id", "lastMessageAt", "lastMessagePreview", "name", "needsAttention", "optedOut", "phone", "unreadCount",
   ]);
   const found = (await get("/api/conversations?q=mar")).json();
   assert.deepEqual(found.conversations.map((c: { name: string }) => c.name), ["Maria"]);
@@ -215,4 +242,88 @@ test("estado, QR code e desconexão", async () => {
 
   assert.equal((await app.inject({ method: "DELETE", url: "/api/connection", cookies: auth })).statusCode, 204);
   assert.equal(connection.state, "close");
+});
+
+test("desconectar o WhatsApp apaga todas as conversas e avisa o painel", async () => {
+  await customerSays("Oi", "A", "5511999999999", "Maria");
+  await customerSays("Olá", "B", "5521988887777", "João");
+  events = [];
+
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/connection", cookies: auth })).statusCode, 204);
+  assert.deepEqual((await get("/api/conversations")).json().conversations, []);
+  assert.deepEqual(events, [{ type: "conversations.cleared" }]);
+});
+
+// --- Proteção do número (specs/004) ---
+
+async function coldConversation() {
+  const conv = await customerSays("Oi");
+  await execute(sql`update messages set sent_at = now() - interval '25 hours' where conversation_id = ${conv.id}`);
+  return conv;
+}
+
+test("contato frio: 409 com o risco e nada gravado; confirmando, envia (US4)", async () => {
+  const conv = await coldConversation();
+  const refused = await post(`/api/conversations/${conv.id}/messages`, { text: "Olá" });
+  assert.equal(refused.statusCode, 409);
+  assert.deepEqual(refused.json(), { error: "risk_confirmation_required", risks: ["cold_contact"] });
+  assert.equal((await repo.listMessages(conv.id)).messages.length, 1);
+  assert.deepEqual(sent, []);
+
+  const confirmed = await post(`/api/conversations/${conv.id}/messages`, { text: "Olá", confirmRisk: true });
+  assert.equal(confirmed.statusCode, 201);
+  assert.deepEqual(sent, [["5511999999999", "Olá"]]);
+});
+
+test("conversa recente envia sem aviso; cliente que saiu e freio ativo pedem confirmação", async () => {
+  const conv = await customerSays("Oi");
+  assert.equal((await post(`/api/conversations/${conv.id}/messages`, { text: "1" })).statusCode, 201);
+
+  await repo.setOptedOut(conv.phone, new Date());
+  await antibanRepo.setPaused(new Date(Date.now() + 60_000), "send_failures");
+  const refused = await post(`/api/conversations/${conv.id}/messages`, { text: "2" });
+  assert.equal(refused.statusCode, 409);
+  assert.deepEqual(refused.json().risks, ["opted_out", "protection_paused"]);
+});
+
+test("reenvio em menos de 30 s dá 429 retry_too_soon (FR-025)", async () => {
+  const conv = await customerSays("Oi");
+  sendFails = true;
+  const failed = (await post(`/api/conversations/${conv.id}/messages`, { text: "Olá" })).json().message;
+  assert.equal((await post(`/api/messages/${failed.id}/retry`)).statusCode, 502);
+  const tooSoon = await post(`/api/messages/${failed.id}/retry`);
+  assert.equal(tooSoon.statusCode, 429);
+  assert.equal(tooSoon.json().error, "retry_too_soon");
+  clock += 30_000;
+  sendFails = false;
+  assert.equal((await post(`/api/messages/${failed.id}/retry`)).statusCode, 200);
+});
+
+test("o operador reativa quem pediu para sair, mas não marca a saída (US3)", async () => {
+  const conv = await customerSays("Oi");
+  await repo.setOptedOut(conv.phone, new Date());
+  assert.equal((await get(`/api/conversations/${conv.id}/messages`)).json().conversation.optedOut, true);
+  assert.equal((await patch(`/api/conversations/${conv.id}`, { optedOut: true })).statusCode, 422);
+
+  const res = await patch(`/api/conversations/${conv.id}`, { optedOut: false });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().optedOut, false);
+  const history = (await repo.listMessages(conv.id)).messages;
+  assert.ok(history.some((m) => m.origin === "system" && m.text === "✅ Mensagens reativadas pelo operador"));
+});
+
+test("limpar as conversas ao desconectar não esquece quem pediu para sair", async () => {
+  const conv = await customerSays("Oi");
+  await inbox.setOptedOut(conv.id, true, "🚫");
+  await inbox.clearAll();
+  await customerSays("Voltei");
+  const [again] = (await get("/api/conversations")).json().conversations;
+  assert.equal(again.optedOut, true);
+});
+
+test("pedidos de QR demais: 429 too_many_attempts (FR-029)", async () => {
+  qrError = new TooManyAttempts(new Date("2026-10-18T12:10:00Z"));
+  const res = await post("/api/connection/qr");
+  assert.equal(res.statusCode, 429);
+  assert.deepEqual(res.json(), { error: "too_many_attempts", retryAt: "2026-10-18T12:10:00.000Z" });
 });

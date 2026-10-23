@@ -8,11 +8,13 @@ import { createInterpreter } from "../modules/scheduling/interpret.js";
 import { createOllamaClient } from "../modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
 import { createSchedulingStore } from "../modules/scheduling/sessions.js";
-import { parseEvolutionEvent, sendWhatsAppText } from "../modules/whatsapp/evolution.js";
+import { createDebouncer } from "../modules/antiban/debounce.js";
+import { matchCommand } from "../modules/antiban/opt-out.js";
+import { parseEvolutionEvent, type IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/handle-message.js";
 import { instance } from "../modules/whatsapp/instance.js";
 import { connectionStore, googleCalendar, rulesStore } from "./calendar.js";
-import { inbox } from "./inbox.js";
+import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001
 const schedulingStore = createSchedulingStore(db);
@@ -34,7 +36,51 @@ const reply = createSchedulingRouter({
   answerQuestion: createRagAnswerer(createRagClient({ baseUrl: env.RAG_SERVICE_URL, timeoutMs: env.RAG_TIMEOUT_MS }).ask),
 });
 
-const handleMessage = createMessageHandler({ reply, send: sendWhatsAppText, inbox });
+const handleMessage = createMessageHandler({
+  reply,
+  gate,
+  inbox,
+  hasSchedulingSession: async (conversationId) => Boolean(await schedulingStore.getSession(conversationId, new Date())),
+});
+
+type Log = Parameters<typeof handleMessage>[1];
+
+/**
+ * Responde depois de alguns segundos de silêncio do cliente, a todas as mensagens dele desde a última resposta de uma
+ * vez (specs/004 FR-007, research.md R4).
+ */
+const debouncer = createDebouncer<{ log: Log }>({
+  delayMs: antibanConfig.debounceMs,
+  onFire: (conversationId, { log }) => {
+    void (async () => {
+      const unread = (await inboxRepo.customerMessagesSinceLastReply(conversationId)).filter((m) => m.type === "text" && m.text);
+      const last = unread.at(-1);
+      const conversation = await inbox.getConversation(conversationId);
+      if (!last || !conversation) return;
+      const message: IncomingMessage = {
+        kind: "message",
+        id: last.waMessageId ?? last.id,
+        phone: conversation.phone,
+        fromMe: false,
+        type: "text",
+        text: unread.map((m) => m.text).join("\n"),
+        sentAt: last.sentAt,
+      };
+      await handleMessage({ conversationId, message }, log);
+    })().catch((err) => log.error({ err, conversationId }, "falha ao responder"));
+  },
+});
+
+/** O operador escreveu: a resposta que o assistente ainda ia dar não acontece. */
+export function cancelPendingReply(conversationId: string) {
+  debouncer.cancel(conversationId);
+}
+
+/** Número conectado: o primeiro uso começa o aquecimento (specs/004 FR-023). */
+export async function rememberNumber(number: string) {
+  const { isNew } = await antibanRepo.rememberConnectedNumber(number, new Date());
+  if (isNew) await gate.onNumberConnected();
+}
 
 function validToken(token: string | undefined): boolean {
   if (!token) return false;
@@ -54,10 +100,29 @@ export async function evolutionWebhookRoutes(app: FastifyInstance) {
         const { created, conversation } = await inbox.recordIncoming(event);
         if (!created) return;
         req.log.info({ phone: event.phone, fromMe: event.fromMe }, "mensagem registrada");
-        if (!event.fromMe) await handleMessage({ conversationId: conversation.id, message: event }, req.log);
+        if (event.fromMe) return;
+        // Pedido de saída ou de volta é atendido na hora, sozinho, sem esperar nem se juntar a outras mensagens
+        if (event.text && matchCommand(event.text, { inSchedulingFlow: false })) {
+          debouncer.cancel(conversation.id);
+          await handleMessage({ conversationId: conversation.id, message: event }, req.log);
+          return;
+        }
+        debouncer.push(conversation.id, { log: req.log });
       })().catch((err) => req.log.error({ err, phone: event.phone }, "falha ao processar mensagem"));
     } else if (event) {
+      const wasOpen = instance.getState().state === "open";
       instance.applyEvent(event);
+      if (event.kind === "connection" && event.loggedOut) {
+        void inbox
+          .clearAll()
+          .then((deleted) => req.log.info({ deleted }, "número desconectado: conversas apagadas"))
+          .catch((err) => req.log.error({ err }, "falha ao apagar as conversas"));
+      } else if (event.kind === "connection" && event.state === "close" && wasOpen) {
+        // Quedas seguidas de uma conexão aberta contam para o freio (specs/004 FR-026); um QR não lido não conta
+        void breaker.recordDrop().catch((err) => req.log.error({ err }, "falha ao registrar a queda"));
+      } else if (event.kind === "connection" && event.state === "open" && event.number) {
+        void rememberNumber(event.number).catch((err) => req.log.error({ err }, "falha ao registrar o número"));
+      }
     }
 
     // Responde rápido para a Evolution API não reenviar o evento

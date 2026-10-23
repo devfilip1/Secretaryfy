@@ -25,6 +25,12 @@ export function ConnectionPage({
       })
       .catch((err) => {
         if (err instanceof ApiError && err.error === "already_connected") return;
+        if (err instanceof ApiError && err.error === "too_many_attempts") {
+          // Tentativas seguidas de conexão também são um sinal para o WhatsApp (specs/004 FR-029)
+          const at = new Date(String(err.body.retryAt)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+          setError(`Muitas tentativas de conexão. Tente de novo às ${at}.`);
+          return;
+        }
         setError(
           err instanceof ApiError && err.status === 502
             ? "Evolution API indisponível. Verifique se ela está no ar."

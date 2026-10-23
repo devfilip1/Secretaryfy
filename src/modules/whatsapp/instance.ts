@@ -20,6 +20,14 @@ export class AlreadyConnected extends Error {
   }
 }
 
+/** Pedidos de QR code demais seguidos (specs/004 FR-029). */
+export class TooManyAttempts extends Error {
+  constructor(readonly retryAt: Date) {
+    super("muitas tentativas de conexão");
+    this.name = "TooManyAttempts";
+  }
+}
+
 const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "SEND_MESSAGE", "CONNECTION_UPDATE", "QRCODE_UPDATED"];
 const POLL_MS = 10_000;
 
@@ -32,6 +40,10 @@ interface Options {
   >;
   setInterval?: typeof setInterval;
   clearInterval?: typeof clearInterval;
+  /** Pedidos de QR code permitidos por janela (specs/004 FR-029) */
+  qrAttempts?: number;
+  qrWindowMs?: number;
+  now?: () => Date;
 }
 
 /** Conexão do número com a Evolution API: estado, QR code, webhook e desconexão (contracts/evolution.md). */
@@ -41,8 +53,13 @@ export function createInstanceManager({
   env = appEnv,
   setInterval: every = setInterval,
   clearInterval: stopEvery = clearInterval,
+  qrAttempts = appEnv.ANTIBAN_QR_ATTEMPTS,
+  qrWindowMs = appEnv.ANTIBAN_QR_WINDOW_MS,
+  now = () => new Date(),
 }: Options = {}) {
   const state: ConnectionJson = { state: "close", number: null, qr: null };
+  // Horários dos últimos pedidos de QR code; cada tentativa nova é um sinal a mais para o WhatsApp
+  const qrRequests: number[] = [];
   let known = false;
   let timer: ReturnType<typeof setInterval> | null = null;
   // A Evolution abre um socket novo a cada /instance/connect com a instância fechada, sem encerrar o anterior;
@@ -139,6 +156,12 @@ export function createInstanceManager({
 
     /** Garante a instância e o webhook e pede um QR code novo. Pedidos simultâneos compartilham a mesma chamada. */
     prepareQr(): Promise<ConnectionJson> {
+      if (!pendingQr) {
+        const t = now().getTime();
+        while (qrRequests.length && qrRequests[0] <= t - qrWindowMs) qrRequests.shift();
+        if (qrRequests.length >= qrAttempts) return Promise.reject(new TooManyAttempts(new Date(qrRequests[0] + qrWindowMs)));
+        qrRequests.push(t);
+      }
       pendingQr ??= requestQr().finally(() => {
         pendingQr = null;
       });

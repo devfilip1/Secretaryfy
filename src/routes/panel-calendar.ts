@@ -9,13 +9,15 @@ interface Deps {
   calendar: CalendarGateway;
   rules: RulesStore;
   buildConnectUrl: () => string;
+  /** GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET preenchidos com credenciais reais */
+  googleConfigured: () => boolean;
   revoke: (refreshToken: string) => Promise<void>;
 }
 
 const selectionBody = z.object({ calendarId: z.string().min(1) });
 
 /** API da agenda no painel (contracts/panel-api.md). A autenticação fica no hook de panel-session.ts. */
-export function panelCalendarRoutes({ connection, calendar, rules, buildConnectUrl, revoke }: Deps) {
+export function panelCalendarRoutes({ connection, calendar, rules, buildConnectUrl, googleConfigured, revoke }: Deps) {
   async function state() {
     return { connection: await connection.get(), rules: await rules.get() };
   }
@@ -38,11 +40,17 @@ export function panelCalendarRoutes({ connection, calendar, rules, buildConnectU
   return async function (app: FastifyInstance) {
     app.get("/api/calendar", async () => state());
 
-    app.post("/api/calendar/connect", async () => ({ url: buildConnectUrl() }));
+    app.post("/api/calendar/connect", async (_req, reply) => {
+      if (!googleConfigured()) return reply.code(503).send({ error: "google_not_configured" });
+      return { url: buildConnectUrl() };
+    });
 
     app.get("/api/calendar/calendars", async (_req, reply) => {
       const calendars = await calendarsOr(reply);
-      return calendars && { calendars };
+      if (!calendars) return reply;
+      // Abrir a página Agenda corrige o fuso gravado se ele mudou no Google
+      await connection.syncCalendar(calendars);
+      return { calendars };
     });
 
     app.put("/api/calendar/selection", async (req, reply) => {

@@ -1,12 +1,23 @@
 import { env } from "../../config/env.js";
 import type { MessageType } from "../../db/schema.js";
 
-/** Envia uma mensagem de texto pela Evolution API (v2). `number` no formato 5511999999999. Devolve o id da mensagem. */
-export async function sendWhatsAppText(number: string, text: string): Promise<{ waId: string }> {
-  const res = await fetch(`${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`, {
+type Fetch = typeof fetch;
+
+/**
+ * Envia uma mensagem de texto pela Evolution API (v2). `number` no formato 5511999999999. Devolve o id da mensagem.
+ * Com `delayMs`, a Evolution mostra "digitando…" por esse tempo antes de enviar (specs/004, contracts/evolution.md).
+ */
+export async function sendWhatsAppText(
+  number: string,
+  text: string,
+  { delayMs = 0, fetch: doFetch = fetch }: { delayMs?: number; fetch?: Fetch } = {},
+): Promise<{ waId: string }> {
+  const res = await doFetch(`${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
-    body: JSON.stringify({ number, text }),
+    body: JSON.stringify({ number, text, delay: delayMs, linkPreview: false }),
+    // A resposta só chega depois do "digitando…"
+    signal: AbortSignal.timeout(delayMs + 10_000),
   });
   if (!res.ok) {
     throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
@@ -14,6 +25,18 @@ export async function sendWhatsAppText(number: string, text: string): Promise<{ 
   const body = (await res.json()) as { key?: { id?: string } };
   if (!body.key?.id) throw new Error("Evolution API não devolveu key.id");
   return { waId: body.key.id };
+}
+
+/** Marca como lidas mensagens do cliente (specs/004 FR-005). */
+export async function markMessagesRead(phone: string, waIds: string[], { fetch: doFetch = fetch }: { fetch?: Fetch } = {}) {
+  if (!waIds.length) return;
+  const res = await doFetch(`${env.EVOLUTION_API_URL}/chat/markMessageAsRead/${env.EVOLUTION_INSTANCE}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
+    body: JSON.stringify({ readMessages: waIds.map((id) => ({ remoteJid: `${phone}@s.whatsapp.net`, fromMe: false, id })) }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
 }
 
 /** Mensagem individual recebida ou enviada pelo número conectado. */
@@ -34,6 +57,8 @@ export interface ConnectionEvent {
   kind: "connection";
   state: "open" | "connecting" | "close";
   number: string | null;
+  /** O número saiu da sessão (statusReason 401, ex.: desconectado pelo celular); quedas passageiras não marcam */
+  loggedOut?: true;
 }
 
 export interface QrCodeEvent {
@@ -131,7 +156,8 @@ export function parseEvolutionEvent(body: unknown): EvolutionEvent | null {
     case "connection.update": {
       const raw = event.data.state;
       const state = raw === "open" || raw === "connecting" ? raw : "close";
-      return { kind: "connection", state, number: jidToNumber(event.data.wuid) };
+      const loggedOut = state === "close" && Number(event.data.statusReason) === 401;
+      return { kind: "connection", state, number: jidToNumber(event.data.wuid), ...(loggedOut ? { loggedOut: true } : {}) };
     }
     case "qrcode.updated": {
       const qr = (event.data.qrcode as { base64?: string } | undefined)?.base64;

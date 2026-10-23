@@ -12,6 +12,12 @@ export interface CalendarGateway {
   deleteEvent(eventId: string): Promise<void>;
 }
 
+/**
+ * Fuso usado quando o Google não informa o da agenda. Antes era UTC, e um agendamento pedido para as 10h
+ * foi parar às 7h de Brasília; a clínica está no Brasil.
+ */
+export const FALLBACK_TIME_ZONE = "America/Sao_Paulo";
+
 export interface Interval {
   start: Date;
   end: Date;

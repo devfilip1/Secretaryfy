@@ -1,6 +1,6 @@
 import { google, type calendar_v3 } from "googleapis";
 import type { ActiveConnection, ConnectionStore } from "./connection.js";
-import { CalendarAuthError, CalendarUnavailable, type CalendarGateway } from "./gateway.js";
+import { CalendarAuthError, CalendarUnavailable, FALLBACK_TIME_ZONE, type CalendarGateway } from "./gateway.js";
 import { authClientFor } from "./oauth.js";
 
 const TIMEOUT_MS = 10_000;
@@ -48,7 +48,7 @@ export function createGoogleCalendar({ connection }: { connection: Pick<Connecti
           .map((c) => ({
             id: c.primary ? "primary" : c.id!,
             name: c.summaryOverride ?? c.summary ?? c.id!,
-            timeZone: c.timeZone ?? "UTC",
+            timeZone: c.timeZone || FALLBACK_TIME_ZONE,
             primary: c.primary === true,
           }));
       });

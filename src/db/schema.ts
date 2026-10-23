@@ -27,7 +27,8 @@ export const messageType = pgEnum("message_type", [
   "contact",
   "other",
 ]);
-export const messageStatus = pgEnum("message_status", ["received", "sending", "sent", "failed"]);
+// "blocked": resposta que a proteção do número não enviou; o motivo fica em `error` (specs/004)
+export const messageStatus = pgEnum("message_status", ["received", "sending", "sent", "failed", "blocked"]);
 
 /** Uma conversa por número de cliente (painel web). */
 export const conversations = pgTable(
@@ -65,8 +66,14 @@ export const messages = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  // created_at desempata mensagens do mesmo segundo (o horário do WhatsApp vem em segundos)
-  (t) => [index("messages_conversation_sent_at_idx").on(t.conversationId, t.sentAt.desc(), t.createdAt.desc(), t.id.desc())],
+  (t) => [
+    // created_at desempata mensagens do mesmo segundo (o horário do WhatsApp vem em segundos)
+    index("messages_conversation_sent_at_idx").on(t.conversationId, t.sentAt.desc(), t.createdAt.desc(), t.id.desc()),
+    // Contagens da proteção: envios do sistema já feitos (specs/004, research.md R2)
+    index("messages_outgoing_sent_at_idx")
+      .on(t.sentAt.desc())
+      .where(sql`${t.origin} in ('assistant', 'operator') and ${t.status} = 'sent'`),
+  ],
 );
 
 export const calendarStatus = pgEnum("calendar_status", ["connected", "needs_reauth"]);
@@ -164,6 +171,36 @@ export const schedulingSessions = pgTable("scheduling_sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Quem pediu para não receber mensagens. Fica pelo telefone, e não pela conversa, para sobreviver à limpeza ao desconectar. */
+export const contactPreferences = pgTable("contact_preferences", {
+  phone: text("phone").primaryKey(),
+  optedOutAt: timestamp("opted_out_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Números já conectados neste Secretaryfy; o primeiro uso começa o aquecimento (specs/004, research.md R10). */
+export const connectedNumbers = pgTable("connected_numbers", {
+  number: text("number").primaryKey(),
+  firstConnectedAt: timestamp("first_connected_at", { withTimezone: true }).notNull().defaultNow(),
+  lastConnectedAt: timestamp("last_connected_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Freio automático dos envios. Uma linha só (specs/004, research.md R11). */
+export const protectionState = pgTable(
+  "protection_state",
+  {
+    id: smallint("id").primaryKey().default(1),
+    pausedUntil: timestamp("paused_until", { withTimezone: true }),
+    reason: text("reason").$type<"send_failures" | "connection_drops">(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("protection_state_single_row", sql`${t.id} = 1`)],
+);
+
+export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;
+export type ConnectedNumberRow = typeof connectedNumbers.$inferSelect;
+export type ProtectionStateRow = typeof protectionState.$inferSelect;
 
 export type CalendarConnectionRow = typeof calendarConnection.$inferSelect;
 export type SchedulingRulesRow = typeof schedulingRules.$inferSelect;

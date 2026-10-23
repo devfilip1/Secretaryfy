@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseEvolutionEvent } from "./evolution.js";
+import { markMessagesRead, parseEvolutionEvent, sendWhatsAppText } from "./evolution.js";
 
 function upsert(overrides: { key?: object; message?: object; event?: string; pushName?: string } = {}) {
   return {
@@ -74,6 +74,17 @@ test("connection.update", () => {
   });
 });
 
+test("connection.update: só statusReason 401 marca o número como desconectado", () => {
+  assert.deepEqual(parseEvolutionEvent({ event: "connection.update", data: { state: "close", statusReason: 401 } }), {
+    kind: "connection",
+    state: "close",
+    number: null,
+    loggedOut: true,
+  });
+  const dropped = parseEvolutionEvent({ event: "connection.update", data: { state: "close", statusReason: 428 } });
+  assert.equal(dropped?.kind === "connection" && dropped.loggedOut, undefined);
+});
+
 test("qrcode.updated", () => {
   assert.deepEqual(
     parseEvolutionEvent({ event: "qrcode.updated", data: { qrcode: { base64: "data:image/png;base64,AAA" } } }),
@@ -98,3 +109,35 @@ for (const [name, body] of ignored) {
     assert.equal(parseEvolutionEvent(body), null);
   });
 }
+
+// --- Envio e leitura (specs/004, contracts/evolution.md) ---
+
+function captureFetch(response: unknown = { key: { id: "OUT1" } }) {
+  const calls: { url: string; body: unknown }[] = [];
+  const fetch = (async (url: string, init: RequestInit) => {
+    calls.push({ url, body: JSON.parse(String(init.body)) });
+    return new Response(JSON.stringify(response), { status: 200 });
+  }) as typeof globalThis.fetch;
+  return { fetch, calls };
+}
+
+test("sendText leva o tempo de digitação e desliga a prévia de link", async () => {
+  const f = captureFetch();
+  assert.deepEqual(await sendWhatsAppText("5511999999999", "Oi", { delayMs: 4200, fetch: f.fetch }), { waId: "OUT1" });
+  assert.match(f.calls[0].url, /\/message\/sendText\//);
+  assert.deepEqual(f.calls[0].body, { number: "5511999999999", text: "Oi", delay: 4200, linkPreview: false });
+});
+
+test("markMessageAsRead leva as mensagens do cliente", async () => {
+  const f = captureFetch({});
+  await markMessagesRead("5511999999999", ["A", "B"], { fetch: f.fetch });
+  assert.match(f.calls[0].url, /\/chat\/markMessageAsRead\//);
+  assert.deepEqual(f.calls[0].body, {
+    readMessages: [
+      { remoteJid: "5511999999999@s.whatsapp.net", fromMe: false, id: "A" },
+      { remoteJid: "5511999999999@s.whatsapp.net", fromMe: false, id: "B" },
+    ],
+  });
+  await markMessagesRead("5511999999999", [], { fetch: f.fetch });
+  assert.equal(f.calls.length, 1);
+});

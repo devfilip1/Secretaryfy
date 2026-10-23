@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../../db/schema.js";
-import { conversations, messages, type ConversationRow, type MessageRow } from "../../db/schema.js";
+import { contactPreferences, conversations, messages, type ConversationRow, type MessageRow } from "../../db/schema.js";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 type NewMessage = typeof messages.$inferInsert;
@@ -123,6 +123,12 @@ function createQueries(db: Db) {
       return { messages: rows.slice(0, limit).reverse(), hasMore };
     },
 
+    /** Apaga todas as conversas; mensagens, agendamentos e sessões de agendamento vão junto pelo cascade. */
+    async deleteAllConversations(): Promise<number> {
+      const rows = await db.delete(conversations).returning({ id: conversations.id });
+      return rows.length;
+    },
+
     /** Reativar o assistente também tira o destaque de "precisa de atendimento" (FR-024b). */
     async setPaused(id: string, paused: boolean): Promise<ConversationRow | null> {
       const [row] = await db
@@ -162,11 +168,119 @@ function createQueries(db: Db) {
             eq(messages.conversationId, conversationId),
             eq(messages.type, "text"),
             ne(messages.origin, "system"),
+            ne(messages.status, "blocked"),
             isNotNull(messages.text),
           ),
         )
         .orderBy(desc(messages.sentAt), desc(messages.createdAt), desc(messages.id))
         .limit(limit);
+    },
+
+    // --- Proteção do número (specs/004) ---
+
+    async isOptedOut(phone: string): Promise<boolean> {
+      const [row] = await db
+        .select({ at: contactPreferences.optedOutAt })
+        .from(contactPreferences)
+        .where(eq(contactPreferences.phone, phone));
+      return Boolean(row?.at);
+    },
+
+    /** Telefones da lista que pediram para não receber mensagens. */
+    async optedOutAmong(phones: string[]): Promise<Set<string>> {
+      if (!phones.length) return new Set();
+      const rows = await db
+        .select({ phone: contactPreferences.phone })
+        .from(contactPreferences)
+        .where(and(inArray(contactPreferences.phone, phones), isNotNull(contactPreferences.optedOutAt)));
+      return new Set(rows.map((r) => r.phone));
+    },
+
+    /** `at` preenchido: o cliente pediu para sair; null: voltou a aceitar mensagens. Fica pelo telefone. */
+    async setOptedOut(phone: string, at: Date | null) {
+      await db
+        .insert(contactPreferences)
+        .values({ phone, optedOutAt: at, updatedAt: new Date() })
+        .onConflictDoUpdate({ target: contactPreferences.phone, set: { optedOutAt: at, updatedAt: new Date() } });
+    },
+
+    async lastCustomerMessageAt(conversationId: string): Promise<Date | null> {
+      const [row] = await db
+        .select({ at: sql<Date | null>`max(${messages.sentAt})`.mapWith((v) => (v ? new Date(v) : null)) })
+        .from(messages)
+        .where(and(eq(messages.conversationId, conversationId), eq(messages.origin, "customer")));
+      return row?.at ?? null;
+    },
+
+    /** Mensagens do cliente depois da última resposta enviada (assistente ou operador), em ordem cronológica. */
+    async customerMessagesSinceLastReply(conversationId: string) {
+      const lastReply = db
+        .select({ at: sql`max(${messages.sentAt})` })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            inArray(messages.origin, ["assistant", "operator"]),
+            eq(messages.status, "sent"),
+          ),
+        );
+      return db
+        .select({ id: messages.id, waMessageId: messages.waMessageId, type: messages.type, text: messages.text, sentAt: messages.sentAt })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.origin, "customer"),
+            sql`${messages.sentAt} > coalesce((${lastReply}), '-infinity'::timestamptz)`,
+          ),
+        )
+        .orderBy(messages.sentAt, messages.createdAt);
+    },
+
+    /** Últimas mensagens para avaliar laço e insistência, em ordem cronológica, sem registros do sistema e bloqueios. */
+    async recentForAssessment(conversationId: string, limit = 30) {
+      const rows = await db
+        .select({ origin: messages.origin, status: messages.status, sentAt: messages.sentAt })
+        .from(messages)
+        .where(and(eq(messages.conversationId, conversationId), ne(messages.origin, "system"), ne(messages.status, "blocked")))
+        .orderBy(desc(messages.sentAt), desc(messages.createdAt), desc(messages.id))
+        .limit(limit);
+      return rows.reverse();
+    },
+
+    /** Textos que o assistente mandou (ou está mandando) na conversa desde `since`. */
+    async assistantTextsSince(conversationId: string, since: Date): Promise<string[]> {
+      const rows = await db
+        .select({ text: messages.text })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conversationId),
+            eq(messages.origin, "assistant"),
+            inArray(messages.status, ["sending", "sent"]),
+            gte(messages.sentAt, since),
+          ),
+        );
+      return rows.map((r) => r.text ?? "");
+    },
+
+    async hasAssistantReply(conversationId: string): Promise<boolean> {
+      const [row] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.conversationId, conversationId), eq(messages.origin, "assistant"), eq(messages.status, "sent")))
+        .limit(1);
+      return Boolean(row);
+    },
+
+    /** O operador escreveu na conversa depois de `since`? */
+    async operatorWroteSince(conversationId: string, since: Date): Promise<boolean> {
+      const [row] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.conversationId, conversationId), eq(messages.origin, "operator"), gt(messages.createdAt, since)))
+        .limit(1);
+      return Boolean(row);
     },
   };
   return repo;

@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { verifySigned } from "../../config/crypto.js";
-import { buildConnectUrl, CONNECT_STATE, GOOGLE_SCOPES, missingScopes } from "./oauth.js";
+import { buildConnectUrl, CONNECT_STATE, GOOGLE_SCOPES, isGoogleConfigured, missingScopes } from "./oauth.js";
+
+test("isGoogleConfigured recusa valores de exemplo", () => {
+  assert.equal(isGoogleConfigured("nao-configurado", "nao-configurado"), false);
+  assert.equal(isGoogleConfigured("123456789012-abc123def456.apps.googleusercontent.com", "GOCSPX-abcdefghijklmnopqrstuvwx"), true);
+  assert.equal(isGoogleConfigured("123456789012-abc123def456.apps.googleusercontent.com", ""), false);
+});
 
 test("URL de consentimento: offline, consent, os escopos de agenda e o state assinado", () => {
   const url = new URL(buildConnectUrl());
