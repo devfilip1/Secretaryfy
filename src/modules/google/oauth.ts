@@ -22,6 +22,14 @@ function newOAuthClient() {
   return new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, REDIRECT_URI);
 }
 
+/**
+ * As credenciais do Google Cloud parecem reais? Um GOOGLE_CLIENT_ID de exemplo leva o operador a um
+ * "Erro 401: invalid_client" na tela do Google; melhor avisar no painel antes.
+ */
+export function isGoogleConfigured(clientId = env.GOOGLE_CLIENT_ID, clientSecret = env.GOOGLE_CLIENT_SECRET): boolean {
+  return /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(clientId) && clientSecret.length >= 20;
+}
+
 /** Link da tela de consentimento do Google para conectar a agenda da clínica. */
 export function buildConnectUrl(): string {
   return newOAuthClient().generateAuthUrl({

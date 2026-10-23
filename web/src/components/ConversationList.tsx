@@ -53,6 +53,12 @@ export function ConversationList({
                     </span>
                   )}
                   {c.name || formatPhone(c.phone)}
+                  {c.optedOut && (
+                    <span className="opted-out-icon" title="Pediu para não receber mensagens">
+                      {" "}
+                      🚫
+                    </span>
+                  )}
                 </span>
                 <span className="time">{formatTime(c.lastMessageAt)}</span>
               </span>

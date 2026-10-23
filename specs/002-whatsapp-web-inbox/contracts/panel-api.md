@@ -1,5 +1,7 @@
 # Contract: API do painel (`/api/*`)
 
+> A feature 004 estende este contrato: `optedOut` na conversa, status `blocked`, `confirmRisk` e o `409 risk_confirmation_required` no envio, `429` no reenvio e no QR, `GET /api/protection` e o evento `protection.updated`. Ver [specs/004-whatsapp-anti-ban/contracts/panel-api.md](../../004-whatsapp-anti-ban/contracts/panel-api.md).
+
 - **Origem**: a mesma do painel. Em desenvolvimento, o Vite (`:5173`) repassa para o Fastify (`:3000`).
 - **Formato**: JSON UTF-8. Os `POST` com corpo exigem `Content-Type: application/json`; sem ele, a resposta é 415.
 - **Autenticação**: o cookie `sf_session`. Sem cookie válido, toda rota abaixo, exceto `/api/session`, responde **401** `{"error":"unauthenticated"}`.
@@ -51,8 +53,11 @@ Prepara a conexão e devolve um QR code novo.
 
 Desconecta o número (FR-018).
 
-- **204**: desconectado. O estado passa a `close`, e isso chega ao painel pelo SSE.
-- **502**: como acima.
+- **204**: desconectado. O estado passa a `close`, e isso chega ao painel pelo SSE. Todas as conversas são
+  apagadas, com as mensagens, os agendamentos e as sessões de agendamento ligados a elas (os eventos no Google
+  Agenda ficam), e o painel recebe `conversations.cleared`. O mesmo acontece quando o número é desconectado
+  pelo celular (`connection.update` com `statusReason` 401); uma queda passageira não apaga nada.
+- **502**: como acima. Nada é apagado.
 
 ## Conversas
 
@@ -137,6 +142,7 @@ Reenvia uma mensagem `failed` do operador (FR-013).
 | `message.created` | `{ "conversationId", "message" }` | Qualquer mensagem gravada |
 | `message.updated` | `{ "conversationId", "message" }` | A situação de um envio mudou (`sent` ou `failed`) |
 | `conversation.updated` | `{ "conversation" }` | Prévia, não lidas, nome ou pausa mudaram |
+| `conversations.cleared` | `{}` | O número foi desconectado e todas as conversas foram apagadas |
 | `connection.updated` | `{ "state", "number", "qr" }` | O estado da conexão mudou ou chegou um QR code novo |
 
 Quando reconecta (`onopen` depois de um `onerror`), o cliente busca de novo `GET /api/conversations`, a conversa aberta e `GET /api/connection`, para recuperar o que perdeu (R3).

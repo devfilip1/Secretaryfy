@@ -1,12 +1,12 @@
 import type { FastifyBaseLogger } from "fastify";
-import type { MessageRow } from "../../db/schema.js";
-import type { SendResult } from "../inbox/service.js";
+import type { Gate } from "../antiban/gate.js";
+import { matchCommand } from "../antiban/opt-out.js";
+import { fixedTexts, protectionNotes } from "../antiban/texts.js";
 import type { RagAnswer } from "../rag/client.js";
 import type { IncomingMessage } from "./evolution.js";
 
-/** Em inglês, como as respostas do assistente da DentalSafe. */
-export const UNAVAILABLE_MESSAGE =
-  "Sorry, our virtual assistant is unavailable right now. Please try again in a few minutes.";
+/** Em inglês, como as respostas do assistente da DentalSafe. Na hora de enviar, vira uma das variações (specs/004 FR-017). */
+export const UNAVAILABLE_MESSAGE = fixedTexts.unavailable[0];
 
 /** O texto a enviar. `ignorePause` vale para a resposta de quem acabou de pausar a conversa (handoff, specs/003 FR-024a). */
 export interface Reply {
@@ -42,19 +42,23 @@ export function createRagReplier(ask: (question: string) => Promise<RagAnswer>):
 
 interface Deps {
   reply: Replier;
-  send: (phone: string, text: string) => Promise<{ waId: string }>;
+  /** Todo envio passa pela proteção do número (specs/004) */
+  gate: Pick<Gate, "sendAssistant" | "pickVariant">;
   inbox: {
     isPaused(conversationId: string): Promise<boolean>;
-    startOutgoing(v: { conversationId: string; origin: "assistant"; text: string }): Promise<MessageRow>;
-    finishOutgoing(messageId: string, result: SendResult): Promise<unknown>;
+    isOptedOut(phone: string): Promise<boolean>;
+    setOptedOut(conversationId: string, optedOut: boolean, note: string): Promise<unknown>;
   };
+  /** Há um agendamento em andamento? Nele, "cancelar" é do agendamento e não um pedido de saída */
+  hasSchedulingSession?: (conversationId: string) => Promise<boolean>;
 }
 
 /**
  * Responde uma mensagem do cliente com o assistente, registrando a resposta.
+ * Pedidos de saída e de volta são tratados antes de tudo, sem depender do modelo (specs/004 FR-019 a FR-021).
  * Respeita a pausa da conversa antes de decidir e de novo antes de enviar. Nunca rejeita: as falhas vão para o log.
  */
-export function createMessageHandler({ reply, send, inbox }: Deps) {
+export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession = async () => false }: Deps) {
   return async function handleMessage(
     { conversationId, message }: { conversationId: string; message: IncomingMessage },
     log: FastifyBaseLogger,
@@ -63,6 +67,26 @@ export function createMessageHandler({ reply, send, inbox }: Deps) {
     if (message.type !== "text" || !message.text) return;
 
     try {
+      const command = matchCommand(message.text, { inSchedulingFlow: await hasSchedulingSession(conversationId) });
+      const optedOut = await inbox.isOptedOut(phone);
+
+      if (command === "opt_out") {
+        if (optedOut) return;
+        await inbox.setOptedOut(conversationId, true, protectionNotes.optedOut);
+        // Uma única confirmação, mesmo com a conversa pausada pelo operador
+        const text = await gate.pickVariant(conversationId, fixedTexts.optOutConfirmation);
+        if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true, bypass: ["opted_out", "unanswered"] });
+        return;
+      }
+      if (command === "opt_in" && optedOut) {
+        await inbox.setOptedOut(conversationId, false, protectionNotes.optedIn);
+        const text = await gate.pickVariant(conversationId, fixedTexts.optIn);
+        if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true });
+        return;
+      }
+      // Quem pediu para sair não recebe resposta; a mensagem continua no painel para o operador
+      if (optedOut) return;
+
       if (await inbox.isPaused(conversationId)) return;
 
       const answer = await reply({ conversationId, message }, log);
@@ -74,14 +98,15 @@ export function createMessageHandler({ reply, send, inbox }: Deps) {
         return;
       }
 
-      const outgoing = await inbox.startOutgoing({ conversationId, origin: "assistant", text: answer.text });
-      try {
-        const { waId } = await send(phone, answer.text);
-        await inbox.finishOutgoing(outgoing.id, { waId });
-      } catch (err) {
-        log.error({ phone, err }, "falha ao enviar pelo WhatsApp");
-        await inbox.finishOutgoing(outgoing.id, { error: (err as Error).message });
+      let text: string | null = answer.text;
+      if (fixedTexts.unavailable.includes(text)) {
+        text = await gate.pickVariant(conversationId, fixedTexts.unavailable);
+        if (!text) {
+          log.info({ conversationId }, "indisponibilidade já avisada a este cliente");
+          return;
+        }
       }
+      await gate.sendAssistant({ conversationId, phone, text, ignorePause: answer.ignorePause });
     } catch (err) {
       log.error({ phone, err }, "falha ao registrar a resposta do assistente");
     }

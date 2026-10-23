@@ -20,6 +20,7 @@ let fake: FakeCalendar;
 let events: InboxEvent[];
 let revoked: string[];
 let revokeFails: boolean;
+let googleConfigured: boolean;
 
 before(async () => {
   testDb = await createTestDb();
@@ -32,6 +33,7 @@ beforeEach(async () => {
   events = [];
   revoked = [];
   revokeFails = false;
+  googleConfigured = true;
   connection = createConnectionStore({ db: testDb.db as never, publish: (e) => events.push(e) });
   fake = createFakeCalendar({
     calendars: [
@@ -48,6 +50,7 @@ beforeEach(async () => {
       calendar: fake.gateway,
       rules: createRulesStore(testDb.db as never),
       buildConnectUrl: () => "https://accounts.google.com/o/oauth2/v2/auth?state=x",
+      googleConfigured: () => googleConfigured,
       revoke: async (token) => {
         revoked.push(token);
         if (revokeFails) throw new Error("Google fora do ar");
@@ -97,6 +100,13 @@ test("POST /api/calendar/connect devolve a URL do Google", async () => {
   assert.match(res.json().url, /^https:\/\/accounts\.google\.com\//);
 });
 
+test("POST /api/calendar/connect sem credenciais reais do Google: 503 google_not_configured", async () => {
+  googleConfigured = false;
+  const res = await send("POST", "/api/calendar/connect", {});
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(res.json(), { error: "google_not_configured" });
+});
+
 test("GET /api/calendar/calendars: 409 desconectada, lista conectada e 502 com o Google fora", async () => {
   assert.deepEqual((await get("/api/calendar/calendars")).json(), { error: "calendar_disconnected" });
   assert.equal((await get("/api/calendar/calendars")).statusCode, 409);
@@ -109,6 +119,17 @@ test("GET /api/calendar/calendars: 409 desconectada, lista conectada e 502 com o
   const failed = await get("/api/calendar/calendars");
   assert.equal(failed.statusCode, 502);
   assert.deepEqual(failed.json(), { error: "calendar_unavailable" });
+});
+
+test("listar as agendas corrige o fuso gravado se ele mudou no Google", async () => {
+  await connection.save({
+    email: "clinica@gmail.com",
+    refreshToken: "1//token",
+    scopes: "",
+    calendar: { id: "primary", name: "clinica@gmail.com", timeZone: "UTC" },
+  });
+  await get("/api/calendar/calendars");
+  assert.equal((await get("/api/calendar")).json().connection.timeZone, "America/Bahia");
 });
 
 test("PUT /api/calendar/selection troca a agenda; agenda fora da lista dá 422", async () => {

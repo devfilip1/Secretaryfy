@@ -1,9 +1,11 @@
-// Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md e specs/003-google-calendar-scheduling/contracts/panel-api.md
+// Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
+// e specs/004-whatsapp-anti-ban/contracts/panel-api.md
 
 // "system": registros do Secretaryfy no histórico, como um agendamento feito pelo assistente
 export type Origin = "customer" | "assistant" | "operator" | "phone" | "system";
 export type MessageType = "text" | "audio" | "image" | "video" | "document" | "sticker" | "location" | "contact" | "other";
-export type MessageStatus = "received" | "sending" | "sent" | "failed";
+// "blocked": a proteção do número não enviou; o código do motivo vem em `error` (specs/004)
+export type MessageStatus = "received" | "sending" | "sent" | "failed" | "blocked";
 
 export interface Conversation {
   id: string;
@@ -14,6 +16,8 @@ export interface Conversation {
   unreadCount: number;
   assistantPaused: boolean;
   needsAttention: boolean;
+  /** O cliente pediu para não receber mensagens (specs/004) */
+  optedOut: boolean;
 }
 
 export interface Message {
@@ -31,6 +35,19 @@ export interface Connection {
   number: string | null;
   qr: string | null;
 }
+
+/** Estado da proteção do número (specs/004-whatsapp-anti-ban/contracts/panel-api.md). */
+export interface Protection {
+  state: "normal" | "warmup" | "paused";
+  pausedUntil: string | null;
+  reason: "send_failures" | "connection_drops" | null;
+  warmupUntil: string | null;
+  limits: { perMinute: number; perHour: number; conversationsPerDay: number };
+  usage: { lastMinute: number; lastHour: number; conversationsToday: number };
+}
+
+/** Riscos que o operador precisa confirmar antes de enviar (409 risk_confirmation_required). */
+export type SendRisk = "cold_contact" | "opted_out" | "protection_paused";
 
 export class ApiError extends Error {
   constructor(
@@ -88,9 +105,21 @@ export const listMessages = (id: string, { before, limit = 50 }: { before?: stri
 export const markRead = (id: string) => request<void>("POST", `/api/conversations/${id}/read`, {});
 export const setPaused = (id: string, assistantPaused: boolean) =>
   request<Conversation>("PATCH", `/api/conversations/${id}`, { assistantPaused });
-export const sendMessage = (id: string, text: string) =>
-  request<{ message: Message }>("POST", `/api/conversations/${id}/messages`, { text });
-export const retryMessage = (id: string) => request<{ message: Message }>("POST", `/api/messages/${id}/retry`, {});
+export const sendMessage = (id: string, text: string, confirmRisk = false) =>
+  request<{ message: Message }>("POST", `/api/conversations/${id}/messages`, confirmRisk ? { text, confirmRisk } : { text });
+export const retryMessage = (id: string, confirmRisk = false) =>
+  request<{ message: Message }>("POST", `/api/messages/${id}/retry`, confirmRisk ? { confirmRisk } : {});
+export const reactivateMessages = (id: string) => request<Conversation>("PATCH", `/api/conversations/${id}`, { optedOut: false });
+
+/** Riscos de um 409 risk_confirmation_required, ou null se o erro for outro. */
+export function risksOf(err: unknown): SendRisk[] | null {
+  if (!(err instanceof ApiError) || err.error !== "risk_confirmation_required") return null;
+  return Array.isArray(err.body.risks) ? (err.body.risks as SendRisk[]) : [];
+}
+
+// --- Proteção do número (specs/004-whatsapp-anti-ban/contracts/panel-api.md) ---
+
+export const getProtection = () => request<Protection>("GET", "/api/protection");
 
 // --- Agenda (specs/003-google-calendar-scheduling/contracts/panel-api.md) ---
 

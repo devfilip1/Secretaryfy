@@ -118,3 +118,24 @@ test("mensagens do mesmo segundo saem na ordem em que chegaram", async () => {
   const older = await repo.listMessages(conv.id, { before: messages[0].id, limit: 2 });
   assert.deepEqual(older.messages.map((m) => m.text), ["texto"]);
 });
+
+// --- Proteção do número (specs/004) ---
+
+test("mensagens do cliente desde a última resposta enviada, em ordem", async () => {
+  const conv = await conversation();
+  const msg = (origin: "customer" | "assistant", text: string, min: number, status: "received" | "sent" | "failed" = "received") =>
+    repo.insertMessage({ conversationId: conv.id, waMessageId: `W${text}`, origin, type: "text", text, status, sentAt: at(min) });
+  await msg("customer", "antes", 1);
+  await msg("assistant", "resposta", 2, "sent");
+  await msg("customer", "oi", 3);
+  await msg("assistant", "falhou", 4, "failed");
+  await msg("customer", "tudo bem?", 5);
+  assert.deepEqual((await repo.customerMessagesSinceLastReply(conv.id)).map((m) => m.text), ["oi", "tudo bem?"]);
+});
+
+test("o contexto do modelo ignora as respostas bloqueadas pela proteção", async () => {
+  const conv = await conversation();
+  await repo.insertMessage({ conversationId: conv.id, origin: "customer", type: "text", text: "Oi", status: "received", sentAt: at(1) });
+  await repo.insertMessage({ conversationId: conv.id, origin: "assistant", type: "text", text: "bloqueada", status: "blocked", error: "duplicate", sentAt: at(2) });
+  assert.deepEqual((await repo.recentTexts(conv.id, 10)).map((r) => r.text), ["Oi"]);
+});

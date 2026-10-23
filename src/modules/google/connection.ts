@@ -96,6 +96,18 @@ export function createConnectionStore({ db, publish }: { db: Db; publish: Publis
       return changed(r);
     },
 
+    /**
+     * Acompanha a agenda escolhida no Google: se o fuso ou o nome mudaram lá, atualiza aqui. Devolve true se mudou.
+     * O fuso gravado na conexão é o que o agendamento usa para todos os horários.
+     */
+    async syncCalendar(calendars: { id: string; name: string; timeZone: string }[]): Promise<boolean> {
+      const r = await row();
+      const current = r && calendars.find((c) => c.id === r.calendarId);
+      if (!current || (current.timeZone === r.timeZone && current.name === r.calendarName)) return false;
+      await this.selectCalendar(current);
+      return true;
+    },
+
     async selectCalendar(calendar: { id: string; name: string; timeZone: string }): Promise<CalendarConnectionJson> {
       const [r] = await db
         .update(calendarConnection)

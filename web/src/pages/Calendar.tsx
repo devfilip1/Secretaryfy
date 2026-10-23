@@ -80,8 +80,12 @@ export function CalendarPage() {
     setBusy(true);
     try {
       window.location.href = (await connectCalendar()).url;
-    } catch {
-      setError("Não foi possível iniciar a conexão com o Google.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.error === "google_not_configured"
+          ? "As credenciais do Google não estão configuradas no servidor. Preencha GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env com as do Google Cloud Console e reinicie o servidor."
+          : "Não foi possível iniciar a conexão com o Google.",
+      );
       setBusy(false);
     }
   }
@@ -151,8 +155,16 @@ export function CalendarPage() {
               <p>
                 Conta: <strong>{connection.email}</strong>
                 <br />
-                <span className="muted small">Fuso da agenda: {connection.timeZone}</span>
+                <span className="muted small">
+                  Fuso dos horários: <strong>{connection.timeZone}</strong>
+                </span>
               </p>
+              {/^(UTC|Etc\/)/.test(connection.timeZone) && (
+                <div className="flash bad">
+                  A agenda está em {connection.timeZone}: os horários oferecidos aos clientes serão calculados nesse fuso.
+                  Ajuste o fuso da agenda nas configurações do Google Agenda e recarregue esta página.
+                </div>
+              )}
               <label className="field">
                 Agenda usada para os agendamentos
                 <select

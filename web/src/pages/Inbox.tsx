@@ -27,6 +27,11 @@ export function Inbox({ connected }: { connected: boolean }) {
 
   useInboxEvents((event) => {
     if (event.type === "reconnected") load().catch(() => {});
+    if (event.type === "conversations.cleared") {
+      setConversations([]);
+      setSelectedId(null);
+      return;
+    }
     if (event.type !== "conversation.updated") return;
     const updated = event.conversation;
     setConversations((list) => {

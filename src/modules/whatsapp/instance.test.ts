@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { InboxEvent } from "../inbox/events.js";
-import { AlreadyConnected, createInstanceManager, EvolutionError } from "./instance.js";
+import { AlreadyConnected, createInstanceManager, EvolutionError, TooManyAttempts } from "./instance.js";
 
 const env = {
   EVOLUTION_API_URL: "http://evo",
@@ -167,4 +167,15 @@ test("com WEBHOOK_BASE_URL, o webhook usa esse endereço em vez de PUBLIC_URL", 
     (set?.body as { webhook: { url: string } }).webhook.url,
     "http://host.docker.internal:3000/webhooks/evolution?token=token-0000000000",
   );
+});
+
+test("mais de 5 pedidos de QR em 10 minutos: TooManyAttempts, com o horário da próxima vaga (specs/004 FR-029)", async () => {
+  const { m, evo } = manager({
+    [STATE]: () => ({ body: { instance: { state: "close" } } }),
+    "POST /webhook/set/secretaryfy": () => ({}),
+    "GET /instance/connect/secretaryfy": () => ({ body: { base64: "data:image/png;base64,QR" } }),
+  });
+  for (let i = 0; i < 5; i++) await m.prepareQr();
+  await assert.rejects(m.prepareQr(), (err: unknown) => err instanceof TooManyAttempts && err.retryAt > new Date());
+  assert.equal(evo.calls.filter((c) => c.path === "/instance/connect/secretaryfy").length, 5);
 });

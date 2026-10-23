@@ -41,6 +41,7 @@ test("formato do contrato", () => {
       unreadCount: 2,
       assistantPaused: false,
       needsAttention: true,
+      optedOut: false,
     },
   );
   assert.deepEqual(

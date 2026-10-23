@@ -10,6 +10,8 @@ export interface ConversationJson {
   unreadCount: number;
   assistantPaused: boolean;
   needsAttention: boolean;
+  /** O cliente pediu para não receber mensagens (specs/004) */
+  optedOut: boolean;
 }
 
 export interface MessageJson {
@@ -46,7 +48,7 @@ export function previewOf({ type, text }: { type: MessageType; text: string | nu
   return full.length > PREVIEW_MAX ? `${full.slice(0, PREVIEW_MAX - 1)}…` : full;
 }
 
-export function presentConversation(row: ConversationRow): ConversationJson {
+export function presentConversation(row: ConversationRow, optedOut = false): ConversationJson {
   return {
     id: row.id,
     phone: row.phone,
@@ -56,6 +58,7 @@ export function presentConversation(row: ConversationRow): ConversationJson {
     unreadCount: row.unreadCount,
     assistantPaused: row.assistantPaused,
     needsAttention: row.needsAttention,
+    optedOut,
   };
 }
 

@@ -35,9 +35,66 @@ const envSchema = z.object({
   // Painel web: sem a senha, o painel fica desligado
   OPERATOR_PASSWORD: z.string().min(12, "OPERATOR_PASSWORD deve ter pelo menos 12 caracteres").optional(),
   DATABASE_URL_TEST: z.url().optional(),
+
+  // Proteção do número contra banimento (specs/004, data-model.md#configuração)
+  ANTIBAN_READ_MIN_MS: count(2000),
+  ANTIBAN_READ_MAX_MS: count(8000),
+  ANTIBAN_THINK_MIN_MS: count(1000),
+  ANTIBAN_THINK_MAX_MS: count(3000),
+  ANTIBAN_TYPING_MIN_MS: count(2000),
+  ANTIBAN_TYPING_MAX_MS: count(12000),
+  ANTIBAN_DEBOUNCE_MS: count(4000),
+  ANTIBAN_PER_MINUTE: count(8),
+  ANTIBAN_PER_HOUR: count(200),
+  ANTIBAN_GAP_MIN_MS: count(2000),
+  ANTIBAN_GAP_MAX_MS: count(6000),
+  ANTIBAN_CONVERSATIONS_PER_DAY: count(150),
+  ANTIBAN_QUEUE_MAX_AGE_MS: count(300000),
+  ANTIBAN_MAX_UNANSWERED: count(3),
+  ANTIBAN_LOOP_FAST_REPLY_MS: count(3000),
+  ANTIBAN_LOOP_FAST_REPLIES: count(5),
+  ANTIBAN_LOOP_BURST: count(20),
+  ANTIBAN_LOOP_BURST_WINDOW_MS: count(600000),
+  ANTIBAN_DUPLICATE_WINDOW_MS: count(1800000),
+  ANTIBAN_ALLOWED_LINK_DOMAINS: z
+    .string()
+    .default("")
+    .transform((v) => v.split(",").map((d) => d.trim().toLowerCase()).filter(Boolean)),
+  ANTIBAN_WARMUP_DAYS: count(14),
+  ANTIBAN_WARMUP_CONVERSATIONS_PER_DAY: count(30),
+  ANTIBAN_WARMUP_PER_MINUTE: count(4),
+  ANTIBAN_RETRY_MIN_INTERVAL_MS: count(30000),
+  ANTIBAN_BREAKER_FAILURES: count(5),
+  ANTIBAN_BREAKER_FAILURE_WINDOW_MS: count(600000),
+  ANTIBAN_BREAKER_DROPS: count(3),
+  ANTIBAN_BREAKER_DROP_WINDOW_MS: count(1800000),
+  ANTIBAN_BREAKER_PAUSE_MS: count(1800000),
+  ANTIBAN_QR_ATTEMPTS: count(5),
+  ANTIBAN_QR_WINDOW_MS: count(600000),
 });
 
-const parsed = envSchema.safeParse(process.env);
+/** Inteiro não negativo com padrão. */
+function count(fallback: number) {
+  return z.coerce.number().int().nonnegative().default(fallback);
+}
+
+// Pares mínimo ≤ máximo, e aquecimento ≤ normal
+const ANTIBAN_RANGES = [
+  ["ANTIBAN_READ_MIN_MS", "ANTIBAN_READ_MAX_MS"],
+  ["ANTIBAN_THINK_MIN_MS", "ANTIBAN_THINK_MAX_MS"],
+  ["ANTIBAN_TYPING_MIN_MS", "ANTIBAN_TYPING_MAX_MS"],
+  ["ANTIBAN_GAP_MIN_MS", "ANTIBAN_GAP_MAX_MS"],
+  ["ANTIBAN_WARMUP_PER_MINUTE", "ANTIBAN_PER_MINUTE"],
+  ["ANTIBAN_WARMUP_CONVERSATIONS_PER_DAY", "ANTIBAN_CONVERSATIONS_PER_DAY"],
+] as const;
+
+const parsed = envSchema
+  .superRefine((v, ctx) => {
+    for (const [low, high] of ANTIBAN_RANGES) {
+      if (v[low] > v[high]) ctx.addIssue({ code: "custom", path: [low], message: `${low} não pode ser maior que ${high}` });
+    }
+  })
+  .safeParse(process.env);
 if (!parsed.success) {
   console.error("Variáveis de ambiente inválidas:\n" + z.prettifyError(parsed.error));
   process.exit(1);

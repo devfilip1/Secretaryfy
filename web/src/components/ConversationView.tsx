@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { listMessages, markRead, retryMessage, setPaused, type Conversation, type Message } from "../api";
+import {
+  listMessages,
+  markRead,
+  reactivateMessages,
+  retryMessage,
+  risksOf,
+  setPaused,
+  type Conversation,
+  type Message,
+  type SendRisk,
+} from "../api";
 import { formatPhone } from "../format";
 import { useInboxEvents } from "../useEvents";
 import { Composer } from "./Composer";
+import { RiskDialog } from "./RiskDialog";
 import { MessageBubble } from "./MessageBubble";
 
 const NEAR_BOTTOM_PX = 120;
@@ -34,6 +45,8 @@ export function ConversationView({
   const stickToBottom = useRef(true);
   const restoreFrom = useRef<number | null>(null);
   const loadingOlder = useRef(false);
+  // Reenvio que espera o operador confirmar os riscos de banimento (specs/004)
+  const [retryRisks, setRetryRisks] = useState<{ message: Message; risks: SendRisk[] } | null>(null);
 
   const conversation = fromList ?? header;
 
@@ -96,15 +109,22 @@ export function ConversationView({
     setHeader(updated);
   }
 
-  async function onRetry(message: Message) {
+  async function onRetry(message: Message, confirmRisk = false) {
+    setRetryRisks(null);
     setMessages((list) => merge(list, [{ ...message, status: "sending", error: null }]));
     try {
-      const { message: result } = await retryMessage(message.id);
+      const { message: result } = await retryMessage(message.id, confirmRisk);
       setMessages((list) => merge(list, [result]));
     } catch (err) {
+      const risks = risksOf(err);
+      if (risks) setRetryRisks({ message, risks });
       const body = (err as { body?: { message?: Message } }).body;
       setMessages((list) => merge(list, [body?.message ?? message]));
     }
+  }
+
+  async function reactivate() {
+    setHeader(await reactivateMessages(conversationId));
   }
 
   function onSent(message: Message) {
@@ -137,6 +157,12 @@ export function ConversationView({
           ⚠️ O assistente não entendeu o cliente e foi pausado. Responda por aqui ou reative o assistente.
         </div>
       )}
+      {conversation?.optedOut && (
+        <div className="opted-out-banner" role="status">
+          🚫 O cliente pediu para não receber mensagens. O assistente não responde este número.
+          <button onClick={reactivate}>Reativar</button>
+        </div>
+      )}
 
       <div className="messages" ref={scroller} onScroll={onScroll}>
         {hasMore && <p className="muted small center">Role para cima para ver mensagens anteriores</p>}
@@ -148,6 +174,13 @@ export function ConversationView({
       </div>
 
       <Composer conversationId={conversationId} connected={connected} onSent={onSent} />
+      {retryRisks && (
+        <RiskDialog
+          risks={retryRisks.risks}
+          onCancel={() => setRetryRisks(null)}
+          onConfirm={() => void onRetry(retryRisks.message, true)}
+        />
+      )}
     </section>
   );
 }
