@@ -43,6 +43,10 @@ export const conversations = pgTable(
     assistantPaused: boolean("assistant_paused").notNull().default(false),
     // O assistente desistiu de entender o cliente e a conversa espera o operador (specs/003, FR-024b)
     needsAttention: boolean("needs_attention").notNull().default(false),
+    // Nome que o cliente disse na conversa; `name` é o do perfil do WhatsApp (specs/005, research.md R1)
+    customerName: text("customer_name"),
+    // Quando o assistente pediu o nome fora do agendamento; impede pedir de novo (specs/005 FR-005)
+    nameAskedAt: timestamp("name_asked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("conversations_last_message_at_idx").on(t.lastMessageAt.desc())],
@@ -115,24 +119,48 @@ export const schedulingRules = pgTable(
   (t) => [check("scheduling_rules_single_row", sql`${t.id} = 1`)],
 );
 
-export const appointmentStatus = pgEnum("appointment_status", ["booked", "cancelled"]);
+/** Cadastro de clientes: quem já confirmou um horário. Sem FK para as conversas, sobrevive à limpeza (specs/005). */
+export const customers = pgTable("customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  phone: text("phone").notNull().unique(),
+  name: text("name").notNull(),
+  // Anotações livres da clínica, só para o painel; nunca chegam ao assistente (specs/006 FR-010)
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
-/** Agendamentos feitos pelo assistente. O Google Agenda é a fonte da verdade (FR-018a). */
+export const appointmentStatus = pgEnum("appointment_status", ["booked", "cancelled"]);
+// Lembrete 24 h antes (specs/006, data-model.md)
+export const reminderStatus = pgEnum("reminder_status", ["pending", "sent", "not_sent", "not_needed"]);
+
+/** Agendamentos feitos pelo assistente ou pelo painel. O Google Agenda é a fonte da verdade (FR-018a). */
 export const appointments = pgTable(
   "appointments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    conversationId: uuid("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
+    // Onde o horário nasceu; apagar a conversa não apaga o horário (specs/006 R1)
+    conversationId: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    // Telefone do cliente: a chave do horário (um futuro por número; a conversa é achada por ele)
+    phone: text("phone").notNull(),
+    origin: text("origin").$type<"assistant" | "panel">().notNull().default("assistant"),
     googleEventId: text("google_event_id").notNull().unique(),
     calendarId: text("calendar_id").notNull(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     customerName: text("customer_name").notNull(),
+    // Serviço do catálogo (specs/005); nulo nos agendamentos anteriores
+    service: text("service"),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
     status: appointmentStatus("status").notNull().default("booked"),
     // customer (pelo WhatsApp) ou calendar (apagado direto no Google)
     cancelledBy: text("cancelled_by"),
+    reminderStatus: reminderStatus("reminder_status").notNull().default("not_needed"),
+    // Último motivo de espera ou de não envio do lembrete (motivos do portão, no_conversation, too_late)
+    reminderReason: text("reminder_reason"),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedBy: text("confirmed_by").$type<"customer" | "operator">(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -140,6 +168,8 @@ export const appointments = pgTable(
     // Segunda barreira contra dois agendamentos no mesmo horário (research.md R9)
     uniqueIndex("appointments_booked_start_uq").on(t.calendarId, t.startsAt).where(sql`${t.status} = 'booked'`),
     index("appointments_conversation_idx").on(t.conversationId, t.startsAt.desc()),
+    index("appointments_phone_idx").on(t.phone, t.startsAt),
+    index("appointments_reminder_idx").on(t.reminderStatus, t.startsAt),
   ],
 );
 
@@ -151,10 +181,14 @@ export const schedulingStep = pgEnum("scheduling_step", [
   "offer_reschedule",
   "confirm_cancel",
   "confirm_reschedule",
+  "choose_service",
 ]);
 
-/** Opção numerada oferecida ao cliente: um dia (YYYY-MM-DD) ou um horário (ISO). */
-export type SessionOption = { n: number; kind: "day"; date: string } | { n: number; kind: "slot"; start: string };
+/** Opção numerada oferecida ao cliente: um dia (YYYY-MM-DD), um horário (ISO) ou um serviço do catálogo. */
+export type SessionOption =
+  | { n: number; kind: "day"; date: string }
+  | { n: number; kind: "slot"; start: string }
+  | { n: number; kind: "service"; service: string };
 
 /** Etapa do agendamento em andamento numa conversa (data-model.md). */
 export const schedulingSessions = pgTable("scheduling_sessions", {
@@ -166,6 +200,7 @@ export const schedulingSessions = pgTable("scheduling_sessions", {
   options: jsonb("options").$type<SessionOption[]>().notNull().default([]),
   selectedStart: timestamp("selected_start", { withTimezone: true }),
   customerName: text("customer_name"),
+  service: text("service"),
   appointmentId: uuid("appointment_id").references(() => appointments.id, { onDelete: "set null" }),
   misunderstoodCount: integer("misunderstood_count").notNull().default(0),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -202,9 +237,12 @@ export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;
 export type ConnectedNumberRow = typeof connectedNumbers.$inferSelect;
 export type ProtectionStateRow = typeof protectionState.$inferSelect;
 
+export type CustomerRow = typeof customers.$inferSelect;
+
 export type CalendarConnectionRow = typeof calendarConnection.$inferSelect;
 export type SchedulingRulesRow = typeof schedulingRules.$inferSelect;
 export type AppointmentRow = typeof appointments.$inferSelect;
+export type ReminderStatus = AppointmentRow["reminderStatus"];
 export type SchedulingSessionRow = typeof schedulingSessions.$inferSelect;
 export type SchedulingStep = SchedulingSessionRow["step"];
 

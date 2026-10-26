@@ -309,7 +309,7 @@ test("o operador reativa quem pediu para sair, mas não marca a saída (US3)", a
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().optedOut, false);
   const history = (await repo.listMessages(conv.id)).messages;
-  assert.ok(history.some((m) => m.origin === "system" && m.text === "✅ Mensagens reativadas pelo operador"));
+  assert.ok(history.some((m) => m.origin === "system" && m.text === "✅ Messages reactivated by the operator"));
 });
 
 test("limpar as conversas ao desconectar não esquece quem pediu para sair", async () => {
@@ -326,4 +326,31 @@ test("pedidos de QR demais: 429 too_many_attempts (FR-029)", async () => {
   const res = await post("/api/connection/qr");
   assert.equal(res.statusCode, 429);
   assert.deepEqual(res.json(), { error: "too_many_attempts", retryAt: "2026-10-18T12:10:00.000Z" });
+});
+
+test("apagar todas as conversas pelo painel, sem desconectar o número", async () => {
+  await customerSays("Oi");
+  await customerSays("Olá", undefined, "5511900000002");
+  const res = await app.inject({ method: "DELETE", url: "/api/conversations", cookies: auth });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().deleted, 2);
+  assert.deepEqual((await get("/api/conversations")).json().conversations, []);
+  assert.equal(connection.state, "open");
+});
+
+test("apagar todas as conversas exige login", async () => {
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/conversations" })).statusCode, 401);
+});
+
+test("apagar as conversas ou desconectar não apaga o cadastro de clientes (specs/005 FR-019)", async () => {
+  await execute(sql`delete from customers`);
+  await execute(sql`insert into customers (phone, name) values ('5511999999999', 'Maria')`);
+  await customerSays("Oi");
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/conversations", cookies: auth })).statusCode, 200);
+  await customerSays("Voltei");
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/connection", cookies: auth })).statusCode, 204);
+  const rows = (await execute(sql`select name from customers`)) as unknown as { rows?: unknown[] } | unknown[];
+  const list = Array.isArray(rows) ? rows : (rows.rows ?? []);
+  assert.equal(list.length, 1);
+  await execute(sql`delete from customers`);
 });

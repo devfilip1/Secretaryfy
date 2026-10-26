@@ -1,5 +1,6 @@
 import type { ConversationRow, MessageRow } from "../../db/schema.js";
 import type { BlockReason } from "../antiban/queue.js";
+import type { CustomerRepository } from "../customers/repository.js";
 import type { IncomingMessage } from "../whatsapp/evolution.js";
 import type { Publish } from "./events.js";
 import { presentConversation, presentMessage, previewOf } from "./presenters.js";
@@ -17,11 +18,14 @@ export type SendRisk = "cold_contact" | "opted_out" | "protection_paused";
 export function createInboxService({
   repo,
   publish,
+  customers = { findByPhone: async () => null },
   now = Date.now,
   retryMinIntervalMs = 0,
 }: {
   repo: InboxRepository;
   publish: Publish;
+  /** Cadastro de clientes, para o nome de quem já marcou (specs/005) */
+  customers?: Pick<CustomerRepository, "findByPhone">;
   now?: () => number;
   /** Intervalo mínimo entre duas tentativas de reenviar a mesma mensagem (specs/004 FR-025) */
   retryMinIntervalMs?: number;
@@ -48,6 +52,35 @@ export function createInboxService({
 
   const service = {
     present,
+
+    /**
+     * O nome do cliente: o que ele disse na conversa, ou o do cadastro de clientes. O nome do perfil do WhatsApp não
+     * conta (specs/005, research.md R1).
+     */
+    async knownName(conversation: ConversationRow): Promise<string | null> {
+      return conversation.customerName ?? (await customers.findByPhone(conversation.phone))?.name ?? null;
+    },
+
+    /** O cliente disse o nome: fica na conversa e o painel troca o nome na hora (FR-003, FR-008). */
+    async setCustomerName(conversationId: string, name: string) {
+      return publishRow(await repo.setCustomerName(conversationId, name));
+    },
+
+    async setCustomerNameByPhone(phone: string, name: string) {
+      return publishRow(await repo.setCustomerNameByPhone(phone, name));
+    },
+
+    async forgetCustomerName(phone: string) {
+      return publishRow(await repo.forgetCustomerName(phone));
+    },
+
+    async markNameAsked(conversationId: string, at: Date) {
+      await repo.markNameAsked(conversationId, at);
+    },
+
+    async customerMessagesSince(conversationId: string, since: Date) {
+      return repo.customerMessagesSince(conversationId, since);
+    },
     /** Registra uma mensagem vinda da Evolution API (cliente, celular ou eco de um envio do sistema). */
     async recordIncoming(msg: IncomingMessage) {
       const conversation = await repo.upsertConversation({

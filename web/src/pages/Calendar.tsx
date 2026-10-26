@@ -16,22 +16,22 @@ import {
 import { useInboxEvents } from "../useEvents";
 
 const DAYS: { key: DayKey; label: string }[] = [
-  { key: "1", label: "Segunda" },
-  { key: "2", label: "Terça" },
-  { key: "3", label: "Quarta" },
-  { key: "4", label: "Quinta" },
-  { key: "5", label: "Sexta" },
-  { key: "6", label: "Sábado" },
-  { key: "7", label: "Domingo" },
+  { key: "1", label: "Monday" },
+  { key: "2", label: "Tuesday" },
+  { key: "3", label: "Wednesday" },
+  { key: "4", label: "Thursday" },
+  { key: "5", label: "Friday" },
+  { key: "6", label: "Saturday" },
+  { key: "7", label: "Sunday" },
 ];
 
 /** Avisos da volta do Google (?google=... no hash, contracts/panel-api.md). */
 const OAUTH_NOTICES: Record<string, { text: string; ok: boolean }> = {
-  connected: { text: "Agenda conectada.", ok: true },
-  denied: { text: "A autorização foi cancelada na tela do Google. Nada mudou.", ok: false },
-  error: { text: "Não foi possível conectar a agenda. Tente de novo.", ok: false },
+  connected: { text: "Calendar connected.", ok: true },
+  denied: { text: "Authorization was cancelled on the Google screen. Nothing changed.", ok: false },
+  error: { text: "Could not connect the calendar. Please try again.", ok: false },
   missing_scope: {
-    text: "Faltou autorizar o acesso à agenda. Conecte de novo e deixe todas as permissões marcadas.",
+    text: "Calendar access was not authorized. Connect again and keep all permissions checked.",
     ok: false,
   },
 };
@@ -58,7 +58,7 @@ export function CalendarPage() {
         setConnection(s.connection);
         setRules((current) => current ?? s.rules);
       })
-      .catch(() => setError("Não foi possível carregar a agenda."));
+      .catch(() => setError("Could not load the calendar."));
   }, []);
   useEffect(load, [load]);
 
@@ -83,21 +83,21 @@ export function CalendarPage() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.error === "google_not_configured"
-          ? "As credenciais do Google não estão configuradas no servidor. Preencha GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env com as do Google Cloud Console e reinicie o servidor."
-          : "Não foi possível iniciar a conexão com o Google.",
+          ? "Google credentials are not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env with the ones from Google Cloud Console and restart the server."
+          : "Could not start the connection with Google.",
       );
       setBusy(false);
     }
   }
 
   async function disconnect() {
-    if (!window.confirm("Desconectar a agenda? O assistente deixa de oferecer e marcar horários até você conectar de novo.")) return;
+    if (!window.confirm("Disconnect the calendar? The assistant stops offering and booking times until you connect again.")) return;
     setBusy(true);
     try {
       await disconnectCalendar();
       load();
     } catch {
-      setError("Não foi possível desconectar. Tente de novo.");
+      setError("Could not disconnect. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -107,11 +107,11 @@ export function CalendarPage() {
     try {
       setConnection((await selectCalendar(calendarId)).connection);
     } catch {
-      setError("Não foi possível trocar a agenda.");
+      setError("Could not change the calendar.");
     }
   }
 
-  if (!connection || !rules) return <main className="page muted">{error ?? "Carregando…"}</main>;
+  if (!connection || !rules) return <main className="page muted">{error ?? "Loading…"}</main>;
 
   return (
     <main className="page">
@@ -119,7 +119,7 @@ export function CalendarPage() {
         {notice && (
           <div className={`flash ${notice.ok ? "ok" : "bad"}`} role="status">
             {notice.text}
-            <button className="link" onClick={() => setNotice(null)} aria-label="Fechar aviso">
+            <button className="link" onClick={() => setNotice(null)} aria-label="Dismiss notice">
               ×
             </button>
           </div>
@@ -131,42 +131,42 @@ export function CalendarPage() {
         )}
 
         <section className="card wide">
-          <h2>Google Agenda</h2>
+          <h2>Google Calendar</h2>
           {connection.status === "disconnected" ? (
             <>
               <p className="muted">
-                Conecte a agenda da clínica para o assistente consultar os horários livres e marcar avaliações pelo
+                Connect the clinic calendar so the assistant can check free times and book appointments over
                 WhatsApp.
               </p>
               <button className="primary" onClick={connect} disabled={busy}>
-                Conectar Google Agenda
+                Connect Google Calendar
               </button>
             </>
           ) : (
             <>
               {connection.status === "needs_reauth" && (
                 <div className="flash bad">
-                  O Google recusou o acesso à agenda. Reconecte para o assistente voltar a agendar.
+                  Google denied access to the calendar. Reconnect so the assistant can book again.
                   <button className="primary" onClick={connect} disabled={busy}>
-                    Reconectar
+                    Reconnect
                   </button>
                 </div>
               )}
               <p>
-                Conta: <strong>{connection.email}</strong>
+                Account: <strong>{connection.email}</strong>
                 <br />
                 <span className="muted small">
-                  Fuso dos horários: <strong>{connection.timeZone}</strong>
+                  Time zone: <strong>{connection.timeZone}</strong>
                 </span>
               </p>
               {/^(UTC|Etc\/)/.test(connection.timeZone) && (
                 <div className="flash bad">
-                  A agenda está em {connection.timeZone}: os horários oferecidos aos clientes serão calculados nesse fuso.
-                  Ajuste o fuso da agenda nas configurações do Google Agenda e recarregue esta página.
+                  The calendar is set to {connection.timeZone}: times offered to customers will be calculated in that zone.
+                  Change the time zone in the Google Calendar settings and reload this page.
                 </div>
               )}
               <label className="field">
-                Agenda usada para os agendamentos
+                Calendar used for bookings
                 <select
                   value={connection.calendarId}
                   onChange={(e) => choose(e.target.value)}
@@ -176,14 +176,14 @@ export function CalendarPage() {
                     (c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
-                        {c.primary ? " (principal)" : ""}
+                        {c.primary ? " (primary)" : ""}
                       </option>
                     ),
                   )}
                 </select>
               </label>
               <button className="danger" onClick={disconnect} disabled={busy}>
-                Desconectar
+                Disconnect
               </button>
             </>
           )}
@@ -235,8 +235,8 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
 
   return (
     <form className="card wide rules" onSubmit={submit}>
-      <h2>Regras de atendimento</h2>
-      <p className="muted small">O assistente só oferece horários dentro destas regras e livres na agenda.</p>
+      <h2>Business hours</h2>
+      <p className="muted small">The assistant only offers times within these rules that are free on the calendar.</p>
 
       <div className="week">
         {DAYS.map(({ key, label }) => {
@@ -252,20 +252,20 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
                 <>
                   <input
                     type="time"
-                    aria-label={`${label}: início`}
+                    aria-label={`${label}: start`}
                     value={hours.start}
                     onChange={(e) => setDay(key, { start: e.target.value })}
                   />
-                  <span className="muted">às</span>
+                  <span className="muted">to</span>
                   <input
                     type="time"
-                    aria-label={`${label}: fim`}
+                    aria-label={`${label}: end`}
                     value={hours.end}
                     onChange={(e) => setDay(key, { end: e.target.value })}
                   />
                 </>
               ) : (
-                <span className="muted small">Sem atendimento</span>
+                <span className="muted small">Closed</span>
               )}
               {problem && <span className="error small">{problem}</span>}
             </div>
@@ -277,22 +277,22 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
       </div>
 
       <div className="fields">
-        <NumberField label="Duração da consulta (min)" value={rules.slotMinutes} step={5} error={issueAt("slotMinutes")}
+        <NumberField label="Appointment length (min)" value={rules.slotMinutes} step={5} error={issueAt("slotMinutes")}
           onChange={(v) => setNumber("slotMinutes", v)} />
-        <NumberField label="Antecedência mínima para marcar (h)" value={rules.minNoticeMinutes / 60} step={0.5}
+        <NumberField label="Minimum notice to book (h)" value={rules.minNoticeMinutes / 60} step={0.5}
           error={issueAt("minNoticeMinutes")} onChange={(v) => setNumber("minNoticeMinutes", Math.round(v * 60))} />
-        <NumberField label="Marcar até quantos dias à frente" value={rules.maxDaysAhead} step={1}
+        <NumberField label="Book up to how many days ahead" value={rules.maxDaysAhead} step={1}
           error={issueAt("maxDaysAhead")} onChange={(v) => setNumber("maxDaysAhead", v)} />
-        <NumberField label="Cancelar ou remarcar até (h antes)" value={rules.cancelNoticeMinutes / 60} step={1}
+        <NumberField label="Cancel or reschedule up to (h before)" value={rules.cancelNoticeMinutes / 60} step={1}
           error={issueAt("cancelNoticeMinutes")} onChange={(v) => setNumber("cancelNoticeMinutes", Math.round(v * 60))} />
       </div>
 
       <div className="form-actions">
         <button className="primary" type="submit" disabled={status === "saving"}>
-          {status === "saving" ? "Salvando…" : "Salvar regras"}
+          {status === "saving" ? "Saving…" : "Save rules"}
         </button>
-        {status === "saved" && <span className="ok-text small">Regras salvas.</span>}
-        {status === "error" && <span className="error small">Revise os campos destacados.</span>}
+        {status === "saved" && <span className="ok-text small">Rules saved.</span>}
+        {status === "error" && <span className="error small">Check the highlighted fields.</span>}
       </div>
     </form>
   );

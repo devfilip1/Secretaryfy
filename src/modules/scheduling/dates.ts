@@ -133,12 +133,6 @@ export function formatDayTime(at: Date, timeZone: string): string {
   return `${formatDay(at, timeZone)} at ${formatTime(at, timeZone)}`;
 }
 
-/** "qua, 21/10 às 10:00" (registros no painel). */
-export function formatPtBr(at: Date, timeZone: string): string {
-  const dt = DateTime.fromJSDate(at, { zone: timeZone }).setLocale("pt-BR");
-  return `${dt.toFormat("ccc").replace(/\.$/, "")}, ${dt.toFormat("dd/LL 'às' HH:mm")}`;
-}
-
 /** Aceita um Date ou uma data YYYY-MM-DD (que já está no fuso da clínica). */
 function toZoned(at: Date | string, timeZone: string): DateTime {
   return typeof at === "string" ? DateTime.fromISO(at, { zone: timeZone }) : DateTime.fromJSDate(at, { zone: timeZone });

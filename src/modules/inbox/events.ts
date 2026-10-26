@@ -15,6 +15,10 @@ export type InboxEvent =
   | { type: "message.updated"; conversationId: string; message: MessageJson }
   | { type: "conversation.updated"; conversation: ConversationJson }
   | { type: "conversations.cleared" }
+  /** O cadastro de clientes mudou (cliente novo, nome atualizado ou exclusão): o painel busca a lista de novo */
+  | { type: "customers.updated" }
+  /** Um horário foi marcado, remarcado, cancelado ou confirmado, ou o lembrete mudou: a aba de agendamentos busca a lista */
+  | { type: "appointments.updated" }
   | ({ type: "connection.updated" } & ConnectionJson)
   | { type: "calendar.updated"; connection: CalendarConnectionJson }
   | ({ type: "protection.updated" } & ProtectionJson);

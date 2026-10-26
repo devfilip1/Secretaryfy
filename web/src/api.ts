@@ -102,6 +102,8 @@ export const listMessages = (id: string, { before, limit = 50 }: { before?: stri
   );
 };
 
+/** Apaga todas as conversas e as mensagens delas (o número continua conectado). */
+export const clearConversations = () => request<{ deleted: number }>("DELETE", "/api/conversations");
 export const markRead = (id: string) => request<void>("POST", `/api/conversations/${id}/read`, {});
 export const setPaused = (id: string, assistantPaused: boolean) =>
   request<Conversation>("PATCH", `/api/conversations/${id}`, { assistantPaused });
@@ -160,3 +162,67 @@ export const listCalendars = () => request<{ calendars: CalendarOption[] }>("GET
 export const selectCalendar = (calendarId: string) => request<CalendarState>("PUT", "/api/calendar/selection", { calendarId });
 export const saveRules = (rules: CalendarRules) => request<CalendarState>("PUT", "/api/calendar/rules", rules);
 export const disconnectCalendar = () => request<void>("DELETE", "/api/calendar");
+
+// --- Clientes (cadastro feito pelo assistente, specs/005) ---
+
+export interface CustomerAppointment {
+  startsAt: string;
+  service: string | null;
+  status: "booked" | "cancelled";
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Anotações livres da clínica (specs/006) */
+  notes: string | null;
+  /** Conversa do telefone no painel, se houver */
+  conversationId: string | null;
+  /** Mais recentes primeiro */
+  appointments: CustomerAppointment[];
+}
+
+export const listCustomers = () => request<{ customers: Customer[] }>("GET", "/api/customers");
+/** Exclui o cadastro; os agendamentos e o Google Agenda não mudam. */
+export const deleteCustomer = (id: string) => request<void>("DELETE", `/api/customers/${id}`);
+/** Edita nome e/ou anotações; `calendarUpdated` é false se algum título na agenda não pôde ser trocado. */
+export const updateCustomer = (id: string, patch: { name?: string; notes?: string | null }) =>
+  request<{ customer: Customer; calendarUpdated: boolean }>("PATCH", `/api/customers/${id}`, patch);
+
+// --- Agendamentos (specs/006-panel-appointments-reminders/contracts/panel-api.md) ---
+
+export type ReminderLabel = "confirmed" | "scheduled" | "remind_manually" | "waiting" | "sent" | "not_sent" | "not_needed";
+
+export interface Appointment {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  group: "today" | "tomorrow" | "week";
+  customerName: string;
+  service: string | null;
+  phone: string;
+  customerId: string | null;
+  notes: string | null;
+  conversationId: string | null;
+  origin: "assistant" | "panel";
+  reminder: { label: ReminderLabel; reason: string | null; sentAt: string | null };
+  confirmedAt: string | null;
+  confirmedBy: "customer" | "operator" | null;
+}
+
+export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
+export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
+
+export const bookingDays = () => request<{ timeZone: string; days: string[] }>("GET", "/api/booking/days");
+export const bookingSlots = (date: string) => request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}`);
+export const lookupPhone = (phone: string) =>
+  request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
+    "GET",
+    `/api/booking/lookup?phone=${encodeURIComponent(phone)}`,
+  );
+/** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. */
+export const createAppointment = (body: { phone: string; name: string; service: string; start: string }) =>
+  request<{ appointment: Appointment }>("POST", "/api/appointments", body);

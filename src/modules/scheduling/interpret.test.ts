@@ -27,6 +27,7 @@ const days: SessionOption[] = [
 function input(overrides: Partial<InterpretInput> = {}): InterpretInput {
   return {
     text: "",
+    awaitingName: false,
     step: null,
     options: [],
     history: [],
@@ -129,4 +130,114 @@ test("a data citada na frase substitui a data errada do modelo", async () => {
   const r = await interpreter.interpret(input({ text: "Do you have openings on Sunday?" }));
   assert.equal(r.intent, "availability");
   assert.equal(r.date, "2026-10-25");
+});
+
+test("agradecimento ou despedida vira goodbye sem o modelo; com pergunta junto, vai para o modelo", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: null });
+
+  for (const text of ["right, thank you so much, by", "Thanks!", "ok bye", "that's all, thank you, have a nice day", "obrigado"]) {
+    assert.equal((await interpreter.interpret(input({ text }))).intent, "goodbye", text);
+  }
+  // Na confirmação, "ok thanks" continua sendo um sim
+  assert.equal((await interpreter.interpret(input({ text: "ok thanks", step: "confirm_booking" }))).intent, "yes");
+  assert.equal(bodies.length, 0);
+
+  assert.equal((await interpreter.interpret(input({ text: "thanks, and how much is whitening?" }))).intent, "question");
+  assert.equal(bodies.length, 1);
+});
+
+test("nome: 'my name is' em qualquer momento; logo depois do pedido, 'I'm X' ou só o nome", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: null });
+  const name = async (text: string, awaitingName = false) => {
+    const r = await interpreter.interpret(input({ text, awaitingName }));
+    return r.intent === "give_name" ? r.name : null;
+  };
+
+  assert.equal(await name("My name is maria souza"), "Maria Souza");
+  assert.equal(await name("call me Bia!"), "Bia");
+  assert.equal(await name("I'm Maria", true), "Maria");
+  assert.equal(await name("it's maria", true), "Maria");
+  assert.equal(await name("maria", true), "Maria");
+  assert.equal(await name("Maria Clara Souza", true), "Maria Clara Souza");
+  assert.equal(bodies.length, 0);
+});
+
+test("nome: o que não é nome vai para o modelo e não vira nome", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: null });
+  for (const text of ["why?", "no", "hello", "Braces", "how much is it", "👍", "Maria Clara de Souza Lima Santos"]) {
+    const r = await interpreter.interpret(input({ text, awaitingName: true }));
+    assert.notEqual(r.intent, "give_name", text);
+    assert.equal(r.name, null, text);
+  }
+  // Sem o pedido de nome, uma palavra solta não é nome
+  assert.notEqual((await interpreter.interpret(input({ text: "Maria" }))).intent, "give_name");
+  assert.ok(bodies.length > 0);
+});
+
+test("nome junto de outra intenção vem do modelo só logo depois do pedido", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: "maria" });
+  const after = await interpreter.interpret(input({ text: "I'm Maria, how much is whitening?", awaitingName: true }));
+  assert.equal(after.intent, "question");
+  assert.equal(after.name, "Maria");
+  assert.match(bodies[0].messages[0].content, /has just asked the customer's name/);
+
+  const without = await interpreter.interpret(input({ text: "how much is whitening for Maria?" }));
+  assert.equal(without.name, null);
+  assert.doesNotMatch(bodies[1].messages[0].content, /has just asked the customer's name/);
+});
+
+test("give_name do modelo sem um nome válido vira unclear", async () => {
+  const { interpreter } = fakeOllama({ intent: "give_name", option: null, date: null, name: "why" });
+  assert.equal((await interpreter.interpret(input({ text: "why do you ask", awaitingName: true }))).intent, "unclear");
+});
+
+// --- specs/005, US2: serviço ---
+
+test("etapa choose_service: número, nome do tratamento ou 'não sei', sem o modelo", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+  const pick = async (text: string) => {
+    const r = await interpreter.interpret(input({ text, step: "choose_service" }));
+    return [r.intent, r.service ?? null];
+  };
+  assert.deepEqual(await pick("3"), ["choose_service", "Dental Filling"]);
+  assert.deepEqual(await pick("whitening please"), ["choose_service", "Teeth Whitening"]);
+  assert.deepEqual(await pick("not sure"), ["choose_service", "Assessment"]);
+  assert.deepEqual(await pick("10"), ["unclear", null]);
+  assert.equal(bodies.length, 0);
+});
+
+test("no resumo, citar outro tratamento troca o serviço; sim continua sim", async () => {
+  const { interpreter } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+  const r = await interpreter.interpret(input({ text: "actually I want a cleaning", step: "confirm_booking" }));
+  assert.equal(r.intent, "choose_service");
+  assert.equal(r.service, "Dental Cleaning");
+  assert.equal((await interpreter.interpret(input({ text: "yes", step: "confirm_booking" }))).intent, "yes");
+});
+
+test("choose_service do modelo só vale com um serviço do catálogo", async () => {
+  const ok = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "teeth whitening" });
+  const r = await ok.interpreter.interpret(input({ text: "the white one", step: "choose_service" }));
+  assert.equal(r.intent, "choose_service");
+  assert.equal(r.service, "Teeth Whitening");
+  const bad = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "hair transplant" });
+  assert.equal((await bad.interpreter.interpret(input({ text: "the hair one", step: "choose_service" }))).intent, "unclear");
+});
+
+test("resposta ao lembrete (specs/006): YES e variações confirmam, NO recusa, sem chamar o modelo", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+  const reminder = (text: string) => interpreter.interpret(input({ text, awaitingReminder: true }));
+  for (const text of ["YES", "yes!", "Confirmed", "I'll be there", "see you", "ok"]) assert.equal((await reminder(text)).intent, "yes", text);
+  for (const text of ["no", "Nope"]) assert.equal((await reminder(text)).intent, "no", text);
+  assert.equal(bodies.length, 0);
+});
+
+test("sem lembrete, um yes solto não vira sim pelas regras; com lembrete, o prompt explica o contexto", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "cancel", option: null, date: null, name: null });
+  assert.notEqual((await interpreter.interpret(input({ text: "I'll be there" }))).source, "rule");
+  assert.equal(bodies.length, 1);
+  assert.doesNotMatch(bodies[0].messages[0].content, /reminded the customer/);
+
+  const cancel = await interpreter.interpret(input({ text: "cancel my appointment please", awaitingReminder: true }));
+  assert.equal(cancel.intent, "cancel");
+  assert.match(bodies[1].messages[0].content, /reminded the customer of their appointment and asked them to reply YES/);
 });

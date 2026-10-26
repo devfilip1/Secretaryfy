@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findDatesInText, formatDay, formatPtBr, formatTime, parseSimpleDate, parseTimeOfDay } from "./dates.js";
+import { findDatesInText, formatDay, formatTime, parseSimpleDate, parseTimeOfDay } from "./dates.js";
 
 const timeZone = "America/Bahia";
 // Terça-feira, 20/10/2026, 15:00 em Salvador (UTC-3)
@@ -47,7 +47,6 @@ test("formatação no fuso da clínica", () => {
   assert.equal(formatDay(at, timeZone), "Wed, Oct 21");
   assert.equal(formatTime(at, timeZone), "10:00 AM");
   assert.equal(formatTime(new Date("2026-10-21T17:30:00Z"), timeZone), "2:30 PM");
-  assert.equal(formatPtBr(at, timeZone), "qua, 21/10 às 10:00");
 });
 
 test("datas citadas no meio da frase", () => {

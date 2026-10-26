@@ -125,6 +125,19 @@ export function createGoogleCalendar({ connection }: { connection: Pick<Connecti
       });
     },
 
+    renameEvent(eventId, summary) {
+      return withApi("renomear evento", async (api, conn) => {
+        try {
+          await api.events.patch({ calendarId: conn.calendarId, eventId, sendUpdates: "none", requestBody: { summary } }, opts);
+        } catch (err) {
+          const status = statusOf(err);
+          // Apagado no Google: não há título para trocar
+          if (status === 404 || status === 410) return;
+          throw err;
+        }
+      });
+    },
+
     deleteEvent(eventId) {
       return withApi("evento", async (api, conn) => {
         try {

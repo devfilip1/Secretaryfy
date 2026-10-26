@@ -1,5 +1,9 @@
 # Contract: Google Calendar API v3
 
+> **Atualizado pela feature 005:** o título do evento passou a ser `"<nome> — <serviço>"` e a descrição cita o serviço. Ver [specs/005 contracts/google-calendar.md](../../005-customer-name-registry/contracts/google-calendar.md).
+>
+> **Atualizado pela feature 006:** nova chamada `renameEvent` (título do evento quando o nome do cliente é editado no painel) e a descrição do evento passa a dizer se a marcação foi pelo painel. Ver [specs/006 contracts/google-calendar.md](../../006-panel-appointments-reminders/contracts/google-calendar.md).
+
 Chamadas feitas por `src/modules/google/calendar.ts`, com `googleapis@186.0.0` e o cliente OAuth de `src/modules/google/oauth.ts`. Os testes usam uma implementação falsa da mesma interface:
 
 ```ts

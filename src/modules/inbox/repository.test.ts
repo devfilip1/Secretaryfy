@@ -139,3 +139,59 @@ test("o contexto do modelo ignora as respostas bloqueadas pela proteção", asyn
   await repo.insertMessage({ conversationId: conv.id, origin: "assistant", type: "text", text: "bloqueada", status: "blocked", error: "duplicate", sentAt: at(2) });
   assert.deepEqual((await repo.recentTexts(conv.id, 10)).map((r) => r.text), ["Oi"]);
 });
+
+test("nome dito pelo cliente: gravado à parte do nome do perfil e substituído na correção", async () => {
+  const c = await conversation("5511999999999", ".");
+  assert.equal((await repo.setCustomerName(c.id, "Maria"))?.customerName, "Maria");
+  assert.equal((await repo.setCustomerName(c.id, "Mariana"))?.customerName, "Mariana");
+  // Uma nova mensagem com o nome do perfil não apaga o nome dito
+  const again = await repo.upsertConversation({ phone: c.phone, name: "Perfil", at: at(1), preview: "Oi" });
+  assert.equal(again.customerName, "Mariana");
+  assert.equal(again.name, "Perfil");
+});
+
+test("pedido de nome fica registrado uma vez só", async () => {
+  const c = await conversation();
+  await repo.markNameAsked(c.id, at(1));
+  await repo.markNameAsked(c.id, at(9));
+  assert.deepEqual((await repo.findConversation(c.id))?.nameAskedAt, at(1));
+});
+
+test("mensagens do cliente depois de um instante", async () => {
+  const c = await conversation();
+  const say = (id: string, min: number, origin: "customer" | "assistant" = "customer") =>
+    repo.insertMessage({ conversationId: c.id, waMessageId: id, origin, type: "text", text: "x", status: "received", sentAt: at(min) });
+  await say("A", 1);
+  await say("B", 3, "assistant");
+  await say("C", 4);
+  await say("D", 5);
+  assert.equal(await repo.customerMessagesSince(c.id, at(1)), 2);
+  assert.equal(await repo.customerMessagesSince(c.id, at(5)), 0);
+});
+
+test("a busca acha pelo nome dito pelo cliente", async () => {
+  const c = await conversation("5511999999999", ".");
+  await repo.setCustomerName(c.id, "Mariana");
+  assert.deepEqual((await repo.listConversations({ q: "marian" })).map((x) => x.id), [c.id]);
+});
+
+test("cadastro excluído: a conversa do número esquece o nome e o pedido de nome", async () => {
+  const c = await conversation("5511999999999", ".");
+  await repo.setCustomerName(c.id, "Maria");
+  await repo.markNameAsked(c.id, at(1));
+  const row = await repo.forgetCustomerName(c.phone);
+  assert.deepEqual([row?.customerName, row?.nameAskedAt], [null, null]);
+  assert.equal(await repo.forgetCustomerName("5511000000000"), null);
+});
+
+test("conversa pelo telefone: uma só, e o mapa telefone → conversa para as listas do painel", async () => {
+  const a = await conversation("5511999999999", "A");
+  const b = await conversation("5511988887777", "B");
+  assert.equal((await repo.findConversationByPhone(a.phone))?.id, a.id);
+  assert.equal(await repo.findConversationByPhone("5511000000000"), null);
+  const ids = await repo.conversationIdsByPhone([a.phone, b.phone, a.phone, "5511000000000"]);
+  assert.deepEqual([ids.get(a.phone), ids.get(b.phone), ids.has("5511000000000")], [a.id, b.id, false]);
+  assert.deepEqual(await repo.conversationIdsByPhone([]), new Map());
+  assert.equal((await repo.setCustomerNameByPhone(b.phone, "Bia Souza"))?.customerName, "Bia Souza");
+  assert.equal(await repo.setCustomerNameByPhone("5511000000000", "X"), null);
+});

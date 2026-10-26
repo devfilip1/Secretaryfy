@@ -1,5 +1,6 @@
 import { UNAVAILABLE_MESSAGE } from "../whatsapp/handle-message.js";
-import { formatDay, formatDayTime, formatPtBr, formatTime } from "./dates.js";
+import { formatDay, formatDayTime, formatTime } from "./dates.js";
+import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 
 /**
  * Textos enviados ao cliente pelo WhatsApp, em inglês (contracts/conversation.md). O modelo nunca escreve estes textos:
@@ -44,8 +45,20 @@ export const replies = {
     return "What name should I put on the appointment?";
   },
 
-  confirmBooking(start: Date, slotMinutes: number, name: string, tz: string) {
-    return `Please confirm your appointment:\n📅 ${formatDayTime(start, tz)} (${slotMinutes} min)\n👤 ${name}\nReply YES to confirm or NO to choose another time.`;
+  /** Lista numerada dos serviços (specs/005, etapa choose_service). */
+  chooseService() {
+    const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
+    return `Which service is this appointment for?\n${numbered(lines)}\nReply with the number or the name of the service.`;
+  },
+
+  confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
+    return [
+      "Please confirm your appointment:",
+      `📅 ${formatDayTime(start, tz)} (${slotMinutes} min)`,
+      `👤 ${name}`,
+      `🦷 ${serviceLabel(service)}`,
+      "Reply YES to confirm, NO to choose another time, or tell me another service.",
+    ].join("\n");
   },
 
   booked(start: Date, tz: string) {
@@ -97,6 +110,33 @@ export const replies = {
     return "No problem. Let me know if you'd like to book later.";
   },
 
+  /** Última mensagem da primeira resposta a quem ainda não disse o nome (specs/005, contracts/conversation.md). */
+  askNameFollowUp(random: () => number = Math.random) {
+    const options = [
+      "By the way, may I have your name?",
+      "By the way, what's your name?",
+      "Before I forget, may I have your name?",
+    ];
+    return options[Math.floor(random() * options.length)];
+  },
+
+  /** O cliente disse o nome, sem pergunta junto. */
+  nameReceived(name: string, random: () => number = Math.random) {
+    const options = [`Nice to meet you, ${name}! How can I help you?`, `Thanks, ${name}! How can I help you today?`];
+    return options[Math.floor(random() * options.length)];
+  },
+
+  /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */
+  goodbye(random: () => number = Math.random) {
+    const options = [
+      "You're welcome! Have a great day 😊",
+      "Anytime! Take care 😊",
+      "My pleasure! See you soon at DentalSafe.",
+      "Glad I could help! Have a nice day.",
+    ];
+    return options[Math.floor(random() * options.length)];
+  },
+
   unclear(repeat: string) {
     return `Sorry, I didn't get that. ${repeat}`;
   },
@@ -112,14 +152,60 @@ export const replies = {
   interpreterUnavailable() {
     return UNAVAILABLE_MESSAGE;
   },
+
+  /**
+   * Lembrete 24 h antes (specs/006, contracts/conversation.md): três variações, para nunca repetir o último texto
+   * enviado à conversa. O agendador escolhe com gate.pickVariant.
+   */
+  reminder(start: Date, service: string, name: string | null, tz: string): string[] {
+    const when = formatDayTime(start, tz);
+    const label = serviceLabel(service);
+    return [
+      `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at DentalSafe on ${when} (${label}). Please reply YES to confirm.`,
+      `Hello${name ? ` ${name}` : ""}, your ${label} appointment at DentalSafe is on ${when}. Can you confirm you'll be there? Reply YES to confirm.`,
+      `Hi${name ? ` ${name}` : ""}, this is DentalSafe reminding you of your appointment on ${when} for ${label}. Reply YES to confirm, or tell me if you need to reschedule.`,
+    ];
+  },
+
+  /** O cliente respondeu YES ao lembrete. */
+  reminderConfirmed(start: Date, name: string | null, tz: string) {
+    return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatDayTime(start, tz)} is confirmed. See you at DentalSafe.`;
+  },
 };
 
-/** Registros no histórico do painel, em português (origin = system). */
+/** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */
 export const systemNotes = {
-  booked: (start: Date, minutes: number, tz: string) => `📅 Agendado pelo assistente: ${formatPtBr(start, tz)} (${minutes} min)`,
+  booked: (start: Date, minutes: number, tz: string, service: string) =>
+    `📅 Booked by the assistant: ${formatDayTime(start, tz)} (${minutes} min) — ${service}`,
+  bookedFromPanel: (start: Date, minutes: number, tz: string, service: string) =>
+    `📅 Booked from the panel: ${formatDayTime(start, tz)} (${minutes} min) — ${service}`,
   rescheduled: (from: Date, to: Date, tz: string) =>
-    `📅 Remarcado pelo assistente: ${formatPtBr(from, tz).replace(" às ", " ")} → ${formatPtBr(to, tz).replace(" às ", " ")}`,
-  cancelledByCustomer: (start: Date, tz: string) => `📅 Cancelado pelo cliente: ${formatPtBr(start, tz)}`,
-  cancelledInCalendar: (start: Date, tz: string) => `📅 Cancelado na agenda: ${formatPtBr(start, tz)}`,
-  handoff: () => "⚠️ O assistente não entendeu o cliente e foi pausado nesta conversa",
+    `📅 Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
+  cancelledByCustomer: (start: Date, tz: string) => `📅 Cancelled by the customer: ${formatDayTime(start, tz)}`,
+  cancelledInCalendar: (start: Date, tz: string) => `📅 Cancelled in the calendar: ${formatDayTime(start, tz)}`,
+  handoff: () => "⚠️ The assistant did not understand the customer and was paused in this conversation",
+  reminderSent: (start: Date, tz: string) => `🔔 Reminder sent for ${formatDayTime(start, tz)}`,
+  reminderNotSent: (start: Date, reason: string, tz: string) => `🔔 Reminder not sent for ${formatDayTime(start, tz)}: ${reason}`,
+  confirmedByCustomer: (start: Date, tz: string) => `✅ Appointment confirmed by the customer: ${formatDayTime(start, tz)}`,
+  confirmedByOperator: (start: Date, tz: string) => `✅ Appointment confirmed by the operator: ${formatDayTime(start, tz)}`,
 };
+
+/** Por que o lembrete não saiu, no histórico do painel (os mesmos textos dos bloqueios da proteção, specs/004). */
+export const REMINDER_REASONS: Record<string, string> = {
+  outside_window: "the customer has not written in over 24 h",
+  no_conversation: "no WhatsApp conversation with this number",
+  opted_out: "the customer asked not to receive messages",
+  paused: "automatic sending paused by protection",
+  daily_conversations: "daily conversation limit reached",
+  unanswered: "too many messages in a row without a customer reply",
+  loop: "possibly talking to another bot",
+  duplicate: "repeated text",
+  rate_limited: "waited too long in the queue",
+  superseded: "the operator replied first",
+  restart: "server restarted before sending",
+  failed: "WhatsApp send failed",
+  blocked: "blocked by number protection",
+  too_late: "less than 2 hours before the appointment",
+};
+
+export const reminderReasonText = (reason: string | null) => (reason && REMINDER_REASONS[reason]) ?? reason ?? "unknown reason";

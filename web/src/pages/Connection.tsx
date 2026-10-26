@@ -27,14 +27,14 @@ export function ConnectionPage({
         if (err instanceof ApiError && err.error === "already_connected") return;
         if (err instanceof ApiError && err.error === "too_many_attempts") {
           // Tentativas seguidas de conexão também são um sinal para o WhatsApp (specs/004 FR-029)
-          const at = new Date(String(err.body.retryAt)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-          setError(`Muitas tentativas de conexão. Tente de novo às ${at}.`);
+          const at = new Date(String(err.body.retryAt)).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+          setError(`Too many connection attempts. Try again at ${at}.`);
           return;
         }
         setError(
           err instanceof ApiError && err.status === 502
-            ? "Evolution API indisponível. Verifique se ela está no ar."
-            : "Não foi possível gerar o QR code.",
+            ? "Evolution API unavailable. Check that it is running."
+            : "Could not generate the QR code.",
         );
       });
   }, [onChange]);
@@ -47,57 +47,57 @@ export function ConnectionPage({
   }, [loaded]);
 
   async function onDisconnect() {
-    if (!window.confirm("Desconectar este número do Secretaryfy? O assistente deixa de responder até conectar de novo.")) return;
+    if (!window.confirm("Disconnect this number from Secretaryfy? The assistant stops replying until you connect again.")) return;
     setBusy(true);
     try {
       await disconnect();
       onChange({ state: "close", number: null, qr: null });
     } catch {
-      setError("Não foi possível desconectar. Tente de novo.");
+      setError("Could not disconnect. Please try again.");
     } finally {
       setBusy(false);
     }
   }
 
-  if (!connection) return <main className="page muted">Carregando…</main>;
+  if (!connection) return <main className="page muted">Loading…</main>;
 
   return (
     <main className="page">
       <div className="card connection">
         {connected ? (
           <>
-            <h2>WhatsApp conectado</h2>
-            <p className="number">{connection.number ? formatPhone(connection.number) : "Número conectado"}</p>
+            <h2>WhatsApp connected</h2>
+            <p className="number">{connection.number ? formatPhone(connection.number) : "Connected number"}</p>
             <button className="danger" onClick={onDisconnect} disabled={busy}>
-              {busy ? "Desconectando…" : "Desconectar"}
+              {busy ? "Disconnecting…" : "Disconnect"}
             </button>
           </>
         ) : (
           <>
-            <h2>Conectar o WhatsApp</h2>
+            <h2>Connect WhatsApp</h2>
             <ol className="steps">
-              <li>Abra o WhatsApp no celular.</li>
+              <li>Open WhatsApp on your phone.</li>
               <li>
-                Toque em <strong>Aparelhos conectados</strong> e depois em <strong>Conectar aparelho</strong>.
+                Tap <strong>Linked devices</strong>, then <strong>Link a device</strong>.
               </li>
-              <li>Aponte a câmera para o código abaixo.</li>
+              <li>Point the camera at the code below.</li>
             </ol>
             {connection.qr ? (
-              <img className="qr" src={connection.qr} alt="QR code para conectar o WhatsApp" />
+              <img className="qr" src={connection.qr} alt="QR code to connect WhatsApp" />
             ) : connection.state === "close" && !requesting && !error ? (
               <div className="qr placeholder">
-                <button onClick={fetchQr}>Gerar novo QR code</button>
+                <button onClick={fetchQr}>Generate a new QR code</button>
               </div>
             ) : (
-              !error && <div className="qr placeholder">Gerando QR code…</div>
+              !error && <div className="qr placeholder">Generating QR code…</div>
             )}
             {error && (
               <div className="error" role="alert">
                 <p>{error}</p>
-                <button onClick={fetchQr}>Tentar de novo</button>
+                <button onClick={fetchQr}>Try again</button>
               </div>
             )}
-            <p className="muted small">O código é renovado automaticamente.</p>
+            <p className="muted small">The code refreshes automatically.</p>
           </>
         )}
       </div>

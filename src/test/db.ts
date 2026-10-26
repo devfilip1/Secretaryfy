@@ -17,7 +17,7 @@ export async function createTestDb() {
     const client = postgres(url, { onnotice: () => {} });
     const db = drizzlePostgres(client, { schema });
     await migratePostgres(db, { migrationsFolder });
-    await db.execute(sql`truncate table scheduling_sessions, appointments, messages, conversations, calendar_connection, scheduling_rules cascade`);
+    await db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations, calendar_connection, scheduling_rules cascade`);
     return { db, close: () => client.end() };
   }
   const client = new PGlite();

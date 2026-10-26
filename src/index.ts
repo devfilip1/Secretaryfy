@@ -5,14 +5,18 @@ import { sql } from "./db/client.js";
 import { buildConnectUrl, exchangeCode, isGoogleConfigured, revoke } from "./modules/google/oauth.js";
 import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
+import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { instance } from "./modules/whatsapp/instance.js";
 import { connectionStore, googleCalendar, listCalendarsFor, rulesStore } from "./routes/calendar.js";
+import { booking, schedulingStore } from "./routes/scheduling.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
 import { googleOAuthRoutes } from "./routes/google-oauth.js";
 import { healthRoutes } from "./routes/health.js";
-import { antibanRepo, gate, inbox, inboxRepo, useProtectionLogger } from "./routes/inbox.js";
+import { antibanRepo, customerRepo, gate, inbox, inboxRepo, useProtectionLogger } from "./routes/inbox.js";
 import { panelApiRoutes } from "./routes/panel-api.js";
+import { panelAppointmentsRoutes } from "./routes/panel-appointments.js";
 import { panelCalendarRoutes } from "./routes/panel-calendar.js";
+import { panelCustomersRoutes } from "./routes/panel-customers.js";
 import { panelEventsRoutes } from "./routes/panel-events.js";
 import { panelProtectionRoutes } from "./routes/panel-protection.js";
 import { registerPanelAuth } from "./routes/panel-session.js";
@@ -64,6 +68,30 @@ await app.register(
 );
 await app.register(panelProtectionRoutes({ gate }));
 await app.register(
+  panelCustomersRoutes({
+    customers: customerRepo,
+    inbox,
+    inboxRepo,
+    store: schedulingStore,
+    calendar: googleCalendar,
+    publish: bus.publish,
+    log: app.log,
+  }),
+);
+await app.register(
+  panelAppointmentsRoutes({
+    store: schedulingStore,
+    inboxRepo,
+    inbox,
+    customers: customerRepo,
+    calendar: googleCalendar,
+    connection: connectionStore,
+    rules: rulesStore,
+    booking,
+    reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
+  }),
+);
+await app.register(
   panelCalendarRoutes({
     connection: connectionStore,
     calendar: googleCalendar,
@@ -82,9 +110,24 @@ await app.register(
 );
 await app.register(panelStaticRoutes);
 
+// Lembrete pelo WhatsApp antes de cada horário (specs/006 US4)
+const reminders = createReminderScheduler({
+  store: schedulingStore,
+  calendar: googleCalendar,
+  connection: connectionStore,
+  gate,
+  inboxRepo,
+  inbox,
+  log: app.log,
+  leadMinutes: env.REMINDER_LEAD_MINUTES,
+  cutoffMinutes: env.REMINDER_CUTOFF_MINUTES,
+  tickMs: env.REMINDER_TICK_MS,
+});
+
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {
     instance.stopPolling();
+    reminders.stop();
     await app.close();
     await sql.end();
     process.exit(0);
@@ -92,6 +135,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
+reminders.start();
 
 // Estado inicial da conexão; a Evolution API fora do ar não impede o servidor de subir.
 // Já conectado, o número entra no registro do aquecimento (specs/004 FR-023)

@@ -1,16 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listConversations, type Conversation } from "../api";
+import { clearConversations, listConversations, type Conversation } from "../api";
 import { ConversationList } from "../components/ConversationList";
 import { ConversationView } from "../components/ConversationView";
 import { useInboxEvents } from "../useEvents";
 
 const byRecent = (a: Conversation, b: Conversation) => b.lastMessageAt.localeCompare(a.lastMessageAt);
 
+/** Conversa pedida no endereço (#/?c=<id>), vinda da aba de agendamentos ou da ficha do cliente (specs/006). */
+function conversationFromHash(): string | null {
+  const [path, query] = window.location.hash.split("?");
+  return path === "#/" || path === "" ? new URLSearchParams(query).get("c") : null;
+}
+
 export function Inbox({ connected }: { connected: boolean }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelected] = useState<string | null>(conversationFromHash);
   const query = useRef("");
+
+  // Abrir ou fechar uma conversa fica no endereço, sem navegar: voltar para a aba e o link de outra tela funcionam
+  const setSelectedId = useCallback((id: string | null) => {
+    setSelected(id);
+    history.replaceState(null, "", id ? `#/?c=${id}` : "#/");
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      const id = conversationFromHash();
+      if (id) setSelected(id);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   const load = useCallback(async () => {
     const q = query.current;
@@ -48,6 +69,18 @@ export function Inbox({ connected }: { connected: boolean }) {
     load().catch(() => {});
   }
 
+  async function onClearAll() {
+    if (!window.confirm("Delete all conversations and their messages? This cannot be undone.")) return;
+    try {
+      await clearConversations();
+      // O evento conversations.cleared também limpa a lista; aqui não depende dele chegar
+      setConversations([]);
+      setSelectedId(null);
+    } catch {
+      window.alert("Could not delete the conversations. Please try again.");
+    }
+  }
+
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
@@ -58,6 +91,7 @@ export function Inbox({ connected }: { connected: boolean }) {
         selectedId={selectedId}
         onSelect={setSelectedId}
         onSearch={onSearch}
+        onClearAll={onClearAll}
       />
       {selectedId ? (
         <ConversationView
@@ -68,7 +102,7 @@ export function Inbox({ connected }: { connected: boolean }) {
           onClose={() => setSelectedId(null)}
         />
       ) : (
-        <section className="empty-view muted">Selecione uma conversa</section>
+        <section className="empty-view muted">Select a conversation</section>
       )}
     </main>
   );

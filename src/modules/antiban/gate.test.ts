@@ -386,3 +386,32 @@ test("se a espera até visualizar já passou, visualiza na hora, mas ainda pausa
   assert.match(timeline[1], /^envio 21080 /);
 });
 
+
+test("assistantBlockReason: o mesmo motivo que sendAssistant daria, sem gravar nem destacar (specs/006 R4)", async () => {
+  const gate = gateWith({ ...FAST, conversationsPerDay: 1 });
+  const check = (conv: { id: string; phone: string }, text = "Reminder") =>
+    gate.assistantBlockReason({ conversationId: conv.id, phone: conv.phone, text });
+  const count = async (conversationId: string) => (await repo.listMessages(conversationId)).messages.length;
+
+  const ok = await customerSays("5511900000001");
+  assert.equal(await check(ok), null);
+
+  const cold = await customerSays("5511900000002", "Oi", new Date(Date.now() - 25 * 3_600_000));
+  assert.equal(await check(cold), "outside_window");
+
+  const out = await customerSays("5511900000003");
+  await repo.setOptedOut(out.phone, new Date());
+  assert.equal(await check(out), "opted_out");
+
+  // Uma conversa atendida esgota o limite do dia para as outras
+  assert.equal(await ask(gate, ok, "Hello"), "sent");
+  const fresh = await customerSays("5511900000004");
+  assert.equal(await check(fresh), "daily_conversations");
+  assert.equal(await check(ok, "Hello"), "duplicate");
+
+  for (const conv of [cold, out, fresh]) {
+    assert.equal(await count(conv.id), 1, "só a mensagem do cliente");
+    assert.equal((await repo.findConversation(conv.id))?.needsAttention, false);
+  }
+  assert.deepEqual(sent.map((s) => s.text), ["Hello"]);
+});

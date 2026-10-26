@@ -44,7 +44,7 @@ test("envia a pergunta para /answer e devolve a resposta", async () => {
 
   assert.deepEqual(result, ANSWER);
   assert.equal(received.url, "/answer");
-  assert.deepEqual(JSON.parse(received.body!), { question: "How much are braces?" });
+  assert.deepEqual(JSON.parse(received.body!), { question: "How much are braces?", history: [] });
 });
 
 test("status de erro vira RagUnavailableError", async () => {

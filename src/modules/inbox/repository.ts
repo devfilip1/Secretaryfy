@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../../db/schema.js";
 import { contactPreferences, conversations, messages, type ConversationRow, type MessageRow } from "../../db/schema.js";
@@ -20,6 +20,61 @@ function createQueries(db: Db) {
         })
         .returning();
       return row;
+    },
+
+    /** Nome que o cliente disse na conversa (specs/005 FR-003); substitui o anterior. */
+    async setCustomerName(conversationId: string, name: string): Promise<ConversationRow | null> {
+      const [row] = await db.update(conversations).set({ customerName: name }).where(eq(conversations.id, conversationId)).returning();
+      return row ?? null;
+    },
+
+    /** A conversa de um telefone (o telefone é único entre as conversas); horários e clientes a acham por ele. */
+    async findConversationByPhone(phone: string): Promise<ConversationRow | null> {
+      const [row] = await db.select().from(conversations).where(eq(conversations.phone, phone));
+      return row ?? null;
+    },
+
+    /** Telefone → id da conversa, para listas do painel (specs/006). */
+    async conversationIdsByPhone(phones: string[]): Promise<Map<string, string>> {
+      if (phones.length === 0) return new Map();
+      const rows = await db
+        .select({ id: conversations.id, phone: conversations.phone })
+        .from(conversations)
+        .where(inArray(conversations.phone, [...new Set(phones)]));
+      return new Map(rows.map((r) => [r.phone, r.id]));
+    },
+
+    /** Nome editado no cadastro (specs/006 FR-007): vale para a conversa do telefone, se houver. */
+    async setCustomerNameByPhone(phone: string, name: string): Promise<ConversationRow | null> {
+      const [row] = await db.update(conversations).set({ customerName: name }).where(eq(conversations.phone, phone)).returning();
+      return row ?? null;
+    },
+
+    /** Cadastro excluído no painel: a conversa do número esquece o nome e o pedido de nome volta a valer. */
+    async forgetCustomerName(phone: string): Promise<ConversationRow | null> {
+      const [row] = await db
+        .update(conversations)
+        .set({ customerName: null, nameAskedAt: null })
+        .where(eq(conversations.phone, phone))
+        .returning();
+      return row ?? null;
+    },
+
+    /** Registra o pedido de nome uma vez só (FR-005). */
+    async markNameAsked(conversationId: string, at: Date): Promise<void> {
+      await db
+        .update(conversations)
+        .set({ nameAskedAt: at })
+        .where(and(eq(conversations.id, conversationId), isNull(conversations.nameAskedAt)));
+    },
+
+    /** Mensagens do cliente depois de `since`. */
+    async customerMessagesSince(conversationId: string, since: Date): Promise<number> {
+      const [row] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(messages)
+        .where(and(eq(messages.conversationId, conversationId), eq(messages.origin, "customer"), gt(messages.sentAt, since)));
+      return row.n;
     },
 
     async findConversation(id: string): Promise<ConversationRow | null> {
@@ -94,7 +149,15 @@ function createQueries(db: Db) {
       return db
         .select()
         .from(conversations)
-        .where(term ? or(ilike(conversations.name, `%${term}%`), ilike(conversations.phone, `%${term}%`)) : undefined)
+        .where(
+          term
+            ? or(
+                ilike(conversations.customerName, `%${term}%`),
+                ilike(conversations.name, `%${term}%`),
+                ilike(conversations.phone, `%${term}%`),
+              )
+            : undefined,
+        )
         .orderBy(desc(conversations.lastMessageAt))
         .limit(limit);
     },

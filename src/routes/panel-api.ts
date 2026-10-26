@@ -98,6 +98,11 @@ export function panelApiRoutes({ inbox, repo, instance, send, risks, onOperatorM
       return { conversations: rows.map((r) => presentConversation(r, optedOut.has(r.phone))) };
     });
 
+    // Apaga todas as conversas, com as mensagens e os agendamentos em andamento; o painel é avisado por conversations.cleared
+    app.delete("/api/conversations", async () => {
+      return { deleted: await inbox.clearAll() };
+    });
+
     app.get("/api/conversations/:id/messages", async (req, reply) => {
       const params = idParams.safeParse(req.params);
       const query = messagesQuery.safeParse(req.query);

@@ -7,6 +7,10 @@ export type InboxEvent =
   | { type: "conversation.updated"; conversation: Conversation }
   /** O WhatsApp foi desconectado e todas as conversas foram apagadas. */
   | { type: "conversations.cleared" }
+  /** O cadastro de clientes mudou: a aba Clientes busca a lista de novo. */
+  | { type: "customers.updated" }
+  /** Os horários mudaram: a aba Appointments busca a lista de novo. */
+  | { type: "appointments.updated" }
   | ({ type: "connection.updated" } & Connection)
   | { type: "calendar.updated"; connection: CalendarConnection }
   | ({ type: "protection.updated" } & Protection)
@@ -21,6 +25,8 @@ const SERVER_EVENTS = [
   "message.updated",
   "conversation.updated",
   "conversations.cleared",
+  "customers.updated",
+  "appointments.updated",
   "connection.updated",
   "calendar.updated",
   "protection.updated",

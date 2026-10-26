@@ -18,7 +18,7 @@ const dayHours = z
   })
   // Só compara quando os dois horários estão no formato certo; senão o erro de formato basta
   .refine((d) => !HHMM.test(d.start) || !HHMM.test(d.end) || minutesOf(d.start) < minutesOf(d.end), {
-    message: "o fim deve ser depois do início",
+    message: "the end must be after the start",
     path: ["end"],
   });
 
@@ -28,7 +28,7 @@ export const rulesSchema = z
     weeklyHours: z
       .partialRecord(z.enum(DAYS), dayHours)
       .refine((w) => Object.keys(w).length > 0, "marque ao menos um dia de atendimento"),
-    slotMinutes: z.number().int().min(15).max(240).multipleOf(5, "use um múltiplo de 5 minutos"),
+    slotMinutes: z.number().int().min(15).max(240).multipleOf(5, "use a multiple of 5 minutes"),
     minNoticeMinutes: z.number().int().min(0).max(10080),
     maxDaysAhead: z.number().int().min(1).max(180),
     cancelNoticeMinutes: z.number().int().min(0).max(10080),
@@ -39,7 +39,7 @@ export const rulesSchema = z
       const window = minutesOf(hours.end) - minutesOf(hours.start);
       // Janela invertida já tem o seu erro no campo "end"
       if (window > 0 && window < rules.slotMinutes) {
-        ctx.addIssue({ code: "custom", path: ["weeklyHours", day], message: "a janela do dia é menor que a duração da consulta" });
+        ctx.addIssue({ code: "custom", path: ["weeklyHours", day], message: "the day is shorter than one appointment" });
       }
     }
   });

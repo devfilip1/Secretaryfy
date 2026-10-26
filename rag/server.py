@@ -8,12 +8,12 @@ import os
 import sys
 import time
 import urllib.request
-from typing import Annotated
+from typing import Annotated, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from assistant.config import OLLAMA_BASE_URL
 from assistant.index import CURRENT, IndexUnavailable, index_state, require_index
@@ -27,8 +27,15 @@ DEFAULT_PORT = 8001
 OLLAMA_TIMEOUT_S = 2.0
 
 
+class TurnIn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class QuestionIn(BaseModel):
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    # the messages before the question, oldest first; resolves follow-ups such as "how much does it cost?"
+    history: Annotated[list[TurnIn], Field(max_length=20)] = []
 
 
 def _chunks(chunks):
@@ -66,7 +73,7 @@ def create_app(config):
     @app.post("/answer")
     def post_answer(body: QuestionIn):
         try:
-            result = answer(body.question, config)
+            result = answer(body.question, config, [turn.model_dump() for turn in body.history])
         except Exception as error:
             logger.exception("answer failed")
             raise HTTPException(503, detail=str(error)) from error

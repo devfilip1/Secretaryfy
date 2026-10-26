@@ -5,109 +5,247 @@
   "scenarios": [
     {
       "name": "marcar só com números",
-      "messages": ["I'd like to book an appointment", "2", "2", "yes"],
+      "messages": [
+        "I'd like to book an appointment",
+        "2",
+        "2",
+        "yes"
+      ],
       "final": "2026-10-21T10:00"
     },
     {
       "name": "pedido com outras palavras, hoje à tarde",
-      "messages": ["Can I schedule a visit?", "1", "1", "yes"],
+      "messages": [
+        "Can I schedule a visit?",
+        "1",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-20T17:00"
     },
     {
       "name": "pergunta de disponibilidade com data relativa",
-      "messages": ["Do you have anything tomorrow?", "3", "yes"],
+      "messages": [
+        "Do you have anything tomorrow?",
+        "3",
+        "yes"
+      ],
       "final": "2026-10-21T11:00"
     },
     {
       "name": "data simples sozinha",
-      "messages": ["tomorrow", "1", "yes"],
+      "messages": [
+        "tomorrow",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-21T09:00"
     },
     {
       "name": "dia da semana na escolha do dia",
-      "messages": ["I want to book", "Friday", "2", "yes"],
+      "messages": [
+        "I want to book",
+        "Friday",
+        "2",
+        "yes"
+      ],
       "final": "2026-10-23T10:00"
     },
     {
       "name": "next monday",
-      "messages": ["Book an appointment please", "next monday", "1", "yes"],
+      "messages": [
+        "Book an appointment please",
+        "next monday",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-26T09:00"
     },
     {
       "name": "dia com horários ocupados",
-      "busy": [["2026-10-21T09:00", "2026-10-21T12:00"]],
-      "messages": ["I'd like an appointment on Wednesday", "1", "yes"],
+      "busy": [
+        [
+          "2026-10-21T09:00",
+          "2026-10-21T12:00"
+        ]
+      ],
+      "messages": [
+        "I'd like an appointment on Wednesday",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-21T12:00"
     },
     {
       "name": "no na confirmação e outro horário",
-      "messages": ["I'd like to book", "2", "1", "no", "3", "yes"],
+      "messages": [
+        "I'd like to book",
+        "2",
+        "1",
+        "no",
+        "3",
+        "yes"
+      ],
       "final": "2026-10-21T11:00"
     },
     {
       "name": "pergunta sobre a clínica no meio do fluxo",
-      "messages": ["I want to make an appointment", "How much are braces?", "2", "4", "yes"],
+      "messages": [
+        "I want to make an appointment",
+        "How much are braces?",
+        "2",
+        "4",
+        "yes"
+      ],
       "final": "2026-10-21T12:00"
     },
     {
       "name": "troca de dia",
-      "messages": ["Book me in please", "2", "other day", "3", "1", "yes"],
+      "messages": [
+        "Book me in please",
+        "2",
+        "other day",
+        "3",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-22T09:00"
     },
     {
       "name": "mais horários",
-      "messages": ["I'd like to book", "2", "more", "1", "yes"],
+      "messages": [
+        "I'd like to book",
+        "2",
+        "more",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-21T15:00"
     },
     {
       "name": "desistência",
-      "messages": ["I'd like to book", "2", "never mind"],
+      "messages": [
+        "I'd like to book",
+        "2",
+        "never mind"
+      ],
       "final": null
     },
     {
       "name": "domingo sem atendimento",
-      "messages": ["Do you have openings on Sunday?", "1", "1", "yes"],
+      "messages": [
+        "Do you have openings on Sunday?",
+        "1",
+        "1",
+        "yes"
+      ],
       "final": "2026-10-21T09:00"
     },
     {
       "name": "sem nome no WhatsApp",
       "whatsappName": null,
-      "messages": ["I'd like to book", "2", "2", "Carlos Lima", "yes"],
+      "messages": [
+        "I'd like to book",
+        "2",
+        "2",
+        "Carlos Lima",
+        "yes"
+      ],
       "final": "2026-10-21T10:00"
     },
     {
       "name": "escolha pelo horário em texto",
-      "messages": ["I want to book an appointment", "2", "the 10 am one", "yes"],
+      "messages": [
+        "I want to book an appointment",
+        "2",
+        "the 10 am one",
+        "yes"
+      ],
       "final": "2026-10-21T10:00"
     },
     {
       "name": "marcar para amanhã numa frase só",
-      "messages": ["Can I book a visit for tomorrow?", "2", "yes please"],
+      "messages": [
+        "Can I book a visit for tomorrow?",
+        "2",
+        "yes please"
+      ],
       "final": "2026-10-21T10:00"
     },
     {
       "name": "cancelar",
       "existing": "2026-10-23T10:00",
-      "messages": ["I need to cancel my appointment", "yes"],
+      "messages": [
+        "I need to cancel my appointment",
+        "yes"
+      ],
       "final": null
     },
     {
       "name": "remarcar",
       "existing": "2026-10-23T10:00",
-      "messages": ["Can I change my appointment?", "5", "6", "yes"],
+      "messages": [
+        "Can I change my appointment?",
+        "5",
+        "6",
+        "yes"
+      ],
       "final": "2026-10-26T14:00"
     },
     {
       "name": "consultar o próprio horário",
       "existing": "2026-10-23T10:00",
-      "messages": ["When is my appointment?"],
+      "messages": [
+        "When is my appointment?"
+      ],
       "final": "2026-10-23T10:00"
     },
     {
       "name": "já tem horário e não quer remarcar",
       "existing": "2026-10-23T10:00",
-      "messages": ["I'd like to book an appointment", "no"],
+      "messages": [
+        "I'd like to book an appointment",
+        "no"
+      ],
       "final": "2026-10-23T10:00"
+    },
+    {
+      "name": "serviço citado na conversa (005)",
+      "mention": null,
+      "messages": [
+        "How much is teeth whitening?",
+        "I would like to book an appointment",
+        "2",
+        "2",
+        "yes"
+      ],
+      "final": "2026-10-21T10:00",
+      "summary": "Maria — Teeth Whitening"
+    },
+    {
+      "name": "serviço escolhido na lista (005)",
+      "mention": null,
+      "messages": [
+        "I would like to book an appointment",
+        "2",
+        "2",
+        "2",
+        "yes"
+      ],
+      "final": "2026-10-21T10:00",
+      "summary": "Maria — Teeth Whitening"
+    },
+    {
+      "name": "serviço trocado no resumo (005)",
+      "messages": [
+        "I would like to book an appointment",
+        "2",
+        "2",
+        "actually I want braces",
+        "yes"
+      ],
+      "final": "2026-10-21T10:00",
+      "summary": "Maria — Braces and Orthodontic Treatment"
     }
   ]
 }

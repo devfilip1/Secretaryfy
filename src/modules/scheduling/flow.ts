@@ -1,12 +1,15 @@
-import { randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { AppointmentRow, ConversationRow, SchedulingSessionRow, SessionOption } from "../../db/schema.js";
+import type { CustomerRepository } from "../customers/repository.js";
 import type { ConnectionStore } from "../google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../google/gateway.js";
 import type { InboxService } from "../inbox/service.js";
+import { initialReminderStatus } from "../reminders/status.js";
 import { availableDays, bookingWindow, isSlotAvailable, slotsForDay } from "./availability.js";
+import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { Interpretation } from "./interpret.js";
 import { replies, systemNotes } from "./replies.js";
+import { ASSESSMENT, SERVICES } from "./services.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
 import type { SchedulingStore, SessionDraft } from "./sessions.js";
@@ -27,21 +30,44 @@ interface Deps {
   connection: Pick<ConnectionStore, "getForUse">;
   rules: Pick<RulesStore, "get">;
   store: SchedulingStore;
-  inbox: Pick<InboxService, "recordSystem" | "flagNeedsAttention">;
+  inbox: Pick<InboxService, "recordSystem" | "flagNeedsAttention" | "setCustomerName">;
+  /** Cadastro de clientes: quem confirma um horário entra nele (specs/005, US3) */
+  customers: Pick<CustomerRepository, "upsert">;
+  log?: { error: (obj: object, msg: string) => void };
   now?: () => Date;
+  /** Antecedência do lembrete, para o status inicial e o de um horário remarcado (specs/006) */
+  reminderLeadMinutes?: number;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
-export function createSchedulingFlow({ calendar, connection, rules: rulesStore, store, inbox, now: clock = () => new Date() }: Deps) {
+export function createSchedulingFlow({
+  calendar,
+  connection,
+  rules: rulesStore,
+  store,
+  inbox,
+  customers,
+  log = console,
+  now: clock = () => new Date(),
+  reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
+}: Deps) {
+  // A marcação em si é a mesma do painel (specs/006 research.md R2)
+  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });
   return {
     async handle({
       conversation,
       interpretation,
       session,
+      knownName = null,
+      mentionedService = null,
     }: {
       conversation: ConversationRow;
       interpretation: Interpretation;
       session: SchedulingSessionRow | null;
+      /** O nome que o cliente disse ou o do cadastro; nunca o do perfil do WhatsApp (specs/005 FR-007) */
+      knownName?: string | null;
+      /** O tratamento citado por último na conversa (specs/005 FR-010) */
+      mentionedService?: string | null;
     }): Promise<FlowResult> {
       const conn = await connection.getForUse();
       if (!conn || conn.status !== "connected") {
@@ -52,8 +78,12 @@ export function createSchedulingFlow({ calendar, connection, rules: rulesStore, 
         calendar,
         store,
         inbox,
+        booking,
+        reminderLeadMinutes,
         conversation,
         session,
+        knownName,
+        mentionedService,
         now: clock(),
         tz: conn.timeZone,
         calendarId: conn.calendarId,
@@ -77,22 +107,29 @@ class Run {
   private readonly calendar: CalendarGateway;
   private readonly store: SchedulingStore;
   private readonly inbox: Deps["inbox"];
+  private readonly booking: Booking;
+  private readonly reminderLeadMinutes: number;
   private readonly conversation: ConversationRow;
   private readonly session: SchedulingSessionRow | null;
+  private readonly knownName: string | null;
   private readonly now: Date;
   private readonly tz: string;
   private readonly calendarId: string;
   private readonly rules: Rules;
   private readonly window: ReturnType<typeof bookingWindow>;
-  /** Fluxo, agendamento e nome que passam de uma etapa para a outra */
-  private carry: Pick<SessionDraft, "flow" | "appointmentId" | "customerName">;
+  /** Fluxo, agendamento, nome e serviço que passam de uma etapa para a outra */
+  private carry: Pick<SessionDraft, "flow" | "appointmentId" | "customerName" | "service">;
 
   constructor(v: {
     calendar: CalendarGateway;
     store: SchedulingStore;
     inbox: Deps["inbox"];
+    booking: Booking;
+    reminderLeadMinutes: number;
     conversation: ConversationRow;
     session: SchedulingSessionRow | null;
+    knownName: string | null;
+    mentionedService: string | null;
     now: Date;
     tz: string;
     calendarId: string;
@@ -101,8 +138,11 @@ class Run {
     this.calendar = v.calendar;
     this.store = v.store;
     this.inbox = v.inbox;
+    this.booking = v.booking;
+    this.reminderLeadMinutes = v.reminderLeadMinutes;
     this.conversation = v.conversation;
     this.session = v.session;
+    this.knownName = v.knownName;
     this.now = v.now;
     this.tz = v.tz;
     this.calendarId = v.calendarId;
@@ -112,6 +152,7 @@ class Run {
       flow: v.session?.flow ?? "book",
       appointmentId: v.session?.appointmentId ?? null,
       customerName: v.session?.customerName ?? null,
+      service: v.session?.service ?? v.mentionedService,
     };
   }
 
@@ -150,10 +191,17 @@ class Run {
         if (i.intent === "other_day") return this.offerDays();
         break;
       case "ask_name":
-        if (i.intent === "give_name" && i.name) return this.confirmBooking(s.selectedStart!, i.name);
+        if (i.intent === "give_name" && i.name) return this.nameGiven(s.selectedStart!, i.name);
+        break;
+      case "choose_service":
+        if (i.intent === "choose_service" && i.service) return this.serviceChosen(i.service);
         break;
       case "confirm_booking":
         if (i.intent === "yes") return this.book();
+        // Outro tratamento no resumo troca o serviço (FR-012)
+        if (i.intent === "choose_service" && i.service) return this.serviceChosen(i.service);
+        // "my name is …" no resumo corrige o nome (FR-007)
+        if (i.intent === "give_name" && i.name) return this.nameGiven(s.selectedStart!, i.name);
         if (i.intent === "no") return this.offerDay(this.isoDate(s.selectedStart!));
         break;
       case "offer_reschedule":
@@ -202,6 +250,7 @@ class Run {
         options: s.options,
         selectedStart: s.selectedStart,
         customerName: s.customerName,
+        service: s.service,
         appointmentId: s.appointmentId,
         misunderstoodCount: count,
       },
@@ -221,6 +270,8 @@ class Run {
       }
       case "ask_name":
         return replies.askName();
+      case "choose_service":
+        return replies.chooseService();
       default:
         return "Please reply YES or NO.";
     }
@@ -354,61 +405,69 @@ class Run {
       await this.save({ step: "confirm_reschedule", selectedStart: start });
       return { reply: replies.confirmReschedule(appt.startsAt, start, this.tz) };
     }
-    const name = this.session?.customerName ?? this.conversation.name;
+    const name = this.session?.customerName ?? this.knownName;
     if (!name) {
       await this.save({ step: "ask_name", selectedStart: start });
       return { reply: replies.askName() };
     }
-    return this.confirmBooking(start, name);
+    return this.toSummary(start, name);
+  }
+
+  /** O cliente disse o nome no agendamento: vale também para a conversa (specs/005 FR-003). */
+  private async nameGiven(start: Date, name: string): Promise<FlowResult> {
+    await this.inbox.setCustomerName(this.conversation.id, name);
+    return this.toSummary(start, name);
+  }
+
+  /** Com nome e horário: pergunta o serviço se ele ainda não veio da conversa, senão mostra o resumo (FR-011). */
+  private async toSummary(start: Date, name: string): Promise<FlowResult> {
+    if (this.carry.service) return this.confirmBooking(start, name);
+    const options = SERVICES.map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
+    await this.save({ step: "choose_service", options, selectedStart: start, customerName: name });
+    return { reply: replies.chooseService() };
+  }
+
+  private async serviceChosen(service: string): Promise<FlowResult> {
+    const s = this.session!;
+    this.carry = { ...this.carry, service };
+    return this.confirmBooking(s.selectedStart!, s.customerName ?? this.knownName ?? "Cliente");
   }
 
   private async confirmBooking(start: Date, name: string): Promise<FlowResult> {
     await this.save({ step: "confirm_booking", selectedStart: start, customerName: name });
-    return { reply: replies.confirmBooking(start, this.rules.slotMinutes, name, this.tz) };
+    return { reply: replies.confirmBooking(start, this.rules.slotMinutes, name, this.carry.service!, this.tz) };
   }
 
-  /** Cria o evento: dentro da trava, confere de novo a ocupação e a regra de um horário por número (FR-015, FR-019). */
-  private book(): Promise<FlowResult> {
+  /**
+   * Cria o evento pelo mesmo motor do painel (specs/006 R2): dentro da trava, confere de novo a ocupação e a regra de um
+   * horário por número (FR-015, FR-019).
+   */
+  private async book(): Promise<FlowResult> {
     const s = this.session!;
     const start = s.selectedStart!;
-    const end = new Date(start.getTime() + this.rules.slotMinutes * 60_000);
-    const name = s.customerName ?? this.conversation.name ?? "Cliente";
+    // O resumo sempre tem o nome: ele vem de ask_name ou do nome conhecido
+    const name = s.customerName ?? this.knownName ?? "Cliente";
+    const service = s.service ?? ASSESSMENT;
 
-    return withCalendarLock(async () => {
-      const existing = await this.currentAppointment();
-      if (existing) return this.offerReschedule(existing);
-
-      const busy = await this.calendar.busy(start, end);
-      if (!isSlotAvailable(start, this.ctx(busy))) return this.slotTaken(start);
-
-      const id = randomUUID();
-      const { eventId } = await this.calendar.createEvent({
-        summary: `Avaliação — ${name}`,
-        description: `WhatsApp: +${this.conversation.phone}\nMarcado pelo Secretaryfy.`,
-        start,
-        end,
-        timeZone: this.tz,
-        properties: { secretaryfy_appointment: id, secretaryfy_phone: this.conversation.phone },
-      });
-      const appt = await this.store.insertBooked({
-        id,
-        conversationId: this.conversation.id,
-        googleEventId: eventId,
-        calendarId: this.calendarId,
-        startsAt: start,
-        endsAt: end,
-        customerName: name,
-      });
-      if (!appt) {
-        // Outro agendamento ficou com o horário: desfaz o evento recém-criado
-        await this.calendar.deleteEvent(eventId).catch(() => {});
-        return this.slotTaken(start);
-      }
-
-      await this.store.clearSession(this.conversation.id);
-      await this.inbox.recordSystem(this.conversation.id, systemNotes.booked(start, this.rules.slotMinutes, this.tz));
-      return { reply: replies.booked(start, this.tz) };
+    const result = await this.booking.bookSlot({
+      phone: this.conversation.phone,
+      name,
+      service,
+      start,
+      origin: "assistant",
+      conversationId: this.conversation.id,
     });
+    switch (result.kind) {
+      case "already_booked":
+        return this.offerReschedule(result.appointment);
+      case "slot_taken":
+        return this.slotTaken(start);
+      case "calendar_unavailable":
+        throw new CalendarUnavailable("agenda desconectada durante a marcação");
+      case "booked":
+        await this.store.clearSession(this.conversation.id);
+        return { reply: replies.booked(start, this.tz) };
+    }
   }
 
   /** O horário foi tomado entre a oferta e o "sim": novas opções no mesmo dia, ou os dias mais próximos. */
@@ -421,8 +480,9 @@ class Run {
 
   // --- Agendamento existente (FR-018a: o Google Agenda é a fonte da verdade) ---
 
+  /** O próximo horário do telefone, venha ele desta conversa, de outra ou do painel (specs/006 R1). */
   private async currentAppointment(): Promise<AppointmentRow | null> {
-    return this.sync(await this.store.findFutureBooked(this.conversation.id, this.now));
+    return this.sync(await this.store.findFutureBooked(this.conversation.phone, this.now));
   }
 
   private async refreshSessionAppointment(): Promise<AppointmentRow | null> {
@@ -431,19 +491,12 @@ class Run {
   }
 
   /** Confere o evento no Google: apagado conta como cancelado, movido passa a valer no horário novo. */
-  private async sync(appt: AppointmentRow | null): Promise<AppointmentRow | null> {
-    if (!appt || appt.status !== "booked") return null;
-    const event = await this.calendar.getEvent(appt.googleEventId);
-    if (!event) {
-      await this.store.markCancelled(appt.id, "calendar");
-      await this.inbox.recordSystem(this.conversation.id, systemNotes.cancelledInCalendar(appt.startsAt, this.tz));
-      return null;
-    }
-    if (event.start.getTime() !== appt.startsAt.getTime() || event.end.getTime() !== appt.endsAt.getTime()) {
-      await this.store.updateTimes(appt.id, event.start, event.end);
-      appt = { ...appt, startsAt: event.start, endsAt: event.end };
-    }
-    return appt.startsAt > this.now ? appt : null;
+  private sync(appt: AppointmentRow | null): Promise<AppointmentRow | null> {
+    return syncAppointment(
+      { calendar: this.calendar, store: this.store, inbox: this.inbox, reminderLeadMinutes: this.reminderLeadMinutes },
+      appt,
+      { now: this.now, timeZone: this.tz, conversationId: this.conversation.id },
+    );
   }
 
   private tooLate(appt: AppointmentRow): boolean {
@@ -504,7 +557,7 @@ class Run {
       if (!isSlotAvailable(start, this.ctx(busy))) return this.slotTaken(start);
 
       await this.calendar.moveEvent(appt.googleEventId, start, end);
-      if (!(await this.store.updateTimes(appt.id, start, end))) {
+      if (!(await this.store.updateTimes(appt.id, start, end, initialReminderStatus(start, this.now, this.reminderLeadMinutes)))) {
         await this.calendar.moveEvent(appt.googleEventId, appt.startsAt, appt.endsAt).catch(() => {});
         return this.slotTaken(start);
       }

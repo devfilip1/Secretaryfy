@@ -250,7 +250,7 @@ code {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(0, 1fr);
 }
 
 .conversation-list {
@@ -329,6 +329,25 @@ code {
   border-radius: 999px;
   padding: 1px 7px;
   flex-shrink: 0;
+}
+
+.list-footer {
+  margin-top: auto;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.clear-all {
+  width: 100%;
+  background: none;
+  color: var(--bad);
+  border-color: var(--border);
+  font-size: 0.9em;
+}
+
+.clear-all:hover {
+  background: var(--surface-2);
+  border-color: var(--bad);
 }
 
 .list-empty {
@@ -535,7 +554,7 @@ code {
 
 @media (max-width: 760px) {
   .inbox {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .conversation-header .back {
@@ -780,4 +799,580 @@ button.danger {
   font-size: 0.85em;
   text-align: center;
   max-width: 90%;
+}
+
+/* --- Clientes --- */
+
+.customers-page {
+  width: min(820px, 100%);
+}
+
+.customers-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.customers-head h2 {
+  margin: 0 0 2px;
+}
+
+.customers-head p {
+  margin: 0;
+}
+
+.customers-head input {
+  width: min(280px, 100%);
+}
+
+.customers-page .empty {
+  margin: 24px 0 8px;
+  text-align: center;
+}
+
+.customer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.customer-list > li {
+  border-bottom: 1px solid var(--border);
+}
+
+.customer-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.6fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 6px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.customer-row:hover,
+.customer-list > li.open .customer-row {
+  background: var(--surface-2);
+}
+
+.customer-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-phone {
+  font-variant-numeric: tabular-nums;
+}
+
+.customer-row .chevron {
+  color: var(--muted);
+}
+
+.customer-detail {
+  padding: 4px 6px 14px;
+}
+
+.customer-detail dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 8px 0 14px;
+}
+
+.customer-detail dt {
+  color: var(--muted);
+}
+
+.customer-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.customer-detail .mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+.customer-detail h3 {
+  margin: 0 0 6px;
+  font-size: 1em;
+}
+
+.customer-appointments {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.customer-appointments li.cancelled {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.customer-appointments .tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 0.8em;
+  text-decoration: none;
+}
+
+.customer-detail .actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .customer-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+  }
+
+  .customer-row .customer-phone,
+  .customer-row .customer-next {
+    grid-column: 1;
+  }
+
+  .customer-row .chevron {
+    grid-row: 1;
+    grid-column: 2;
+  }
+}
+
+/* --- Agendamentos (specs/006) --- */
+
+.appointments-page {
+  width: min(860px, 100%);
+}
+
+.appointments-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.appointments-head h2 {
+  margin: 0 0 2px;
+}
+
+.appointments-head p {
+  margin: 0;
+}
+
+.appointments-page .empty {
+  margin: 24px 0 8px;
+  text-align: center;
+}
+
+.appointment-group h3 {
+  margin: 18px 0 6px;
+  font-size: 1em;
+}
+
+.appointment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.appointment-list > li {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.appointment-list > li.attention {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.appointment-time {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+}
+
+.appointment-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.appointment-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appointment-notes {
+  font-size: 0.85em;
+  color: var(--warn);
+  overflow-wrap: anywhere;
+}
+
+.appointment-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.appointment-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9em;
+}
+
+.tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.tag.ok {
+  color: var(--ok);
+}
+
+.tag.warn {
+  color: #fff;
+  background: var(--warn);
+}
+
+.tag.bad {
+  color: var(--bad);
+}
+
+.tag.muted {
+  color: var(--muted);
+}
+
+.new-appointment {
+  margin: 4px 0 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.new-appointment h3 {
+  margin: 0 0 4px;
+}
+
+.new-appointment .field {
+  margin: 10px 0;
+}
+
+.choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choice-grid button.selected {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+
+/* --- Ficha do cliente: edição e anotações (specs/006) --- */
+
+.customer-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.customer-edit input {
+  flex: 1;
+  min-width: 0;
+}
+
+.customer-notes textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.customer-notes .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.customer-row .customer-notes-preview {
+  grid-column: 1 / -1;
+  font-size: 0.85em;
+  color: var(--warn);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-detail .actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Link com cara de botão (View conversation) */
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* --- Celular --- */
+
+@media (max-width: 760px) {
+  /* Barra: marca, conexão e Sair numa linha; as abas embaixo, ocupando a largura */
+  .topbar {
+    padding: 8px 16px 0;
+    gap: 6px 12px;
+  }
+
+  .brand {
+    flex: 1;
+  }
+
+  .topbar nav {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .topbar nav a {
+    padding: 8px 4px;
+  }
+
+  /* Só a lista; a conversa abre por cima, em tela cheia */
+  .inbox .empty-view {
+    display: none;
+  }
+
+  .conversation-list {
+    border-right: none;
+  }
+
+  .conversation {
+    padding: 12px 16px;
+  }
+
+  .conversation-header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .conversation-header .back {
+    padding: 6px 12px;
+  }
+
+  .conversation-header .title span {
+    white-space: nowrap;
+  }
+
+  .assistant-state .state-text {
+    display: none;
+  }
+
+  .assistant-state {
+    gap: 8px;
+    font-size: 1em;
+  }
+
+  .messages {
+    padding: 12px 10px;
+  }
+
+  .bubble {
+    max-width: 85%;
+  }
+
+  .composer {
+    padding: 8px 10px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .opted-out-banner {
+    flex-wrap: wrap;
+  }
+
+  /* Páginas: margem de 16px e cartões mais enxutos */
+  .page {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .calendar-page,
+  .customers-page {
+    gap: 12px;
+  }
+
+  .customers-head input {
+    width: 100%;
+  }
+
+  .customer-row {
+    padding: 12px 4px;
+  }
+
+  .customer-detail .actions button {
+    width: 100%;
+  }
+
+  .form-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Dias da semana: o nome numa linha, os horários embaixo */
+  .day-row {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 4px 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .day-row .check {
+    grid-column: 1 / -1;
+  }
+
+  .day-row input[type="time"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .day-row > .muted.small {
+    grid-column: 1 / -1;
+  }
+
+  .qr {
+    width: min(264px, 100%);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  /* Alvos de toque maiores */
+  button {
+    min-height: 40px;
+  }
+
+  button.link {
+    min-height: 0;
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .badge-number {
+    display: none;
+  }
+}
+
+/* Abaixo de 16px o iPhone dá zoom ao tocar no campo */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Agendamentos e ficha do cliente no celular (specs/006) */
+@media (max-width: 760px) {
+  .appointment-list > li {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 4px 10px;
+  }
+
+  .appointment-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .appointments-head button,
+  .new-appointment .form-actions button {
+    flex: 1;
+  }
+
+  .new-appointment {
+    padding: 12px;
+  }
+
+  .choice-grid button {
+    flex: 1 1 calc(33% - 6px);
+  }
+
+  .customer-detail .actions > * {
+    flex: 1;
+  }
+}
+
+/* Cinco abas no celular: letra menor e, se ainda faltar espaço, a barra rola sozinha, sem rolar a página */
+@media (max-width: 760px) {
+  .topbar nav {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 2px;
+  }
+
+  .topbar nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar nav a {
+    flex-shrink: 0;
+    font-size: 0.88em;
+    padding: 8px 3px;
+  }
+
+  .choice-grid button {
+    white-space: nowrap;
+    font-size: 0.88em;
+    padding: 6px 4px;
+  }
 }

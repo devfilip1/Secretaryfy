@@ -95,6 +95,7 @@ test("qrcode.updated", () => {
 const ignored: [string, unknown][] = [
   ["grupo", upsert({ key: { remoteJid: "123456@g.us" } })],
   ["status", upsert({ key: { remoteJid: "status@broadcast" } })],
+  ["LID sem o número", upsert({ key: { remoteJid: "123456789012345@lid" } })],
   ["sem id", upsert({ key: { id: undefined } })],
   ["texto só com espaços", upsert({ message: { conversation: "   " } })],
   ["reação", upsert({ message: { reactionMessage: { text: "👍" } } })],
@@ -140,4 +141,11 @@ test("markMessageAsRead leva as mensagens do cliente", async () => {
   });
   await markMessagesRead("5511999999999", [], { fetch: f.fetch });
   assert.equal(f.calls.length, 1);
+});
+
+test("conversa endereçada por LID usa o número de remoteJidAlt (ou senderPn)", () => {
+  for (const alt of [{ remoteJidAlt: "5511999999999@s.whatsapp.net" }, { senderPn: "5511999999999@s.whatsapp.net" }]) {
+    const event = parseEvolutionEvent(upsert({ key: { remoteJid: "123456789012345@lid", ...alt } }));
+    assert.equal(event?.kind === "message" && event.phone, "5511999999999");
+  }
 });

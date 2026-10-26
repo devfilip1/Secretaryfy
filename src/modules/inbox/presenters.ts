@@ -25,14 +25,14 @@ export interface MessageJson {
 }
 
 const MEDIA_LABELS: Record<Exclude<MessageType, "text">, string> = {
-  audio: "🎤 Áudio",
-  image: "📷 Imagem",
-  video: "🎬 Vídeo",
-  document: "📄 Documento",
-  sticker: "🖼️ Figurinha",
-  location: "📍 Localização",
-  contact: "👤 Contato",
-  other: "Mensagem não suportada",
+  audio: "🎤 Audio",
+  image: "📷 Image",
+  video: "🎬 Video",
+  document: "📄 Document",
+  sticker: "🖼️ Sticker",
+  location: "📍 Location",
+  contact: "👤 Contact",
+  other: "Unsupported message",
 };
 
 export const PREVIEW_MAX = 120;
@@ -52,7 +52,8 @@ export function presentConversation(row: ConversationRow, optedOut = false): Con
   return {
     id: row.id,
     phone: row.phone,
-    name: row.name,
+    // O nome dito pelo cliente vale mais que o do perfil do WhatsApp (specs/005 FR-008)
+    name: row.customerName ?? row.name,
     lastMessageAt: row.lastMessageAt.toISOString(),
     lastMessagePreview: row.lastMessagePreview,
     unreadCount: row.unreadCount,

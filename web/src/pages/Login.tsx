@@ -17,11 +17,11 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         const minutes = Math.max(1, Math.ceil(Number(err.body.retry_after_s ?? 60) / 60));
-        setError(`Muitas tentativas. Tente de novo em ${minutes} min.`);
+        setError(`Too many attempts. Try again in ${minutes} min.`);
       } else if (err instanceof ApiError && err.status === 401) {
-        setError("Senha inválida.");
+        setError("Wrong password.");
       } else {
-        setError("Não foi possível entrar. Verifique se o servidor está no ar.");
+        setError("Could not sign in. Check that the server is running.");
       }
       setPassword("");
     } finally {
@@ -33,9 +33,9 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
     <main className="center-page">
       <form className="card login" onSubmit={submit}>
         <h1>Secretaryfy</h1>
-        <p className="muted">Painel do WhatsApp</p>
+        <p className="muted">WhatsApp panel</p>
         <label>
-          Senha do operador
+          Operator password
           <input
             type="password"
             autoComplete="current-password"
@@ -50,7 +50,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
           </p>
         )}
         <button className="primary" type="submit" disabled={!password || busy}>
-          {busy ? "Entrando…" : "Entrar"}
+          {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
     </main>

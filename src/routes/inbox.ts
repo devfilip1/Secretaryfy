@@ -6,6 +6,7 @@ import { createGate } from "../modules/antiban/gate.js";
 import { configFromEnv } from "../modules/antiban/limits.js";
 import { createAntibanRepository } from "../modules/antiban/repository.js";
 import { bus } from "../modules/inbox/events.js";
+import { createCustomerRepository } from "../modules/customers/repository.js";
 import { createInboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService } from "../modules/inbox/service.js";
 import { markMessagesRead, sendWhatsAppText } from "../modules/whatsapp/evolution.js";
@@ -17,8 +18,19 @@ export const antibanConfig = configFromEnv(env);
 
 /** Instâncias do processo, compartilhadas pelo webhook e pela API do painel. */
 export const inboxRepo = createInboxRepository(db);
+/** Cadastro de clientes (specs/005); cada inclusão ou mudança de nome atualiza a aba Clientes do painel */
+const customerStore = createCustomerRepository(db);
+export const customerRepo: typeof customerStore = {
+  ...customerStore,
+  async upsert(input) {
+    const row = await customerStore.upsert(input);
+    bus.publish({ type: "customers.updated" });
+    return row;
+  },
+};
 export const inbox = createInboxService({
   repo: inboxRepo,
+  customers: customerRepo,
   publish: bus.publish,
   retryMinIntervalMs: antibanConfig.retryMinIntervalMs,
 });
