@@ -8,6 +8,8 @@ export interface CalendarGateway {
   /** null quando o evento foi apagado. */
   getEvent(eventId: string): Promise<Interval | null>;
   moveEvent(eventId: string, start: Date, end: Date): Promise<void>;
+  /** Troca só o título do evento (nome do cliente editado, specs/006). Sem erro se o evento já não existe. */
+  renameEvent(eventId: string, summary: string): Promise<void>;
   /** Sem erro se o evento já não existe. */
   deleteEvent(eventId: string): Promise<void>;
 }

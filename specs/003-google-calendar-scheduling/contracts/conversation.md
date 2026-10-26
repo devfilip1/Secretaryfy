@@ -1,5 +1,7 @@
 # Contract: respostas do assistente no agendamento
 
+> **Atualizado pela feature 005:** o resumo antes da confirmação passou a mostrar o serviço, e há textos novos (pedido de nome, lista de serviços). Ver [specs/005 contracts/conversation.md](../../005-customer-name-registry/contracts/conversation.md).
+
 Textos enviados ao cliente pelo WhatsApp, em inglês (Assumptions). São modelos fixos no código (`src/modules/scheduling/replies.ts`), preenchidos com os dados da agenda ([research.md R1](../research.md#r1-como-o-modelo-local-conduz-o-agendamento)). Datas e horas são formatadas no fuso da clínica, por exemplo `Tue, Oct 21` e `10:00 AM`.
 
 Os testes comparam com estes modelos. A redação pode mudar, desde que o conteúdo exigido em cada linha continue presente.

@@ -1,5 +1,5 @@
 // Textos da proteção do número (specs/004, contracts/conversation.md). Ao cliente em inglês, como as demais
-// respostas; os registros do painel em português.
+// respostas; os registros do painel também em inglês.
 
 /** Mensagens fixas com variações: nunca o mesmo texto repetido para o mesmo cliente (FR-017). */
 export const fixedTexts = {
@@ -18,11 +18,11 @@ export const fixedTexts = {
 
 /** Registros no histórico do painel (origin = system). */
 export const protectionNotes = {
-  optedOut: "🚫 O cliente pediu para não receber mensagens",
-  optedIn: "✅ O cliente voltou a aceitar mensagens",
-  reactivated: "✅ Mensagens reativadas pelo operador",
-  loop: "⚠️ Possível conversa com outro robô: o assistente foi pausado",
-  dailyConversations: "⚠️ Limite diário de conversas atingido: o assistente não respondeu",
-  rateLimited: "⚠️ A resposta demorou demais na fila e não foi enviada",
-  paused: "⚠️ Envios automáticos pausados pela proteção: o assistente não respondeu",
+  optedOut: "🚫 The customer asked not to receive messages",
+  optedIn: "✅ The customer accepts messages again",
+  reactivated: "✅ Messages reactivated by the operator",
+  loop: "⚠️ Possibly talking to another bot: the assistant was paused",
+  dailyConversations: "⚠️ Daily conversation limit reached: the assistant did not reply",
+  rateLimited: "⚠️ The reply waited too long in the queue and was not sent",
+  paused: "⚠️ Automatic sending paused by protection: the assistant did not reply",
 };

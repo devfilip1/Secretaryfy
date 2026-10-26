@@ -1,34 +1,25 @@
 import type { FastifyInstance } from "fastify";
 import { timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
-import { db } from "../db/client.js";
 import { createRagClient } from "../modules/rag/client.js";
-import { createSchedulingFlow } from "../modules/scheduling/flow.js";
 import { createInterpreter } from "../modules/scheduling/interpret.js";
 import { createOllamaClient } from "../modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
-import { createSchedulingStore } from "../modules/scheduling/sessions.js";
 import { createDebouncer } from "../modules/antiban/debounce.js";
 import { matchCommand } from "../modules/antiban/opt-out.js";
 import { parseEvolutionEvent, type IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/handle-message.js";
 import { instance } from "../modules/whatsapp/instance.js";
-import { connectionStore, googleCalendar, rulesStore } from "./calendar.js";
+import { connectionStore, rulesStore } from "./calendar.js";
 import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
+import { schedulingFlow, schedulingStore } from "./scheduling.js";
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001
-const schedulingStore = createSchedulingStore(db);
 const reply = createSchedulingRouter({
   interpreter: createInterpreter({
     ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
   }),
-  flow: createSchedulingFlow({
-    calendar: googleCalendar,
-    connection: connectionStore,
-    rules: rulesStore,
-    store: schedulingStore,
-    inbox,
-  }),
+  flow: schedulingFlow,
   store: schedulingStore,
   inbox,
   connection: connectionStore,
@@ -49,6 +40,9 @@ type Log = Parameters<typeof handleMessage>[1];
  * Responde depois de alguns segundos de silêncio do cliente, a todas as mensagens dele desde a última resposta de uma
  * vez (specs/004 FR-007, research.md R4).
  */
+/** Última mensagem do cliente respondida por conversa */
+const answering = new Map<string, string>();
+
 const debouncer = createDebouncer<{ log: Log }>({
   delayMs: antibanConfig.debounceMs,
   onFire: (conversationId, { log }) => {
@@ -57,6 +51,9 @@ const debouncer = createDebouncer<{ log: Log }>({
       const last = unread.at(-1);
       const conversation = await inbox.getConversation(conversationId);
       if (!last || !conversation) return;
+      // A mesma última mensagem já está sendo (ou foi) respondida: um segundo disparo não responde de novo
+      if (answering.get(conversationId) === last.id) return;
+      answering.set(conversationId, last.id);
       const message: IncomingMessage = {
         kind: "message",
         id: last.waMessageId ?? last.id,
@@ -94,6 +91,13 @@ export async function evolutionWebhookRoutes(app: FastifyInstance) {
     if (!validToken(req.query.token)) return reply.code(401).send();
 
     const event = parseEvolutionEvent(req.body);
+    if (!event) {
+      // Mensagem descartada (grupo, reação, endereço sem número...): fica no log para não sumir em silêncio
+      const body = req.body as { event?: string; data?: { key?: { remoteJid?: string } } } | null;
+      if (body?.event?.toLowerCase().replace(/_/g, ".") === "messages.upsert") {
+        req.log.info({ remoteJid: body.data?.key?.remoteJid }, "mensagem recebida e ignorada");
+      }
+    }
     if (event?.kind === "message") {
       // Em segundo plano: registrar e responder não pode atrasar o webhook
       void (async () => {
@@ -107,6 +111,8 @@ export async function evolutionWebhookRoutes(app: FastifyInstance) {
           await handleMessage({ conversationId: conversation.id, message: event }, req.log);
           return;
         }
+        // Mídia, reação ou edição ("Mensagem não suportada") não pede resposta e não pode repetir a do texto anterior
+        if (event.type !== "text" || !event.text) return;
         debouncer.push(conversation.id, { log: req.log });
       })().catch((err) => req.log.error({ err, phone: event.phone }, "falha ao processar mensagem"));
     } else if (event) {

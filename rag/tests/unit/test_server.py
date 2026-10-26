@@ -13,13 +13,18 @@ RETRIEVAL = RetrievalResult(vector=[CHUNK], bm25=[CHUNK], fused=[CHUNK])
 ANSWER = "Braces cost $180–$450 (Initial cost) and $35–$90 (Monthly). Would you like to schedule an assessment?"
 
 
+HISTORIES = []  # the conversation each answer received
+
+
 @pytest.fixture
 def calls(monkeypatch):
     """Replaces the pipeline and records the questions it received."""
     asked = []
+    HISTORIES.clear()
 
-    def fake_answer(question, config):
+    def fake_answer(question, config, history=None):
         asked.append(question)
+        HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
     def fake_retrieve(question, config):
@@ -46,6 +51,25 @@ def test_answer_returns_the_reply_and_the_chunks_it_used(client, calls):
     assert body["latency_s"] == 0.74
     assert body["experiment"] == "section_hybrid"
     assert calls == ["How much are braces?"]
+    assert HISTORIES == [[]]
+
+
+def test_answer_passes_the_conversation_along(client, calls):
+    history = [
+        {"role": "user", "content": "Do you offer a cleaning?"},
+        {"role": "assistant", "content": "Yes, we do!"},
+    ]
+    response = client.post("/answer", json={"question": "how much does it cost?", "history": history})
+
+    assert response.status_code == 200
+    assert HISTORIES == [history]
+
+
+def test_answer_rejects_an_unknown_role(client, calls):
+    response = client.post("/answer", json={"question": "hi", "history": [{"role": "system", "content": "x"}]})
+
+    assert response.status_code == 422
+    assert calls == []
 
 
 def test_retrieve_returns_only_the_chunks(client, calls):
@@ -70,7 +94,7 @@ def test_an_empty_question_is_rejected_without_calling_the_model(client, calls, 
 
 @pytest.mark.parametrize("path, name", [("/answer", "answer"), ("/retrieve", "retrieve")])
 def test_a_model_failure_becomes_503(client, monkeypatch, path, name):
-    def fail(question, config):
+    def fail(question, config, history=None):
         raise ConnectionError("Ollama is not running")
 
     monkeypatch.setattr(server, name, fail)

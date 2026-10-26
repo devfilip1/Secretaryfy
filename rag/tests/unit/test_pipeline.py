@@ -5,7 +5,16 @@ import pytest
 from rank_bm25 import BM25Okapi
 
 from assistant import pipeline
-from assistant.pipeline import NO_ANSWER, NO_INFORMATION, RagConfig, build_prompt, retrieve, tokenize
+from assistant.pipeline import (
+    NO_ANSWER,
+    NO_CONVERSATION,
+    NO_INFORMATION,
+    RagConfig,
+    build_prompt,
+    retrieve,
+    standalone_question,
+    tokenize,
+)
 from assistant.settings import Experiment
 
 CLEANING = "Dental Cleaning — The First Step Toward a Healthy Smile\nDuration: 30–50 minutes\nPrice: $40–$85"
@@ -278,6 +287,51 @@ def test_prompt_without_chunks_says_there_is_no_information():
     assert human.content.rstrip().endswith("How much is a cleaning?")
 
 
+CONVERSATION = [
+    {"role": "user", "content": "Do you offer a cleaning?"},
+    {"role": "assistant", "content": "Yes, we do!\n\nIt takes 30–50 minutes."},
+]
+
+
+def test_prompt_brings_the_conversation_before_the_question():
+    _, human = build_prompt("how much does it cost?", chunks(CLEANING), config(), CONVERSATION).to_messages()
+
+    assert "Customer: Do you offer a cleaning?\nAssistant: Yes, we do! It takes 30–50 minutes." in human.content
+    assert human.content.index("Do you offer a cleaning?") < human.content.index("how much does it cost?")
+    assert human.content.rstrip().endswith("how much does it cost?")
+
+
+def test_prompt_without_conversation_says_it_is_the_first_message():
+    _, human = build_prompt("How much is a cleaning?", chunks(CLEANING), config()).to_messages()
+
+    assert NO_CONVERSATION in human.content
+
+
+class FakeModel:
+    def __init__(self, reply):
+        self.reply, self.prompts = reply, []
+
+    def invoke(self, prompt):
+        self.prompts.append(prompt)
+        return SimpleNamespace(content=self.reply)
+
+
+def test_follow_up_is_rewritten_with_the_conversation(monkeypatch):
+    model = FakeModel('"How much does a dental cleaning cost?"')
+    monkeypatch.setattr(pipeline, "_model", lambda *args: model)
+
+    assert standalone_question("how much does it cost?", CONVERSATION, config()) == "How much does a dental cleaning cost?"
+    assert "Do you offer a cleaning?" in model.prompts[0]
+
+
+def test_question_without_conversation_is_not_rewritten(monkeypatch):
+    model = FakeModel("anything")
+    monkeypatch.setattr(pipeline, "_model", lambda *args: model)
+
+    assert standalone_question("How much is a cleaning?", [], config()) == "How much is a cleaning?"
+    assert model.prompts == []
+
+
 def test_refusal_phrase_is_recognized_by_the_evaluation():
     from evaluation.answer_metrics import detect_abstention
 
@@ -300,3 +354,22 @@ def test_runs_with_different_prompts_have_different_prompt_texts():
     from dataclasses import replace
 
     assert pipeline.prompt_text(config()) != pipeline.prompt_text(replace(config(), prompt="original"))
+
+
+def test_notes_the_model_adds_about_its_own_answer_are_removed():
+    from assistant.pipeline import clean_answer
+
+    leaked = "Yes, we do! It costs $40–$85.\n\n---\n\n(Note: I didn't invite the customer to schedule.)"
+    assert clean_answer(leaked) == "Yes, we do! It costs $40–$85."
+    assert clean_answer("Yes, we do!\n\nNote: bring your ID.") == "Yes, we do!"
+    assert clean_answer("Yes, we do!\n\nIt costs $40–$85.") == "Yes, we do!\n\nIt costs $40–$85."
+
+
+def test_greeting_is_removed_only_in_an_ongoing_conversation():
+    from assistant.pipeline import clean_answer
+
+    assert clean_answer("Hi!\n\nYes, this is DentalSafe.", CONVERSATION) == "Yes, this is DentalSafe."
+    assert clean_answer("Hello there, we are open on Saturdays.", CONVERSATION) == "We are open on Saturdays."
+    assert clean_answer("Hi!", CONVERSATION) == "Hi!"  # nothing else to say: the greeting stays
+    assert clean_answer("Hi! How can I help?") == "Hi! How can I help?"  # first message
+    assert clean_answer("Highly recommended.", CONVERSATION) == "Highly recommended."

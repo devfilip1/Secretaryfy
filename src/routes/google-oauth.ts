@@ -24,7 +24,7 @@ export function googleOAuthRoutes({ connection, panelUrl, exchangeCode, listCale
     app.get<{ Querystring: { code?: string; state?: string; error?: string } }>(
       "/auth/google/callback",
       async (req, reply) => {
-        const done = (outcome: Outcome) => reply.redirect(`${panelUrl}/#/agenda?google=${outcome}`);
+        const done = (outcome: Outcome) => reply.redirect(`${panelUrl}/#/calendar?google=${outcome}`);
         const { code, state, error } = req.query;
 
         if (error) {

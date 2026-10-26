@@ -131,7 +131,7 @@ test("startOutgoing com pause pausa o assistente na mesma operação", async () 
 test("mídia registra o tipo e a prévia com o rótulo", async () => {
   const { conversation, message } = await service.recordIncoming(incoming({ type: "audio", text: null }));
   assert.equal(message?.type, "audio");
-  assert.equal(conversation.lastMessagePreview, "🎤 Áudio");
+  assert.equal(conversation.lastMessagePreview, "🎤 Audio");
 });
 
 test("markRead zera as não lidas e publica", async () => {
@@ -164,7 +164,7 @@ test("flagNeedsAttention pausa e destaca; abrir a conversa ou reativar o assiste
 test("recordSystem grava o registro sem contar como não lida nem entrar no contexto do modelo", async () => {
   const { conversation } = await service.recordIncoming(incoming());
   events = [];
-  const note = await service.recordSystem(conversation.id, "📅 Agendado pelo assistente: qua, 21/10 às 10:00 (60 min)");
+  const note = await service.recordSystem(conversation.id, "📅 Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min)");
   assert.equal(note?.origin, "system");
   assert.equal(note?.status, "received");
   assert.equal(note?.waMessageId, null);
@@ -189,4 +189,24 @@ test("recentHistory: últimas mensagens de texto em ordem, cliente como user e o
     { role: "user", content: "tudo bem?" },
   ]);
   assert.deepEqual((await service.recentHistory(conversation.id, 2)).map((m) => m.content), ["Olá!", "tudo bem?"]);
+});
+
+test("nome conhecido: o dito na conversa, senão o do cadastro; o do perfil não conta", async () => {
+  const cadastro = new Map([["5511888888888", "Maria Souza"]]);
+  const withCustomers = createInboxService({
+    repo,
+    publish: (e) => events.push(e),
+    customers: { findByPhone: async (phone) => (cadastro.has(phone) ? ({ name: cadastro.get(phone) } as never) : null) },
+  });
+  const { conversation: perfil } = await withCustomers.recordIncoming(incoming({ id: "N1", pushName: "Perfil" }));
+  assert.equal(await withCustomers.knownName(perfil), null);
+
+  const { conversation: cliente } = await withCustomers.recordIncoming(incoming({ id: "N2", phone: "5511888888888" }));
+  assert.equal(await withCustomers.knownName(cliente), "Maria Souza");
+
+  events = [];
+  const updated = await withCustomers.setCustomerName(perfil.id, "Maria");
+  assert.equal(await withCustomers.knownName(updated!), "Maria");
+  const published = events.find((e) => e.type === "conversation.updated");
+  assert.equal(published?.type === "conversation.updated" && published.conversation.name, "Maria");
 });

@@ -71,6 +71,10 @@ const envSchema = z.object({
   ANTIBAN_BREAKER_PAUSE_MS: count(1800000),
   ANTIBAN_QR_ATTEMPTS: count(5),
   ANTIBAN_QR_WINDOW_MS: count(600000),
+  // Lembrete pelo WhatsApp (specs/006): a partir de quanto antes do horário pode sair, até quanto antes, e o passo do agendador
+  REMINDER_LEAD_MINUTES: count(1440),
+  REMINDER_CUTOFF_MINUTES: count(120),
+  REMINDER_TICK_MS: count(60000),
 });
 
 /** Inteiro não negativo com padrão. */

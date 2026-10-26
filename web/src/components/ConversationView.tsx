@@ -61,7 +61,7 @@ export function ConversationView({
   useEffect(() => {
     setLoading(true);
     load()
-      .catch(() => setError("Não foi possível carregar a conversa."))
+      .catch(() => setError("Could not load the conversation."))
       .finally(() => setLoading(false));
     markRead(conversationId).catch(() => {});
   }, [conversationId, load]);
@@ -138,7 +138,7 @@ export function ConversationView({
   return (
     <section className="conversation-view">
       <header className="conversation-header">
-        <button className="back" onClick={onClose} aria-label="Voltar para a lista">
+        <button className="back" onClick={onClose} aria-label="Back to the list">
           ←
         </button>
         <div className="title">
@@ -147,26 +147,29 @@ export function ConversationView({
         </div>
         {conversation && (
           <div className={`assistant-state ${paused ? "paused" : "active"}`}>
-            <span>{paused ? "⏸ Assistente pausado" : "🤖 Assistente ativo"}</span>
-            <button onClick={togglePause}>{paused ? "Reativar" : "Pausar"}</button>
+            <span title={paused ? "Assistant paused" : "Assistant active"}>
+              {paused ? "⏸" : "🤖"}
+              <span className="state-text"> {paused ? "Assistant paused" : "Assistant active"}</span>
+            </span>
+            <button onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
           </div>
         )}
       </header>
       {conversation?.needsAttention && (
         <div className="attention-banner" role="status">
-          ⚠️ O assistente não entendeu o cliente e foi pausado. Responda por aqui ou reative o assistente.
+          ⚠️ The assistant did not understand the customer and was paused. Reply here or resume the assistant.
         </div>
       )}
       {conversation?.optedOut && (
         <div className="opted-out-banner" role="status">
-          🚫 O cliente pediu para não receber mensagens. O assistente não responde este número.
-          <button onClick={reactivate}>Reativar</button>
+          🚫 The customer asked not to receive messages. The assistant does not reply to this number.
+          <button onClick={reactivate}>Reactivate</button>
         </div>
       )}
 
       <div className="messages" ref={scroller} onScroll={onScroll}>
-        {hasMore && <p className="muted small center">Role para cima para ver mensagens anteriores</p>}
-        {loading && <p className="muted center">Carregando…</p>}
+        {hasMore && <p className="muted small center">Scroll up to see earlier messages</p>}
+        {loading && <p className="muted center">Loading…</p>}
         {error && <p className="error center">{error}</p>}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} onRetry={onRetry} />

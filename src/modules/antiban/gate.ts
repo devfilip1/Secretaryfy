@@ -169,6 +169,14 @@ export function createGate({
     },
   ];
 
+  /** O primeiro motivo, na ordem das regras, para a resposta do assistente não sair; null se ela pode sair. */
+  async function firstBlock(context: Context, bypass: BlockReason[] = []): Promise<BlockReason | null> {
+    for (const rule of rules) {
+      if (!bypass.includes(rule.name) && (await rule.check(context))) return rule.name;
+    }
+    return null;
+  }
+
   function isCold(lastCustomerAt: Date | null) {
     return !lastCustomerAt || now().getTime() - lastCustomerAt.getTime() > DAY;
   }
@@ -248,11 +256,10 @@ export function createGate({
       ignorePause?: boolean;
       bypass?: BlockReason[];
     }): Promise<SendOutcome> {
-      const context = { conversationId, phone, text };
-      for (const rule of rules) {
-        if (bypass.includes(rule.name) || !(await rule.check(context))) continue;
-        await inbox.recordBlocked({ conversationId, text, reason: rule.name });
-        await afterBlock(conversationId, rule.name);
+      const blocked = await firstBlock({ conversationId, phone, text }, bypass);
+      if (blocked) {
+        await inbox.recordBlocked({ conversationId, text, reason: blocked });
+        await afterBlock(conversationId, blocked);
         return "blocked";
       }
 
@@ -280,6 +287,14 @@ export function createGate({
       return "blocked";
     },
 
+    /**
+     * O que `sendAssistant` faria com este texto agora, sem gravar nem destacar nada: o motivo do bloqueio ou null. O
+     * agendador de lembretes consulta antes de enviar, para não encher o histórico de tentativas (specs/006 R4).
+     */
+    assistantBlockReason({ conversationId, phone, text }: { conversationId: string; phone: string; text: string }) {
+      return firstBlock({ conversationId, phone, text });
+    },
+
     /** Envio do operador: só espera a vez na fila. Se não sair, é uma falha para ele, que pode reenviar. */
     async sendOperator(phone: string, text: string): Promise<{ waId: string }> {
       const outcome = await queue.enqueue({
@@ -296,7 +311,7 @@ export function createGate({
           }
         },
       });
-      if (!outcome.ok) throw new Error(`Não enviada pela proteção: ${outcome.reason}`);
+      if (!outcome.ok) throw new Error(`Blocked by number protection: ${outcome.reason}`);
       return outcome.value;
     },
 

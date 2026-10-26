@@ -68,7 +68,7 @@ QUERY_SYNONYMS = {
 
 # Generation. Temperature 0 because the assistant quotes prices and durations: the same question must get the same answer.
 TEMPERATURE = 0.0
-MAX_ANSWER_TOKENS = 200   # safety cap; the answers asked for have at most 3 sentences
+MAX_ANSWER_TOKENS = 200   # safety cap; the answers asked for have at most 3 short messages
 KEEP_ALIVE = "30m"        # keeps the model loaded between questions, so the load time is not paid again
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")

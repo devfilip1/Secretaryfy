@@ -23,7 +23,7 @@ export async function sendWhatsAppText(
     throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
   }
   const body = (await res.json()) as { key?: { id?: string } };
-  if (!body.key?.id) throw new Error("Evolution API não devolveu key.id");
+  if (!body.key?.id) throw new Error("Evolution API did not return key.id");
   return { waId: body.key.id };
 }
 
@@ -113,18 +113,32 @@ function jidToNumber(jid: unknown): string | null {
   return jid.split("@")[0].split(":")[0] || null;
 }
 
+const PHONE_JID = "@s.whatsapp.net";
+
+/**
+ * O JID com o número de telefone da conversa. Com o endereçamento por LID do WhatsApp, `remoteJid` vem como
+ * "<id>@lid" e o número chega em `remoteJidAlt` (ou `senderPn`, nas versões anteriores da Evolution API).
+ */
+function phoneJid(key: { remoteJid?: string; remoteJidAlt?: string; senderPn?: string } | undefined): string | null {
+  const jid = key?.remoteJid;
+  if (!jid) return null;
+  if (jid.endsWith(PHONE_JID)) return jid;
+  if (!jid.endsWith("@lid")) return null;
+  return [key.remoteJidAlt, key.senderPn].find((alt) => alt?.endsWith(PHONE_JID)) ?? null;
+}
+
 function parseMessage(data: unknown): IncomingMessage | null {
   const item = (Array.isArray(data) ? data[0] : data) as
     | {
-        key?: { id?: string; remoteJid?: string; fromMe?: boolean };
+        key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; senderPn?: string; fromMe?: boolean };
         pushName?: string;
         messageTimestamp?: unknown;
         message?: RawMessage;
       }
     | undefined;
-  const jid = item?.key?.remoteJid;
+  const jid = phoneJid(item?.key);
   // Ignora grupos, status e listas de transmissão
-  if (!item?.key?.id || !jid || !jid.endsWith("@s.whatsapp.net")) return null;
+  if (!item?.key?.id || !jid) return null;
 
   const content = extractContent(item.message);
   if (!content) return null;

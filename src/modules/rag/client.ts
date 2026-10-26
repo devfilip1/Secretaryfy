@@ -7,6 +7,11 @@ export interface RetrievedChunk {
   similarity: number | null;
 }
 
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface RagAnswer {
   answer: string;
   chunks: RetrievedChunk[];
@@ -24,13 +29,14 @@ export class RagUnavailableError extends Error {
 
 export function createRagClient({ baseUrl, timeoutMs }: { baseUrl: string; timeoutMs: number }) {
   return {
-    async ask(question: string): Promise<RagAnswer> {
+    /** `history`: as mensagens anteriores da conversa, em ordem, sem a pergunta atual */
+    async ask(question: string, history: ConversationTurn[] = []): Promise<RagAnswer> {
       let res: Response;
       try {
         res = await fetch(new URL("/answer", baseUrl), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question, history }),
           // Ao estourar, a requisição é abortada: nenhuma resposta atrasada chega depois
           signal: AbortSignal.timeout(timeoutMs),
         });

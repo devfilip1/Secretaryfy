@@ -3,6 +3,8 @@ import { ApiError, risksOf, sendMessage, type Message, type SendRisk } from "../
 import { RiskDialog } from "./RiskDialog";
 
 const MAX_LENGTH = 4096;
+// No celular (tela de toque), Enter quebra a linha como no WhatsApp; envia pelo botão
+const TOUCH = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
 export function Composer({
   conversationId,
@@ -46,13 +48,13 @@ export function Composer({
       if (pending) {
         setRisks(pending);
       } else if (err instanceof ApiError && err.error === "whatsapp_disconnected") {
-        setNotice("WhatsApp desconectado: a mensagem não foi enviada.");
+        setNotice("WhatsApp disconnected: the message was not sent.");
       } else if (err instanceof ApiError && err.status === 502 && err.body.message) {
         // Ficou registrada como "não enviada" no histórico, com a opção de tentar de novo
         onSent(err.body.message as Message);
         setText("");
       } else {
-        setNotice("Não foi possível enviar. Tente de novo.");
+        setNotice("Could not send. Please try again.");
       }
     } finally {
       setBusy(false);
@@ -61,7 +63,7 @@ export function Composer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (!TOUCH && e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void send();
     }
@@ -69,7 +71,7 @@ export function Composer({
 
   return (
     <footer className="composer">
-      {!connected && <p className="notice">WhatsApp desconectado: conecte o número para enviar mensagens.</p>}
+      {!connected && <p className="notice">WhatsApp disconnected: connect the number to send messages.</p>}
       {notice && connected && (
         <p className="notice" role="alert">
           {notice}
@@ -80,13 +82,13 @@ export function Composer({
           ref={area}
           rows={1}
           maxLength={MAX_LENGTH}
-          placeholder="Escreva uma mensagem (Enter envia, Shift+Enter quebra a linha)"
+          placeholder={TOUCH ? "Type a message" : "Type a message (Enter sends, Shift+Enter adds a line)"}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
         />
         <button className="primary" onClick={() => void send()} disabled={!canSend}>
-          {busy ? "Enviando…" : "Enviar"}
+          {busy ? "Sending…" : "Send"}
         </button>
       </div>
       {risks && <RiskDialog risks={risks} onCancel={() => setRisks(null)} onConfirm={() => void send(true)} />}

@@ -11,20 +11,24 @@ import {
 } from "./api";
 import { ConnectionBadge } from "./components/ConnectionBadge";
 import { ProtectionBanner } from "./components/ProtectionBanner";
+import { AppointmentsPage } from "./pages/Appointments";
 import { CalendarPage } from "./pages/Calendar";
 import { ConnectionPage } from "./pages/Connection";
+import { CustomersPage } from "./pages/Customers";
 import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
 
 type Session = "loading" | "login" | "disabled" | "ready";
-type View = "inbox" | "connection" | "calendar";
+type View = "inbox" | "appointments" | "connection" | "calendar" | "customers";
 
 function viewFromHash(): View {
   const path = window.location.hash.split("?")[0];
-  if (path === "#/conexao") return "connection";
-  if (path === "#/agenda") return "calendar";
+  if (path === "#/appointments") return "appointments";
+  if (path === "#/connection" || path === "#/conexao") return "connection";
+  if (path === "#/calendar" || path === "#/agenda") return "calendar";
+  if (path === "#/customers" || path === "#/clientes") return "customers";
   return "inbox";
 }
 
@@ -42,7 +46,7 @@ export function App() {
     check();
   }, [check]);
 
-  if (session === "loading") return <main className="center-page muted">Carregando…</main>;
+  if (session === "loading") return <main className="center-page muted">Loading…</main>;
   if (session === "disabled") return <Disabled />;
   if (session === "login") return <Login onLoggedIn={() => setSession("ready")} />;
   return <Shell onLoggedOut={() => setSession("login")} />;
@@ -95,25 +99,33 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           <span className="brand">Secretaryfy</span>
           <nav>
             <a href="#/" className={view === "inbox" ? "active" : ""}>
-              Conversas
+              Conversations
             </a>
-            <a href="#/conexao" className={view === "connection" ? "active" : ""}>
-              Conexão
+            <a href="#/appointments" className={view === "appointments" ? "active" : ""}>
+              Appointments
             </a>
-            <a href="#/agenda" className={view === "calendar" ? "active" : ""}>
-              Agenda
+            <a href="#/connection" className={view === "connection" ? "active" : ""}>
+              Connection
+            </a>
+            <a href="#/calendar" className={view === "calendar" ? "active" : ""}>
+              Calendar
+            </a>
+            <a href="#/customers" className={view === "customers" ? "active" : ""}>
+              Customers
             </a>
           </nav>
           <ConnectionBadge connection={connection} />
           <button className="link" onClick={leave}>
-            Sair
+            Sign out
           </button>
         </header>
-        {status === "reconnecting" && <div className="banner">Reconectando ao servidor…</div>}
+        {status === "reconnecting" && <div className="banner">Reconnecting to the server…</div>}
         <ProtectionBanner protection={protection} />
         {view === "inbox" && <Inbox connected={connection?.state === "open"} />}
+        {view === "appointments" && <AppointmentsPage />}
         {view === "connection" && <ConnectionPage connection={connection} onChange={setConnection} />}
         {view === "calendar" && <CalendarPage />}
+        {view === "customers" && <CustomersPage />}
       </div>
     </EventsContext.Provider>
   );

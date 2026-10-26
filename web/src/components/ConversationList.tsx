@@ -10,12 +10,14 @@ export function ConversationList({
   selectedId,
   onSelect,
   onSearch,
+  onClearAll,
 }: {
   conversations: Conversation[];
   loaded: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onSearch: (q: string) => void;
+  onClearAll: () => void;
 }) {
   const [q, setQ] = useState("");
   const first = useRef(true);
@@ -34,7 +36,7 @@ export function ConversationList({
       <input
         className="search"
         type="search"
-        placeholder="Buscar por nome ou número"
+        placeholder="Search by name or number"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -48,13 +50,13 @@ export function ConversationList({
               <span className="row">
                 <span className="name">
                   {c.assistantPaused && (
-                    <span className="paused-icon" title="Assistente pausado">
+                    <span className="paused-icon" title="Assistant paused">
                       ⏸{" "}
                     </span>
                   )}
                   {c.name || formatPhone(c.phone)}
                   {c.optedOut && (
-                    <span className="opted-out-icon" title="Pediu para não receber mensagens">
+                    <span className="opted-out-icon" title="Asked not to receive messages">
                       {" "}
                       🚫
                     </span>
@@ -64,7 +66,7 @@ export function ConversationList({
               </span>
               <span className="row">
                 <span className="preview">
-                  {c.needsAttention && <span className="attention-tag">Precisa de atendimento</span>}
+                  {c.needsAttention && <span className="attention-tag">Needs attention</span>}
                   {c.lastMessagePreview}
                 </span>
                 {c.unreadCount > 0 && <span className="unread">{c.unreadCount}</span>}
@@ -74,7 +76,14 @@ export function ConversationList({
         ))}
       </ul>
       {loaded && conversations.length === 0 && (
-        <p className="muted list-empty">{q ? "Nenhuma conversa encontrada" : "Nenhuma conversa ainda"}</p>
+        <p className="muted list-empty">{q ? "No conversations found" : "No conversations yet"}</p>
+      )}
+      {conversations.length > 0 && !q && (
+        <footer className="list-footer">
+          <button className="clear-all" onClick={onClearAll}>
+            🗑 Delete all conversations
+          </button>
+        </footer>
       )}
     </aside>
   );

@@ -47,7 +47,7 @@ const validState = () => encodeURIComponent(sign(CONNECT_STATE, 600));
 test("state válido grava a agenda principal e volta ao painel", async () => {
   const res = await callback(`code=abc&state=${validState()}`);
   assert.equal(res.statusCode, 302);
-  assert.equal(res.headers.location, "http://panel.test/#/agenda?google=connected");
+  assert.equal(res.headers.location, "http://panel.test/#/calendar?google=connected");
   const saved = await connection.get();
   assert.equal(saved.status, "connected");
   assert.equal(saved.calendarId, "primary");
@@ -58,14 +58,14 @@ test("state válido grava a agenda principal e volta ao painel", async () => {
 test("operador cancelou no Google: aviso e a conexão existente não muda", async () => {
   await callback(`code=abc&state=${validState()}`);
   const res = await callback(`error=access_denied&state=${validState()}`);
-  assert.equal(res.headers.location, "http://panel.test/#/agenda?google=denied");
+  assert.equal(res.headers.location, "http://panel.test/#/calendar?google=denied");
   assert.equal((await connection.getForUse())?.refreshToken, "token-abc");
 });
 
 test("state inválido, vencido ou de outro uso dá erro e não grava", async () => {
   for (const state of ["lixo", sign(CONNECT_STATE, -1), sign("outra-coisa", 600)]) {
     const res = await callback(`code=abc&state=${encodeURIComponent(state)}`);
-    assert.equal(res.headers.location, "http://panel.test/#/agenda?google=error");
+    assert.equal(res.headers.location, "http://panel.test/#/calendar?google=error");
   }
   assert.equal((await connection.get()).status, "disconnected");
 });
@@ -73,13 +73,13 @@ test("state inválido, vencido ou de outro uso dá erro e não grava", async () 
 test("falha ao trocar o code dá erro", async () => {
   exchangeFails = true;
   const res = await callback(`code=abc&state=${validState()}`);
-  assert.equal(res.headers.location, "http://panel.test/#/agenda?google=error");
+  assert.equal(res.headers.location, "http://panel.test/#/calendar?google=error");
   assert.equal((await connection.get()).status, "disconnected");
 });
 
 test("escopo de agenda desmarcado não grava", async () => {
   grantedScopes = "openid email https://www.googleapis.com/auth/calendar.events";
   const res = await callback(`code=abc&state=${validState()}`);
-  assert.equal(res.headers.location, "http://panel.test/#/agenda?google=missing_scope");
+  assert.equal(res.headers.location, "http://panel.test/#/calendar?google=missing_scope");
   assert.equal((await connection.get()).status, "disconnected");
 });
