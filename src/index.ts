@@ -42,7 +42,7 @@ await app.register(cookie);
 registerPanelAuth(app, { password: env.OPERATOR_PASSWORD, publicUrl: env.PUBLIC_URL });
 if (!env.OPERATOR_PASSWORD) app.log.warn("painel desativado: defina OPERATOR_PASSWORD");
 if (!isGoogleConfigured()) {
-  app.log.warn("Google Agenda indisponível: GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não são credenciais reais (README, seção 4)");
+  app.log.warn("Google Agenda indisponível: GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não são credenciais reais (docs/development.md, Google Calendar setup)");
 }
 
 await app.register(healthRoutes);

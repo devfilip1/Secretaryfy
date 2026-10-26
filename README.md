@@ -1,210 +1,71 @@
 # Secretaryfy
 
-Assistente de IA no WhatsApp (via Evolution API) que atende os clientes de uma clínica e marca horários no Google Agenda dela.
+A WhatsApp assistant for clinics. It answers patients' questions from the clinic's brochure, books, reschedules and cancels appointments on the clinic's Google Calendar, and sends a reminder the day before, all on a small **local** model (`llama3` 8B via Ollama) with no paid API. Staff follow every conversation live in a web panel and can take over at any time. The demo clinic is the fictional **DentalSafe**.
 
-Nesta fase, as mensagens de texto recebidas são respondidas pelo assistente da clínica fictícia **DentalSafe**. Ele vem do projeto RagLab, roda localmente com Ollama e fica em [`rag/`](rag/README.md). Um **painel web** mostra as conversas, permite responder pelo navegador, pausar o assistente por conversa e conectar o número pelo QR code. Com o **Google Agenda** conectado, o assistente consulta os horários livres e marca, cancela e remarca avaliações pela conversa.
+**Stack:** Node 24 + TypeScript · Fastify 5 · PostgreSQL 17 + Drizzle · React 19 + Vite 8 · Python 3.14 RAG (FastAPI, Chroma, BM25) · Ollama · Evolution API v2.3.7 · Google Calendar API
 
-## Stack
+## Highlights
 
-- Node 24 + TypeScript · Fastify · Postgres + Drizzle ORM · googleapis · Claude API (`@anthropic-ai/sdk`)
-- Painel web: React 19 + Vite, em `web/`
-- Agendamento: Luxon (datas e fusos) · Ollama local (`llama3`) só para interpretar a mensagem do cliente
-- Assistente RAG: Python 3.14 · LangChain · Chroma · rank-bm25 · FastAPI · Ollama (`llama3`, `nomic-embed-text`), em `rag/`
+- **Reliable on a small model:** deterministic code decides and writes every scheduling reply; the model only interprets the message, and rules handle most messages before it. 23/23 booking scenarios pass against the real model ([why](docs/decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
+- **Brochure answers** from the RAG reused from the RagLab project (96% on its answer key), with conversation context.
+- **Google Calendar is the source of truth:** only truly free times are offered, double booking is impossible, and edits made directly in Google are respected.
+- **Number protection:** every message passes an anti-ban gate (human-like pacing, volume limits, 24 h window, no repeats, opt-out, warm-up, automatic brake). It reduces the ban risk of an unofficial connection; it can't remove it.
+- **Web panel** (English, works on phones): live conversations, operator takeover, appointments for today/tomorrow/the week, booking for patients who call, customer registry with notes, WhatsApp and calendar connection.
 
-## Rodando localmente
+## Getting started
 
-São três processos: o assistente RAG (Python), o servidor (Node) e, em desenvolvimento, o painel (Vite).
+Requires Node 24, Docker Desktop, Python 3.14 and [Ollama](https://ollama.com).
 
-### 1. Assistente RAG (DentalSafe)
+```bash
+ollama pull llama3 && ollama pull nomic-embed-text
 
-Requer Python 3.14 e o [Ollama](https://ollama.com) no ar:
-
-```powershell
-ollama pull llama3
-ollama pull nomic-embed-text
-
-cd rag
+# RAG service (PowerShell, in rag/)
 python -m venv .venv
 .\run.ps1 install
-.\run.ps1 ingest     # constrói os índices em rag/data/index/
-.\run.ps1 serve      # http://127.0.0.1:8001
-```
+.\run.ps1 ingest
+.\run.ps1 serve              # http://127.0.0.1:8001
 
-Para conferir se ele está pronto, abra `GET http://127.0.0.1:8001/health`. A resposta é `200` com `"status": "ready"`. Se der `503`, o corpo diz se o problema é o Ollama ou o índice. O serviço não sobe com o índice ausente ou desatualizado e mostra o comando que resolve. Os comandos de avaliação estão em [rag/README.md](rag/README.md).
-
-### 2. Servidor
-
-```bash
+# Server (in the root)
 npm install
-cp .env.example .env        # preencha as variáveis
-docker compose up -d        # Postgres (porta 5434), Redis e Evolution API v2.3.7 (porta 8080)
+cp .env.example .env         # fill in the variables
+docker compose up -d         # Postgres :5434, Redis, Evolution API :8080
 npm run db:migrate
-npm run dev                 # http://localhost:3000
+npm run dev                  # http://localhost:3000
+
+# Panel
+npm run dev:web              # http://localhost:5173
 ```
 
-O `docker compose` precisa do Docker Desktop aberto. A Evolution API usa a `EVOLUTION_API_KEY` do `.env` como chave dela e guarda seus dados no mesmo Postgres, no schema `evolution_api`. Como ela roda dentro do Docker, chama o webhook por `WEBHOOK_BASE_URL` (`http://host.docker.internal:3000`), e não por `PUBLIC_URL`. Para ver os logs: `docker compose logs -f evolution`.
-
-| Variável | Padrão | Uso |
-|---|---|---|
-| `OPERATOR_PASSWORD` | — | Senha do painel, com 12 caracteres ou mais. Sem ela, o painel fica desligado |
-| `WEBHOOK_BASE_URL` | `PUBLIC_URL` | Endereço do servidor como a Evolution API o enxerga |
-| `RAG_SERVICE_URL` | `http://127.0.0.1:8001` | Endereço do assistente RAG |
-| `RAG_TIMEOUT_MS` | `30000` | Tempo limite da resposta do assistente. Passou disso, o cliente recebe a mensagem de indisponibilidade |
-| `DATABASE_URL_TEST` | — | Postgres para os testes do repositório. Sem ela, os testes usam um Postgres em memória (PGlite) |
-
-`ANTHROPIC_API_KEY` precisa ter algum valor para o servidor subir, mas o atendimento atual não chama a Claude. Qualquer valor serve.
-
-`PUBLIC_URL` precisa ser alcançável pela Evolution API: o painel usa esse endereço para configurar o webhook automaticamente.
-
-### 3. Painel web
+Sign in with `OPERATOR_PASSWORD`, pair the number under **Connection** and connect Google under **Calendar**. Environment variables, Google Cloud setup, tests and troubleshooting: [docs/development.md](docs/development.md).
 
 ```bash
-npm run dev:web             # http://localhost:5173 (repassa /api para o servidor em :3000)
+npm test                     # server tests (in-memory Postgres, no network)
+npm run typecheck            # server and panel
 ```
 
-Em produção, o servidor entrega o painel compilado na mesma porta:
-
-```bash
-npm run build               # compila o servidor (dist/) e o painel (web/dist/)
-npm start                   # painel e API em http://localhost:3000
-```
-
-**No painel** (em inglês, como as mensagens do assistente):
-
-- **Login**: senha única (`OPERATOR_PASSWORD`). A sessão dura 12 h. Depois de 5 senhas erradas, o mesmo IP espera 15 min.
-- **Connection** (`#/connection`): mostra se o WhatsApp está conectado. Desconectado, aparece um QR code para escanear em *WhatsApp > Aparelhos conectados*. O código se renova sozinho; se a Evolution API desistir depois de muitos códigos, aparece o botão "Generate a new QR code". A instância e o webhook são configurados automaticamente.
-- **Appointments** (`#/appointments`): os horários de hoje, de amanhã e dos próximos 7 dias, com nome, serviço, telefone, anotações do cliente e a situação do lembrete. **Open conversation** abre a conversa do cliente; **Confirm** marca o horário como confirmado (por exemplo, depois de ligar). **New appointment** marca para quem ligou: telefone, nome, serviço, dia e horário, só entre os horários livres, calculados como o assistente calcula. Nenhuma mensagem vai ao cliente nessa hora.
-- **Calendar** (`#/calendar`): conecta o Google Agenda da clínica, escolhe a agenda usada e define as regras de atendimento (ver abaixo).
-- **Customers** (`#/customers`): o cadastro de quem marcou, com busca por nome ou telefone. Clicar num cliente mostra o id, as datas e os agendamentos dele. **Edit** corrige o nome, que passa a valer na conversa e no título dos horários futuros no Google Agenda. **Notes** guarda anotações que só a clínica vê (até 1.000 caracteres; o assistente nunca as lê). **View conversation** abre a conversa. **Delete record** apaga o registro, e a conversa daquele número esquece o nome (o assistente volta a perguntar). Os horários já marcados continuam no Google Agenda. Se o cliente marcar de novo, ele volta ao cadastro.
-- **Conversations**: lista com busca, não lidas e prévia. O histórico identifica cliente, assistente, operador e celular, e as mensagens novas aparecem sem recarregar. As mídias aparecem como aviso ("🎤 Audio").
-- **Responder**: no computador, Enter envia e Shift+Enter quebra a linha; no celular, Enter quebra a linha e o envio é pelo botão **Send**. Uma mensagem que falhou fica marcada e pode ser reenviada.
-- **Assistente por conversa**: enviar uma mensagem pelo painel pausa o assistente naquela conversa. Ele só volta a responder quando o operador clicar em "Resume".
-- **Histórico**: começa quando a feature entra no ar. Conversas antigas do celular não são importadas.
-
-Para medir uma conversa grande: `node --env-file=.env --import tsx scripts/seed-conversation.ts [telefone] [quantidade]`.
-
-### 4. Google Agenda (agendamento)
-
-Uma vez, no [Google Cloud Console](https://console.cloud.google.com/), no projeto do `GOOGLE_CLIENT_ID`:
-
-1. **APIs e serviços > Biblioteca**: ative a **Google Calendar API**.
-2. **Credenciais**, no cliente OAuth: acrescente a URI de redirecionamento `http://localhost:3000/auth/google/callback` (`${PUBLIC_URL}/auth/google/callback`).
-3. **Tela de consentimento OAuth**: acrescente os escopos `calendar.events`, `calendar.calendarlist.readonly` e `calendar.events.freebusy`, e o Gmail da clínica como **usuário de teste**.
-
-No `.env`, em desenvolvimento, `PANEL_URL=http://localhost:5173`, para o Google devolver o operador ao painel do Vite. `OLLAMA_URL`, `AGENT_MODEL` (padrão `llama3`) e `AGENT_TIMEOUT_MS` têm padrão e podem ficar de fora.
-
-No painel, em **Calendar**: **Connect Google Calendar**, autorize, escolha a agenda (recomendado: uma agenda só para os testes) e salve as regras. Padrão: segunda a sexta, das 9h às 18h, consultas de 60 min, antecedência mínima de 2 h, até 30 dias à frente e cancelamento ou remarcação até 24 h antes.
-
-**Como o agendamento funciona** (`src/modules/scheduling/`, decisões em [specs/003-google-calendar-scheduling/research.md](specs/003-google-calendar-scheduling/research.md)):
-
-- O `llama3` **só interpreta** a mensagem (marcar, ver horários, escolher a opção 2, "yes"…), com a saída restrita por JSON Schema. Números, sim/não, datas simples e horários citados são resolvidos por regras, sem o modelo. Quem decide o próximo passo, consulta a agenda e escreve a resposta é o código.
-- Dias e horários vêm em **opções numeradas** (até 6), calculadas na hora a partir das regras e da ocupação da agenda. Qualquer evento ocupado bloqueia o horário.
-- Nada é marcado sem o **"yes"** do cliente. Antes de criar o evento, a agenda é consultada de novo, e dois clientes não ficam com o mesmo horário.
-- **Um horário futuro por número.** Quem já tem um recebe a oferta de remarcar. Cancelar e remarcar só valem até o prazo das regras.
-- O **Google Agenda manda**: evento apagado ou movido direto no Google vale como cancelado ou com o horário novo.
-- Dúvidas sobre a clínica no meio do agendamento continuam respondidas pelo folheto.
-- Depois de **2 respostas que o assistente não entende**, ele avisa o cliente, pausa o assistente na conversa e a destaca no painel como "Needs attention".
-- Cada marcação, cancelamento ou remarcação aparece no histórico da conversa (📅). O evento no Google se chama **"<nome> — <serviço>"** (ex.: "Maria Souza — Dental Cleaning") e leva o WhatsApp e "Marcado pelo Secretaryfy".
-- **Serviço**: o tratamento citado por último na conversa; se nenhum foi citado, o assistente oferece a lista dos 8 tratamentos do folheto e "Not sure — general assessment" (`Assessment`). O resumo antes do "yes" mostra o serviço, e o cliente pode trocá-lo. Catálogo em `src/modules/scheduling/services.ts` ([specs/005](specs/005-customer-name-registry/research.md)).
-- **Nome**: o assistente pede o nome na primeira resposta a quem ainda não disse, uma única vez, e o agendamento usa esse nome. O nome do perfil do WhatsApp não vale como nome do cliente.
-- **Cadastro de clientes** (tabela `customers`: id, nome, telefone): quem confirma um horário entra nele, um registro por telefone. Apagar as conversas ou desconectar o número não apaga o cadastro, e quem está nele é reconhecido pelo nome quando volta.
-- **O horário é do telefone** ([specs/006](specs/006-panel-appointments-reminders/research.md)): apagar as conversas ou desconectar o número não apaga os agendamentos, e o assistente acha pelo WhatsApp um horário marcado pelo painel (para consultar, cancelar ou remarcar).
-- **Lembrete** (`src/modules/reminders/`): de 24 h até 2 h antes de cada horário marcado com pelo menos 24 h de antecedência, o assistente manda um lembrete único pedindo YES para confirmar. Ele só sai se o cliente escreveu nas últimas 24 h: a regra de nunca escrever primeiro continua sem exceção. Nos outros casos, o horário aparece como **Remind manually** na aba Appointments, para a clínica avisar por conta própria e clicar em Confirm. O YES ao lembrete confirma o horário; NO leva à pergunta de remarcação. Todo lembrete passa pela proteção do número. Para testar sem esperar 24 h, encurte `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES` e `REMINDER_TICK_MS` no `.env` ([quickstart](specs/006-panel-appointments-reminders/quickstart.md)).
-
-**Testar sem um segundo número**: o script manda ao webhook uma mensagem de cliente com o seu próprio número, e a resposta chega no chat "Você" do WhatsApp:
-
-```bash
-npx tsx --env-file=.env scripts/simulate-customer.ts "I'd like to book an appointment"
-npx tsx --env-file=.env scripts/simulate-customer.ts "2"
-```
-
-**Medir com o modelo real** (23 conversas roteirizadas, agenda falsa; critérios SC-002 a SC-005 e SC-008 da spec 003 e o serviço no título do evento da spec 005):
-
-```bash
-npx tsx --env-file=.env scripts/eval-scheduling.ts
-AGENT_MODEL=llama3.1:8b npx tsx --env-file=.env scripts/eval-scheduling.ts   # comparar outro modelo
-```
-
-O roteiro completo de validação está em [specs/003-google-calendar-scheduling/quickstart.md](specs/003-google-calendar-scheduling/quickstart.md).
-
-### Como o atendimento se comporta
-
-- O webhook responde `200` na hora; o registro da mensagem e o assistente rodam em segundo plano.
-- Toda mensagem individual (cliente, assistente, operador e celular) fica gravada no Postgres. O mesmo evento entregue duas vezes é registrado e respondido uma vez só, mesmo depois de um reinício.
-- O assistente **responde sempre em inglês**, como determina o prompt da DentalSafe. Perguntas em português podem receber a informação errada, porque os sinônimos da busca estão em inglês.
-- Se o assistente estiver fora do ar, com erro ou passar do tempo limite, o cliente recebe uma mensagem curta de indisponibilidade e o erro vai para o log.
-- Mensagens que não são texto (áudio, imagem) são registradas, mas não vão para o assistente. Grupos são ignorados.
-- Antes de responder, a mensagem é interpretada: pedidos de agendamento vão para o fluxo de agendamento, o resto vai para o folheto. O interpretador vê as últimas 20 mensagens da conversa; o folheto recebe as últimas 6, para entender perguntas como "how much does it cost?" depois de falar de um tratamento.
-- As respostas do folheto saem em até 3 mensagens curtas, uma por parágrafo, como alguém digitando.
-
-### Proteção do número (anti-ban)
-
-O número é conectado por QR code, como o WhatsApp Web, e não pela plataforma oficial da Meta. Os termos do WhatsApp proíbem mensagens automatizadas não autorizadas, então **a proteção reduz o risco de banimento, mas não o elimina**. Só a plataforma oficial elimina esse risco.
-
-Todo envio, do assistente e do operador, passa pelo portão de `src/modules/antiban/` ([specs/004](specs/004-whatsapp-anti-ban/spec.md)):
-
-- **Ritmo:** marca como lida, mostra "digitando…" por um tempo proporcional e aleatório, e espera 4 s de silêncio do cliente para responder tudo de uma vez.
-- **Volume:** limites por minuto, por hora e de conversas por dia, com uma fila que espaça os envios sem rajada.
-- **Contato frio:** o assistente nunca escreve fora de 24 h da última mensagem do cliente; o operador recebe um aviso e confirma.
-- **Insistência, laço e repetição:** no máximo 3 mensagens seguidas sem resposta, nada de texto repetido e nada de link na primeira resposta. Um laço com outro robô pausa a conversa.
-- **Pedido de saída:** "stop", "parar" ou "sair" calam o assistente para aquele telefone, mesmo depois de desconectar; "start" ou o operador reativam.
-- **Aquecimento e freio:** um número novo começa com limites menores por 14 dias. Falhas de envio ou quedas seguidas pausam os envios automáticos por 30 min, com uma faixa no painel.
-
-Todos os limites mudam por variáveis `ANTIBAN_*` (veja o `.env.example`). As mais prováveis de ajustar:
-
-| Variável | Padrão | Para quê |
-|---|---|---|
-| `ANTIBAN_CONVERSATIONS_PER_DAY` | 150 | Conversas diferentes atendidas pelo assistente em 24 h |
-| `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` | 8 / 200 | Mensagens enviadas pelo número |
-| `ANTIBAN_ALLOWED_LINK_DOMAINS` | vazio | Domínios que o assistente pode mandar em links (o site da clínica) |
-| `ANTIBAN_WARMUP_DAYS` | 14 | Aquecimento de número novo; `0` desliga |
-
-O que fica fora do código e depende da clínica:
-
-- ter foto, nome e descrição no perfil do WhatsApp;
-- não usar número virtual, e esperar ao menos um dia entre registrar o número e parear o QR code;
-- pedir aos clientes que salvem o número, e divulgar o número com link `wa.me` para que o cliente escreva primeiro;
-- manter a Evolution API atualizada e baixada da fonte oficial; pacotes "anti-ban" de terceiros já foram pegos roubando sessões.
-
-### Testes
-
-```bash
-npm test                         # testes do servidor (Postgres em memória, sem rede)
-npm run typecheck                # servidor e painel
-cd rag && .\run.ps1 test         # testes do assistente, sem Ollama
-```
-
-## Estrutura
+## Structure
 
 ```
-src/
-  config/       env (validado com zod) e criptografia de tokens / assinatura de sessão e OAuth
-  db/           schema e cliente Drizzle
-  modules/
-    auth/       senha do operador, cookie de sessão e limite de tentativas
-    customers/  cadastro de clientes (quem já marcou um horário): nome, telefone e anotações
-    google/     OAuth e conexão da agenda da clínica, chamadas ao Google Calendar
-    inbox/      conversas e mensagens: registro, eco dos envios, pausa, eventos em tempo real
-    rag/        cliente do serviço RAG (POST /answer, com tempo limite)
-    reminders/  lembrete pelo WhatsApp antes do horário e a situação mostrada no painel
-    scheduling/ agendamento: regras, horários livres, interpretador (Ollama), máquina de estados, roteador e a marcação
-                compartilhada com o painel (booking.ts)
-    whatsapp/   Evolution API: parser dos eventos, envio, conexão/QR code e resposta do assistente
-  routes/       /health, /auth/google/callback, /webhooks/evolution, /api/* do painel (inclusive /api/calendar*)
-  test/         preparação dos testes (env e banco em memória)
-web/            painel (React + Vite)
-scripts/        utilitários: seed de conversa, simular cliente, avaliação do agendamento
-drizzle/        migrations geradas (npm run db:generate)
-rag/            assistente da DentalSafe, copiado do RagLab (ver rag/README.md)
+src/        Node server: Fastify routes and business modules (scheduling, anti-ban, inbox, reminders, …)
+web/        Web panel (React + Vite)
+rag/        Brochure assistant (Python RAG service, copied from RagLab; own README)
+scripts/    Simulate a customer, seed a conversation, evaluate scheduling with the real model
+drizzle/    Database migrations
+specs/      Feature specs 001–006 (Portuguese, Spec Kit)
+docs/       Project documentation
 ```
 
-## Endpoints
+## Documentation
 
-| Rota | Uso |
+| Document | Answers |
 |---|---|
-| `GET /health` | Healthcheck |
-| `GET /auth/google/callback` | Volta do OAuth do Google (conexão da agenda) |
-| `POST /webhooks/evolution?token=...` | Webhook da Evolution API (`messages.upsert`, `send.message`, `connection.update`, `qrcode.updated`) |
-| `/api/*` | API do painel, com login; contratos em [specs/002](specs/002-whatsapp-web-inbox/contracts/panel-api.md), [specs/003](specs/003-google-calendar-scheduling/contracts/panel-api.md) e [specs/006](specs/006-panel-appointments-reminders/contracts/panel-api.md) (agendamentos, marcação e edição de clientes) |
-
-O assistente RAG tem os próprios endpoints (`/health`, `/answer`, `/retrieve`), descritos em [rag/README.md](rag/README.md).
+| [Overview](docs/README.md) | Documentation map, one-screen overview, open questions |
+| [Product](docs/product.md) | What it does, for whom, main journeys, glossary |
+| [Business rules](docs/business-rules.md) | Scheduling, reminders, names, anti-ban and panel rules, with code links |
+| [Architecture](docs/architecture.md) | Components, code layout, front-end, risks |
+| [Message pipeline](docs/message-pipeline.md) | From a WhatsApp message to the reply, end to end |
+| [API](docs/api.md) | Webhook, panel API and real-time events |
+| [Data model](docs/data-model.md) | Tables, relationships and lifecycles |
+| [Integrations](docs/integrations.md) | Evolution API, Google Calendar, Ollama, RAG service |
+| [Development](docs/development.md) | Setup, environment, tests, evaluation, common tasks |
+| [Decisions](docs/decisions/README.md) | Architecture decision records |
