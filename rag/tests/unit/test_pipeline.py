@@ -48,11 +48,14 @@ def index(monkeypatch):
     calls = SimpleNamespace(vector_k=[], bm25=0, embedded=[], hyde=[])
 
     class FakeDb:
-        def similarity_search_by_vector(self, embedding, k):
-            calls.vector_k.append(k)
+        def vectors_by_content(self):
+            return VECTORS
+
+        def search_by_vector(self, embedding, limit):
+            calls.vector_k.append(limit)
             assert list(embedding) == [1.0, 0.0]
             ranked = sorted(DOCUMENTS, key=lambda content: -SIMILARITY[content])
-            return [SimpleNamespace(page_content=content) for content in ranked[:k]]
+            return [SimpleNamespace(page_content=content) for content in ranked[:limit]]
 
     class FakeEmbeddings:
         def embed_query(self, text):
@@ -71,9 +74,8 @@ def index(monkeypatch):
         calls.hyde.append(question)
         return "Braces stay on for 12 to 36 months."
 
-    monkeypatch.setattr(pipeline, "_db", lambda strategy: FakeDb())
+    monkeypatch.setattr(pipeline, "_default_vector_store_provider", lambda: lambda strategy: FakeDb())
     monkeypatch.setattr(pipeline, "_bm25", fake_bm25)
-    monkeypatch.setattr(pipeline, "_vectors", lambda strategy: VECTORS)
     monkeypatch.setattr(pipeline, "EMBEDDINGS", FakeEmbeddings())
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
     return calls
@@ -163,6 +165,20 @@ def test_chunk_found_by_both_searches_comes_first(index):
     assert [chunk.rank for chunk in result.fused] == list(range(1, len(result.fused) + 1))
 
 
+def test_hybrid_fusion_sums_reciprocal_ranks_and_preserves_component_scores(index):
+    result = retrieve(PRICE_QUESTION, config())
+
+    whitening = next(chunk for chunk in result.fused if chunk.content == WHITENING)
+    cleaning = next(chunk for chunk in result.fused if chunk.content == CLEANING)
+
+    # Whitening appears in both lists (vector rank 2, BM25 rank 1); cleaning appears only in vector.
+    assert whitening.score == pytest.approx(1 / 62 + 1 / 61)
+    assert cleaning.score == pytest.approx(1 / 61)
+    assert next(chunk for chunk in result.vector if chunk.content == CLEANING).score == pytest.approx(0.9)
+    assert [chunk.content for chunk in result.bm25] == [WHITENING]
+    assert result.bm25[0].score > 0
+
+
 def test_each_search_contributes_even_when_the_other_misses(index):
     result = retrieve(BRACES_QUESTION, config())
 
@@ -208,6 +224,28 @@ def test_question_is_embedded_once(index):
     retrieve(PRICE_QUESTION, config())
 
     assert index.embedded == [("query", PRICE_QUESTION)]
+
+
+def test_retrieve_uses_an_injected_vector_store_provider(index):
+    calls = []
+
+    class FakeStore:
+        def search_by_vector(self, vector, limit):
+            calls.append(("search", vector, limit))
+            return [SimpleNamespace(page_content=CLEANING)]
+
+        def vectors_by_content(self):
+            calls.append(("vectors",))
+            return VECTORS
+
+    def provider(strategy):
+        calls.append(("provider", strategy))
+        return FakeStore()
+
+    result = retrieve(BRACES_QUESTION, config("vector", 1), vector_store_provider=provider)
+
+    assert [chunk.content for chunk in result.vector] == [CLEANING]
+    assert calls == [("provider", "fake"), ("vectors",), ("search", [1.0, 0.0], 1)]
 
 
 # --- search types ---

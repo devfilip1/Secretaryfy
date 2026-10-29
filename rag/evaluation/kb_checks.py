@@ -13,15 +13,10 @@ ALLOWED_CONTROL = {"\n", "\r", "\t"}
 
 def load_kb(strategy_name):
     """Returns (chunks of the vector base, chunks of the file used by the word-based search) of a strategy."""
-    from langchain_chroma.vectorstores import Chroma
+    from assistant.index import chunks_path
+    from assistant.storage.chroma import get_vector_store
 
-    from assistant.config import COLLECTION_NAME
-    from assistant.index import chroma_dir, chunks_path
-    from assistant.ingest import EMBEDDINGS
-
-    db = Chroma(collection_name=COLLECTION_NAME, persist_directory=str(chroma_dir(strategy_name)),
-                embedding_function=EMBEDDINGS)
-    vector_chunks = db._collection.get(include=["documents"])["documents"]
+    vector_chunks = get_vector_store(strategy_name).documents()
     with open(chunks_path(strategy_name), "r", encoding="utf-8") as f:
         file_chunks = [chunk["content"] for chunk in json.load(f)]
     return vector_chunks, file_chunks

@@ -45,12 +45,14 @@ def test_vector_search_by_vector_matches_search_by_text():
     """The pipeline searches with the vector already computed; the order must be the same as searching by text."""
     from assistant import pipeline
     from assistant.pipeline import RagConfig, retrieve
+    from assistant.storage.factory import default_vector_store_provider
 
     config = RagConfig()
     questions = ["How much is teeth whitening?", "How long does an implant take?", "how long do braces stay on",
                  "Do you have payment options?", "What is the clinic's address?"]
     for question in questions:
-        by_text = pipeline._db(config.strategy).similarity_search(question, k=config.vector_k)
+        store = default_vector_store_provider()(config.strategy)
+        by_text = store.search_by_text(question, limit=config.vector_k)
         result = retrieve(question, config)
 
         assert [chunk.content for chunk in result.vector] == [doc.page_content for doc in by_text], question
@@ -58,6 +60,24 @@ def test_vector_search_by_vector_matches_search_by_text():
         # the similarity goes down with the position in the vector search
         similarities = [chunk.similarity for chunk in result.vector]
         assert similarities == sorted(similarities, reverse=True), question
+
+
+def test_http_answer_and_retrieve_use_the_default_rag_service():
+    from fastapi.testclient import TestClient
+
+    import server
+    from assistant.pipeline import RagConfig
+
+    config = RagConfig()
+    with TestClient(server.create_app(config)) as client:
+        retrieval = client.post("/retrieve", json={"question": "How much is a dental cleaning?"})
+        answer = client.post("/answer", json={"question": "How much is a dental cleaning?"})
+
+    assert retrieval.status_code == 200
+    assert retrieval.json()["experiment"] == config.experiment
+    assert any("Dental Cleaning" in chunk["content"] for chunk in retrieval.json()["chunks"])
+    assert answer.status_code == 200
+    assert "$40" in answer.json()["answer"] and "$85" in answer.json()["answer"]
 
 
 def test_answers_a_price_from_the_right_procedure():

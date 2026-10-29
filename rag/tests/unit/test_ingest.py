@@ -217,6 +217,57 @@ def test_unknown_strategy_type():
         build_chunks(Strategy("x", "semantic", {}), PAGES)
 
 
+def test_vectorize_chunks_uses_the_injected_store_rebuild_operation(monkeypatch):
+    from assistant import ingest
+
+    strategy = Strategy("section", "section", {"max_chars": 1200, "overlap": 100})
+    chunks = [build_chunks(strategy, PAGES)[0]]
+    calls = []
+
+    class FakeStore:
+        def rebuild(self, documents):
+            calls.append(("rebuild", documents))
+
+    def provider(name):
+        calls.append(("provider", name))
+        return FakeStore()
+
+    ingest.vectorize_chunks(strategy, chunks, vector_store_provider=provider)
+
+    assert calls == [("provider", "section"), ("rebuild", chunks)]
+
+
+def test_ingest_cli_forwards_vector_store_provider_through_index_build(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    from assistant import ingest
+    from assistant import ingestion
+
+    strategy = Strategy("fake", "page", {})
+    documents = []
+    calls = []
+
+    class FakeStore:
+        def rebuild(self, chunks):
+            documents.extend(chunks)
+
+    def provider(name):
+        calls.append(name)
+        return FakeStore()
+
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"fake": strategy}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: ["Dental Cleaning\nPrice: $40–$85"])
+    monkeypatch.setattr(ingestion.service, "save_chunks", lambda strategy, chunks: None)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda *args: None)
+
+    result = ingest.main(["fake"], vector_store_provider=provider)
+
+    assert result == 0
+    assert calls == ["fake"]
+    assert len(documents) == 1 and "$40–$85" in documents[0].page_content
+    assert "fake: 1 chunks" in capsys.readouterr().out
+
+
 def test_the_real_brochure_gives_one_section_per_subject():
     chunks = build_chunks(SECTION, load_pages())
 

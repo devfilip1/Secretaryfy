@@ -1,10 +1,13 @@
 """The HTTP service, with the pipeline and Ollama replaced: no model is needed."""
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
 import server
 from assistant.index import CURRENT, STALE, IndexUnavailable
 from assistant.pipeline import AnswerResult, RagConfig, RetrievalResult, RetrievedChunk
+from assistant.retrieval.service import RagService
 from assistant.settings import SettingsError
 
 BRACES = "Braces and Orthodontic Treatment\nPrice: $180–$450 (Initial cost) and $35–$90 (Monthly)"
@@ -16,23 +19,30 @@ ANSWER = "Braces cost $180–$450 (Initial cost) and $35–$90 (Monthly). Would 
 HISTORIES = []  # the conversation each answer received
 
 
+def test_rag_service_requires_an_effective_vector_store_provider():
+    with pytest.raises(ValueError, match="vector_store_provider is required"):
+        RagService(RagConfig.from_experiment("section_hybrid"), None)
+
+
 @pytest.fixture
 def calls(monkeypatch):
     """Replaces the pipeline and records the questions it received."""
+    from assistant import pipeline
+
     asked = []
     HISTORIES.clear()
 
-    def fake_answer(question, config, history=None):
+    def fake_answer(question, config, history=None, *, vector_store_provider):
         asked.append(question)
         HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
-    def fake_retrieve(question, config):
+    def fake_retrieve(question, config, *, vector_store_provider):
         asked.append(question)
         return RETRIEVAL
 
-    monkeypatch.setattr(server, "answer", fake_answer)
-    monkeypatch.setattr(server, "retrieve", fake_retrieve)
+    monkeypatch.setattr(pipeline, "answer_with_store", fake_answer)
+    monkeypatch.setattr(pipeline, "retrieve_with_store", fake_retrieve)
     return asked
 
 
@@ -52,6 +62,54 @@ def test_answer_returns_the_reply_and_the_chunks_it_used(client, calls):
     assert body["experiment"] == "section_hybrid"
     assert calls == ["How much are braces?"]
     assert HISTORIES == [[]]
+
+
+def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
+    from types import SimpleNamespace
+
+    from assistant import pipeline
+
+    config = RagConfig(
+        experiment="fake", strategy="fake", search_type="vector", match_count=1,
+        match_threshold=0.0, use_hyde=False, prompt="rules",
+    )
+    document = SimpleNamespace(page_content=BRACES)
+    calls = []
+
+    class FakeStore:
+        def search_by_vector(self, vector, limit):
+            calls.append(("search", vector, limit))
+            return [document]
+
+        def vectors_by_content(self):
+            return {BRACES: [1.0, 0.0]}
+
+    class FakeEmbeddings:
+        def embed_query(self, question):
+            return [1.0, 0.0]
+
+    class FakeModel:
+        def invoke(self, prompt):
+            return SimpleNamespace(content="Braces cost $180–$450.")
+
+    def provider(strategy):
+        calls.append(("provider", strategy))
+        return FakeStore()
+
+    monkeypatch.setattr(pipeline, "EMBEDDINGS", FakeEmbeddings())
+    monkeypatch.setattr(pipeline, "_model", lambda *args: FakeModel())
+    monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
+    app = server.create_app(config, vector_store_provider=provider)
+
+    with TestClient(app) as client:
+        retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
+        answered = client.post("/answer", json={"question": "How much are braces?"})
+
+    assert retrieved.status_code == 200
+    assert retrieved.json()["chunks"][0]["content"] == BRACES
+    assert answered.status_code == 200
+    assert answered.json()["answer"] == "Braces cost $180–$450."
+    assert [call for call in calls if call[0] == "provider"] == [("provider", "fake"), ("provider", "fake")]
 
 
 def test_answer_passes_the_conversation_along(client, calls):
@@ -94,10 +152,12 @@ def test_an_empty_question_is_rejected_without_calling_the_model(client, calls, 
 
 @pytest.mark.parametrize("path, name", [("/answer", "answer"), ("/retrieve", "retrieve")])
 def test_a_model_failure_becomes_503(client, monkeypatch, path, name):
-    def fail(question, config, history=None):
+    from assistant import pipeline
+
+    def fail(question, config, history=None, **kwargs):
         raise ConnectionError("Ollama is not running")
 
-    monkeypatch.setattr(server, name, fail)
+    monkeypatch.setattr(pipeline, f"{name}_with_store", fail)
 
     response = client.post(path, json={"question": "How much are braces?"})
 

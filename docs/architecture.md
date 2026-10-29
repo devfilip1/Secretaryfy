@@ -141,6 +141,18 @@ The panel is a single-page React app in [`web/src`](../web/src). In development 
 - **Error handling toward the patient:** the patient never sees an error; failures become the "unavailable" message or a hand-off to staff, and the cause goes to the log.
 - **Languages:** assistant messages and the panel are in English; code comments, logs and specs are in Portuguese.
 
+## Planned: cloud-ready dependency composition
+
+This is a future work plan, not a description of the current implementation. Keep Ollama (`llama3` and `nomic-embed-text`) as the default and preserve the current RAG and scheduling behavior.
+
+- Define explicit configuration and a composition root for each process: the TypeScript backend, the Python RAG HTTP service, and the ingestion CLI. Register and select implementations in those entry points, with a .NET-style single registration point per process; use a DI library only if it makes the code simpler.
+- Decouple the chat model, embedding provider, vector store, and BM25 chunk source behind small contracts where substitution is useful. Keep existing implementations and support test fakes. Ensure provider selection reaches answer, retrieval, streaming, ingestion, and index health checks rather than only a lower-level function.
+- Store provider selection, endpoints and credentials in validated configuration. Switching a provider may still require credentials, compatible schemas, document migration and reindexing: changing one registration is not itself a data migration.
+- Preserve embedding model identity and dimensions in index metadata. Rebuild an index when changing an incompatible embedding model; never mix incompatible vectors silently.
+- Evaluate PostgreSQL-backed chunks and pgvector against the current JSON, BM25 and Chroma setup before deciding on a migration. Compare retrieval quality, isolation, latency and operating costs; PostgreSQL full-text search is not necessarily equivalent to the existing BM25.
+- Before a cloud pilot, benchmark the existing Ollama models on a CPU VM and measure latency, concurrency, RAM, startup time and total cost. Plan persistent storage, tested backups, access control, monitoring, recovery and the WhatsApp connection. Choose managed services only where their benefits justify their cost.
+- Add characterization, contract and integration tests for default providers and test substitutes before refactoring; keep public HTTP and CLI contracts compatible. Record gaps and deployment-specific validation separately.
+
 ## Decisions
 
 See [decisions/](decisions/README.md):

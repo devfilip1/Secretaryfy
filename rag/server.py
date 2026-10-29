@@ -8,7 +8,7 @@ import os
 import sys
 import time
 import urllib.request
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -17,7 +17,10 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from assistant.config import OLLAMA_BASE_URL
 from assistant.index import CURRENT, IndexUnavailable, index_state, require_index
-from assistant.pipeline import RagConfig, answer, retrieve
+from assistant.pipeline import RagConfig
+from assistant.retrieval.service import RagService
+from assistant.storage.factory import default_vector_store_provider
+from assistant.storage.vector_store import VectorStore
 from assistant.settings import SettingsError, get_strategy
 
 logger = logging.getLogger("rag.server")
@@ -54,7 +57,20 @@ def ollama_reachable(url=OLLAMA_BASE_URL, timeout=OLLAMA_TIMEOUT_S):
         return False
 
 
-def create_app(config):
+def create_app(
+    config,
+    *,
+    vector_store_provider: Callable[[str], VectorStore] | None = None,
+    service: RagService | None = None,
+):
+    if service is None:
+        provider = (
+            default_vector_store_provider()
+            if vector_store_provider is None
+            else vector_store_provider
+        )
+        service = RagService(config, vector_store_provider=provider)
+
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
 
     @app.get("/health")
@@ -73,7 +89,7 @@ def create_app(config):
     @app.post("/answer")
     def post_answer(body: QuestionIn):
         try:
-            result = answer(body.question, config, [turn.model_dump() for turn in body.history])
+            result = service.answer(body.question, [turn.model_dump() for turn in body.history])
         except Exception as error:
             logger.exception("answer failed")
             raise HTTPException(503, detail=str(error)) from error
@@ -88,7 +104,7 @@ def create_app(config):
     def post_retrieve(body: QuestionIn):
         start = time.perf_counter()
         try:
-            result = retrieve(body.question, config)
+            result = service.retrieve(body.question)
         except Exception as error:
             logger.exception("retrieve failed")
             raise HTTPException(503, detail=str(error)) from error
