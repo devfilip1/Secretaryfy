@@ -70,7 +70,7 @@ def index(monkeypatch):
         calls.bm25 += 1
         return BM25Okapi([tokenize(d) for d in DOCUMENTS]), DOCUMENTS
 
-    def fake_hyde(question, cfg):
+    def fake_hyde(question, cfg, generator):
         calls.hyde.append(question)
         return "Braces stay on for 12 to 36 months."
 
@@ -349,24 +349,24 @@ class FakeModel:
     def __init__(self, reply):
         self.reply, self.prompts = reply, []
 
-    def invoke(self, prompt):
+    def generate(self, prompt, *, model, temperature, seed, max_tokens):
         self.prompts.append(prompt)
-        return SimpleNamespace(content=self.reply)
+        return self.reply
 
 
-def test_follow_up_is_rewritten_with_the_conversation(monkeypatch):
+def test_follow_up_is_rewritten_with_the_conversation():
     model = FakeModel('"How much does a dental cleaning cost?"')
-    monkeypatch.setattr(pipeline, "_model", lambda *args: model)
+    generator = model
 
-    assert standalone_question("how much does it cost?", CONVERSATION, config()) == "How much does a dental cleaning cost?"
+    assert standalone_question("how much does it cost?", CONVERSATION, config(), generator) == "How much does a dental cleaning cost?"
     assert "Do you offer a cleaning?" in model.prompts[0]
 
 
-def test_question_without_conversation_is_not_rewritten(monkeypatch):
+def test_question_without_conversation_is_not_rewritten():
     model = FakeModel("anything")
-    monkeypatch.setattr(pipeline, "_model", lambda *args: model)
+    generator = model
 
-    assert standalone_question("How much is a cleaning?", [], config()) == "How much is a cleaning?"
+    assert standalone_question("How much is a cleaning?", [], config(), generator) == "How much is a cleaning?"
     assert model.prompts == []
 
 
@@ -475,6 +475,132 @@ def test_query_of_another_size_than_the_index_is_refused_with_the_rebuild_comman
         'the embedding model returned 2 dimensions but the index of strategy "fake" has 3; '
         "run: python -m assistant.ingest fake"
     )
+
+
+# --- text generation: the parameters of each call, and the generator the caller provides ---
+
+class FakeGenerator:
+    """Records each call and answers with the scripted replies; stream yields the scripted pieces."""
+
+    def __init__(self, *replies, pieces=()):
+        self.replies = list(replies)
+        self.pieces = list(pieces)
+        self.calls = []
+
+    def generate(self, prompt, *, model, temperature, seed, max_tokens):
+        self.calls.append(dict(method="generate", prompt=prompt, model=model, temperature=temperature, seed=seed, max_tokens=max_tokens))
+        return self.replies.pop(0)
+
+    def stream(self, prompt, *, model, temperature, seed, max_tokens):
+        self.calls.append(dict(method="stream", prompt=prompt, model=model, temperature=temperature, seed=seed, max_tokens=max_tokens))
+        yield from self.pieces
+
+
+def test_hyde_asks_the_model_for_a_short_text_with_fixed_settings():
+    from dataclasses import replace
+
+    from assistant.generation.prompting import HYDE_MAX_TOKENS, HYDE_PROMPT
+
+    generator = FakeGenerator("  Braces stay on for 12 to 36 months.  ")
+    cfg = replace(config(use_hyde=True), chat_model="llama3.1", seed=7)
+
+    text = pipeline.hypothetical_answer(BRACES_QUESTION, cfg, generator)
+
+    assert text == "Braces stay on for 12 to 36 months."
+    assert generator.calls == [{
+        "method": "generate", "prompt": HYDE_PROMPT.format(ask=BRACES_QUESTION), "model": "llama3.1",
+        "temperature": 0.0, "seed": 7, "max_tokens": HYDE_MAX_TOKENS,
+    }]
+
+
+def test_rewrite_asks_the_model_with_fixed_settings_and_the_conversation():
+    from dataclasses import replace
+
+    from assistant.generation.prompting import STANDALONE_MAX_TOKENS
+
+    generator = FakeGenerator('"How much does a dental cleaning cost?"')
+    cfg = replace(config(), chat_model="llama3.1", seed=7)
+
+    rewritten = standalone_question("how much does it cost?", CONVERSATION, cfg, generator)
+
+    assert rewritten == "How much does a dental cleaning cost?"
+    call = generator.calls[0]
+    assert (call["model"], call["temperature"], call["seed"], call["max_tokens"]) == ("llama3.1", 0.0, 7, STANDALONE_MAX_TOKENS)
+    assert "Do you offer a cleaning?" in call["prompt"]
+
+
+def test_answer_asks_the_model_with_the_configured_settings_and_cleans_the_reply():
+    from dataclasses import replace
+
+    generator = FakeGenerator("Braces cost $180–$450.\n\nNote: bring your ID.")
+    cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
+
+    result = pipeline.answer_with_store(
+        BRACES_QUESTION, cfg, None,
+        vector_store_provider=lambda strategy: TwoDimensionalStore(),
+        embeddings=RecordingEmbeddings(),
+        generator=generator,
+    )
+
+    assert result.answer == "Braces cost $180–$450."
+    assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
+        ("llama3.1", 0.3, 11, 99),
+    ]
+
+
+def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pieces():
+    from dataclasses import replace
+
+    generator = FakeGenerator(pieces=["Braces ", "cost $180."])
+    cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
+
+    pieces = list(pipeline.stream_answer_with_store(
+        BRACES_QUESTION, cfg,
+        vector_store_provider=lambda strategy: TwoDimensionalStore(),
+        embeddings=RecordingEmbeddings(),
+        generator=generator,
+    ))
+
+    assert pieces == ["Braces ", "cost $180."]
+    assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
+        ("llama3.1", 0.3, 11, 99),
+    ]
+
+
+def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
+    # Characterization: the plain answer drops the model's notes; the stream passes the text through unchanged.
+    generator = FakeGenerator(pieces=["Yes, we do!\n\nNote: bring your ID."])
+
+    pieces = list(pipeline.stream_answer_with_store(
+        BRACES_QUESTION, config("vector", 1),
+        vector_store_provider=lambda strategy: TwoDimensionalStore(),
+        embeddings=RecordingEmbeddings(),
+        generator=generator,
+    ))
+
+    assert pieces == ["Yes, we do!\n\nNote: bring your ID."]
+
+
+def test_hyde_without_a_generator_is_refused_before_searching():
+    with pytest.raises(ValueError, match="generator is required when use_hyde is on"):
+        pipeline.retrieve_with_store(
+            BRACES_QUESTION, config("vector", 1, use_hyde=True),
+            vector_store_provider=lambda strategy: pytest.fail("must not open the store"),
+            embeddings=RecordingEmbeddings(),
+        )
+
+
+def test_retrieval_without_hyde_does_not_call_the_generator():
+    generator = FakeGenerator()
+
+    pipeline.retrieve_with_store(
+        BRACES_QUESTION, config("vector", 1),
+        vector_store_provider=lambda strategy: TwoDimensionalStore(),
+        embeddings=RecordingEmbeddings(),
+        generator=generator,
+    )
+
+    assert generator.calls == []
 
 
 def test_empty_index_is_not_compared_with_the_query():

@@ -126,9 +126,10 @@ def test_stream_yields_the_same_kind_of_answer():
 
 
 def test_hyde_generates_a_short_hypothetical_answer():
+    from assistant.generation.model import build_generator
     from assistant.pipeline import RagConfig, hypothetical_answer
 
-    text = hypothetical_answer("How much is a dental implant?", RagConfig())
+    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator())
 
     assert 10 < len(text) < 600
 

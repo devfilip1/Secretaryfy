@@ -21,7 +21,7 @@ HISTORIES = []  # the conversation each answer received
 
 def test_rag_service_requires_an_effective_vector_store_provider():
     with pytest.raises(ValueError, match="vector_store_provider is required"):
-        RagService(RagConfig.from_experiment("section_hybrid"), None, object())
+        RagService(RagConfig.from_experiment("section_hybrid"), None, object(), object())
 
 
 @pytest.fixture
@@ -32,12 +32,12 @@ def calls(monkeypatch):
     asked = []
     HISTORIES.clear()
 
-    def fake_answer(question, config, history=None, *, vector_store_provider, embeddings):
+    def fake_answer(question, config, history=None, *, vector_store_provider, embeddings, generator):
         asked.append(question)
         HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
-    def fake_retrieve(question, config, *, vector_store_provider, embeddings):
+    def fake_retrieve(question, config, *, vector_store_provider, embeddings, generator):
         asked.append(question)
         return RETRIEVAL
 
@@ -52,6 +52,7 @@ def client():
         RagConfig.from_experiment("section_hybrid"),
         vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
         embeddings=object(),  # the fakes replace the pipeline, so the model is not called
+        generator=object(),
     ))
 
 
@@ -93,17 +94,17 @@ def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
             return [1.0, 0.0]
 
     class FakeModel:
-        def invoke(self, prompt):
-            return SimpleNamespace(content="Braces cost $180–$450.")
+        def generate(self, prompt, **kwargs):
+            return "Braces cost $180–$450."
 
     def provider(strategy):
         calls.append(("provider", strategy))
         return FakeStore()
 
     embeddings = FakeEmbeddings()
-    monkeypatch.setattr(pipeline, "_model", lambda *args: FakeModel())
+    generator = FakeModel()
     monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
-    app = server.create_app(config, vector_store_provider=provider, embeddings=embeddings)
+    app = server.create_app(config, vector_store_provider=provider, embeddings=embeddings, generator=generator)
 
     with TestClient(app) as client:
         retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
@@ -284,6 +285,36 @@ def test_main_serves_the_service_built_by_the_composition_root(monkeypatch):
 
     assert len(built) == 1
     assert served == [sentinel]
+
+
+def test_a_generator_failure_on_answer_becomes_503():
+    from types import SimpleNamespace
+
+    from assistant.pipeline import RagConfig as Config
+
+    class DownGenerator:
+        def generate(self, prompt, **kwargs):
+            raise ConnectionError("Ollama is not running")
+
+    class OneChunkStore:
+        def vectors_by_content(self):
+            return {BRACES: [1.0, 0.0]}
+
+        def search_by_vector(self, vector, limit):
+            return [SimpleNamespace(page_content=BRACES)]
+
+    config = Config(experiment="fake", strategy="fake", search_type="vector", match_count=1,
+                    match_threshold=0.0, use_hyde=False, prompt="rules")
+    app = server.create_app(
+        config,
+        vector_store_provider=lambda strategy: OneChunkStore(),
+        embeddings=SimpleNamespace(embed_query=lambda text: [1.0, 0.0]),
+        generator=DownGenerator(),
+    )
+    response = TestClient(app).post("/answer", json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Ollama is not running"}
 
 
 def test_create_app_needs_embeddings_with_a_provider():

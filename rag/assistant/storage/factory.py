@@ -1,4 +1,4 @@
-"""Default storage and embedding composition without importing a backend for injected fakes."""
+"""Default storage, embedding and generation composition without importing a backend for injected fakes."""
 from collections.abc import Callable
 
 from assistant.storage.vector_store import VectorStore
@@ -6,6 +6,7 @@ from assistant.storage.vector_store import VectorStore
 # One instance per process: the legacy wrappers ask for them on every question, and they must not be rebuilt each time.
 _default_provider: Callable[[str], VectorStore] | None = None
 _default_embeddings_instance = None
+_default_generator_instance = None
 
 
 def default_embeddings():
@@ -21,6 +22,21 @@ def reset_default_embeddings() -> None:
     """Forgets the process-wide embedding model, so the next call builds a new one. Used by tests."""
     global _default_embeddings_instance
     _default_embeddings_instance = None
+
+
+def default_generator():
+    global _default_generator_instance
+    if _default_generator_instance is None:
+        from assistant.generation.model import build_generator
+
+        _default_generator_instance = build_generator()
+    return _default_generator_instance
+
+
+def reset_default_generator() -> None:
+    """Forgets the process-wide chat model, so the next call builds a new one. Used by tests."""
+    global _default_generator_instance
+    _default_generator_instance = None
 
 
 def default_vector_store_provider() -> Callable[[str], VectorStore]:

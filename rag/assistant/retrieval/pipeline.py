@@ -8,19 +8,17 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 import numpy as np
-from langchain_ollama import ChatOllama
 from rank_bm25 import BM25Okapi
 
 from assistant.config import (
-    KEEP_ALIVE,
     MAX_ANSWER_TOKENS,
-    OLLAMA_BASE_URL,
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBEDDING_MODEL,
     QUERY_SYNONYMS,
     STOPWORDS,
     TEMPERATURE,
 )
+from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
 from assistant.index import EmbeddingMismatch, chunks_path, ingest_command
@@ -140,6 +138,12 @@ def _default_embeddings() -> EmbeddingProvider:
     return default_embeddings()
 
 
+def _default_generator() -> TextGenerator:
+    from assistant.storage.factory import default_generator
+
+    return default_generator()
+
+
 def _default_vector_store_provider() -> Callable[[str], VectorStore]:
     from assistant.storage.factory import default_vector_store_provider
 
@@ -153,18 +157,6 @@ def _bm25(strategy):
 
     tokenized_docs = [tokenize(doc) for doc in documents]
     return BM25Okapi(tokenized_docs), documents
-
-
-@lru_cache(maxsize=4)
-def _model(chat_model, temperature, seed, max_answer_tokens):
-    options = {}
-    if temperature is not None:
-        options["temperature"] = temperature
-    if seed is not None:
-        options["seed"] = seed
-    if max_answer_tokens is not None:
-        options["num_predict"] = max_answer_tokens
-    return ChatOllama(model=chat_model, base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE, **options)
 
 
 def _unit(vector):
@@ -192,17 +184,23 @@ def tokenize(text, expand=False):
     return tokens
 
 
-def hypothetical_answer(question, config):
+def hypothetical_answer(question, config, generator: TextGenerator):
     """HyDE's hypothetical answer: a text in the brochure's style, which sits closer to the chunks than the question does."""
-    model = _model(config.chat_model, 0.0, config.seed, HYDE_MAX_TOKENS)
-    return model.invoke(HYDE_PROMPT.format(ask=question)).content.strip()
+    text = generator.generate(
+        HYDE_PROMPT.format(ask=question),
+        model=config.chat_model,
+        temperature=0.0,
+        seed=config.seed,
+        max_tokens=HYDE_MAX_TOKENS,
+    )
+    return text.strip()
 
 
-def _search_vector(question, config, embeddings: EmbeddingProvider):
+def _search_vector(question, config, embeddings: EmbeddingProvider, generator: TextGenerator | None):
     """Vector used in the search and in the similarity computation, with norm 1."""
     if config.use_hyde:
         # the hypothetical answer is a document text, so it gets the document prefix
-        return _unit(embeddings.embed_documents([hypothetical_answer(question, config)])[0])
+        return _unit(embeddings.embed_documents([hypothetical_answer(question, config, generator)])[0])
     return _unit(embeddings.embed_query(question))
 
 
@@ -224,9 +222,12 @@ def retrieve_with_store(
     *,
     vector_store_provider: Callable[[str], VectorStore],
     embeddings: EmbeddingProvider,
+    generator: TextGenerator | None = None,
 ):
     config = config or RagConfig()
-    query_vector = _search_vector(question, config, embeddings)
+    if config.use_hyde and generator is None:
+        raise ValueError("generator is required when use_hyde is on")
+    query_vector = _search_vector(question, config, embeddings, generator)
     store = vector_store_provider(config.strategy)
     stored = store.vectors_by_content()
     _check_dimensions(query_vector, stored, config.strategy)
@@ -273,16 +274,27 @@ def retrieve(question, config=None, *, vector_store_provider: Callable[[str], Ve
         if vector_store_provider is None
         else vector_store_provider
     )
-    return retrieve_with_store(question, config or RagConfig(), vector_store_provider=provider, embeddings=_default_embeddings())
+    return retrieve_with_store(
+        question,
+        config or RagConfig(),
+        vector_store_provider=provider,
+        embeddings=_default_embeddings(),
+        generator=_default_generator(),
+    )
 
 
-def standalone_question(question, history, config):
+def standalone_question(question, history, config, generator: TextGenerator):
     """The question to search with: the same one without a conversation, or rewritten to stand alone with it."""
     if not history:
         return question
-    model = _model(config.chat_model, 0.0, config.seed, STANDALONE_MAX_TOKENS)
-    prompt = standalone_question_prompt(question, history)
-    rewritten = model.invoke(prompt).content.strip().strip('"').strip()
+    rewritten = generator.generate(
+        standalone_question_prompt(question, history),
+        model=config.chat_model,
+        temperature=0.0,
+        seed=config.seed,
+        max_tokens=STANDALONE_MAX_TOKENS,
+    )
+    rewritten = rewritten.strip().strip('"').strip()
     return rewritten or question
 
 
@@ -291,22 +303,36 @@ def build_prompt(question, retrieval, config=None, history=None):
     return _build_prompt(question, retrieval, config or RagConfig(), history)
 
 
-def answer_with_store(question, config, history, *, vector_store_provider: Callable[[str], VectorStore], embeddings: EmbeddingProvider):
+def answer_with_store(
+    question,
+    config,
+    history,
+    *,
+    vector_store_provider: Callable[[str], VectorStore],
+    embeddings: EmbeddingProvider,
+    generator: TextGenerator,
+):
     """history: the messages before the question, as [{"role": "user" | "assistant", "content": ...}]."""
     config = config or RagConfig()
     start = time.perf_counter()
 
     retrieval = retrieve_with_store(
-        standalone_question(question, history, config),
+        standalone_question(question, history, config, generator),
         config,
         vector_store_provider=vector_store_provider,
         embeddings=embeddings,
+        generator=generator,
     )
     prompt = build_prompt(question, retrieval, config, history)
-    model = _model(config.chat_model, config.temperature, config.seed, config.max_answer_tokens)
-    response = model.invoke(prompt)
+    reply = generator.generate(
+        prompt,
+        model=config.chat_model,
+        temperature=config.temperature,
+        seed=config.seed,
+        max_tokens=config.max_answer_tokens,
+    )
 
-    return AnswerResult(answer=clean_answer(response.content, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
+    return AnswerResult(answer=clean_answer(reply, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
 
 
 def answer(question, config=None, history=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
@@ -316,17 +342,41 @@ def answer(question, config=None, history=None, *, vector_store_provider: Callab
         if vector_store_provider is None
         else vector_store_provider
     )
-    return answer_with_store(question, config or RagConfig(), history, vector_store_provider=provider, embeddings=_default_embeddings())
+    return answer_with_store(
+        question,
+        config or RagConfig(),
+        history,
+        vector_store_provider=provider,
+        embeddings=_default_embeddings(),
+        generator=_default_generator(),
+    )
 
 
-def stream_answer_with_store(question, config, *, vector_store_provider: Callable[[str], VectorStore], embeddings: EmbeddingProvider):
+def stream_answer_with_store(
+    question,
+    config,
+    *,
+    vector_store_provider: Callable[[str], VectorStore],
+    embeddings: EmbeddingProvider,
+    generator: TextGenerator,
+):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
-    retrieval = retrieve_with_store(question, config, vector_store_provider=vector_store_provider, embeddings=embeddings)
+    retrieval = retrieve_with_store(
+        question,
+        config,
+        vector_store_provider=vector_store_provider,
+        embeddings=embeddings,
+        generator=generator,
+    )
     prompt = build_prompt(question, retrieval, config)
-    model = _model(config.chat_model, config.temperature, config.seed, config.max_answer_tokens)
-    for piece in model.stream(prompt):
-        yield piece.content
+    yield from generator.stream(
+        prompt,
+        model=config.chat_model,
+        temperature=config.temperature,
+        seed=config.seed,
+        max_tokens=config.max_answer_tokens,
+    )
 
 
 def stream_answer(question, config=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
@@ -336,4 +386,10 @@ def stream_answer(question, config=None, *, vector_store_provider: Callable[[str
         if vector_store_provider is None
         else vector_store_provider
     )
-    yield from stream_answer_with_store(question, config or RagConfig(), vector_store_provider=provider, embeddings=_default_embeddings())
+    yield from stream_answer_with_store(
+        question,
+        config or RagConfig(),
+        vector_store_provider=provider,
+        embeddings=_default_embeddings(),
+        generator=_default_generator(),
+    )

@@ -1,6 +1,7 @@
-"""Small orchestration service that composes a RAG config, its storage provider and its embedding model."""
+"""Small orchestration service that composes a RAG config, its storage provider, its embedding model and its chat model."""
 from collections.abc import Callable, Iterable
 
+from assistant.generation.model import TextGenerator
 from assistant.retrieval import pipeline
 from assistant.retrieval.pipeline import AnswerResult, RagConfig, RetrievalResult
 from assistant.storage.embeddings import EmbeddingProvider
@@ -13,14 +14,18 @@ class RagService:
         config: RagConfig,
         vector_store_provider: Callable[[str], VectorStore],
         embeddings: EmbeddingProvider,
+        generator: TextGenerator,
     ):
         if vector_store_provider is None:
             raise ValueError("vector_store_provider is required")
         if embeddings is None:
             raise ValueError("embeddings is required")
+        if generator is None:
+            raise ValueError("generator is required")
         self.config = config
         self.vector_store_provider = vector_store_provider
         self.embeddings = embeddings
+        self.generator = generator
 
     def retrieve(self, question: str) -> RetrievalResult:
         return pipeline.retrieve_with_store(
@@ -28,6 +33,7 @@ class RagService:
             self.config,
             vector_store_provider=self.vector_store_provider,
             embeddings=self.embeddings,
+            generator=self.generator,
         )
 
     def answer(self, question: str, history: list[dict[str, str]] | None = None) -> AnswerResult:
@@ -37,6 +43,7 @@ class RagService:
             history,
             vector_store_provider=self.vector_store_provider,
             embeddings=self.embeddings,
+            generator=self.generator,
         )
 
     def stream_answer(self, question: str) -> Iterable[str]:
@@ -45,4 +52,5 @@ class RagService:
             self.config,
             vector_store_provider=self.vector_store_provider,
             embeddings=self.embeddings,
+            generator=self.generator,
         )

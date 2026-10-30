@@ -18,6 +18,7 @@ def test_build_rag_service_serves_the_given_config_from_the_default_provider_and
     provider = lambda strategy: pytest.fail("the store is not used when the service is only inspected")
     monkeypatch.setattr(composition, "default_vector_store_provider", lambda: provider)
     monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
     config = RagConfig.from_experiment("section_hybrid")
 
     service = composition.build_rag_service(config)
@@ -32,6 +33,7 @@ def test_build_rag_service_without_a_config_uses_the_assistant_experiment(monkey
     sentinel = object()
     monkeypatch.setattr(composition, "default_vector_store_provider", lambda: (lambda strategy: None))
     monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
     monkeypatch.setattr(pipeline, "RagConfig", lambda: sentinel)
 
     service = composition.build_rag_service()
@@ -48,6 +50,7 @@ def test_build_vector_store_provider_is_the_default_factory_provider(monkeypatch
 
 def test_build_embeddings_provider_is_the_default_embeddings(monkeypatch):
     monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
 
     assert composition.build_embeddings_provider() is stub_model
 
@@ -65,6 +68,20 @@ def test_the_service_and_the_chroma_provider_share_one_embeddings_instance(monke
     finally:
         factory.reset_default_embeddings()
         factory.reset_default_vector_store_provider()
+
+
+def test_the_service_and_the_chat_model_share_one_generator(monkeypatch):
+    from assistant.generation import model as generation_model
+
+    shared = object()
+    monkeypatch.setattr(generation_model, "build_generator", lambda: shared)
+    factory.reset_default_generator()
+    try:
+        service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
+
+        assert service.generator is shared
+    finally:
+        factory.reset_default_generator()
 
 
 def test_importing_the_composition_root_does_not_load_the_retrieval_pipeline():
