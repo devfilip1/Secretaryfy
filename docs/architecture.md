@@ -143,7 +143,7 @@ The panel is a single-page React app in [`web/src`](../web/src). In development 
 
 ## Planned: cloud-ready dependency composition
 
-This is a future work plan, not a description of the current implementation, except for what [ADR 0009](decisions/0009-rag-composition-root.md) records as done in the RAG service (composition root, vector store and embedding contracts, embedding dimensions in the index manifest). Keep Ollama (`llama3` and `nomic-embed-text`) as the default and preserve the current RAG and scheduling behavior.
+This is a future work plan, not a description of the current implementation, except for what [ADR 0009](decisions/0009-rag-composition-root.md) records as done in the RAG service (composition root, vector store, embedding and chat model contracts, embedding dimensions in the index manifest). Keep Ollama (`llama3` and `nomic-embed-text`) as the default and preserve the current RAG and scheduling behavior.
 
 - Define explicit configuration and a composition root for each process: the TypeScript backend, the Python RAG HTTP service, and the ingestion CLI. Register and select implementations in those entry points, with a .NET-style single registration point per process; use a DI library only if it makes the code simpler.
 - Decouple the chat model, embedding provider, vector store, and BM25 chunk source behind small contracts where substitution is useful. Keep existing implementations and support test fakes. Ensure provider selection reaches answer, retrieval, streaming, ingestion, and index health checks rather than only a lower-level function.
