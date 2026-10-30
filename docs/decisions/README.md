@@ -12,5 +12,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0006](0006-appointment-belongs-to-phone.md) | The appointment belongs to the phone, with one booking engine | Accepted |
 | [0007](0007-single-process-in-memory-coordination.md) | Single process with in-memory coordination | Reconstructed |
 | [0008](0008-reminder-only-inside-24h-window.md) | Reminders only inside the 24 h window | Accepted |
+| [0009](0009-rag-composition-root.md) | One composition root for the RAG service, with injected providers | Accepted |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.
