@@ -76,7 +76,7 @@ def index(monkeypatch):
 
     monkeypatch.setattr(pipeline, "_default_vector_store_provider", lambda: lambda strategy: FakeDb())
     monkeypatch.setattr(pipeline, "_bm25", fake_bm25)
-    monkeypatch.setattr(pipeline, "EMBEDDINGS", FakeEmbeddings())
+    monkeypatch.setattr(pipeline, "_default_embeddings", lambda: FakeEmbeddings())
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
     return calls
 
@@ -411,3 +411,84 @@ def test_greeting_is_removed_only_in_an_ongoing_conversation():
     assert clean_answer("Hi!", CONVERSATION) == "Hi!"  # nothing else to say: the greeting stays
     assert clean_answer("Hi! How can I help?") == "Hi! How can I help?"  # first message
     assert clean_answer("Highly recommended.", CONVERSATION) == "Highly recommended."
+
+
+# --- injected embeddings and the dimension check ---
+
+class RecordingEmbeddings:
+    def __init__(self):
+        self.queries = []
+
+    def embed_query(self, text):
+        self.queries.append(text)
+        return [2.0, 0.0]
+
+    def embed_documents(self, texts):
+        return [[2.0, 0.0] for _ in texts]
+
+
+class TwoDimensionalStore:
+    def vectors_by_content(self):
+        return VECTORS
+
+    def search_by_vector(self, vector, limit):
+        return [SimpleNamespace(page_content=CLEANING)]
+
+
+def test_retrieve_embeds_with_the_injected_embeddings(monkeypatch):
+    embeddings = RecordingEmbeddings()
+    monkeypatch.setattr(pipeline, "_default_embeddings", lambda: pytest.fail("the default model must not be used"))
+
+    result = pipeline.retrieve_with_store(
+        BRACES_QUESTION, config("vector", 1),
+        vector_store_provider=lambda strategy: TwoDimensionalStore(),
+        embeddings=embeddings,
+    )
+
+    assert embeddings.queries == [BRACES_QUESTION]
+    assert [chunk.content for chunk in result.vector] == [CLEANING]
+
+
+def test_retrieve_with_store_requires_the_embeddings():
+    with pytest.raises(TypeError):
+        pipeline.retrieve_with_store(BRACES_QUESTION, config(), vector_store_provider=lambda strategy: TwoDimensionalStore())
+
+
+def test_query_of_another_size_than_the_index_is_refused_with_the_rebuild_command():
+    from assistant.index import EmbeddingMismatch
+
+    class ThreeDimensionalStore:
+        def vectors_by_content(self):
+            return {CLEANING: [1.0, 0.0, 0.0]}
+
+        def search_by_vector(self, vector, limit):
+            pytest.fail("the search must not run with incompatible vectors")
+
+    with pytest.raises(EmbeddingMismatch) as info:
+        pipeline.retrieve_with_store(
+            BRACES_QUESTION, config("vector", 1),
+            vector_store_provider=lambda strategy: ThreeDimensionalStore(),
+            embeddings=RecordingEmbeddings(),
+        )
+
+    assert str(info.value) == (
+        'the embedding model returned 2 dimensions but the index of strategy "fake" has 3; '
+        "run: python -m assistant.ingest fake"
+    )
+
+
+def test_empty_index_is_not_compared_with_the_query():
+    class EmptyStore:
+        def vectors_by_content(self):
+            return {}
+
+        def search_by_vector(self, vector, limit):
+            return []
+
+    result = pipeline.retrieve_with_store(
+        BRACES_QUESTION, config("vector", 1),
+        vector_store_provider=lambda strategy: EmptyStore(),
+        embeddings=RecordingEmbeddings(),
+    )
+
+    assert result.vector == []

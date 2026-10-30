@@ -258,7 +258,7 @@ def test_ingest_cli_forwards_vector_store_provider_through_index_build(monkeypat
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"fake": strategy}))
     monkeypatch.setattr(ingestion.service, "load_pages", lambda: ["Dental Cleaning\nPrice: $40–$85"])
     monkeypatch.setattr(ingestion.service, "save_chunks", lambda strategy, chunks: None)
-    monkeypatch.setattr(ingestion.service, "write_manifest", lambda *args: None)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda *args, **kwargs: None)
 
     result = ingest.main(["fake"], vector_store_provider=provider)
 
@@ -307,6 +307,47 @@ def test_ingest_cli_rejects_an_unknown_strategy_before_reading_the_brochure(monk
     assert capsys.readouterr().out.strip() == "Unknown strategy: bogus. Use one of: section, page"
 
 
+def test_build_index_records_the_dimensions_of_the_stored_vectors(monkeypatch, tmp_path):
+    import json
+
+    from assistant import index as index_module
+    from assistant import ingestion
+
+    class FakeStore:
+        def rebuild(self, chunks):
+            pass
+
+        def vectors_by_content(self):
+            return {"chunk": [0.1, 0.2, 0.3]}
+
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the files go to tmp_path, not data/
+    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
+
+    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: FakeStore())
+
+    manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["embedding_dimensions"] == 3
+
+
+def test_build_index_leaves_the_dimensions_out_when_the_store_cannot_tell(monkeypatch, tmp_path):
+    import json
+
+    from assistant import index as index_module
+    from assistant import ingestion
+
+    class BareStore:
+        def rebuild(self, chunks):
+            pass
+
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
+
+    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: BareStore())
+
+    manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert "embedding_dimensions" not in manifest
+
+
 def test_ingest_cli_stops_with_the_configuration_problems(monkeypatch, capsys):
     from assistant import ingest
     from assistant import ingestion
@@ -346,7 +387,7 @@ def test_ingest_cli_uses_the_composition_root_when_no_provider_is_given(monkeypa
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"page": PAGE}))
     monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
-    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count: None)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: None)
 
     result = ingest.main(["page"])
 
@@ -374,7 +415,7 @@ def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch,
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the chunk files go to tmp_path, not data/
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
     monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
-    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count: manifests.append((strategy.name, count)))
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: manifests.append((strategy.name, count)))
 
     result = ingest.main([], vector_store_provider=FakeStore)
 

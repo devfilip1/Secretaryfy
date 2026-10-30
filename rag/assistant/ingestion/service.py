@@ -18,7 +18,7 @@ from assistant.ingestion.chunking import (
     split_sections,
 )
 from assistant.config import SOURCE_PDF
-from assistant.storage.embeddings import EMBEDDINGS, PrefixedEmbeddings
+from assistant.storage.embeddings import PrefixedEmbeddings
 from assistant.index import chunks_path, index_dir, write_manifest
 from assistant.settings import SettingsError, load_settings
 from assistant.storage.vector_store import VectorStore
@@ -45,15 +45,26 @@ def save_chunks(strategy, chunks):
 
 def vectorize_chunks(strategy, chunks, *, vector_store_provider: Callable[[str], VectorStore]):
     """Replace a strategy's vector index through the required storage port."""
-    vector_store_provider(strategy.name).rebuild(chunks)
+    store = vector_store_provider(strategy.name)
+    store.rebuild(chunks)
+    return store
+
+
+def _stored_dimensions(store):
+    """Size of the stored vectors, for the manifest; None when the index is empty or the store cannot tell."""
+    vectors_by_content = getattr(store, "vectors_by_content", None)
+    if vectors_by_content is None:
+        return None
+    stored = vectors_by_content()
+    return len(next(iter(stored.values()))) if stored else None
 
 
 def build_index(strategy, pages=None, *, vector_store_provider: Callable[[str], VectorStore]):
     """Creates or recreates the index of one strategy, without touching the indexes of the others."""
     chunks = build_chunks(strategy, pages if pages is not None else load_pages())
     save_chunks(strategy, chunks)
-    vectorize_chunks(strategy, chunks, vector_store_provider=vector_store_provider)
-    write_manifest(strategy, len(chunks))
+    store = vectorize_chunks(strategy, chunks, vector_store_provider=vector_store_provider)
+    write_manifest(strategy, len(chunks), embedding_dimensions=_stored_dimensions(store))
     return len(chunks)
 
 

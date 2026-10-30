@@ -9,6 +9,10 @@ from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL, SOURCE_PDF
 CURRENT, STALE, MISSING = "current", "stale", "missing"
 
 
+class EmbeddingMismatch(Exception):
+    """The embedding model gives vectors of another size than the index. The message carries the command that fixes it."""
+
+
 class IndexUnavailable(Exception):
     """The index of a strategy is missing or out of date. The message carries the command that fixes it."""
 
@@ -37,7 +41,7 @@ def ingest_command(name):
     return f"python -m assistant.ingest {name}"
 
 
-def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None):
+def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None, embedding_dimensions=None):
     """Records which definition, brochure, and model the index was built with."""
     manifest = {
         "strategy": strategy.name,
@@ -47,6 +51,8 @@ def write_manifest(strategy, chunk_count, base=None, source=None, embedding_mode
         "chunk_count": chunk_count,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
+    if embedding_dimensions is not None:
+        manifest["embedding_dimensions"] = embedding_dimensions
     path = manifest_path(strategy.name, base)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -4,7 +4,6 @@ from collections.abc import Callable
 
 from assistant.ingestion.service import (
     BULLET,
-    EMBEDDINGS,
     HEADING_STOPWORDS,
     PAGE_HEADER,
     STRATEGY_TYPES,

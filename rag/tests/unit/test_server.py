@@ -21,7 +21,7 @@ HISTORIES = []  # the conversation each answer received
 
 def test_rag_service_requires_an_effective_vector_store_provider():
     with pytest.raises(ValueError, match="vector_store_provider is required"):
-        RagService(RagConfig.from_experiment("section_hybrid"), None)
+        RagService(RagConfig.from_experiment("section_hybrid"), None, object())
 
 
 @pytest.fixture
@@ -32,12 +32,12 @@ def calls(monkeypatch):
     asked = []
     HISTORIES.clear()
 
-    def fake_answer(question, config, history=None, *, vector_store_provider):
+    def fake_answer(question, config, history=None, *, vector_store_provider, embeddings):
         asked.append(question)
         HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
-    def fake_retrieve(question, config, *, vector_store_provider):
+    def fake_retrieve(question, config, *, vector_store_provider, embeddings):
         asked.append(question)
         return RETRIEVAL
 
@@ -51,6 +51,7 @@ def client():
     return TestClient(server.create_app(
         RagConfig.from_experiment("section_hybrid"),
         vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
+        embeddings=object(),  # the fakes replace the pipeline, so the model is not called
     ))
 
 
@@ -99,10 +100,10 @@ def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
         calls.append(("provider", strategy))
         return FakeStore()
 
-    monkeypatch.setattr(pipeline, "EMBEDDINGS", FakeEmbeddings())
+    embeddings = FakeEmbeddings()
     monkeypatch.setattr(pipeline, "_model", lambda *args: FakeModel())
     monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
-    app = server.create_app(config, vector_store_provider=provider)
+    app = server.create_app(config, vector_store_provider=provider, embeddings=embeddings)
 
     with TestClient(app) as client:
         retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
@@ -283,3 +284,28 @@ def test_main_serves_the_service_built_by_the_composition_root(monkeypatch):
 
     assert len(built) == 1
     assert served == [sentinel]
+
+
+def test_create_app_needs_embeddings_with_a_provider():
+    with pytest.raises(ValueError, match="embeddings is required"):
+        server.create_app(RagConfig.from_experiment("section_hybrid"), vector_store_provider=lambda strategy: None)
+
+
+@pytest.mark.parametrize("path", ["/answer", "/retrieve"])
+def test_an_embedding_mismatch_becomes_503_with_the_rebuild_command(path):
+    from assistant.index import EmbeddingMismatch
+
+    message = 'the embedding model returned 768 dimensions but the index of strategy "section" has 1024; run: python -m assistant.ingest section'
+
+    class MismatchedService:
+        def answer(self, question, history):
+            raise EmbeddingMismatch(message)
+
+        def retrieve(self, question):
+            raise EmbeddingMismatch(message)
+
+    app = server.create_app(RagConfig.from_experiment("section_hybrid"), service=MismatchedService())
+    response = TestClient(app).post(path, json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": message}

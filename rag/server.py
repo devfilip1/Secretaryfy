@@ -20,6 +20,7 @@ from assistant.index import CURRENT, IndexUnavailable, index_state, require_inde
 from assistant.pipeline import RagConfig
 from assistant.retrieval.service import RagService
 from assistant.composition import build_rag_service
+from assistant.storage.embeddings import EmbeddingProvider
 from assistant.storage.vector_store import VectorStore
 from assistant.settings import SettingsError, get_strategy
 
@@ -62,11 +63,12 @@ def create_app(
     *,
     vector_store_provider: Callable[[str], VectorStore] | None = None,
     service: RagService | None = None,
+    embeddings: EmbeddingProvider | None = None,
 ):
     if service is None:
         if vector_store_provider is None:
             raise ValueError("create_app needs a service or a vector_store_provider")
-        service = RagService(config, vector_store_provider=vector_store_provider)
+        service = RagService(config, vector_store_provider=vector_store_provider, embeddings=embeddings)
 
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
 

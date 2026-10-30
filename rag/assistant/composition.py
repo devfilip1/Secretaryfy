@@ -5,16 +5,21 @@ The entry points (chat, server, ingest CLI) get their dependencies from here; th
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from assistant.storage.factory import default_vector_store_provider
+from assistant.storage.factory import default_embeddings, default_vector_store_provider
 from assistant.storage.vector_store import VectorStore
 
 if TYPE_CHECKING:
     from assistant.retrieval.pipeline import RagConfig
     from assistant.retrieval.service import RagService
+    from assistant.storage.embeddings import EmbeddingProvider
 
 
 def build_vector_store_provider() -> Callable[[str], VectorStore]:
     return default_vector_store_provider()
+
+
+def build_embeddings_provider() -> "EmbeddingProvider":
+    return default_embeddings()
 
 
 def build_rag_service(config: "RagConfig | None" = None) -> "RagService":
@@ -22,4 +27,4 @@ def build_rag_service(config: "RagConfig | None" = None) -> "RagService":
     from assistant.retrieval.pipeline import RagConfig
     from assistant.retrieval.service import RagService
 
-    return RagService(config or RagConfig(), build_vector_store_provider())
+    return RagService(config or RagConfig(), build_vector_store_provider(), build_embeddings_provider())

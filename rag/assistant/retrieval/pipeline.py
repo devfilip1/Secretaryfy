@@ -21,9 +21,9 @@ from assistant.config import (
     STOPWORDS,
     TEMPERATURE,
 )
-from assistant.storage.embeddings import EMBEDDINGS
+from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
-from assistant.index import chunks_path
+from assistant.index import EmbeddingMismatch, chunks_path, ingest_command
 from assistant.settings import assistant_experiment, get_experiment
 from assistant.generation.prompting import (
     HYDE_MAX_TOKENS,
@@ -134,6 +134,12 @@ class AnswerResult:
 
 
 # Legacy exception to the composition root: evaluation/ calls the wrappers below without a provider.
+def _default_embeddings() -> EmbeddingProvider:
+    from assistant.storage.factory import default_embeddings
+
+    return default_embeddings()
+
+
 def _default_vector_store_provider() -> Callable[[str], VectorStore]:
     from assistant.storage.factory import default_vector_store_provider
 
@@ -192,19 +198,39 @@ def hypothetical_answer(question, config):
     return model.invoke(HYDE_PROMPT.format(ask=question)).content.strip()
 
 
-def _search_vector(question, config):
+def _search_vector(question, config, embeddings: EmbeddingProvider):
     """Vector used in the search and in the similarity computation, with norm 1."""
     if config.use_hyde:
         # the hypothetical answer is a document text, so it gets the document prefix
-        return _unit(EMBEDDINGS.embed_documents([hypothetical_answer(question, config)])[0])
-    return _unit(EMBEDDINGS.embed_query(question))
+        return _unit(embeddings.embed_documents([hypothetical_answer(question, config)])[0])
+    return _unit(embeddings.embed_query(question))
 
 
-def retrieve_with_store(question, config, *, vector_store_provider: Callable[[str], VectorStore]):
+def _check_dimensions(query_vector, stored, strategy):
+    """Refuses a query whose vector has another size than the stored ones: comparing them would be meaningless."""
+    if not stored:
+        return
+    indexed = len(next(iter(stored.values())))
+    if len(query_vector) != indexed:
+        raise EmbeddingMismatch(
+            f'the embedding model returned {len(query_vector)} dimensions but the index of strategy "{strategy}" '
+            f"has {indexed}; run: {ingest_command(strategy)}"
+        )
+
+
+def retrieve_with_store(
+    question,
+    config,
+    *,
+    vector_store_provider: Callable[[str], VectorStore],
+    embeddings: EmbeddingProvider,
+):
     config = config or RagConfig()
-    query_vector = _search_vector(question, config)
+    query_vector = _search_vector(question, config, embeddings)
     store = vector_store_provider(config.strategy)
-    vectors = {content: _unit(embedding) for content, embedding in store.vectors_by_content().items()}
+    stored = store.vectors_by_content()
+    _check_dimensions(query_vector, stored, config.strategy)
+    vectors = {content: _unit(embedding) for content, embedding in stored.items()}
 
     def similarity(content):
         return max(0.0, min(1.0, float(vectors[content] @ query_vector)))
@@ -247,7 +273,7 @@ def retrieve(question, config=None, *, vector_store_provider: Callable[[str], Ve
         if vector_store_provider is None
         else vector_store_provider
     )
-    return retrieve_with_store(question, config or RagConfig(), vector_store_provider=provider)
+    return retrieve_with_store(question, config or RagConfig(), vector_store_provider=provider, embeddings=_default_embeddings())
 
 
 def standalone_question(question, history, config):
@@ -265,7 +291,7 @@ def build_prompt(question, retrieval, config=None, history=None):
     return _build_prompt(question, retrieval, config or RagConfig(), history)
 
 
-def answer_with_store(question, config, history, *, vector_store_provider: Callable[[str], VectorStore]):
+def answer_with_store(question, config, history, *, vector_store_provider: Callable[[str], VectorStore], embeddings: EmbeddingProvider):
     """history: the messages before the question, as [{"role": "user" | "assistant", "content": ...}]."""
     config = config or RagConfig()
     start = time.perf_counter()
@@ -274,6 +300,7 @@ def answer_with_store(question, config, history, *, vector_store_provider: Calla
         standalone_question(question, history, config),
         config,
         vector_store_provider=vector_store_provider,
+        embeddings=embeddings,
     )
     prompt = build_prompt(question, retrieval, config, history)
     model = _model(config.chat_model, config.temperature, config.seed, config.max_answer_tokens)
@@ -289,13 +316,13 @@ def answer(question, config=None, history=None, *, vector_store_provider: Callab
         if vector_store_provider is None
         else vector_store_provider
     )
-    return answer_with_store(question, config or RagConfig(), history, vector_store_provider=provider)
+    return answer_with_store(question, config or RagConfig(), history, vector_store_provider=provider, embeddings=_default_embeddings())
 
 
-def stream_answer_with_store(question, config, *, vector_store_provider: Callable[[str], VectorStore]):
+def stream_answer_with_store(question, config, *, vector_store_provider: Callable[[str], VectorStore], embeddings: EmbeddingProvider):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
-    retrieval = retrieve_with_store(question, config, vector_store_provider=vector_store_provider)
+    retrieval = retrieve_with_store(question, config, vector_store_provider=vector_store_provider, embeddings=embeddings)
     prompt = build_prompt(question, retrieval, config)
     model = _model(config.chat_model, config.temperature, config.seed, config.max_answer_tokens)
     for piece in model.stream(prompt):
@@ -309,4 +336,4 @@ def stream_answer(question, config=None, *, vector_store_provider: Callable[[str
         if vector_store_provider is None
         else vector_store_provider
     )
-    yield from stream_answer_with_store(question, config or RagConfig(), vector_store_provider=provider)
+    yield from stream_answer_with_store(question, config or RagConfig(), vector_store_provider=provider, embeddings=_default_embeddings())

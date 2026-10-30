@@ -25,6 +25,23 @@ def test_each_strategy_has_its_own_directory(tmp_path):
     assert index.manifest_path("page", tmp_path) == tmp_path / "page" / "manifest.json"
 
 
+def test_manifest_records_the_embedding_dimensions_when_they_are_known(tmp_path):
+    manifest = index.write_manifest(
+        SECTION, 11, base=tmp_path, source="pdf-1", embedding_model="nomic-embed-text", embedding_dimensions=768,
+    )
+
+    assert manifest["embedding_dimensions"] == 768
+    saved = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert saved["embedding_dimensions"] == 768
+
+
+def test_index_without_recorded_dimensions_is_still_current(tmp_path):
+    create(tmp_path)  # manifests written before the dimensions were recorded have no such field
+
+    assert "embedding_dimensions" not in json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert state(tmp_path) == (index.CURRENT, None)
+
+
 def test_manifest_records_how_the_index_was_built(tmp_path):
     manifest = create(tmp_path)
 
