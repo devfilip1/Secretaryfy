@@ -48,7 +48,10 @@ def calls(monkeypatch):
 
 @pytest.fixture
 def client():
-    return TestClient(server.create_app(RagConfig.from_experiment("section_hybrid")))
+    return TestClient(server.create_app(
+        RagConfig.from_experiment("section_hybrid"),
+        vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
+    ))
 
 
 def test_answer_returns_the_reply_and_the_chunks_it_used(client, calls):
@@ -249,3 +252,34 @@ def test_main_starts_on_the_configured_address(monkeypatch):
     server.main()
 
     assert started == {"host": "127.0.0.1", "port": 8123}
+
+
+def test_main_listens_on_the_host_set_in_the_environment(monkeypatch):
+    started = {}
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: started.update(host=host, port=port))
+    monkeypatch.setenv("RAG_HOST", "0.0.0.0")
+    monkeypatch.setenv("RAG_PORT", "9000")
+
+    server.main()
+
+    assert started == {"host": "0.0.0.0", "port": 9000}
+
+
+def test_create_app_needs_a_service_or_a_provider():
+    with pytest.raises(ValueError, match="create_app needs a service or a vector_store_provider"):
+        server.create_app(RagConfig.from_experiment("section_hybrid"))
+
+
+def test_main_serves_the_service_built_by_the_composition_root(monkeypatch):
+    built, served = [], []
+    sentinel = object()
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "build_rag_service", lambda config: built.append(config) or sentinel)
+    monkeypatch.setattr(server, "create_app", lambda config, *, service: served.append(service) or "app")
+    monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: None)
+
+    server.main()
+
+    assert len(built) == 1
+    assert served == [sentinel]

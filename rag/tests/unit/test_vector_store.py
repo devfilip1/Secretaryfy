@@ -28,6 +28,15 @@ class FakeChroma:
         self.deleted += 1
 
 
+def recording_opener(opened):
+    """Opener for the provider that records each strategy it opens and returns a fresh fake store."""
+    def open_store(strategy):
+        opened.append(strategy)
+        return FakeChroma()
+
+    return open_store
+
+
 def test_chroma_adapter_maps_search_and_embedding_operations(monkeypatch):
     backend = FakeChroma()
     adapter = chroma_store.ChromaVectorStore(backend, "section")
@@ -38,25 +47,72 @@ def test_chroma_adapter_maps_search_and_embedding_operations(monkeypatch):
     assert backend.search_calls == [([1.0, 0.0], 3), ("question", 2)]
 
 
-def test_get_vector_store_builds_cached_chroma_adapter(monkeypatch, tmp_path):
-    backend = FakeChroma()
-    calls = []
-    monkeypatch.setattr(chroma_store, "Chroma", lambda **kwargs: calls.append(kwargs) or backend)
-    monkeypatch.setattr(chroma_store, "chroma_dir", lambda name: tmp_path / name)
-    chroma_store.get_vector_store.cache_clear()
-    try:
-        first = chroma_store.get_vector_store("section")
-        second = chroma_store.get_vector_store("section")
-    finally:
-        chroma_store.get_vector_store.cache_clear()
+def test_provider_returns_the_same_adapter_for_the_same_strategy():
+    opened = []
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened))
+
+    first = provider("section")
+    second = provider("section")
 
     assert first is second
     assert isinstance(first, chroma_store.ChromaVectorStore)
+    assert opened == ["section"]
+
+
+def test_provider_gives_each_strategy_its_own_adapter():
+    opened = []
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened))
+
+    section, page = provider("section"), provider("page")
+
+    assert section is not page
+    assert opened == ["section", "page"]
+
+
+def test_provider_opens_a_strategy_in_its_own_folder(monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(chroma_store, "Chroma", lambda **kwargs: calls.append(kwargs) or FakeChroma())
+    monkeypatch.setattr(chroma_store, "chroma_dir", lambda name: tmp_path / name)
+
+    chroma_store.ChromaVectorStoreProvider()("section")
+
     assert calls == [{
         "collection_name": chroma_store.COLLECTION_NAME,
         "persist_directory": str(tmp_path / "section"),
         "embedding_function": chroma_store.EMBEDDINGS,
     }]
+
+
+def test_invalidate_makes_only_that_strategy_reopen_on_the_next_request():
+    opened = []
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened))
+    section = provider("section")
+    page = provider("page")
+
+    provider.invalidate("section")
+
+    assert provider("section") is not section
+    assert provider("page") is page
+    assert opened == ["section", "page", "section"]
+
+
+def test_invalidate_of_a_strategy_never_opened_does_nothing():
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener([]))
+
+    provider.invalidate("never-opened")  # no error
+
+
+def test_close_drops_every_adapter_so_each_strategy_reopens():
+    opened = []
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened))
+    provider("section")
+    provider("page")
+
+    provider.close()
+    provider("section")
+    provider("page")
+
+    assert opened == ["section", "page", "section", "page"]
 
 
 def test_adapter_rebuild_replaces_its_strategy_collection(monkeypatch, tmp_path):
@@ -80,10 +136,62 @@ def test_adapter_rebuild_replaces_its_strategy_collection(monkeypatch, tmp_path)
     })]
 
 
+def test_rebuild_keeps_the_cached_adapter_and_searches_the_new_store(monkeypatch, tmp_path):
+    existing = FakeChroma()
+    rebuilt = FakeChroma()
+    monkeypatch.setattr(chroma_store, "Chroma", SimpleNamespace(from_documents=lambda documents, embeddings, **kwargs: rebuilt))
+    monkeypatch.setattr(chroma_store, "chroma_dir", lambda name: tmp_path / name)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=lambda strategy: existing)
+    adapter = provider("section")
+
+    adapter.rebuild([SimpleNamespace(page_content="chunk")])
+
+    assert provider("section") is adapter  # the cached adapter survives the rebuild
+    assert adapter.search_by_vector([1.0, 0.0], limit=1)[0].page_content == "alpha"
+    assert rebuilt.search_calls == [([1.0, 0.0], 1)]
+    assert existing.search_calls == []
+
+
+def test_default_provider_is_one_instance_per_process():
+    from assistant.storage import factory
+
+    factory.reset_default_vector_store_provider()
+    try:
+        assert factory.default_vector_store_provider() is factory.default_vector_store_provider()
+    finally:
+        factory.reset_default_vector_store_provider()
+
+
+def test_resetting_the_default_provider_makes_the_next_call_build_a_new_one():
+    from assistant.storage import factory
+
+    factory.reset_default_vector_store_provider()
+    try:
+        first = factory.default_vector_store_provider()
+        factory.reset_default_vector_store_provider()
+
+        assert factory.default_vector_store_provider() is not first
+    finally:
+        factory.reset_default_vector_store_provider()
+
+
 def test_vector_store_contract_imports_without_chroma_or_ollama():
     root = Path(__file__).parents[2]
     code = (
         "import sys; from assistant.storage.vector_store import VectorStore; "
+        "assert 'langchain_chroma' not in sys.modules; "
+        "assert 'langchain_ollama' not in sys.modules"
+    )
+
+    result = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_storage_factory_imports_without_loading_chroma():
+    root = Path(__file__).parents[2]
+    code = (
+        "import sys; from assistant.storage.factory import default_vector_store_provider; "
         "assert 'langchain_chroma' not in sys.modules; "
         "assert 'langchain_ollama' not in sys.modules"
     )

@@ -21,7 +21,6 @@ from assistant.config import SOURCE_PDF
 from assistant.storage.embeddings import EMBEDDINGS, PrefixedEmbeddings
 from assistant.index import chunks_path, index_dir, write_manifest
 from assistant.settings import SettingsError, load_settings
-from assistant.storage.factory import default_vector_store_provider
 from assistant.storage.vector_store import VectorStore
 
 
@@ -58,7 +57,7 @@ def build_index(strategy, pages=None, *, vector_store_provider: Callable[[str], 
     return len(chunks)
 
 
-def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
+def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore]):
     """python -m assistant.ingest [STRATEGY...] — with no arguments, builds the indexes of all of them."""
     names = list(sys.argv[1:] if argv is None else argv)
     try:
@@ -74,14 +73,9 @@ def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore] | Non
         print(f"Unknown strategy: {', '.join(unknown)}. Use one of: {', '.join(declared)}")
         return 2
 
-    provider = (
-        default_vector_store_provider()
-        if vector_store_provider is None
-        else vector_store_provider
-    )
     pages = load_pages()
     for name in names or declared:
-        count = build_index(declared[name], pages, vector_store_provider=provider)
+        count = build_index(declared[name], pages, vector_store_provider=vector_store_provider)
         print(f"{name}: {count} chunks in data/index/{name}/")
     return 0
 

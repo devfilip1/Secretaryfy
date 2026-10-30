@@ -69,7 +69,9 @@ def test_http_answer_and_retrieve_use_the_default_rag_service():
     from assistant.pipeline import RagConfig
 
     config = RagConfig()
-    with TestClient(server.create_app(config)) as client:
+    from assistant.composition import build_rag_service
+
+    with TestClient(server.create_app(config, service=build_rag_service(config))) as client:
         retrieval = client.post("/retrieve", json={"question": "How much is a dental cleaning?"})
         answer = client.post("/answer", json={"question": "How much is a dental cleaning?"})
 

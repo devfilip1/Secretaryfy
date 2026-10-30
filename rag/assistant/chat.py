@@ -1,7 +1,8 @@
 import sys
 
+from assistant.composition import build_rag_service
 from assistant.index import IndexUnavailable, require_index
-from assistant.pipeline import RagConfig, stream_answer
+from assistant.pipeline import RagConfig
 from assistant.settings import SettingsError, get_strategy
 
 
@@ -18,6 +19,8 @@ def to_ask():
         print(f"Could not start: {error}")
         return 1
 
+    service = build_rag_service(config)
+
     while True:
         ask = input("Type your question: ")
 
@@ -29,7 +32,7 @@ def to_ask():
             continue
 
         print("\nresponse: ", end="", flush=True)
-        for piece in stream_answer(ask, config):
+        for piece in service.stream_answer(ask):
             print(piece, end="", flush=True)
         print("\n")
     return 0

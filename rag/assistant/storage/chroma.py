@@ -1,5 +1,5 @@
 """Chroma implementation of the vector-store contract."""
-from functools import lru_cache
+from collections.abc import Callable
 
 from langchain_chroma.vectorstores import Chroma
 
@@ -41,7 +41,6 @@ class ChromaVectorStore:
             persist_directory=str(chroma_dir(self._strategy)),
         )
         self._vectors = None
-        get_vector_store.cache_clear()
 
 
 def _open_chroma(strategy: str):
@@ -52,7 +51,27 @@ def _open_chroma(strategy: str):
     )
 
 
-@lru_cache(maxsize=None)
-def get_vector_store(strategy: str) -> VectorStore:
-    """Return the cached Chroma adapter for a chunking strategy."""
-    return ChromaVectorStore(_open_chroma(strategy), strategy)
+class ChromaVectorStoreProvider:
+    """Creates, reuses and invalidates the Chroma adapters of one process, one per chunking strategy.
+
+    Opening a store is the expensive step, so a strategy's adapter is opened on its first request and kept.
+    Whoever holds the provider decides its lifetime. langchain-chroma exposes no explicit close, so close()
+    only drops the references to the adapters.
+    """
+
+    def __init__(self, open_store: Callable[[str], Chroma] | None = None):
+        self._open = _open_chroma if open_store is None else open_store
+        self._stores: dict[str, ChromaVectorStore] = {}
+
+    def __call__(self, strategy: str) -> VectorStore:
+        if strategy not in self._stores:
+            self._stores[strategy] = ChromaVectorStore(self._open(strategy), strategy)
+        return self._stores[strategy]
+
+    def invalidate(self, strategy: str) -> None:
+        """Drops the cached adapter of one strategy; the next request reopens it from disk."""
+        self._stores.pop(strategy, None)
+
+    def close(self) -> None:
+        """Drops every cached adapter; the next request of each strategy reopens it from disk."""
+        self._stores.clear()

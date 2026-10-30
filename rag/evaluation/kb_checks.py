@@ -14,9 +14,9 @@ ALLOWED_CONTROL = {"\n", "\r", "\t"}
 def load_kb(strategy_name):
     """Returns (chunks of the vector base, chunks of the file used by the word-based search) of a strategy."""
     from assistant.index import chunks_path
-    from assistant.storage.chroma import get_vector_store
+    from assistant.composition import build_vector_store_provider
 
-    vector_chunks = get_vector_store(strategy_name).documents()
+    vector_chunks = build_vector_store_provider()(strategy_name).documents()
     with open(chunks_path(strategy_name), "r", encoding="utf-8") as f:
         file_chunks = [chunk["content"] for chunk in json.load(f)]
     return vector_chunks, file_chunks

@@ -1,0 +1,25 @@
+"""Composition root of the process: the one place that chooses the concrete backends and builds the services.
+
+The entry points (chat, server, ingest CLI) get their dependencies from here; the modules below it take them as arguments.
+"""
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from assistant.storage.factory import default_vector_store_provider
+from assistant.storage.vector_store import VectorStore
+
+if TYPE_CHECKING:
+    from assistant.retrieval.pipeline import RagConfig
+    from assistant.retrieval.service import RagService
+
+
+def build_vector_store_provider() -> Callable[[str], VectorStore]:
+    return default_vector_store_provider()
+
+
+def build_rag_service(config: "RagConfig | None" = None) -> "RagService":
+    # imported here, not at the top: importing this module must not load the retrieval pipeline (numpy, langchain_ollama)
+    from assistant.retrieval.pipeline import RagConfig
+    from assistant.retrieval.service import RagService
+
+    return RagService(config or RagConfig(), build_vector_store_provider())

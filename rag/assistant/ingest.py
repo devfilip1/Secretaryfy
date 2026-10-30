@@ -22,6 +22,7 @@ from assistant.ingestion.service import (
     split_sections,
     vectorize_chunks as _vectorize_chunks,
 )
+from assistant.composition import build_vector_store_provider
 from assistant.storage.factory import default_vector_store_provider
 from assistant.storage.vector_store import VectorStore
 
@@ -57,7 +58,9 @@ def build_index(
 
 
 def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
-    return _main(argv, vector_store_provider=vector_store_provider)
+    """CLI entry point: without a provider, the composition root chooses the backend."""
+    provider = build_vector_store_provider() if vector_store_provider is None else vector_store_provider
+    return _main(argv, vector_store_provider=provider)
 
 if __name__ == "__main__":
     sys.exit(main())

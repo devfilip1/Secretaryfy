@@ -19,7 +19,7 @@ from assistant.config import OLLAMA_BASE_URL
 from assistant.index import CURRENT, IndexUnavailable, index_state, require_index
 from assistant.pipeline import RagConfig
 from assistant.retrieval.service import RagService
-from assistant.storage.factory import default_vector_store_provider
+from assistant.composition import build_rag_service
 from assistant.storage.vector_store import VectorStore
 from assistant.settings import SettingsError, get_strategy
 
@@ -64,12 +64,9 @@ def create_app(
     service: RagService | None = None,
 ):
     if service is None:
-        provider = (
-            default_vector_store_provider()
-            if vector_store_provider is None
-            else vector_store_provider
-        )
-        service = RagService(config, vector_store_provider=provider)
+        if vector_store_provider is None:
+            raise ValueError("create_app needs a service or a vector_store_provider")
+        service = RagService(config, vector_store_provider=vector_store_provider)
 
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
 
@@ -133,7 +130,7 @@ def main():
     # assistant.config has already loaded rag/.env
     host = os.getenv("RAG_HOST", DEFAULT_HOST)
     port = int(os.getenv("RAG_PORT", DEFAULT_PORT))
-    uvicorn.run(create_app(config), host=host, port=port)
+    uvicorn.run(create_app(config, service=build_rag_service(config)), host=host, port=port)
 
 
 if __name__ == "__main__":

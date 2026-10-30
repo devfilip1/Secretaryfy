@@ -1,7 +1,7 @@
 import pytest
 
 from assistant.ingest import build_chunks, clean_text, is_heading, load_pages, split_sections
-from assistant.settings import Strategy
+from assistant.settings import SettingsError, Strategy
 
 B = "\x7f"  # list marker as it comes out of the PDF
 
@@ -287,3 +287,103 @@ def test_the_real_brochure_gives_one_section_per_subject():
     for chunk in chunks:
         assert B not in chunk.page_content and "fictional" not in chunk.page_content
     assert "Recovery: 3–7 days" in chunks[7].page_content
+
+
+PAGE = Strategy("page", "page", {})
+
+
+def test_ingest_cli_rejects_an_unknown_strategy_before_reading_the_brochure(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    from assistant import ingest
+    from assistant import ingestion
+
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: pytest.fail("must not read the brochure"))
+
+    result = ingest.main(["section", "bogus"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+
+    assert result == 2
+    assert capsys.readouterr().out.strip() == "Unknown strategy: bogus. Use one of: section, page"
+
+
+def test_ingest_cli_stops_with_the_configuration_problems(monkeypatch, capsys):
+    from assistant import ingest
+    from assistant import ingestion
+
+    def invalid():
+        raise SettingsError(["strategies.yaml: first problem", "strategies.yaml: second problem"])
+
+    monkeypatch.setattr(ingestion.service, "load_settings", invalid)
+
+    result = ingest.main(["section"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+
+    assert result == 2
+    assert capsys.readouterr().out.strip() == (
+        "Invalid configuration: 2 problem(s)\n"
+        "  - strategies.yaml: first problem\n"
+        "  - strategies.yaml: second problem"
+    )
+
+
+def test_ingestion_main_requires_an_explicit_vector_store_provider():
+    from assistant.ingestion import service
+
+    with pytest.raises(TypeError):
+        service.main(["section"])
+
+
+def test_ingest_cli_uses_the_composition_root_when_no_provider_is_given(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from assistant import index as index_module
+    from assistant import ingest
+    from assistant import ingestion
+
+    names = []
+    store = SimpleNamespace(rebuild=lambda chunks: None)
+    monkeypatch.setattr(ingest, "build_vector_store_provider", lambda: lambda name: names.append(name) or store)
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count: None)
+
+    result = ingest.main(["page"])
+
+    assert result == 0
+    assert names == ["page"]
+
+
+def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch, tmp_path, capsys):
+    from types import SimpleNamespace
+
+    from assistant import index as index_module
+    from assistant import ingest
+    from assistant import ingestion
+
+    rebuilt = {}
+
+    class FakeStore:
+        def __init__(self, name):
+            self.name = name
+
+        def rebuild(self, chunks):
+            rebuilt[self.name] = len(chunks)
+
+    manifests = []
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the chunk files go to tmp_path, not data/
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count: manifests.append((strategy.name, count)))
+
+    result = ingest.main([], vector_store_provider=FakeStore)
+
+    assert result == 0
+    assert rebuilt == {"section": 5, "page": 2}
+    assert manifests == [("section", 5), ("page", 2)]
+    assert (tmp_path / "section" / "chunks.json").is_file()
+    assert (tmp_path / "page" / "chunks.json").is_file()
+    assert capsys.readouterr().out == (
+        "section: 5 chunks in data/index/section/\n"
+        "page: 2 chunks in data/index/page/\n"
+    )

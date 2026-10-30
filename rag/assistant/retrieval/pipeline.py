@@ -133,6 +133,7 @@ class AnswerResult:
     latency_s: float
 
 
+# Legacy exception to the composition root: evaluation/ calls the wrappers below without a provider.
 def _default_vector_store_provider() -> Callable[[str], VectorStore]:
     from assistant.storage.factory import default_vector_store_provider
 
