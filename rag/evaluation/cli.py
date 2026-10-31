@@ -93,7 +93,7 @@ def cmd_run(args):
         return EXIT_USAGE
 
     from assistant.config import OLLAMA_BASE_URL
-    from assistant.pipeline import RagConfig
+    from assistant.retrieval.pipeline import RagConfig
 
     from evaluation.judge import judge_model_name, make_judge
     from evaluation.runner import eval_config, preflight, run_evaluation, warm_up
