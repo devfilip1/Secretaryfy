@@ -8,8 +8,9 @@
 ## Decision
 Each process has one composition root: [`rag/assistant/composition.py`](../../rag/assistant/composition.py). It is the only place that chooses concrete backends (`build_vector_store_provider`, `build_embeddings_provider`, `build_rag_service`). The server, the chat and the ingestion CLI get their dependencies from it; the modules below receive them as arguments.
 
-- **Contracts, not classes:** `VectorStore`, `EmbeddingProvider` and `TextGenerator` (the chat model: `generate` and `stream`, with the model name, temperature, seed and token limit given per call) are `typing.Protocol`s with only the operations the RAG uses. `RagService(config, vector_store_provider, embeddings, generator)` requires all three, and `create_app` and the ingestion `main` no longer fall back to Chroma.
-- **Lifecycle:** `ChromaVectorStoreProvider` creates one adapter per strategy, reuses it, and offers `invalidate` and `close`. The default provider, the default embeddings and the default generator are one instance per process (`assistant/storage/factory.py`), so ingestion and search use the same embedding model. No `lru_cache` is left in the storage layer.
+- **Contracts, not classes:** `VectorStore`, `EmbeddingProvider`, `TextGenerator` (the chat model: `generate` and `stream`, with the model name, temperature, seed and token limit given per call) and `ChunkSource` (the chunk texts of a strategy and the version of that set) are `typing.Protocol`s with only the operations the RAG uses. `RagService(config, vector_store_provider, embeddings, generator, lexical)` requires all of them, and `create_app` and the ingestion `main` no longer fall back to Chroma.
+- **Lifecycle:** `ChromaVectorStoreProvider` creates one adapter per strategy, reuses it, and offers `invalidate` and `close`. The default provider, the default embeddings and the default generator are one instance per process (`assistant/storage/factory.py`), so ingestion and search use the same embedding model. No `lru_cache` is left in the storage or retrieval layers.
+- **Caches follow the index version:** the BM25 index (`LexicalIndex`) and the Chroma adapters are rebuilt when the version of the index changes (the modification time of `manifest.json`, written last by the ingestion). An ingestion run by another process is used on the next question without restarting the server. If `chunks.json` holds a chunk the vector store does not, the search raises `IndexInconsistent` with the reindex command instead of a `KeyError`.
 - **Index safety:** the manifest records the embedding model and, when known, the vector dimensions. A query whose vector has another size than the stored ones raises `EmbeddingMismatch` with the reindex command, and the HTTP service answers 503 with that message.
 - **Functions stay functions:** `retrieve_with_store` and the other pipeline functions are unchanged in style; they take the providers as keyword arguments. Pure logic (RRF, tokenizing, prompts) has no dependencies.
 
@@ -18,11 +19,11 @@ Legacy wrappers (`retrieve`, `answer`, `stream_answer` in `retrieval/pipeline.py
 ## Alternatives considered
 - A DI library (`dependency-injector` and similar): hand-wiring four or five dependencies is shorter and easier to read.
 - Keeping the module-level singletons: they hide the lifecycle and block fakes in tests.
-- Classes for the whole pipeline now: the BM25 chunk source is still a global (`lru_cache`); the pipeline's shape is decided after it is isolated.
+- Classes for the whole pipeline now: with five providers the keyword list of the pipeline functions is long, but the shape (classes or a dependency object) is decided in a separate step, after the contracts are stable.
 
 ## Consequences
 - The server, the chat and the CLI are tested with fakes, without Chroma or Ollama; coverage of `rag/` went from 88% to 94%.
 - Switching the embedding model means writing a provider and reindexing; the mismatch check refuses a stale index instead of returning wrong results. Choosing a provider by configuration is not built yet.
-- Not done yet: the BM25 chunk source (`_bm25`) is still an `lru_cache` global; the HTTP and CLI paths use the composition root, `evaluation/` does not.
+- Not done yet: the pipeline functions take five keyword providers; the HTTP and CLI paths use the composition root, `evaluation/` does not. The version is a file modification time, which is fine on NTFS and ext4 but too coarse on file systems with 2 s granularity.
 
-**Evidence:** [composition.py](../../rag/assistant/composition.py), [factory.py](../../rag/assistant/storage/factory.py), [chroma.py](../../rag/assistant/storage/chroma.py), [embeddings.py](../../rag/assistant/storage/embeddings.py), [model.py](../../rag/assistant/generation/model.py), [service.py](../../rag/assistant/retrieval/service.py)
+**Evidence:** [composition.py](../../rag/assistant/composition.py), [factory.py](../../rag/assistant/storage/factory.py), [chroma.py](../../rag/assistant/storage/chroma.py), [embeddings.py](../../rag/assistant/storage/embeddings.py), [model.py](../../rag/assistant/generation/model.py), [chunks.py](../../rag/assistant/retrieval/chunks.py), [lexical.py](../../rag/assistant/retrieval/lexical.py), [service.py](../../rag/assistant/retrieval/service.py)
