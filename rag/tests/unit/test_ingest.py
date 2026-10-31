@@ -367,6 +367,12 @@ def test_ingest_cli_stops_with_the_configuration_problems(monkeypatch, capsys):
     )
 
 
+def test_index_location_is_relative_to_the_rag_folder_by_default():
+    from assistant.ingestion import service
+
+    assert service.shown_index_dir("section") == "data/index/section"
+
+
 def test_ingestion_main_requires_an_explicit_vector_store_provider():
     from assistant.ingestion import service
 
@@ -425,6 +431,6 @@ def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch,
     assert (tmp_path / "section" / "chunks.json").is_file()
     assert (tmp_path / "page" / "chunks.json").is_file()
     assert capsys.readouterr().out == (
-        "section: 5 chunks in data/index/section/\n"
-        "page: 2 chunks in data/index/page/\n"
+        f"section: 5 chunks in {(tmp_path / 'section').resolve().as_posix()}/\n"
+        f"page: 2 chunks in {(tmp_path / 'page').resolve().as_posix()}/\n"
     )

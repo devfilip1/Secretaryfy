@@ -1,6 +1,7 @@
 import json
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 from pypdf import PdfReader
 
@@ -68,6 +69,18 @@ def build_index(strategy, pages=None, *, vector_store_provider: Callable[[str], 
     return len(chunks)
 
 
+RAG_ROOT = Path(__file__).resolve().parents[2]
+
+
+def shown_index_dir(name):
+    """Where the index of a strategy lives, for the user: relative to the rag folder when it is inside it."""
+    path = index_dir(name).resolve()
+    try:
+        return path.relative_to(RAG_ROOT).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore]):
     """python -m assistant.ingest [STRATEGY...] — with no arguments, builds the indexes of all of them."""
     names = list(sys.argv[1:] if argv is None else argv)
@@ -87,7 +100,7 @@ def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore]):
     pages = load_pages()
     for name in names or declared:
         count = build_index(declared[name], pages, vector_store_provider=vector_store_provider)
-        print(f"{name}: {count} chunks in data/index/{name}/")
+        print(f"{name}: {count} chunks in {shown_index_dir(name)}/")
     return 0
 
 

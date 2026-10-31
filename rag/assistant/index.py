@@ -90,6 +90,27 @@ def index_state(strategy, base=None, source=None, embedding_model=None):
     return CURRENT, None
 
 
+def check_embedding_dimensions(strategy, embeddings, base=None):
+    """Refuses an index built with another embedding size than the model returns now.
+
+    Nothing is checked for an index built without the field, or while the embedding model does not answer:
+    the server and the chat still start, and /health reports the model.
+    """
+    manifest = read_manifest(strategy.name, base)
+    if manifest is None or manifest.get("embedding_dimensions") is None:
+        return
+    try:
+        returned = len(embeddings.embed_query("dimension check"))
+    except Exception:
+        return
+    built = manifest["embedding_dimensions"]
+    if returned != built:
+        raise IndexUnavailable(
+            f'the embedding model returns {returned} dimensions but the index of strategy "{strategy.name}" '
+            f"was built with {built}; run: {ingest_command(strategy.name)}"
+        )
+
+
 def require_index(strategy, base=None):
     """Raises IndexUnavailable if the index cannot be used."""
     state, reason = index_state(strategy, base)

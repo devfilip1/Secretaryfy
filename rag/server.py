@@ -16,10 +16,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StringConstraints
 
 from assistant.config import OLLAMA_BASE_URL
-from assistant.index import CURRENT, IndexUnavailable, index_state, require_index
+from assistant.index import CURRENT, IndexUnavailable, check_embedding_dimensions, index_state, require_index
 from assistant.pipeline import RagConfig
 from assistant.retrieval.service import RagService
-from assistant.composition import build_rag_service
+from assistant.composition import build_embeddings_provider, build_rag_service
 from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.storage.vector_store import VectorStore
@@ -126,7 +126,9 @@ def create_app(
 def main():
     try:
         config = RagConfig()
-        require_index(get_strategy(config.strategy))
+        strategy = get_strategy(config.strategy)
+        require_index(strategy)
+        check_embedding_dimensions(strategy, build_embeddings_provider())
     except SettingsError as error:
         print(f"Invalid configuration: {len(error.problems)} problem(s)")
         for problem in error.problems:

@@ -42,6 +42,70 @@ def test_index_without_recorded_dimensions_is_still_current(tmp_path):
     assert state(tmp_path) == (index.CURRENT, None)
 
 
+class CountingEmbeddings:
+    """Stands in for the embedding model: answers with a vector of the given size, or fails, and records the questions."""
+
+    def __init__(self, size=None, error=None):
+        self.size, self.error, self.questions = size, error, []
+
+    def embed_query(self, text):
+        self.questions.append(text)
+        if self.error is not None:
+            raise self.error
+        return [0.0] * self.size
+
+
+def write_dimensions(tmp_path, dimensions):
+    index.write_manifest(SECTION, 11, base=tmp_path, source="pdf-1", embedding_model="nomic-embed-text",
+                         embedding_dimensions=dimensions)
+
+
+def test_dimension_check_asks_nothing_without_a_manifest(tmp_path):
+    embeddings = CountingEmbeddings(size=3)
+
+    index.check_embedding_dimensions(SECTION, embeddings, base=tmp_path)
+
+    assert embeddings.questions == []
+
+
+def test_dimension_check_skips_an_index_built_without_the_field(tmp_path):
+    create(tmp_path)
+    embeddings = CountingEmbeddings(size=3)
+
+    index.check_embedding_dimensions(SECTION, embeddings, base=tmp_path)
+
+    assert embeddings.questions == []
+
+
+def test_dimension_check_passes_when_the_sizes_agree(tmp_path):
+    write_dimensions(tmp_path, 1024)
+    embeddings = CountingEmbeddings(size=1024)
+
+    index.check_embedding_dimensions(SECTION, embeddings, base=tmp_path)
+
+    assert embeddings.questions == ["dimension check"]
+
+
+def test_dimension_check_refuses_a_model_of_another_size(tmp_path):
+    write_dimensions(tmp_path, 1024)
+
+    with pytest.raises(index.IndexUnavailable) as info:
+        index.check_embedding_dimensions(SECTION, CountingEmbeddings(size=768), base=tmp_path)
+
+    assert str(info.value) == (
+        'the embedding model returns 768 dimensions but the index of strategy "section" was built with 1024; '
+        "run: python -m assistant.ingest section"
+    )
+
+
+def test_dimension_check_ignores_a_model_that_does_not_answer(tmp_path):
+    write_dimensions(tmp_path, 1024)
+
+    index.check_embedding_dimensions(
+        SECTION, CountingEmbeddings(error=ConnectionError("Ollama is not running")), base=tmp_path,
+    )
+
+
 def test_manifest_records_how_the_index_was_built(tmp_path):
     manifest = create(tmp_path)
 

@@ -1,7 +1,7 @@
 import sys
 
-from assistant.composition import build_rag_service
-from assistant.index import IndexUnavailable, require_index
+from assistant.composition import build_embeddings_provider, build_rag_service
+from assistant.index import IndexUnavailable, check_embedding_dimensions, require_index
 from assistant.pipeline import RagConfig
 from assistant.settings import SettingsError, get_strategy
 
@@ -9,7 +9,9 @@ from assistant.settings import SettingsError, get_strategy
 def to_ask():
     try:
         config = RagConfig()
-        require_index(get_strategy(config.strategy))
+        strategy = get_strategy(config.strategy)
+        require_index(strategy)
+        check_embedding_dimensions(strategy, build_embeddings_provider())
     except SettingsError as error:
         print(f"Invalid configuration: {len(error.problems)} problem(s)")
         for problem in error.problems:
@@ -31,10 +33,12 @@ def to_ask():
         if not ask.strip():
             continue
 
-        print("\nresponse: ", end="", flush=True)
-        for piece in service.stream_answer(ask):
-            print(piece, end="", flush=True)
-        print("\n")
+        try:
+            result = service.answer(ask)
+        except Exception as error:
+            print(f"\nCould not get an answer: {error}\n")
+            continue
+        print(f"\nresponse: {result.answer}\n")
     return 0
 
 

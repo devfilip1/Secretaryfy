@@ -247,6 +247,7 @@ def test_main_refuses_to_start_with_an_invalid_configuration(monkeypatch, capsys
 def test_main_starts_on_the_configured_address(monkeypatch):
     started = {}
     monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
     monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: started.update(host=host, port=port))
     monkeypatch.setenv("RAG_PORT", "8123")
     monkeypatch.delenv("RAG_HOST", raising=False)
@@ -259,6 +260,7 @@ def test_main_starts_on_the_configured_address(monkeypatch):
 def test_main_listens_on_the_host_set_in_the_environment(monkeypatch):
     started = {}
     monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
     monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: started.update(host=host, port=port))
     monkeypatch.setenv("RAG_HOST", "0.0.0.0")
     monkeypatch.setenv("RAG_PORT", "9000")
@@ -277,6 +279,7 @@ def test_main_serves_the_service_built_by_the_composition_root(monkeypatch):
     built, served = [], []
     sentinel = object()
     monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
     monkeypatch.setattr(server, "build_rag_service", lambda config: built.append(config) or sentinel)
     monkeypatch.setattr(server, "create_app", lambda config, *, service: served.append(service) or "app")
     monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: None)
@@ -315,6 +318,36 @@ def test_a_generator_failure_on_answer_becomes_503():
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Ollama is not running"}
+
+
+def test_main_refuses_to_start_when_the_embedding_dimensions_differ(monkeypatch, capsys):
+    message = ('the embedding model returns 768 dimensions but the index of strategy "section" was built with 1024; '
+               'run: python -m assistant.ingest section')
+
+    def mismatched(strategy, embeddings):
+        raise IndexUnavailable(message)
+
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", mismatched)
+    monkeypatch.setattr(server.uvicorn, "run", lambda *args, **kwargs: pytest.fail("must not start"))
+
+    with pytest.raises(SystemExit) as exit_info:
+        server.main()
+
+    assert exit_info.value.code == 1
+    assert capsys.readouterr().out.strip() == f"Could not start: {message}"
+
+
+def test_main_checks_the_dimensions_with_the_composition_root_embeddings(monkeypatch):
+    checked = []
+    monkeypatch.setattr(server, "build_embeddings_provider", lambda: "embeddings")
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: checked.append((strategy, embeddings)))
+    monkeypatch.setattr(server.uvicorn, "run", lambda *args, **kwargs: None)
+
+    server.main()
+
+    assert [embeddings for _, embeddings in checked] == ["embeddings"]
 
 
 def test_create_app_needs_embeddings_with_a_provider():
