@@ -9,6 +9,24 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
+def answer(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).answer(question)
+
+
+def stream_answer(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).stream_answer(question)
+
+
+def retrieve(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).retrieve(question)
+
+
 def test_import_has_no_side_effects(monkeypatch):
     def fail(*args, **kwargs):
         raise AssertionError("an import must not open the chat or call the model")
@@ -17,7 +35,7 @@ def test_import_has_no_side_effects(monkeypatch):
     monkeypatch.setattr("langchain_ollama.ChatOllama.invoke", fail)
     monkeypatch.setattr("langchain_ollama.OllamaEmbeddings.embed_query", fail)
     monkeypatch.setattr("langchain_ollama.OllamaEmbeddings.embed_documents", fail)
-    names = ("assistant.config", "assistant.settings", "assistant.index", "assistant.ingest", "assistant.pipeline",
+    names = ("assistant.config", "assistant.settings", "assistant.index", "assistant.ingest", "assistant.retrieval.pipeline",
              "assistant.chat")
     for name in names:
         sys.modules.pop(name, None)
@@ -42,7 +60,7 @@ def test_every_index_matches_its_strategy_and_the_current_brochure():
 
 
 def test_vector_search_is_ordered_by_similarity():
-    from assistant.pipeline import RagConfig, retrieve
+    from assistant.retrieval.pipeline import RagConfig
 
     config = RagConfig()
     questions = ["How much is teeth whitening?", "How long does an implant take?", "how long do braces stay on",
@@ -60,7 +78,7 @@ def test_http_answer_and_retrieve_use_the_default_rag_service():
     from fastapi.testclient import TestClient
 
     import server
-    from assistant.pipeline import RagConfig
+    from assistant.retrieval.pipeline import RagConfig
 
     config = RagConfig()
     from assistant.composition import build_rag_service
@@ -77,7 +95,7 @@ def test_http_answer_and_retrieve_use_the_default_rag_service():
 
 
 def test_answers_a_price_from_the_right_procedure():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
 
     result = answer("How much is a dental cleaning?", RagConfig())
 
@@ -87,7 +105,7 @@ def test_answers_a_price_from_the_right_procedure():
 
 
 def test_answers_the_clinic_hours():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
 
     result = answer("What are your opening hours on Saturday?", RagConfig())
 
@@ -96,7 +114,7 @@ def test_answers_the_clinic_hours():
 
 
 def test_answers_in_english_a_question_in_another_language():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
     from evaluation.answer_metrics import check_rules
 
     result = answer("Quanto custa a limpeza dental?", RagConfig())
@@ -106,13 +124,13 @@ def test_answers_in_english_a_question_in_another_language():
 
 
 def test_refuses_what_is_not_in_the_brochure():
-    from assistant.pipeline import NO_ANSWER, RagConfig, answer
+    from assistant.retrieval.pipeline import NO_ANSWER, RagConfig
 
     assert NO_ANSWER in answer("Do you accept dental insurance?", RagConfig()).answer
 
 
 def test_stream_yields_the_same_kind_of_answer():
-    from assistant.pipeline import RagConfig, stream_answer
+    from assistant.retrieval.pipeline import RagConfig
 
     text = "".join(stream_answer("How much is a dental cleaning?", RagConfig()))
 
@@ -121,7 +139,7 @@ def test_stream_yields_the_same_kind_of_answer():
 
 def test_hyde_generates_a_short_hypothetical_answer():
     from assistant.generation.model import build_generator
-    from assistant.pipeline import RagConfig, hypothetical_answer
+    from assistant.retrieval.pipeline import RagConfig, hypothetical_answer
 
     text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator())
 

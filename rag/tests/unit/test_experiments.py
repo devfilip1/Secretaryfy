@@ -31,7 +31,7 @@ def retrieval(*chunks):
 
 def to_dataclass(namespace):
     """The module's asdict() needs a dataclass; converts the fake chunks."""
-    from assistant.pipeline import RetrievalResult, RetrievedChunk
+    from assistant.retrieval.pipeline import RetrievalResult, RetrievedChunk
 
     convert = lambda items: [RetrievedChunk(c.content, c.rank, c.score, c.similarity) for c in items]  # noqa: E731
     return RetrievalResult(convert(namespace.vector), convert(namespace.bm25), convert(namespace.fused))
@@ -317,3 +317,22 @@ def test_comparison_table_has_the_reference_columns_and_keeps_full_names():
     second = [cell.strip() for cell in lines[4].strip("|").split("|")]
     assert second == ["page_hybrid", "hybrid", "page", "0.50", "4", "True", "-", "-", "-", "-"]
     assert len({len(line) for line in lines}) == 1
+
+
+def test_default_retrieve_asks_the_service_composed_for_the_experiment(monkeypatch):
+    from assistant import composition
+
+    calls = []
+
+    class FakeService:
+        def __init__(self, config):
+            calls.append(("config", config.experiment))
+
+        def retrieve(self, question):
+            calls.append(("retrieve", question))
+            return "retrieval"
+
+    monkeypatch.setattr(composition, "build_rag_service", FakeService)
+
+    assert bench.default_retrieve("How much?", "section_hybrid") == "retrieval"
+    assert calls == [("config", "section_hybrid"), ("retrieve", "How much?")]

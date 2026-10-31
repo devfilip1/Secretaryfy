@@ -25,8 +25,8 @@ def test_build_rag_service_serves_the_given_config_from_the_default_provider_and
 
     assert isinstance(service, RagService)
     assert service.config is config
-    assert service.vector_store_provider is provider
-    assert service.embeddings is stub_model
+    assert service.deps.vector_store_provider is provider
+    assert service.deps.embeddings is stub_model
 
 
 def test_build_rag_service_without_a_config_uses_the_assistant_experiment(monkeypatch):
@@ -50,7 +50,7 @@ def test_build_rag_service_passes_the_process_lexical_index(monkeypatch):
 
     service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
 
-    assert service.lexical is lexical
+    assert service.deps.lexical is lexical
     assert composition.build_lexical_provider() is lexical
 
 
@@ -76,8 +76,8 @@ def test_the_service_and_the_chroma_provider_share_one_embeddings_instance(monke
     try:
         service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
 
-        assert service.embeddings is shared
-        assert service.vector_store_provider.embeddings is shared
+        assert service.deps.embeddings is shared
+        assert service.deps.vector_store_provider.embeddings is shared
     finally:
         factory.reset_default_embeddings()
         factory.reset_default_vector_store_provider()
@@ -92,7 +92,7 @@ def test_the_service_and_the_chat_model_share_one_generator(monkeypatch):
     try:
         service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
 
-        assert service.generator is shared
+        assert service.deps.generator is shared
     finally:
         factory.reset_default_generator()
 
@@ -109,3 +109,24 @@ def test_importing_the_composition_root_does_not_load_the_retrieval_pipeline():
     result = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_build_rag_deps_takes_the_defaults_of_the_process(monkeypatch):
+    from assistant.retrieval.pipeline import RagDeps
+
+    provider = lambda strategy: None
+    lexical = object()
+    monkeypatch.setattr(composition, "default_vector_store_provider", lambda: provider)
+    monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_lexical_index", lambda: lexical)
+
+    deps = composition.build_rag_deps()
+
+    assert deps == RagDeps(vector_store_provider=provider, embeddings=stub_model, generator=stub_model, lexical=lexical)
+
+
+def test_the_legacy_pipeline_alias_is_gone():
+    import importlib.util
+
+    assert importlib.util.find_spec("assistant.pipeline") is None

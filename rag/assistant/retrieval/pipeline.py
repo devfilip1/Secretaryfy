@@ -125,29 +125,13 @@ class AnswerResult:
     latency_s: float
 
 
-# Legacy exception to the composition root: evaluation/ calls the wrappers below without a provider.
-def _default_embeddings() -> EmbeddingProvider:
-    from assistant.storage.factory import default_embeddings
-
-    return default_embeddings()
-
-
-def _default_generator() -> TextGenerator:
-    from assistant.storage.factory import default_generator
-
-    return default_generator()
-
-
-def _default_vector_store_provider() -> Callable[[str], VectorStore]:
-    from assistant.storage.factory import default_vector_store_provider
-
-    return default_vector_store_provider()
-
-
-def _default_lexical() -> LexicalIndex:
-    from assistant.storage.factory import default_lexical_index
-
-    return default_lexical_index()
+@dataclass(frozen=True)
+class RagDeps:
+    """What the pipeline takes from outside: the vector stores, the embedding model, the chat model and the BM25 index."""
+    vector_store_provider: Callable[[str], VectorStore]
+    embeddings: EmbeddingProvider
+    generator: TextGenerator
+    lexical: LexicalIndex
 
 
 def _unit(vector):
@@ -188,20 +172,11 @@ def _check_dimensions(query_vector, stored, strategy):
         )
 
 
-def retrieve_with_store(
-    question,
-    config,
-    *,
-    vector_store_provider: Callable[[str], VectorStore],
-    embeddings: EmbeddingProvider,
-    generator: TextGenerator | None = None,
-    lexical: LexicalIndex,
-):
+def retrieve(question, config, deps: RagDeps):
+    """The chunks that answer the question: vector search, word search, their fusion, and the similarity cut."""
     config = config or RagConfig()
-    if config.use_hyde and generator is None:
-        raise ValueError("generator is required when use_hyde is on")
-    query_vector = _search_vector(question, config, embeddings, generator)
-    store = vector_store_provider(config.strategy)
+    query_vector = _search_vector(question, config, deps.embeddings, deps.generator)
+    store = deps.vector_store_provider(config.strategy)
     stored = store.vectors_by_content()
     _check_dimensions(query_vector, stored, config.strategy)
     vectors = {content: _unit(embedding) for content, embedding in stored.items()}
@@ -220,7 +195,7 @@ def retrieve_with_store(
     # BM25 SEARCH (always with the original question, even with HyDE)
     bm25_chunks = []
     if config.bm25_k > 0:
-        bm25, documents = lexical.get(config.strategy)
+        bm25, documents = deps.lexical.get(config.strategy)
         missing = [document for document in documents if document not in vectors]
         if missing:
             raise IndexInconsistent(
@@ -246,23 +221,6 @@ def retrieve_with_store(
     return RetrievalResult(vector=vector, bm25=bm25_chunks, fused=fused)
 
 
-def retrieve(question, config=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
-    """Legacy entry point; resolves Chroma when callers omit an explicit provider."""
-    provider = (
-        _default_vector_store_provider()
-        if vector_store_provider is None
-        else vector_store_provider
-    )
-    return retrieve_with_store(
-        question,
-        config or RagConfig(),
-        vector_store_provider=provider,
-        embeddings=_default_embeddings(),
-        generator=_default_generator(),
-        lexical=_default_lexical(),
-    )
-
-
 def standalone_question(question, history, config, generator: TextGenerator):
     """The question to search with: the same one without a conversation, or rewritten to stand alone with it."""
     if not history:
@@ -283,30 +241,14 @@ def build_prompt(question, retrieval, config=None, history=None):
     return _build_prompt(question, retrieval, config or RagConfig(), history)
 
 
-def answer_with_store(
-    question,
-    config,
-    history,
-    *,
-    vector_store_provider: Callable[[str], VectorStore],
-    embeddings: EmbeddingProvider,
-    generator: TextGenerator,
-    lexical: LexicalIndex,
-):
+def answer(question, config, history, deps: RagDeps):
     """history: the messages before the question, as [{"role": "user" | "assistant", "content": ...}]."""
     config = config or RagConfig()
     start = time.perf_counter()
 
-    retrieval = retrieve_with_store(
-        standalone_question(question, history, config, generator),
-        config,
-        vector_store_provider=vector_store_provider,
-        embeddings=embeddings,
-        generator=generator,
-        lexical=lexical,
-    )
+    retrieval = retrieve(standalone_question(question, history, config, deps.generator), config, deps)
     prompt = build_prompt(question, retrieval, config, history)
-    reply = generator.generate(
+    reply = deps.generator.generate(
         prompt,
         model=config.chat_model,
         temperature=config.temperature,
@@ -317,45 +259,12 @@ def answer_with_store(
     return AnswerResult(answer=clean_answer(reply, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
 
 
-def answer(question, config=None, history=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
-    """Legacy entry point; resolves Chroma when callers omit an explicit provider."""
-    provider = (
-        _default_vector_store_provider()
-        if vector_store_provider is None
-        else vector_store_provider
-    )
-    return answer_with_store(
-        question,
-        config or RagConfig(),
-        history,
-        vector_store_provider=provider,
-        embeddings=_default_embeddings(),
-        generator=_default_generator(),
-        lexical=_default_lexical(),
-    )
-
-
-def stream_answer_with_store(
-    question,
-    config,
-    *,
-    vector_store_provider: Callable[[str], VectorStore],
-    embeddings: EmbeddingProvider,
-    generator: TextGenerator,
-    lexical: LexicalIndex,
-):
+def stream_answer(question, config, deps: RagDeps):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
-    retrieval = retrieve_with_store(
-        question,
-        config,
-        vector_store_provider=vector_store_provider,
-        embeddings=embeddings,
-        generator=generator,
-        lexical=lexical,
-    )
+    retrieval = retrieve(question, config, deps)
     prompt = build_prompt(question, retrieval, config)
-    yield from generator.stream(
+    yield from deps.generator.stream(
         prompt,
         model=config.chat_model,
         temperature=config.temperature,
@@ -363,19 +272,3 @@ def stream_answer_with_store(
         max_tokens=config.max_answer_tokens,
     )
 
-
-def stream_answer(question, config=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
-    """Legacy entry point; resolves Chroma when callers omit an explicit provider."""
-    provider = (
-        _default_vector_store_provider()
-        if vector_store_provider is None
-        else vector_store_provider
-    )
-    yield from stream_answer_with_store(
-        question,
-        config or RagConfig(),
-        vector_store_provider=provider,
-        embeddings=_default_embeddings(),
-        generator=_default_generator(),
-        lexical=_default_lexical(),
-    )

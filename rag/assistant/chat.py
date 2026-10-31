@@ -2,7 +2,7 @@ import sys
 
 from assistant.composition import build_embeddings_provider, build_rag_service
 from assistant.index import IndexUnavailable, check_embedding_dimensions, require_index
-from assistant.pipeline import RagConfig
+from assistant.retrieval.pipeline import RagConfig
 from assistant.settings import SettingsError, get_strategy
 
 

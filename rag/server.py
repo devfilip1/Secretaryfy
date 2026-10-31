@@ -8,7 +8,7 @@ import os
 import sys
 import time
 import urllib.request
-from typing import Annotated, Callable, Literal
+from typing import Annotated, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -17,13 +17,9 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from assistant.config import OLLAMA_BASE_URL
 from assistant.index import CURRENT, IndexUnavailable, check_embedding_dimensions, index_state, require_index
-from assistant.pipeline import RagConfig
-from assistant.retrieval.lexical import LexicalIndex
+from assistant.retrieval.pipeline import RagConfig, RagDeps
 from assistant.retrieval.service import RagService
 from assistant.composition import build_embeddings_provider, build_rag_service
-from assistant.generation.model import TextGenerator
-from assistant.storage.embeddings import EmbeddingProvider
-from assistant.storage.vector_store import VectorStore
 from assistant.settings import SettingsError, get_strategy
 
 logger = logging.getLogger("rag.server")
@@ -60,25 +56,11 @@ def ollama_reachable(url=OLLAMA_BASE_URL, timeout=OLLAMA_TIMEOUT_S):
         return False
 
 
-def create_app(
-    config,
-    *,
-    vector_store_provider: Callable[[str], VectorStore] | None = None,
-    service: RagService | None = None,
-    embeddings: EmbeddingProvider | None = None,
-    generator: TextGenerator | None = None,
-    lexical: LexicalIndex | None = None,
-):
+def create_app(config, *, service: RagService | None = None, deps: RagDeps | None = None):
     if service is None:
-        if vector_store_provider is None:
-            raise ValueError("create_app needs a service or a vector_store_provider")
-        service = RagService(
-            config,
-            vector_store_provider=vector_store_provider,
-            embeddings=embeddings,
-            generator=generator,
-            lexical=lexical,
-        )
+        if deps is None:
+            raise ValueError("create_app needs a service or deps")
+        service = RagService(config, deps)
 
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
 

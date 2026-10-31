@@ -1,64 +1,27 @@
-"""Small orchestration service that composes a RAG config, its storage provider, its embedding model, its chat model and its lexical index."""
-from collections.abc import Callable, Iterable
+"""Small orchestration service: a RAG config with the dependencies the pipeline takes from outside."""
+from collections.abc import Iterable
 
-from assistant.generation.model import TextGenerator
 from assistant.retrieval import pipeline
-from assistant.retrieval.lexical import LexicalIndex
-from assistant.retrieval.pipeline import AnswerResult, RagConfig, RetrievalResult
-from assistant.storage.embeddings import EmbeddingProvider
-from assistant.storage.vector_store import VectorStore
+from assistant.retrieval.pipeline import AnswerResult, RagConfig, RagDeps, RetrievalResult
+
+_REQUIRED_DEPS = ("vector_store_provider", "embeddings", "generator", "lexical")
 
 
 class RagService:
-    def __init__(
-        self,
-        config: RagConfig,
-        vector_store_provider: Callable[[str], VectorStore],
-        embeddings: EmbeddingProvider,
-        generator: TextGenerator,
-        lexical: LexicalIndex,
-    ):
-        if vector_store_provider is None:
-            raise ValueError("vector_store_provider is required")
-        if embeddings is None:
-            raise ValueError("embeddings is required")
-        if generator is None:
-            raise ValueError("generator is required")
-        if lexical is None:
-            raise ValueError("lexical is required")
+    def __init__(self, config: RagConfig, deps: RagDeps):
+        if deps is None:
+            raise ValueError("deps is required")
+        for name in _REQUIRED_DEPS:
+            if getattr(deps, name) is None:
+                raise ValueError(f"{name} is required")
         self.config = config
-        self.vector_store_provider = vector_store_provider
-        self.embeddings = embeddings
-        self.generator = generator
-        self.lexical = lexical
+        self.deps = deps
 
     def retrieve(self, question: str) -> RetrievalResult:
-        return pipeline.retrieve_with_store(
-            question,
-            self.config,
-            vector_store_provider=self.vector_store_provider,
-            embeddings=self.embeddings,
-            generator=self.generator,
-            lexical=self.lexical,
-        )
+        return pipeline.retrieve(question, self.config, self.deps)
 
     def answer(self, question: str, history: list[dict[str, str]] | None = None) -> AnswerResult:
-        return pipeline.answer_with_store(
-            question,
-            self.config,
-            history,
-            vector_store_provider=self.vector_store_provider,
-            embeddings=self.embeddings,
-            generator=self.generator,
-            lexical=self.lexical,
-        )
+        return pipeline.answer(question, self.config, history, self.deps)
 
     def stream_answer(self, question: str) -> Iterable[str]:
-        return pipeline.stream_answer_with_store(
-            question,
-            self.config,
-            vector_store_provider=self.vector_store_provider,
-            embeddings=self.embeddings,
-            generator=self.generator,
-            lexical=self.lexical,
-        )
+        return pipeline.stream_answer(question, self.config, self.deps)

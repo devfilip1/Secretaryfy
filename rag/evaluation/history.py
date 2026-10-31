@@ -31,7 +31,7 @@ def _git(*args):
 def snapshot_config(rag_config, judge_model=None):
     """Configuration of the assistant saved with each run."""
     from assistant.index import chunks_path
-    from assistant.pipeline import prompt_text
+    from assistant.retrieval.pipeline import prompt_text
     from assistant.settings import get_strategy
 
     parameters = get_strategy(rag_config.strategy).parameters

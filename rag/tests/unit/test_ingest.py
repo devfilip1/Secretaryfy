@@ -434,3 +434,17 @@ def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch,
         f"section: 5 chunks in {(tmp_path / 'section').resolve().as_posix()}/\n"
         f"page: 2 chunks in {(tmp_path / 'page').resolve().as_posix()}/\n"
     )
+
+
+def test_the_ingest_facade_reexports_the_ingestion_functions():
+    from assistant import ingest, ingestion
+
+    assert ingest.build_index is ingestion.service.build_index
+    assert ingest.vectorize_chunks is ingestion.service.vectorize_chunks
+
+
+def test_the_ingest_facade_builds_nothing_without_the_store_provider():
+    from assistant import ingest
+
+    with pytest.raises(TypeError):
+        ingest.build_index("section", [])
