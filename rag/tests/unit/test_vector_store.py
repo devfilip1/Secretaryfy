@@ -12,19 +12,19 @@ stub_model = object()  # stands in for the embedding model; the fakes below neve
 class FakeChroma:
     def __init__(self):
         self.search_calls = []
+        self.get_calls = []
         self.deleted = 0
-        self._collection = SimpleNamespace(get=lambda **kwargs: {
+
+    def get(self, include):
+        self.get_calls.append(include)
+        return {
             "documents": ["alpha", "beta"],
             "embeddings": [[1.0, 0.0], [0.0, 1.0]],
-        })
+        }
 
     def similarity_search_by_vector(self, vector, k):
         self.search_calls.append((vector, k))
         return [SimpleNamespace(page_content="alpha")]
-
-    def similarity_search(self, query, k):
-        self.search_calls.append((query, k))
-        return [SimpleNamespace(page_content="beta")]
 
     def delete_collection(self):
         self.deleted += 1
@@ -44,14 +44,30 @@ def test_chroma_adapter_maps_search_and_embedding_operations():
     adapter = chroma_store.ChromaVectorStore(backend, "section", stub_model)
 
     assert adapter.search_by_vector([1.0, 0.0], limit=3)[0].page_content == "alpha"
-    assert adapter.search_by_text("question", limit=2)[0].page_content == "beta"
     assert adapter.vectors_by_content() == {"alpha": [1.0, 0.0], "beta": [0.0, 1.0]}
-    assert backend.search_calls == [([1.0, 0.0], 3), ("question", 2)]
+    assert adapter.documents() == ["alpha", "beta"]
+    assert backend.search_calls == [([1.0, 0.0], 3)]
+
+
+def test_chroma_adapter_reads_through_the_public_get_with_embeddings_and_documents():
+    backend = FakeChroma()
+    adapter = chroma_store.ChromaVectorStore(backend, "section", stub_model)
+
+    adapter.vectors_by_content()
+    adapter.documents()
+
+    assert backend.get_calls == [["embeddings", "documents"], ["documents"]]
+
+
+def test_the_adapter_has_no_text_search():
+    assert not hasattr(vector_store.VectorStore, "search_by_text")
+    assert not hasattr(chroma_store.ChromaVectorStore, "search_by_text")
 
 
 def test_provider_returns_the_same_adapter_for_the_same_strategy():
     opened = []
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model,
+                                                      version=lambda strategy: None)
 
     first = provider("section")
     second = provider("section")
@@ -63,7 +79,8 @@ def test_provider_returns_the_same_adapter_for_the_same_strategy():
 
 def test_provider_gives_each_strategy_its_own_adapter():
     opened = []
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model,
+                                                      version=lambda strategy: None)
 
     section, page = provider("section"), provider("page")
 
@@ -76,7 +93,7 @@ def test_provider_opens_a_strategy_in_its_own_folder_with_the_given_embeddings(m
     monkeypatch.setattr(chroma_store, "Chroma", lambda **kwargs: calls.append(kwargs) or FakeChroma())
     monkeypatch.setattr(chroma_store, "chroma_dir", lambda name: tmp_path / name)
 
-    chroma_store.ChromaVectorStoreProvider(embeddings=stub_model)("section")
+    chroma_store.ChromaVectorStoreProvider(embeddings=stub_model, version=lambda strategy: None)("section")
 
     assert calls == [{
         "collection_name": chroma_store.COLLECTION_NAME,
@@ -88,7 +105,10 @@ def test_provider_opens_a_strategy_in_its_own_folder_with_the_given_embeddings(m
 def test_provider_without_embeddings_uses_the_default_ones_when_it_opens(monkeypatch):
     received = []
     monkeypatch.setattr(chroma_store, "default_embeddings", lambda: stub_model)
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=lambda strategy, embeddings: received.append(embeddings) or FakeChroma())
+    provider = chroma_store.ChromaVectorStoreProvider(
+        open_store=lambda strategy, embeddings: received.append(embeddings) or FakeChroma(),
+        version=lambda strategy: None,
+    )
 
     provider("section")
 
@@ -98,7 +118,8 @@ def test_provider_without_embeddings_uses_the_default_ones_when_it_opens(monkeyp
 
 def test_invalidate_makes_only_that_strategy_reopen_on_the_next_request():
     opened = []
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model,
+                                                      version=lambda strategy: None)
     section = provider("section")
     page = provider("page")
 
@@ -110,14 +131,16 @@ def test_invalidate_makes_only_that_strategy_reopen_on_the_next_request():
 
 
 def test_invalidate_of_a_strategy_never_opened_does_nothing():
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener([]), embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener([]), embeddings=stub_model,
+                                                      version=lambda strategy: None)
 
     provider.invalidate("never-opened")  # no error
 
 
 def test_close_drops_every_adapter_so_each_strategy_reopens():
     opened = []
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener(opened), embeddings=stub_model,
+                                                      version=lambda strategy: None)
     provider("section")
     provider("page")
 
@@ -126,6 +149,60 @@ def test_close_drops_every_adapter_so_each_strategy_reopens():
     provider("page")
 
     assert opened == ["section", "page", "section", "page"]
+
+
+def test_provider_reopens_a_strategy_when_its_index_version_changes():
+    opened = []
+    versions = {"section": "1"}
+    provider = chroma_store.ChromaVectorStoreProvider(
+        open_store=recording_opener(opened), embeddings=stub_model, version=versions.get,
+    )
+    first = provider("section")
+
+    assert provider("section") is first
+    versions["section"] = "2"
+
+    assert provider("section") is not first
+    assert opened == ["section", "section"]
+
+
+def test_provider_keeps_the_adapter_while_the_version_is_unknown():
+    opened = []
+    versions = {"section": "1"}
+    provider = chroma_store.ChromaVectorStoreProvider(
+        open_store=recording_opener(opened), embeddings=stub_model, version=versions.get,
+    )
+    first = provider("section")
+
+    versions.pop("section")
+
+    assert provider("section") is first
+    assert opened == ["section"]
+
+
+def test_provider_reopens_when_an_index_appears_after_the_adapter_was_opened():
+    opened = []
+    versions = {}
+    provider = chroma_store.ChromaVectorStoreProvider(
+        open_store=recording_opener(opened), embeddings=stub_model, version=versions.get,
+    )
+    first = provider("section")
+
+    versions["section"] = "1"
+
+    assert provider("section") is not first
+    assert opened == ["section", "section"]
+
+
+def test_provider_asks_the_index_version_of_the_strategy_by_default(monkeypatch):
+    asked = []
+    monkeypatch.setattr(chroma_store, "index_version", lambda strategy: asked.append(strategy) or "1")
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=recording_opener([]), embeddings=stub_model)
+
+    provider("section")
+    provider("section")
+
+    assert asked == ["section", "section"]
 
 
 def test_adapter_rebuild_replaces_its_strategy_collection(monkeypatch, tmp_path):
@@ -154,7 +231,8 @@ def test_rebuild_keeps_the_cached_adapter_and_searches_the_new_store(monkeypatch
     rebuilt = FakeChroma()
     monkeypatch.setattr(chroma_store, "Chroma", SimpleNamespace(from_documents=lambda documents, embeddings, **kwargs: rebuilt))
     monkeypatch.setattr(chroma_store, "chroma_dir", lambda name: tmp_path / name)
-    provider = chroma_store.ChromaVectorStoreProvider(open_store=lambda strategy, embeddings: existing, embeddings=stub_model)
+    provider = chroma_store.ChromaVectorStoreProvider(open_store=lambda strategy, embeddings: existing, embeddings=stub_model,
+                                                      version=lambda strategy: None)
     adapter = provider("section")
 
     adapter.rebuild([SimpleNamespace(page_content="chunk")])

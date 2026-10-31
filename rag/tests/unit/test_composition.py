@@ -41,6 +41,19 @@ def test_build_rag_service_without_a_config_uses_the_assistant_experiment(monkey
     assert service.config is sentinel
 
 
+def test_build_rag_service_passes_the_process_lexical_index(monkeypatch):
+    lexical = object()
+    monkeypatch.setattr(composition, "default_vector_store_provider", lambda: (lambda strategy: None))
+    monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_lexical_index", lambda: lexical)
+
+    service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
+
+    assert service.lexical is lexical
+    assert composition.build_lexical_provider() is lexical
+
+
 def test_build_vector_store_provider_is_the_default_factory_provider(monkeypatch):
     provider = lambda strategy: None
     monkeypatch.setattr(composition, "default_vector_store_provider", lambda: provider)

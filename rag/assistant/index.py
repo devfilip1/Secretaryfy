@@ -17,6 +17,10 @@ class IndexUnavailable(Exception):
     """The index of a strategy is missing or out of date. The message carries the command that fixes it."""
 
 
+class IndexInconsistent(Exception):
+    """The chunks file and the vector store of a strategy hold different chunks. The message carries the command that fixes it."""
+
+
 def index_dir(name, base=None):
     return Path(base or INDEX_DIR) / name
 
@@ -31,6 +35,14 @@ def chunks_path(name, base=None):
 
 def manifest_path(name, base=None):
     return index_dir(name, base) / "manifest.json"
+
+
+def index_version(name, base=None):
+    """Changes when a finished index is written: the manifest is written last. None when there is no index."""
+    for path in (manifest_path(name, base), chunks_path(name, base)):
+        if path.is_file():
+            return str(path.stat().st_mtime_ns)
+    return None
 
 
 def source_hash(path=SOURCE_PDF):

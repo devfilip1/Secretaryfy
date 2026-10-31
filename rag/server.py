@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from assistant.config import OLLAMA_BASE_URL
 from assistant.index import CURRENT, IndexUnavailable, check_embedding_dimensions, index_state, require_index
 from assistant.pipeline import RagConfig
+from assistant.retrieval.lexical import LexicalIndex
 from assistant.retrieval.service import RagService
 from assistant.composition import build_embeddings_provider, build_rag_service
 from assistant.generation.model import TextGenerator
@@ -66,6 +67,7 @@ def create_app(
     service: RagService | None = None,
     embeddings: EmbeddingProvider | None = None,
     generator: TextGenerator | None = None,
+    lexical: LexicalIndex | None = None,
 ):
     if service is None:
         if vector_store_provider is None:
@@ -75,6 +77,7 @@ def create_app(
             vector_store_provider=vector_store_provider,
             embeddings=embeddings,
             generator=generator,
+            lexical=lexical,
         )
 
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")

@@ -21,7 +21,7 @@ HISTORIES = []  # the conversation each answer received
 
 def test_rag_service_requires_an_effective_vector_store_provider():
     with pytest.raises(ValueError, match="vector_store_provider is required"):
-        RagService(RagConfig.from_experiment("section_hybrid"), None, object(), object())
+        RagService(RagConfig.from_experiment("section_hybrid"), None, object(), object(), object())
 
 
 @pytest.fixture
@@ -32,12 +32,12 @@ def calls(monkeypatch):
     asked = []
     HISTORIES.clear()
 
-    def fake_answer(question, config, history=None, *, vector_store_provider, embeddings, generator):
+    def fake_answer(question, config, history=None, *, vector_store_provider, embeddings, generator, lexical):
         asked.append(question)
         HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
-    def fake_retrieve(question, config, *, vector_store_provider, embeddings, generator):
+    def fake_retrieve(question, config, *, vector_store_provider, embeddings, generator, lexical):
         asked.append(question)
         return RETRIEVAL
 
@@ -53,6 +53,7 @@ def client():
         vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
         embeddings=object(),  # the fakes replace the pipeline, so the model is not called
         generator=object(),
+        lexical=object(),
     ))
 
 
@@ -104,7 +105,8 @@ def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
     embeddings = FakeEmbeddings()
     generator = FakeModel()
     monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
-    app = server.create_app(config, vector_store_provider=provider, embeddings=embeddings, generator=generator)
+    app = server.create_app(config, vector_store_provider=provider, embeddings=embeddings, generator=generator,
+                            lexical=object())
 
     with TestClient(app) as client:
         retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
@@ -313,6 +315,7 @@ def test_a_generator_failure_on_answer_becomes_503():
         vector_store_provider=lambda strategy: OneChunkStore(),
         embeddings=SimpleNamespace(embed_query=lambda text: [1.0, 0.0]),
         generator=DownGenerator(),
+        lexical=object(),
     )
     response = TestClient(app).post("/answer", json={"question": "How much are braces?"})
 
@@ -370,6 +373,51 @@ def test_an_embedding_mismatch_becomes_503_with_the_rebuild_command(path):
 
     app = server.create_app(RagConfig.from_experiment("section_hybrid"), service=MismatchedService())
     response = TestClient(app).post(path, json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": message}
+
+
+def test_rag_service_requires_the_lexical_index():
+    with pytest.raises(ValueError, match="lexical is required"):
+        RagService(RagConfig.from_experiment("section_hybrid"), lambda strategy: None, object(), object(), None)
+
+
+def test_create_app_passes_the_lexical_index_to_the_service(monkeypatch):
+    received = []
+
+    class RecordingService:
+        def __init__(self, config, vector_store_provider, embeddings, generator, lexical):
+            received.append(lexical)
+
+    monkeypatch.setattr(server, "RagService", RecordingService)
+    lexical = object()
+    server.create_app(
+        RagConfig.from_experiment("section_hybrid"),
+        vector_store_provider=lambda strategy: None,
+        embeddings=object(),
+        generator=object(),
+        lexical=lexical,
+    )
+
+    assert received == [lexical]
+
+
+def test_an_inconsistent_index_becomes_503_with_the_rebuild_command():
+    from assistant.index import IndexInconsistent
+
+    message = ('the index of strategy "section" is inconsistent: chunks.json holds 2 chunk(s) the vector store does not; '
+               'run: python -m assistant.ingest section')
+
+    class InconsistentService:
+        def answer(self, question, history):
+            raise IndexInconsistent(message)
+
+        def retrieve(self, question):
+            raise IndexInconsistent(message)
+
+    app = server.create_app(RagConfig.from_experiment("section_hybrid"), service=InconsistentService())
+    response = TestClient(app).post("/retrieve", json={"question": "How much are braces?"})
 
     assert response.status_code == 503
     assert response.json() == {"detail": message}

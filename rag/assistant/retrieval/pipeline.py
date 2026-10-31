@@ -1,27 +1,21 @@
-import json
 import math
-import re
 import time
-import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import lru_cache
 
 import numpy as np
-from rank_bm25 import BM25Okapi
 
 from assistant.config import (
     MAX_ANSWER_TOKENS,
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBEDDING_MODEL,
-    QUERY_SYNONYMS,
-    STOPWORDS,
     TEMPERATURE,
 )
 from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
-from assistant.index import EmbeddingMismatch, chunks_path, ingest_command
+from assistant.index import EmbeddingMismatch, IndexInconsistent, ingest_command
+from assistant.retrieval.lexical import LexicalIndex, tokenize
 from assistant.settings import assistant_experiment, get_experiment
 from assistant.generation.prompting import (
     HYDE_MAX_TOKENS,
@@ -150,38 +144,16 @@ def _default_vector_store_provider() -> Callable[[str], VectorStore]:
     return default_vector_store_provider()
 
 
-@lru_cache(maxsize=None)
-def _bm25(strategy):
-    with open(chunks_path(strategy), "r", encoding="utf-8") as f:
-        documents = [item["content"] for item in json.load(f)]
+def _default_lexical() -> LexicalIndex:
+    from assistant.storage.factory import default_lexical_index
 
-    tokenized_docs = [tokenize(doc) for doc in documents]
-    return BM25Okapi(tokenized_docs), documents
+    return default_lexical_index()
 
 
 def _unit(vector):
     vector = np.asarray(vector, dtype=float)
     norm = np.linalg.norm(vector)
     return vector / norm if norm else vector
-
-
-def tokenize(text, expand=False):
-    """Words without accents, punctuation, stop words, or the plural "s".
-
-    expand=True adds the brochure's terms that mean the same as the question's ("cost" -> "price").
-    """
-    text = unicodedata.normalize("NFD", text.lower())
-    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    tokens = []
-    for word in re.findall(r"[a-z0-9]+", text):
-        if word in STOPWORDS:
-            continue
-        words = [word, *QUERY_SYNONYMS.get(word, ())] if expand else [word]
-        for word in words:
-            if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
-                word = word[:-1]
-            tokens.append(word)
-    return tokens
 
 
 def hypothetical_answer(question, config, generator: TextGenerator):
@@ -223,6 +195,7 @@ def retrieve_with_store(
     vector_store_provider: Callable[[str], VectorStore],
     embeddings: EmbeddingProvider,
     generator: TextGenerator | None = None,
+    lexical: LexicalIndex,
 ):
     config = config or RagConfig()
     if config.use_hyde and generator is None:
@@ -245,18 +218,24 @@ def retrieve_with_store(
             vector.append(RetrievedChunk(doc.page_content, rank, value, value))
 
     # BM25 SEARCH (always with the original question, even with HyDE)
-    lexical = []
+    bm25_chunks = []
     if config.bm25_k > 0:
-        bm25, documents = _bm25(config.strategy)
+        bm25, documents = lexical.get(config.strategy)
+        missing = [document for document in documents if document not in vectors]
+        if missing:
+            raise IndexInconsistent(
+                f'the index of strategy "{config.strategy}" is inconsistent: chunks.json holds {len(missing)} chunk(s) '
+                f"the vector store does not; run: {ingest_command(config.strategy)}"
+            )
         scores = bm25.get_scores(tokenize(question, expand=True))
         ranked_docs = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)[:config.bm25_k]
-        lexical = [
+        bm25_chunks = [
             RetrievedChunk(doc, rank, float(score), similarity(doc))
             for rank, (doc, score) in enumerate(ranked_docs, start=1)
             if score > 0
         ]
 
-    best = reciprocal_rank_fusion((vector, lexical), config.final_k, rank_constant=RRF_K)
+    best = reciprocal_rank_fusion((vector, bm25_chunks), config.final_k, rank_constant=RRF_K)
 
     # THRESHOLD: chunks that are not similar enough to the question do not go to the model (0 turns it off)
     kept = [(content, score) for content, score in best if similarity(content) >= config.match_threshold]
@@ -264,7 +243,7 @@ def retrieve_with_store(
         RetrievedChunk(content, rank, score, similarity(content)) for rank, (content, score) in enumerate(kept, start=1)
     ]
 
-    return RetrievalResult(vector=vector, bm25=lexical, fused=fused)
+    return RetrievalResult(vector=vector, bm25=bm25_chunks, fused=fused)
 
 
 def retrieve(question, config=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
@@ -280,6 +259,7 @@ def retrieve(question, config=None, *, vector_store_provider: Callable[[str], Ve
         vector_store_provider=provider,
         embeddings=_default_embeddings(),
         generator=_default_generator(),
+        lexical=_default_lexical(),
     )
 
 
@@ -311,6 +291,7 @@ def answer_with_store(
     vector_store_provider: Callable[[str], VectorStore],
     embeddings: EmbeddingProvider,
     generator: TextGenerator,
+    lexical: LexicalIndex,
 ):
     """history: the messages before the question, as [{"role": "user" | "assistant", "content": ...}]."""
     config = config or RagConfig()
@@ -322,6 +303,7 @@ def answer_with_store(
         vector_store_provider=vector_store_provider,
         embeddings=embeddings,
         generator=generator,
+        lexical=lexical,
     )
     prompt = build_prompt(question, retrieval, config, history)
     reply = generator.generate(
@@ -349,6 +331,7 @@ def answer(question, config=None, history=None, *, vector_store_provider: Callab
         vector_store_provider=provider,
         embeddings=_default_embeddings(),
         generator=_default_generator(),
+        lexical=_default_lexical(),
     )
 
 
@@ -359,6 +342,7 @@ def stream_answer_with_store(
     vector_store_provider: Callable[[str], VectorStore],
     embeddings: EmbeddingProvider,
     generator: TextGenerator,
+    lexical: LexicalIndex,
 ):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
@@ -368,6 +352,7 @@ def stream_answer_with_store(
         vector_store_provider=vector_store_provider,
         embeddings=embeddings,
         generator=generator,
+        lexical=lexical,
     )
     prompt = build_prompt(question, retrieval, config)
     yield from generator.stream(
@@ -392,4 +377,5 @@ def stream_answer(question, config=None, *, vector_store_provider: Callable[[str
         vector_store_provider=provider,
         embeddings=_default_embeddings(),
         generator=_default_generator(),
+        lexical=_default_lexical(),
     )

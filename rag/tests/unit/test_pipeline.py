@@ -2,7 +2,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from rank_bm25 import BM25Okapi
 
 from assistant import pipeline
 from assistant.pipeline import (
@@ -15,6 +14,8 @@ from assistant.pipeline import (
     standalone_question,
     tokenize,
 )
+from assistant.index import IndexInconsistent
+from assistant.retrieval.lexical import LexicalIndex
 from assistant.settings import Experiment
 
 CLEANING = "Dental Cleaning — The First Step Toward a Healthy Smile\nDuration: 30–50 minutes\nPrice: $40–$85"
@@ -42,6 +43,23 @@ def config(search_type="hybrid", match_count=4, match_threshold=0.0, use_hyde=Fa
                      match_threshold=match_threshold, use_hyde=use_hyde)
 
 
+class FakeChunkSource:
+    """The chunks of the in-memory index. Counts the reads, which happen once per index version."""
+
+    def __init__(self, texts, calls):
+        self.texts, self.calls = texts, calls
+
+    def version(self, strategy):
+        return "v1"
+
+    def chunks(self, strategy):
+        self.calls.bm25 += 1
+        return list(self.texts)
+
+
+LEXICAL = LexicalIndex(FakeChunkSource(DOCUMENTS, SimpleNamespace(bm25=0)))
+
+
 @pytest.fixture
 def index(monkeypatch):
     """In-memory index. Records what was asked of each search and of the models."""
@@ -66,16 +84,12 @@ def index(monkeypatch):
             calls.embedded.append(("document", texts[0]))
             return [[2.0, 0.0]]
 
-    def fake_bm25(strategy):
-        calls.bm25 += 1
-        return BM25Okapi([tokenize(d) for d in DOCUMENTS]), DOCUMENTS
-
     def fake_hyde(question, cfg, generator):
         calls.hyde.append(question)
         return "Braces stay on for 12 to 36 months."
 
     monkeypatch.setattr(pipeline, "_default_vector_store_provider", lambda: lambda strategy: FakeDb())
-    monkeypatch.setattr(pipeline, "_bm25", fake_bm25)
+    monkeypatch.setattr(pipeline, "_default_lexical", lambda: LexicalIndex(FakeChunkSource(DOCUMENTS, calls)))
     monkeypatch.setattr(pipeline, "_default_embeddings", lambda: FakeEmbeddings())
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
     return calls
@@ -443,6 +457,7 @@ def test_retrieve_embeds_with_the_injected_embeddings(monkeypatch):
         BRACES_QUESTION, config("vector", 1),
         vector_store_provider=lambda strategy: TwoDimensionalStore(),
         embeddings=embeddings,
+        lexical=LEXICAL,
     )
 
     assert embeddings.queries == [BRACES_QUESTION]
@@ -469,6 +484,7 @@ def test_query_of_another_size_than_the_index_is_refused_with_the_rebuild_comman
             BRACES_QUESTION, config("vector", 1),
             vector_store_provider=lambda strategy: ThreeDimensionalStore(),
             embeddings=RecordingEmbeddings(),
+            lexical=LEXICAL,
         )
 
     assert str(info.value) == (
@@ -539,6 +555,7 @@ def test_answer_asks_the_model_with_the_configured_settings_and_cleans_the_reply
         BRACES_QUESTION, cfg, None,
         vector_store_provider=lambda strategy: TwoDimensionalStore(),
         embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
         generator=generator,
     )
 
@@ -558,6 +575,7 @@ def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pi
         BRACES_QUESTION, cfg,
         vector_store_provider=lambda strategy: TwoDimensionalStore(),
         embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
         generator=generator,
     ))
 
@@ -575,6 +593,7 @@ def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
         BRACES_QUESTION, config("vector", 1),
         vector_store_provider=lambda strategy: TwoDimensionalStore(),
         embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
         generator=generator,
     ))
 
@@ -587,6 +606,7 @@ def test_hyde_without_a_generator_is_refused_before_searching():
             BRACES_QUESTION, config("vector", 1, use_hyde=True),
             vector_store_provider=lambda strategy: pytest.fail("must not open the store"),
             embeddings=RecordingEmbeddings(),
+            lexical=LEXICAL,
         )
 
 
@@ -597,6 +617,7 @@ def test_retrieval_without_hyde_does_not_call_the_generator():
         BRACES_QUESTION, config("vector", 1),
         vector_store_provider=lambda strategy: TwoDimensionalStore(),
         embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
         generator=generator,
     )
 
@@ -615,6 +636,49 @@ def test_empty_index_is_not_compared_with_the_query():
         BRACES_QUESTION, config("vector", 1),
         vector_store_provider=lambda strategy: EmptyStore(),
         embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
     )
 
     assert result.vector == []
+
+
+# --- the words and the vectors of one index must describe the same chunks ---
+
+def test_a_chunk_of_the_words_index_missing_from_the_vector_store_is_refused_with_the_rebuild_command():
+    class PartialStore:
+        def vectors_by_content(self):
+            return {CLEANING: VECTORS[CLEANING]}
+
+        def search_by_vector(self, vector, limit):
+            return [SimpleNamespace(page_content=CLEANING)]
+
+    with pytest.raises(IndexInconsistent) as info:
+        pipeline.retrieve_with_store(
+            BRACES_QUESTION, config(),
+            vector_store_provider=lambda strategy: PartialStore(),
+            embeddings=RecordingEmbeddings(),
+            lexical=LEXICAL,
+        )
+
+    assert str(info.value) == (
+        'the index of strategy "fake" is inconsistent: chunks.json holds 3 chunk(s) the vector store does not; '
+        "run: python -m assistant.ingest fake"
+    )
+
+
+def test_the_consistency_check_runs_only_when_the_words_are_searched():
+    class PartialStore:
+        def vectors_by_content(self):
+            return {CLEANING: VECTORS[CLEANING]}
+
+        def search_by_vector(self, vector, limit):
+            return [SimpleNamespace(page_content=CLEANING)]
+
+    result = pipeline.retrieve_with_store(
+        BRACES_QUESTION, config("vector", 1),
+        vector_store_provider=lambda strategy: PartialStore(),
+        embeddings=RecordingEmbeddings(),
+        lexical=LEXICAL,
+    )
+
+    assert [chunk.content for chunk in result.vector] == [CLEANING]

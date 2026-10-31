@@ -7,6 +7,8 @@ from assistant.storage.vector_store import VectorStore
 _default_provider: Callable[[str], VectorStore] | None = None
 _default_embeddings_instance = None
 _default_generator_instance = None
+_default_chunk_source_instance = None
+_default_lexical_instance = None
 
 
 def default_embeddings():
@@ -52,3 +54,33 @@ def reset_default_vector_store_provider() -> None:
     """Forgets the process-wide provider, so the next call builds a new one. Used by tests."""
     global _default_provider
     _default_provider = None
+
+
+def default_chunk_source():
+    global _default_chunk_source_instance
+    if _default_chunk_source_instance is None:
+        from assistant.retrieval.chunks import JsonChunkSource
+
+        _default_chunk_source_instance = JsonChunkSource()
+    return _default_chunk_source_instance
+
+
+def reset_default_chunk_source() -> None:
+    """Forgets the process-wide chunk source, so the next call builds a new one. Used by tests."""
+    global _default_chunk_source_instance
+    _default_chunk_source_instance = None
+
+
+def default_lexical_index():
+    global _default_lexical_instance
+    if _default_lexical_instance is None:
+        from assistant.retrieval.lexical import LexicalIndex
+
+        _default_lexical_instance = LexicalIndex(default_chunk_source())
+    return _default_lexical_instance
+
+
+def reset_default_lexical_index() -> None:
+    """Forgets the process-wide lexical index, so the next call builds a new one. Used by tests."""
+    global _default_lexical_instance
+    _default_lexical_instance = None
