@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from assistant.clinic.profile import ClinicProfile, ClinicProfileError
+from assistant.clinic.profile import ClinicProfile, ClinicProfileError, Lexicon
 
 LANGUAGE_CODE = re.compile(r"^[a-z][a-z0-9_-]*$")
 CLINIC_FIELDS = ("name", "kind", "language", "example_treatment", "extra_rules")
@@ -13,6 +13,7 @@ TEXT_FIELDS = (
     "standalone_prompt", "original_template", "hyde_prompt",
 )
 PATTERN_FIELDS = ("afterthought", "greeting")
+LEXICON_FIELDS = ("stopwords", "query_synonyms")
 # Valores da clínica preenchidos nos textos antes de o prompt existir: chaves com chaves não podem entrar.
 CLINIC_PLACEHOLDERS = (
     ("{clinic_name_upper}", lambda clinic: clinic["name"].upper()),
@@ -40,6 +41,16 @@ def _mtime(path):
         raise ClinicProfileError(f"{path} cannot be read ({error.strerror}); create it with the clinic's profile") from error
 
 
+def _is_string_list(value):
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _check_synonyms(value, file_name):
+    """Mapa de cada palavra para uma lista de palavras; o mapa e as listas podem estar vazios."""
+    if not isinstance(value, dict) or not all(isinstance(word, str) and _is_string_list(words) for word, words in value.items()):
+        raise ClinicProfileError(f"{file_name}: query_synonyms must be a mapping of each word to a list of strings")
+
+
 def _check_clinic(clinic, path):
     missing = [field for field in CLINIC_FIELDS if not isinstance(clinic.get(field), str) or not clinic[field].strip()]
     if missing:
@@ -49,10 +60,13 @@ def _check_clinic(clinic, path):
             raise ClinicProfileError(f"{path.name}: {field} may not contain braces ({{ or }}); they are read as placeholders")
     if not LANGUAGE_CODE.match(clinic["language"]):
         raise ClinicProfileError(f'{path.name}: language "{clinic["language"]}" is not a language code; use a name such as en')
+    if "query_synonyms" not in clinic:
+        raise ClinicProfileError(f"{path.name}: missing field: query_synonyms")
+    _check_synonyms(clinic["query_synonyms"], path.name)
 
 
 def _check_language(pack, path):
-    missing = [field for field in (*TEXT_FIELDS, *PATTERN_FIELDS, "conversation_roles") if field not in pack]
+    missing = [field for field in (*TEXT_FIELDS, *PATTERN_FIELDS, *LEXICON_FIELDS, "conversation_roles") if field not in pack]
     if missing:
         raise ClinicProfileError(f"{path.name}: missing field: {', '.join(missing)}")
     wrong = [field for field in TEXT_FIELDS if not isinstance(pack[field], str)]
@@ -62,6 +76,9 @@ def _check_language(pack, path):
             f"{path.name}: the texts must be strings and conversation_roles must have the keys user and assistant "
             f"(wrong: {', '.join(wrong) or 'conversation_roles'})"
         )
+    if not _is_string_list(pack["stopwords"]):
+        raise ClinicProfileError(f"{path.name}: stopwords must be a list of strings")
+    _check_synonyms(pack["query_synonyms"], path.name)
 
 
 def _compile(pack, field, path):
@@ -69,6 +86,21 @@ def _compile(pack, field, path):
         return re.compile(pack[field], re.IGNORECASE)
     except (re.error, TypeError) as error:
         raise ClinicProfileError(f"{path.name}: {field} is not a valid regular expression: {error}") from error
+
+
+def _lexicon(clinic, pack, clinic_path, language_path):
+    """Idioma e clínica juntos. Uma palavra nos dois arquivos é erro: não se mescla em silêncio."""
+    repeated = [word for word in clinic["query_synonyms"] if word in pack["query_synonyms"]]
+    if repeated:
+        raise ClinicProfileError(
+            f"{clinic_path.name}: query_synonyms repeats words of {language_path.name}: {', '.join(repeated)}; "
+            "keep each word in one of the two files"
+        )
+    merged = {**pack["query_synonyms"], **clinic["query_synonyms"]}
+    return Lexicon(
+        stopwords=frozenset(pack["stopwords"]),
+        synonyms={word: tuple(words) for word, words in merged.items()},
+    )
 
 
 def _build(clinic_path, languages_dir):
@@ -104,6 +136,7 @@ def _build(clinic_path, languages_dir):
         hyde_prompt=fill(pack["hyde_prompt"]),
         afterthought=_compile(pack, "afterthought", language_path),
         greeting=_compile(pack, "greeting", language_path),
+        lexicon=_lexicon(clinic, pack, clinic_path, language_path),
     )
 
 

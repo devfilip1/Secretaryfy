@@ -51,7 +51,7 @@ class FakeChunkSource:
         return list(self.texts)
 
 
-LEXICAL = LexicalIndex(FakeChunkSource(DOCUMENTS, SimpleNamespace(bm25=0)))
+LEXICAL = LexicalIndex(FakeChunkSource(DOCUMENTS, SimpleNamespace(bm25=0)), YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR))
 
 
 class UnusedGenerator:
@@ -119,7 +119,7 @@ def index(monkeypatch):
         vector_store_provider=lambda strategy: FakeDb(),
         embeddings=FakeEmbeddings(),
         generator=UNUSED_GENERATOR,
-        lexical=LexicalIndex(FakeChunkSource(DOCUMENTS, calls)),
+        lexical=LexicalIndex(FakeChunkSource(DOCUMENTS, calls), SOURCE),
         clinic=SOURCE,
     )
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
@@ -129,17 +129,17 @@ def index(monkeypatch):
 # --- tokenizing ---
 
 def test_tokenize_removes_punctuation_stopwords_and_plural():
-    assert tokenize("How much does Whitening cost?") == ["much", "whitening", "cost"]
-    assert tokenize("How many sessions are needed for the veneers?") == ["many", "session", "needed", "veneer"]
+    assert tokenize("How much does Whitening cost?", CLINIC.lexicon) == ["much", "whitening", "cost"]
+    assert tokenize("How many sessions are needed for the veneers?", CLINIC.lexicon) == ["many", "session", "needed", "veneer"]
 
 
 def test_tokenize_keeps_words_that_end_in_double_s():
-    assert tokenize("painless process, address") == ["painless", "process", "address"]
+    assert tokenize("painless process, address", CLINIC.lexicon) == ["painless", "process", "address"]
 
 
 def test_tokenize_expands_customer_words_into_brochure_words():
-    assert tokenize(PRICE_QUESTION, expand=True) == ["much", "price", "whitening", "cost", "price"]
-    assert "duration" in tokenize("how long does it take?", expand=True)
+    assert tokenize(PRICE_QUESTION, CLINIC.lexicon, expand=True) == ["much", "price", "whitening", "cost", "price"]
+    assert "duration" in tokenize("how long does it take?", CLINIC.lexicon, expand=True)
 
 
 @pytest.mark.parametrize(
@@ -155,11 +155,11 @@ def test_tokenize_expands_customer_words_into_brochure_words():
     ],
 )
 def test_customer_wording_reaches_the_brochure_wording(question, brochure_word):
-    assert brochure_word in tokenize(question, expand=True)
+    assert brochure_word in tokenize(question, CLINIC.lexicon, expand=True)
 
 
 def test_documents_are_not_expanded():
-    assert tokenize("the cost and the price") == ["cost", "price"]
+    assert tokenize("the cost and the price", CLINIC.lexicon) == ["cost", "price"]
 
 
 # --- configuration from the experiment ---

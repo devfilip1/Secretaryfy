@@ -13,6 +13,7 @@ CLINIC = {
     "language": "en",
     "example_treatment": "teeth whitening",
     "extra_rules": "5. Rule about two prices.",
+    "query_synonyms": {},
 }
 
 

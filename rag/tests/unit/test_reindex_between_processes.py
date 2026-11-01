@@ -12,6 +12,8 @@ from langchain_core.documents import Document
 
 from assistant.index import chunks_path, index_version, manifest_path
 from assistant.retrieval.chunks import JsonChunkSource
+from assistant.clinic.yaml_source import YamlClinicProfile
+from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 from assistant.retrieval.lexical import LexicalIndex
 from assistant.storage import chroma as chroma_store
 
@@ -75,7 +77,7 @@ def test_a_reindex_by_another_process_is_seen_without_restarting(monkeypatch, tm
     provider = chroma_store.ChromaVectorStoreProvider(
         embeddings=FakeEmbeddings(), version=lambda name: index_version(name, base),
     )
-    lexical = LexicalIndex(JsonChunkSource(base))
+    lexical = LexicalIndex(JsonChunkSource(base), YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR))
 
     # this process builds v1 the way the ingestion does and reads it
     chunks_path(STRATEGY, base).parent.mkdir(parents=True, exist_ok=True)

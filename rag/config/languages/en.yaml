@@ -88,6 +88,65 @@ standalone_prompt: |-
 
   Customer's last message: {ask}
 
+# Words that do not help the word-based search (lowercase, without accents). "much", "long", "where", and "open" are
+# not here on purpose: they carry the intent of "how much", "how long", "where are you", and "are you open".
+stopwords: [
+  "a", "an", "the", "of", "to", "in", "on", "at", "for", "with", "without", "from", "by", "and", "or", "but", "if", "so",
+  "as", "than", "then", "that", "this", "these", "those",
+  "is", "are", "was", "were", "be", "been", "being", "am", "do", "does", "did", "has", "have", "had", "will", "would",
+  "can", "could", "should", "may", "might", "must",
+  "i", "me", "my", "we", "us", "our", "you", "your", "yours", "he", "she", "it", "its", "they", "them", "their", "there",
+  "here",
+  "what", "which", "who", "whom", "how", "why",
+  "not", "no", "yes", "please", "just", "also", "very", "really", "about", "into", "over", "up", "out", "any", "some",
+  "get", "got", "need", "want", "like", "know", "tell", "say",
+]
+# How customers ask -> how the brochure writes it, for the word-based search only. Words that are about the
+# clinic in general are here; the words of the specialty are in config/clinic.yaml.
+query_synonyms:
+  cost: [price]
+  costs: [price]
+  much: [price]
+  fee: [price]
+  fees: [price]
+  charge: [price]
+  expensive: [price]
+  cheap: [price]
+  pay: [price]
+  pricing: [price]
+  prices: [price]
+  long: [duration]
+  take: [duration]
+  takes: [duration]
+  time: [duration]
+  quick: [duration]
+  fast: [duration]
+  where: [location]
+  located: [location]
+  address: [location]
+  directions: [location]
+  open: [hours]
+  close: [hours]
+  closed: [hours]
+  opening: [hours]
+  weekend: [hours, saturday, sunday]
+  weekends: [hours, saturday, sunday]
+  phone: [contact]
+  call: [contact]
+  number: [contact]
+  email: [contact]
+  reach: [contact]
+  hurt: [pain]
+  hurts: [pain]
+  painful: [pain]
+  installments: [payment]
+  financing: [payment]
+  card: [payment]
+  works: [work]
+  done: [works, work]
+  types: [options]
+  kinds: [options]
+
 # The prompt the project started with, kept only as a baseline to measure against (experiment option prompt: original).
 original_template: |
 

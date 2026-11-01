@@ -3,6 +3,35 @@
 name: DentalSafe
 kind: dental clinic
 language: en
+# Words of the specialty for the word-based search: how customers ask -> how the brochure writes it. A word may not be
+# in config/languages/<language>.yaml too.
+query_synonyms:
+  whiten: [whitening]
+  whiter: [whitening]
+  bleach: [whitening]
+  bleaching: [whitening]
+  aligners: [braces]
+  invisalign: [braces, aligners]
+  straighten: [braces, alignment]
+  crooked: [braces, alignment]
+  orthodontics: [orthodontic, braces]
+  teeth: [tooth]
+  tooth: [teeth]
+  pull: [extraction]
+  pulled: [extraction]
+  remove: [extraction]
+  removed: [extraction]
+  removal: [extraction]
+  extract: [extraction]
+  cavity: [filling, decay]
+  cavities: [filling, decay]
+  last: [durability, lasting]
+  lasts: [durability, lasting]
+  recover: [recovery]
+  heal: [recovery]
+  healing: [recovery]
+  downtime: [recovery]
+
 # The example treatment of rule 3 of the prompt, written the way a customer would say it.
 example_treatment: teeth whitening
 # Rule 5 of the prompt: the rule about treatments with two prices or two durations. The number is written here.

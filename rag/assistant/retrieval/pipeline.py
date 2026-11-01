@@ -196,7 +196,7 @@ def retrieve(question, config, deps: RagDeps):
                 f'the index of strategy "{config.strategy}" is inconsistent: chunks.json holds {len(missing)} chunk(s) '
                 f"the vector store does not; run: {ingest_command(config.strategy)}"
             )
-        scores = bm25.get_scores(tokenize(question, expand=True))
+        scores = bm25.get_scores(tokenize(question, clinic.lexicon, expand=True))
         ranked_docs = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)[:config.bm25_k]
         bm25_chunks = [
             RetrievedChunk(doc, rank, float(score), similarity(doc))

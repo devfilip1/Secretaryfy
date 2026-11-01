@@ -143,7 +143,7 @@ TOKEN_SENTENCES = [
 
 def token_cases():
     return {
-        sentence: {"plain": tokenize(sentence), "expanded": tokenize(sentence, expand=True)}
+        sentence: {"plain": tokenize(sentence, CLINIC.lexicon), "expanded": tokenize(sentence, CLINIC.lexicon, expand=True)}
         for sentence in TOKEN_SENTENCES
     }
 

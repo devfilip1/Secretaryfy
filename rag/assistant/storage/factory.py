@@ -8,6 +8,7 @@ _default_provider: Callable[[str], VectorStore] | None = None
 _default_embeddings_instance = None
 _default_generator_instance = None
 _default_chunk_source_instance = None
+_default_clinic_instance = None
 _default_lexical_instance = None
 
 
@@ -71,12 +72,29 @@ def reset_default_chunk_source() -> None:
     _default_chunk_source_instance = None
 
 
+def default_clinic_profile():
+    """The clinic profile of the process: the lexical index and the pipeline read the same one."""
+    global _default_clinic_instance
+    if _default_clinic_instance is None:
+        from assistant.clinic.yaml_source import YamlClinicProfile
+        from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+
+        _default_clinic_instance = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
+    return _default_clinic_instance
+
+
+def reset_default_clinic_profile() -> None:
+    """Forgets the process-wide clinic profile, so the next call builds a new one. Used by tests."""
+    global _default_clinic_instance
+    _default_clinic_instance = None
+
+
 def default_lexical_index():
     global _default_lexical_instance
     if _default_lexical_instance is None:
         from assistant.retrieval.lexical import LexicalIndex
 
-        _default_lexical_instance = LexicalIndex(default_chunk_source())
+        _default_lexical_instance = LexicalIndex(default_chunk_source(), default_clinic_profile())
     return _default_lexical_instance
 
 

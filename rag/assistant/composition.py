@@ -5,9 +5,13 @@ The entry points (chat, server, ingest CLI, evaluation) get their dependencies f
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from assistant.clinic.yaml_source import YamlClinicProfile
-from assistant.config import CLINIC_PATH, LANGUAGES_DIR
-from assistant.storage.factory import default_embeddings, default_generator, default_lexical_index, default_vector_store_provider
+from assistant.storage.factory import (
+    default_clinic_profile,
+    default_embeddings,
+    default_generator,
+    default_lexical_index,
+    default_vector_store_provider,
+)
 from assistant.storage.vector_store import VectorStore
 
 if TYPE_CHECKING:
@@ -36,7 +40,8 @@ def build_lexical_provider() -> "LexicalIndex":
 
 
 def build_clinic_provider() -> "ClinicProfileSource":
-    return YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
+    # the same instance the lexical index reads: one clinic profile per process
+    return default_clinic_profile()
 
 
 def build_rag_deps() -> "RagDeps":
