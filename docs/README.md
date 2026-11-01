@@ -54,4 +54,4 @@ flowchart LR
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
 
 ---
-Last updated: 2026-11-01 (uncommitted: lexicon, Etapa 6a-B1)
+Last updated: 2026-11-01 (285e78d)
