@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from assistant.clinic.profile import ClinicProfile, ClinicProfileSource
 from assistant.config import (
     MAX_ANSWER_TOKENS,
     OLLAMA_CHAT_MODEL,
@@ -19,18 +20,9 @@ from assistant.retrieval.lexical import LexicalIndex, tokenize
 from assistant.settings import assistant_experiment, get_experiment
 from assistant.generation.prompting import (
     HYDE_MAX_TOKENS,
-    HYDE_PROMPT,
-    NO_ANSWER,
-    NO_CONVERSATION,
-    NO_INFORMATION,
-    ORIGINAL_SEPARATOR,
-    ORIGINAL_TEMPLATE,
     STANDALONE_MAX_TOKENS,
-    SYSTEM_PROMPT,
-    USER_TEMPLATE,
     build_prompt as _build_prompt,
     clean_answer,
-    format_conversation,
     prompt_text,
     standalone_question_prompt,
 )
@@ -54,8 +46,8 @@ class RagConfig:
     temperature: float | None = TEMPERATURE
     seed: int | None = None
     max_answer_tokens: int | None = MAX_ANSWER_TOKENS
-    prompt_template: str = SYSTEM_PROMPT
-    user_template: str = USER_TEMPLATE
+    prompt_template: str | None = None  # None: the system prompt of the clinic profile
+    user_template: str | None = None  # None: the user template of the clinic profile
 
     def __post_init__(self):
         search_fields = {
@@ -132,6 +124,7 @@ class RagDeps:
     embeddings: EmbeddingProvider
     generator: TextGenerator
     lexical: LexicalIndex
+    clinic: ClinicProfileSource  # o perfil da clínica: textos e regras de idioma
 
 
 def _unit(vector):
@@ -140,10 +133,10 @@ def _unit(vector):
     return vector / norm if norm else vector
 
 
-def hypothetical_answer(question, config, generator: TextGenerator):
+def hypothetical_answer(question, config, generator: TextGenerator, clinic: ClinicProfile):
     """HyDE's hypothetical answer: a text in the brochure's style, which sits closer to the chunks than the question does."""
     text = generator.generate(
-        HYDE_PROMPT.format(ask=question),
+        clinic.hyde_prompt.format(ask=question),
         model=config.chat_model,
         temperature=0.0,
         seed=config.seed,
@@ -152,11 +145,11 @@ def hypothetical_answer(question, config, generator: TextGenerator):
     return text.strip()
 
 
-def _search_vector(question, config, embeddings: EmbeddingProvider, generator: TextGenerator | None):
+def _search_vector(question, config, embeddings: EmbeddingProvider, generator: TextGenerator | None, clinic: ClinicProfile):
     """Vector used in the search and in the similarity computation, with norm 1."""
     if config.use_hyde:
         # the hypothetical answer is a document text, so it gets the document prefix
-        return _unit(embeddings.embed_documents([hypothetical_answer(question, config, generator)])[0])
+        return _unit(embeddings.embed_documents([hypothetical_answer(question, config, generator, clinic)])[0])
     return _unit(embeddings.embed_query(question))
 
 
@@ -175,7 +168,8 @@ def _check_dimensions(query_vector, stored, strategy):
 def retrieve(question, config, deps: RagDeps):
     """The chunks that answer the question: vector search, word search, their fusion, and the similarity cut."""
     config = config or RagConfig()
-    query_vector = _search_vector(question, config, deps.embeddings, deps.generator)
+    clinic = deps.clinic.load()
+    query_vector = _search_vector(question, config, deps.embeddings, deps.generator, clinic)
     store = deps.vector_store_provider(config.strategy)
     stored = store.vectors_by_content()
     _check_dimensions(query_vector, stored, config.strategy)
@@ -221,12 +215,12 @@ def retrieve(question, config, deps: RagDeps):
     return RetrievalResult(vector=vector, bm25=bm25_chunks, fused=fused)
 
 
-def standalone_question(question, history, config, generator: TextGenerator):
+def standalone_question(question, history, config, generator: TextGenerator, clinic: ClinicProfile):
     """The question to search with: the same one without a conversation, or rewritten to stand alone with it."""
     if not history:
         return question
     rewritten = generator.generate(
-        standalone_question_prompt(question, history),
+        standalone_question_prompt(question, history, clinic),
         model=config.chat_model,
         temperature=0.0,
         seed=config.seed,
@@ -236,9 +230,8 @@ def standalone_question(question, history, config, generator: TextGenerator):
     return rewritten or question
 
 
-def build_prompt(question, retrieval, config=None, history=None):
-    """Compatibility facade that supplies the configured experiment when omitted."""
-    return _build_prompt(question, retrieval, config or RagConfig(), history)
+def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=None):
+    return _build_prompt(question, retrieval, config, clinic, history)
 
 
 def answer(question, config, history, deps: RagDeps):
@@ -246,8 +239,9 @@ def answer(question, config, history, deps: RagDeps):
     config = config or RagConfig()
     start = time.perf_counter()
 
-    retrieval = retrieve(standalone_question(question, history, config, deps.generator), config, deps)
-    prompt = build_prompt(question, retrieval, config, history)
+    clinic = deps.clinic.load()
+    retrieval = retrieve(standalone_question(question, history, config, deps.generator, clinic), config, deps)
+    prompt = build_prompt(question, retrieval, config, clinic, history)
     reply = deps.generator.generate(
         prompt,
         model=config.chat_model,
@@ -256,14 +250,14 @@ def answer(question, config, history, deps: RagDeps):
         max_tokens=config.max_answer_tokens,
     )
 
-    return AnswerResult(answer=clean_answer(reply, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
+    return AnswerResult(answer=clean_answer(reply, clinic, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
 
 
 def stream_answer(question, config, deps: RagDeps):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
     retrieval = retrieve(question, config, deps)
-    prompt = build_prompt(question, retrieval, config)
+    prompt = build_prompt(question, retrieval, config, deps.clinic.load())
     yield from deps.generator.stream(
         prompt,
         model=config.chat_model,

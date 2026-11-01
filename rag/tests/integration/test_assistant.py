@@ -124,9 +124,12 @@ def test_answers_in_english_a_question_in_another_language():
 
 
 def test_refuses_what_is_not_in_the_brochure():
-    from assistant.retrieval.pipeline import NO_ANSWER, RagConfig
+    from assistant.clinic.yaml_source import YamlClinicProfile
+    from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+    from assistant.retrieval.pipeline import RagConfig
 
-    assert NO_ANSWER in answer("Do you accept dental insurance?", RagConfig()).answer
+    no_answer = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR).load().no_answer
+    assert no_answer in answer("Do you accept dental insurance?", RagConfig()).answer
 
 
 def test_stream_yields_the_same_kind_of_answer():
@@ -138,10 +141,13 @@ def test_stream_yields_the_same_kind_of_answer():
 
 
 def test_hyde_generates_a_short_hypothetical_answer():
+    from assistant.clinic.yaml_source import YamlClinicProfile
+    from assistant.config import CLINIC_PATH, LANGUAGES_DIR
     from assistant.generation.model import build_generator
     from assistant.retrieval.pipeline import RagConfig, hypothetical_answer
 
-    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator())
+    clinic = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR).load()
+    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator(), clinic)
 
     assert 10 < len(text) < 600
 

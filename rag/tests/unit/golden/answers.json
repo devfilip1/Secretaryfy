@@ -1,0 +1,16 @@
+{
+  "note_after_separator": "Yes, we do! It costs $40–$85.",
+  "note_without_separator": "Yes, we do!",
+  "two_messages_kept": "Yes, we do!\n\nIt costs $40–$85.",
+  "greeting_first_message": "Hi! How can I help?",
+  "greeting_ongoing": "Yes, this is DentalSafe.",
+  "hello_there_ongoing": "We are open on Saturdays.",
+  "greeting_only_ongoing": "Hi!",
+  "hey_lowercase_ongoing": "Sure thing",
+  "word_starting_like_greeting": "Highly recommended.",
+  "dash_line_in_the_middle": "Braces cost $180–$450.",
+  "note_inline_not_removed": "We close at 5 p.m. (note: weekdays only)",
+  "indented_note": "Yes.",
+  "only_spaces": "",
+  "greeting_then_nothing_with_note": "Hi!"
+}

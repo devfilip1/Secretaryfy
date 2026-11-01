@@ -15,6 +15,11 @@ CONFIG_DIR = ROOT / "config"
 STRATEGIES_PATH = CONFIG_DIR / "strategies.yaml"
 EXPERIMENTS_PATH = CONFIG_DIR / "experiments.yaml"
 SCHEMAS_DIR = CONFIG_DIR / "schemas"
+
+# the clinic profile (identity and what is specific to its specialty) and one language package per language
+CLINIC_PATH = CONFIG_DIR / "clinic.yaml"
+LANGUAGES_DIR = CONFIG_DIR / "languages"
+
 COLLECTION_NAME = "raglab"
 
 # Fixes applied to the extracted text, as {wrong: right}. The current brochure needs none.

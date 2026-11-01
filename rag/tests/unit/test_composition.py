@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from assistant import composition
+from assistant.clinic.yaml_source import YamlClinicProfile
 from assistant.retrieval import pipeline
 from assistant.retrieval.pipeline import RagConfig
 from assistant.retrieval.service import RagService
@@ -121,9 +122,29 @@ def test_build_rag_deps_takes_the_defaults_of_the_process(monkeypatch):
     monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
     monkeypatch.setattr(composition, "default_lexical_index", lambda: lexical)
 
+    clinic = object()
+    monkeypatch.setattr(composition, "build_clinic_provider", lambda: clinic)
+
     deps = composition.build_rag_deps()
 
-    assert deps == RagDeps(vector_store_provider=provider, embeddings=stub_model, generator=stub_model, lexical=lexical)
+    assert deps == RagDeps(vector_store_provider=provider, embeddings=stub_model, generator=stub_model, lexical=lexical, clinic=clinic)
+
+
+def test_build_clinic_provider_reads_the_clinic_of_the_config():
+    provider = composition.build_clinic_provider()
+
+    assert isinstance(provider, YamlClinicProfile)
+    assert provider.load().name == "DentalSafe"
+
+
+def test_build_rag_service_gives_the_service_the_clinic_profile(monkeypatch):
+    monkeypatch.setattr(composition, "default_vector_store_provider", lambda: (lambda strategy: None))
+    monkeypatch.setattr(composition, "default_embeddings", lambda: stub_model)
+    monkeypatch.setattr(composition, "default_generator", lambda: stub_model)
+
+    service = composition.build_rag_service(RagConfig.from_experiment("section_hybrid"))
+
+    assert service.deps.clinic.load().kind == "dental clinic"
 
 
 def test_the_legacy_pipeline_alias_is_gone():

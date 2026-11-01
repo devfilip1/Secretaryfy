@@ -92,6 +92,7 @@ def cmd_run(args):
     if answer_key is None:
         return EXIT_USAGE
 
+    from assistant.composition import build_clinic_provider
     from assistant.config import OLLAMA_BASE_URL
     from assistant.retrieval.pipeline import RagConfig
 
@@ -104,6 +105,7 @@ def cmd_run(args):
         console.print(f"[red]Error:[/red] {escape(unavailable)}")
         return EXIT_ERROR
     config = eval_config(RagConfig.from_experiment(experiment))
+    clinic = build_clinic_provider().load()
     judge_model = None if args.no_judge else judge_model_name(config.chat_model)
 
     problems = preflight([config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])],
@@ -141,7 +143,7 @@ def cmd_run(args):
         "subset": subset,
         "answer_key_version": answer_key.version,
         "answer_key_hash": answer_key.hash,
-        "config": history.snapshot_config(config, judge_model),
+        "config": history.snapshot_config(config, clinic, judge_model),
         "repeat": args.repeat,
         "results": repetitions[0],
         "metrics": aggregate(repetitions[0], items_by_id, agreement),

@@ -4,17 +4,10 @@ import numpy as np
 import pytest
 
 from assistant.retrieval import pipeline
-from assistant.retrieval.pipeline import (
-    NO_ANSWER,
-    NO_CONVERSATION,
-    NO_INFORMATION,
-    RagConfig,
-    RagDeps,
-    build_prompt,
-    retrieve,
-    standalone_question,
-    tokenize,
-)
+from assistant.clinic.yaml_source import YamlClinicProfile
+from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+from assistant.generation import prompting
+from assistant.retrieval.pipeline import RagConfig, RagDeps, retrieve, tokenize
 from assistant.index import IndexInconsistent
 from assistant.retrieval.lexical import LexicalIndex
 from assistant.settings import Experiment
@@ -73,6 +66,26 @@ class UnusedGenerator:
 
 UNUSED_GENERATOR = UnusedGenerator()
 
+SOURCE = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)  # the source the pipeline gets in RagDeps
+CLINIC = SOURCE.load()
+NO_ANSWER, NO_CONVERSATION, NO_INFORMATION = CLINIC.no_answer, CLINIC.no_conversation, CLINIC.no_information
+
+
+def build_prompt(question, retrieval, config, history=None):
+    return prompting.build_prompt(question, retrieval, config, CLINIC, history)
+
+
+def standalone_question(question, history, config, generator):
+    return pipeline.standalone_question(question, history, config, generator, CLINIC)
+
+
+def clean_answer(text, history=None):
+    return prompting.clean_answer(text, CLINIC, history)
+
+
+def prompt_text(config):
+    return prompting.prompt_text(config, CLINIC)
+
 
 @pytest.fixture
 def index(monkeypatch):
@@ -98,7 +111,7 @@ def index(monkeypatch):
             calls.embedded.append(("document", texts[0]))
             return [[2.0, 0.0]]
 
-    def fake_hyde(question, cfg, generator):
+    def fake_hyde(question, cfg, generator, clinic):
         calls.hyde.append(question)
         return "Braces stay on for 12 to 36 months."
 
@@ -107,6 +120,7 @@ def index(monkeypatch):
         embeddings=FakeEmbeddings(),
         generator=UNUSED_GENERATOR,
         lexical=LexicalIndex(FakeChunkSource(DOCUMENTS, calls)),
+        clinic=SOURCE,
     )
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
     return calls
@@ -275,7 +289,7 @@ def test_retrieve_uses_an_injected_vector_store_provider(index):
 
     result = retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(
         vector_store_provider=provider, embeddings=index.deps.embeddings,
-        generator=UNUSED_GENERATOR, lexical=index.deps.lexical,
+        generator=UNUSED_GENERATOR, lexical=index.deps.lexical, clinic=SOURCE,
     ))
 
     assert [chunk.content for chunk in result.vector] == [CLEANING]
@@ -425,12 +439,10 @@ def test_original_prompt_is_a_single_message_with_the_question_before_the_contex
 def test_runs_with_different_prompts_have_different_prompt_texts():
     from dataclasses import replace
 
-    assert pipeline.prompt_text(config()) != pipeline.prompt_text(replace(config(), prompt="original"))
+    assert prompt_text(config()) != prompt_text(replace(config(), prompt="original"))
 
 
 def test_notes_the_model_adds_about_its_own_answer_are_removed():
-    from assistant.retrieval.pipeline import clean_answer
-
     leaked = "Yes, we do! It costs $40–$85.\n\n---\n\n(Note: I didn't invite the customer to schedule.)"
     assert clean_answer(leaked) == "Yes, we do! It costs $40–$85."
     assert clean_answer("Yes, we do!\n\nNote: bring your ID.") == "Yes, we do!"
@@ -438,8 +450,6 @@ def test_notes_the_model_adds_about_its_own_answer_are_removed():
 
 
 def test_greeting_is_removed_only_in_an_ongoing_conversation():
-    from assistant.retrieval.pipeline import clean_answer
-
     assert clean_answer("Hi!\n\nYes, this is DentalSafe.", CONVERSATION) == "Yes, this is DentalSafe."
     assert clean_answer("Hello there, we are open on Saturdays.", CONVERSATION) == "We are open on Saturdays."
     assert clean_answer("Hi!", CONVERSATION) == "Hi!"  # nothing else to say: the greeting stays
@@ -472,7 +482,7 @@ class TwoDimensionalStore:
 def test_retrieve_embeds_with_the_injected_embeddings(monkeypatch):
     embeddings = RecordingEmbeddings()
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=embeddings, generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=embeddings, generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert embeddings.queries == [BRACES_QUESTION]
     assert [chunk.content for chunk in result.vector] == [CLEANING]
@@ -494,7 +504,7 @@ def test_query_of_another_size_than_the_index_is_refused_with_the_rebuild_comman
             pytest.fail("the search must not run with incompatible vectors")
 
     with pytest.raises(EmbeddingMismatch) as info:
-        pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: ThreeDimensionalStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+        pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: ThreeDimensionalStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert str(info.value) == (
         'the embedding model returned 2 dimensions but the index of strategy "fake" has 3; '
@@ -524,16 +534,16 @@ class FakeGenerator:
 def test_hyde_asks_the_model_for_a_short_text_with_fixed_settings():
     from dataclasses import replace
 
-    from assistant.generation.prompting import HYDE_MAX_TOKENS, HYDE_PROMPT
+    from assistant.generation.prompting import HYDE_MAX_TOKENS
 
     generator = FakeGenerator("  Braces stay on for 12 to 36 months.  ")
     cfg = replace(config(use_hyde=True), chat_model="llama3.1", seed=7)
 
-    text = pipeline.hypothetical_answer(BRACES_QUESTION, cfg, generator)
+    text = pipeline.hypothetical_answer(BRACES_QUESTION, cfg, generator, CLINIC)
 
     assert text == "Braces stay on for 12 to 36 months."
     assert generator.calls == [{
-        "method": "generate", "prompt": HYDE_PROMPT.format(ask=BRACES_QUESTION), "model": "llama3.1",
+        "method": "generate", "prompt": CLINIC.hyde_prompt.format(ask=BRACES_QUESTION), "model": "llama3.1",
         "temperature": 0.0, "seed": 7, "max_tokens": HYDE_MAX_TOKENS,
     }]
 
@@ -560,7 +570,7 @@ def test_answer_asks_the_model_with_the_configured_settings_and_cleans_the_reply
     generator = FakeGenerator("Braces cost $180–$450.\n\nNote: bring your ID.")
     cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
 
-    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL))
+    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
 
     assert result.answer == "Braces cost $180–$450."
     assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
@@ -574,7 +584,7 @@ def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pi
     generator = FakeGenerator(pieces=["Braces ", "cost $180."])
     cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
 
-    pieces = list(pipeline.stream_answer(BRACES_QUESTION, cfg, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL)))
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, cfg, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE)))
 
     assert pieces == ["Braces ", "cost $180."]
     assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
@@ -586,7 +596,7 @@ def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
     # Characterization: the plain answer drops the model's notes; the stream passes the text through unchanged.
     generator = FakeGenerator(pieces=["Yes, we do!\n\nNote: bring your ID."])
 
-    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL)))
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE)))
 
     assert pieces == ["Yes, we do!\n\nNote: bring your ID."]
 
@@ -594,7 +604,7 @@ def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
 def test_retrieval_without_hyde_does_not_call_the_generator():
     generator = FakeGenerator()
 
-    pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL))
+    pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
 
     assert generator.calls == []
 
@@ -607,7 +617,7 @@ def test_empty_index_is_not_compared_with_the_query():
         def search_by_vector(self, vector, limit):
             return []
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: EmptyStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: EmptyStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert result.vector == []
 
@@ -623,7 +633,7 @@ def test_a_chunk_of_the_words_index_missing_from_the_vector_store_is_refused_wit
             return [SimpleNamespace(page_content=CLEANING)]
 
     with pytest.raises(IndexInconsistent) as info:
-        pipeline.retrieve(BRACES_QUESTION, config(), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+        pipeline.retrieve(BRACES_QUESTION, config(), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert str(info.value) == (
         'the index of strategy "fake" is inconsistent: chunks.json holds 3 chunk(s) the vector store does not; '
@@ -639,7 +649,7 @@ def test_the_consistency_check_runs_only_when_the_words_are_searched():
         def search_by_vector(self, vector, limit):
             return [SimpleNamespace(page_content=CLEANING)]
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert [chunk.content for chunk in result.vector] == [CLEANING]
 
@@ -649,16 +659,16 @@ def test_the_consistency_check_runs_only_when_the_words_are_searched():
 def test_the_dependencies_have_no_defaults():
     with pytest.raises(TypeError):
         RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
-                generator=UNUSED_GENERATOR)  # no lexical index
+                generator=UNUSED_GENERATOR, clinic=SOURCE)  # no lexical index
     with pytest.raises(TypeError):
         RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), generator=UNUSED_GENERATOR,
-                lexical=LEXICAL)  # no embeddings
+                lexical=LEXICAL, clinic=SOURCE)  # no embeddings
 
 
 def test_hyde_is_asked_of_the_generator_in_the_dependencies():
     generator = FakeGenerator("Braces stay on for 12 to 36 months.")
     deps = RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
-                   generator=generator, lexical=LEXICAL)
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
 
     pipeline.retrieve(BRACES_QUESTION, config("vector", 1, use_hyde=True), deps)
 

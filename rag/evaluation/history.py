@@ -28,10 +28,10 @@ def _git(*args):
     return done.stdout.strip() if done.returncode == 0 else None
 
 
-def snapshot_config(rag_config, judge_model=None):
+def snapshot_config(rag_config, clinic, judge_model=None):
     """Configuration of the assistant saved with each run."""
     from assistant.index import chunks_path
-    from assistant.retrieval.pipeline import prompt_text
+    from assistant.generation.prompting import prompt_text
     from assistant.settings import get_strategy
 
     parameters = get_strategy(rag_config.strategy).parameters
@@ -57,7 +57,7 @@ def snapshot_config(rag_config, judge_model=None):
         "temperature": rag_config.temperature,
         "seed": rag_config.seed,
         "num_ctx": None,
-        "prompt_hash": _sha(prompt_text(rag_config)),
+        "prompt_hash": _sha(prompt_text(rag_config, clinic)),
         "kb_hash": _sha("\n\x00".join(chunks)),
         "kb_chunk_count": len(chunks),
         "judge_model": judge_model,

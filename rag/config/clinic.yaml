@@ -1,0 +1,9 @@
+# Identity of the clinic: what is specific to this clinic and its specialty. The texts the assistant says come from
+# config/languages/<language>.yaml; the values here fill their placeholders. Braces are not allowed in the values.
+name: DentalSafe
+kind: dental clinic
+language: en
+# The example treatment of rule 3 of the prompt, written the way a customer would say it.
+example_treatment: teeth whitening
+# Rule 5 of the prompt: the rule about treatments with two prices or two durations. The number is written here.
+extra_rules: '5. Some treatments have two prices or two durations. Braces: "Initial cost" is paid once and "Monthly" is paid every month. Tooth extraction: "Simple extraction" and "Wisdom tooth" are different prices. Teeth whitening: "In-office" and "Full treatment" are different durations. Give the one the customer asked about; if the question is general, give both, each with its name.'

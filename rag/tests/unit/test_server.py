@@ -8,7 +8,11 @@ import server
 from assistant.index import CURRENT, STALE, IndexUnavailable
 from assistant.retrieval.pipeline import AnswerResult, RagConfig, RagDeps, RetrievalResult, RetrievedChunk
 from assistant.retrieval.service import RagService
+from assistant.clinic.yaml_source import YamlClinicProfile
+from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 from assistant.settings import SettingsError
+
+CLINIC_SOURCE = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
 
 BRACES = "Braces and Orthodontic Treatment\nPrice: $180–$450 (Initial cost) and $35–$90 (Monthly)"
 CHUNK = RetrievedChunk(BRACES, rank=1, score=0.0328, similarity=0.71)
@@ -24,9 +28,9 @@ def test_rag_service_requires_the_deps():
         RagService(RagConfig.from_experiment("section_hybrid"), None)
 
 
-@pytest.mark.parametrize("missing", ["vector_store_provider", "embeddings", "generator", "lexical"])
+@pytest.mark.parametrize("missing", ["vector_store_provider", "embeddings", "generator", "lexical", "clinic"])
 def test_rag_service_refuses_a_missing_dependency_by_name(missing):
-    fields = dict(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object())
+    fields = dict(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object(), clinic=CLINIC_SOURCE)
     fields[missing] = None
 
     with pytest.raises(ValueError, match=f"{missing} is required"):
@@ -63,7 +67,7 @@ def client():
             vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
             embeddings=object(),  # the fakes replace the pipeline, so the model is not called
             generator=object(),
-            lexical=object(),
+            lexical=object(), clinic=CLINIC_SOURCE,
         ),
     ))
 
@@ -116,7 +120,7 @@ def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
     embeddings = FakeEmbeddings()
     generator = FakeModel()
     monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
-    app = server.create_app(config, deps=RagDeps(vector_store_provider=provider, embeddings=embeddings, generator=generator, lexical=object()))
+    app = server.create_app(config, deps=RagDeps(vector_store_provider=provider, embeddings=embeddings, generator=generator, lexical=object(), clinic=CLINIC_SOURCE))
 
     with TestClient(app) as client:
         retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
@@ -320,7 +324,7 @@ def test_a_generator_failure_on_answer_becomes_503():
 
     config = Config(experiment="fake", strategy="fake", search_type="vector", match_count=1,
                     match_threshold=0.0, use_hyde=False, prompt="rules")
-    app = server.create_app(config, deps=RagDeps(vector_store_provider=lambda strategy: OneChunkStore(), embeddings=SimpleNamespace(embed_query=lambda text: [1.0, 0.0]), generator=DownGenerator(), lexical=object()))
+    app = server.create_app(config, deps=RagDeps(vector_store_provider=lambda strategy: OneChunkStore(), embeddings=SimpleNamespace(embed_query=lambda text: [1.0, 0.0]), generator=DownGenerator(), lexical=object(), clinic=CLINIC_SOURCE))
     response = TestClient(app).post("/answer", json={"question": "How much are braces?"})
 
     assert response.status_code == 503
@@ -359,7 +363,7 @@ def test_main_checks_the_dimensions_with_the_composition_root_embeddings(monkeyp
 
 def test_create_app_needs_embeddings_with_a_provider():
     with pytest.raises(ValueError, match="embeddings is required"):
-        server.create_app(RagConfig.from_experiment("section_hybrid"), deps=RagDeps(vector_store_provider=lambda strategy: None, embeddings=None, generator=None, lexical=None))
+        server.create_app(RagConfig.from_experiment("section_hybrid"), deps=RagDeps(vector_store_provider=lambda strategy: None, embeddings=None, generator=None, lexical=None, clinic=None))
 
 
 @pytest.mark.parametrize("path", ["/answer", "/retrieve"])
@@ -391,7 +395,7 @@ def test_create_app_hands_the_deps_to_the_service(monkeypatch):
             received.append(deps)
 
     monkeypatch.setattr(server, "RagService", RecordingService)
-    deps = RagDeps(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object())
+    deps = RagDeps(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object(), clinic=CLINIC_SOURCE)
     server.create_app(RagConfig.from_experiment("section_hybrid"), deps=deps)
 
     assert received == [deps]

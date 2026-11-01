@@ -1,0 +1,126 @@
+"""Perfil da clínica lido de YAML: config/clinic.yaml (a clínica) e config/languages/<idioma>.yaml (o idioma)."""
+import re
+from pathlib import Path
+
+import yaml
+
+from assistant.clinic.profile import ClinicProfile, ClinicProfileError
+
+LANGUAGE_CODE = re.compile(r"^[a-z][a-z0-9_-]*$")
+CLINIC_FIELDS = ("name", "kind", "language", "example_treatment", "extra_rules")
+TEXT_FIELDS = (
+    "no_answer", "no_information", "no_conversation", "original_separator", "system_prompt", "user_template",
+    "standalone_prompt", "original_template", "hyde_prompt",
+)
+PATTERN_FIELDS = ("afterthought", "greeting")
+# Valores da clínica preenchidos nos textos antes de o prompt existir: chaves com chaves não podem entrar.
+CLINIC_PLACEHOLDERS = (
+    ("{clinic_name_upper}", lambda clinic: clinic["name"].upper()),
+    ("{clinic_name}", lambda clinic: clinic["name"]),
+    ("{clinic_kind}", lambda clinic: clinic["kind"]),
+    ("{example_treatment}", lambda clinic: clinic["example_treatment"]),
+    ("{extra_rules}", lambda clinic: clinic["extra_rules"]),
+)
+
+
+def _read_yaml(path):
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as error:
+        raise ClinicProfileError(f"{path}: invalid YAML: {' '.join(str(error).split())}") from error
+    if not isinstance(data, dict):
+        raise ClinicProfileError(f"{path}: the file is empty or is not a mapping of fields")
+    return data
+
+
+def _mtime(path):
+    try:
+        return path.stat().st_mtime_ns
+    except OSError as error:
+        raise ClinicProfileError(f"{path} cannot be read ({error.strerror}); create it with the clinic's profile") from error
+
+
+def _check_clinic(clinic, path):
+    missing = [field for field in CLINIC_FIELDS if not isinstance(clinic.get(field), str) or not clinic[field].strip()]
+    if missing:
+        raise ClinicProfileError(f"{path.name}: missing or empty field: {', '.join(missing)}")
+    for field in CLINIC_FIELDS:
+        if "{" in clinic[field] or "}" in clinic[field]:
+            raise ClinicProfileError(f"{path.name}: {field} may not contain braces ({{ or }}); they are read as placeholders")
+    if not LANGUAGE_CODE.match(clinic["language"]):
+        raise ClinicProfileError(f'{path.name}: language "{clinic["language"]}" is not a language code; use a name such as en')
+
+
+def _check_language(pack, path):
+    missing = [field for field in (*TEXT_FIELDS, *PATTERN_FIELDS, "conversation_roles") if field not in pack]
+    if missing:
+        raise ClinicProfileError(f"{path.name}: missing field: {', '.join(missing)}")
+    wrong = [field for field in TEXT_FIELDS if not isinstance(pack[field], str)]
+    roles = pack["conversation_roles"]
+    if wrong or not isinstance(roles, dict) or "user" not in roles or "assistant" not in roles:
+        raise ClinicProfileError(
+            f"{path.name}: the texts must be strings and conversation_roles must have the keys user and assistant "
+            f"(wrong: {', '.join(wrong) or 'conversation_roles'})"
+        )
+
+
+def _compile(pack, field, path):
+    try:
+        return re.compile(pack[field], re.IGNORECASE)
+    except (re.error, TypeError) as error:
+        raise ClinicProfileError(f"{path.name}: {field} is not a valid regular expression: {error}") from error
+
+
+def _build(clinic_path, languages_dir):
+    clinic = _read_yaml(clinic_path)
+    _check_clinic(clinic, clinic_path)
+    language_path = languages_dir / f"{clinic['language']}.yaml"
+    if not language_path.is_file():
+        raise ClinicProfileError(
+            f'language "{clinic["language"]}" does not exist: {language_path} is missing; '
+            "create it or change language in config/clinic.yaml"
+        )
+    pack = _read_yaml(language_path)
+    _check_language(pack, language_path)
+
+    def fill(text):
+        for placeholder, value in CLINIC_PLACEHOLDERS:
+            text = text.replace(placeholder, value(clinic))
+        return text
+
+    return ClinicProfile(
+        name=clinic["name"],
+        kind=clinic["kind"],
+        language=clinic["language"],
+        no_answer=pack["no_answer"],
+        no_information=pack["no_information"],
+        no_conversation=pack["no_conversation"],
+        conversation_roles=dict(pack["conversation_roles"]),
+        original_separator=pack["original_separator"],
+        system_prompt=fill(pack["system_prompt"]),
+        user_template=fill(pack["user_template"]),
+        standalone_prompt=fill(pack["standalone_prompt"]),
+        original_template=fill(pack["original_template"]),
+        hyde_prompt=fill(pack["hyde_prompt"]),
+        afterthought=_compile(pack, "afterthought", language_path),
+        greeting=_compile(pack, "greeting", language_path),
+    )
+
+
+class YamlClinicProfile:
+    """Implementa ClinicProfileSource. Relê os arquivos quando a data de modificação de um deles muda."""
+
+    def __init__(self, clinic_path, languages_dir):
+        self._clinic_path = Path(clinic_path)
+        self._languages_dir = Path(languages_dir)
+        self._loaded = None  # (versão, perfil)
+
+    def version(self):
+        files = [self._clinic_path, *sorted(self._languages_dir.glob("*.yaml"))]
+        return ";".join(f"{path.name}:{_mtime(path)}" for path in files)
+
+    def load(self):
+        version = self.version()
+        if self._loaded is None or self._loaded[0] != version:
+            self._loaded = (version, _build(self._clinic_path, self._languages_dir))
+        return self._loaded[1]
