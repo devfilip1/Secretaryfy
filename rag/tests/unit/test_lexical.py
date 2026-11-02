@@ -7,6 +7,7 @@ from assistant.clinic.yaml_source import YamlClinicProfile
 from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 from assistant.retrieval import lexical
 from assistant.retrieval.lexical import LexicalIndex, tokenize
+from assistant.retrieval.lexical_options import LexicalOptions
 from assistant.retrieval.pipeline import tokenize as pipeline_tokenize
 
 CLINIC = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
@@ -109,9 +110,9 @@ def test_the_index_is_rebuilt_only_when_the_clinic_version_changes(monkeypatch):
         builds.append(corpus)
         return real_bm25(corpus)
 
-    def counting_tokenize(text, lexicon, expand=False):
+    def counting_tokenize(text, lexicon, expand=False, **options):
         words.append(text)
-        return real_tokenize(text, lexicon, expand)
+        return real_tokenize(text, lexicon, expand, **options)
 
     monkeypatch.setattr(lexical, "BM25Okapi", counting_bm25)
     monkeypatch.setattr(lexical, "tokenize", counting_tokenize)
@@ -207,3 +208,30 @@ def test_default_chunk_source_is_one_instance_per_process_and_reset_builds_a_new
         assert factory.default_chunk_source() is not first
     finally:
         factory.reset_default_chunk_source()
+
+
+# --- one index per strategy and per set of options ---
+
+def test_each_options_set_keeps_its_own_index_and_only_the_asked_one_is_rebuilt():
+    source = FakeChunkSource(DOCS)
+    lexical_index = LexicalIndex(source, CLINIC)
+    no_stemmer = LexicalOptions(stemmer="none")
+
+    lexical_index.get("section")
+    lexical_index.get("section", no_stemmer)
+    lexical_index.get("section")
+    lexical_index.get("section", no_stemmer)
+    assert source.reads == 2
+
+    source.versions["section"] = "v2"
+    lexical_index.get("section", no_stemmer)
+    assert source.reads == 3  # the default index is rebuilt only when it is asked for
+
+
+def test_each_options_set_scores_with_its_own_tokens():
+    lexical_index = LexicalIndex(FakeChunkSource(DOCS), CLINIC)
+    no_stemmer = LexicalOptions(stemmer="none")
+
+    # DOCS[0] says "30 minutes": the default index stores "minute", the variant keeps "minutes"
+    assert lexical_index.get("section")[0].get_scores(["minute"])[0] > 0
+    assert lexical_index.get("section", no_stemmer)[0].get_scores(["minute"])[0] == 0

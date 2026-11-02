@@ -28,6 +28,18 @@ def _git(*args):
     return done.stdout.strip() if done.returncode == 0 else None
 
 
+def lexical_entry(rag_config):
+    """Opções da busca por palavras da execução. Só entram quando diferem dos padrões: as execuções da configuração
+    padrão continuam com o mesmo conteúdo de antes das opções existirem."""
+    from dataclasses import asdict
+
+    from assistant.retrieval.lexical_options import LexicalOptions
+
+    if rag_config.lexical == LexicalOptions():
+        return {}
+    return {"lexical": asdict(rag_config.lexical)}
+
+
 def snapshot_config(rag_config, clinic, judge_model=None):
     """Configuration of the assistant saved with each run."""
     from assistant.index import chunks_path
@@ -63,6 +75,7 @@ def snapshot_config(rag_config, clinic, judge_model=None):
         "judge_model": judge_model,
         "git_commit": _git("rev-parse", "--short", "HEAD"),
         "git_dirty": bool(status),
+        **lexical_entry(rag_config),
     }
 
 

@@ -5,7 +5,7 @@ Os textos já vêm com os dados da clínica preenchidos; só ficam de fora os pl
 """
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 
@@ -18,7 +18,9 @@ class Lexicon:
     """Léxico da busca por palavras: as palavras que não contam e os sinônimos da pergunta para a cartilha."""
 
     stopwords: frozenset[str]
-    synonyms: Mapping[str, tuple[str, ...]]  # palavra da pergunta -> palavras como a cartilha as escreve
+    synonyms: Mapping[str, tuple[str, ...]]  # palavra da pergunta -> palavras como a cartilha as escreve (clínica e idioma)
+    language: str | None = None  # idioma do perfil: escolhe a lista da biblioteca nas opções lexicais
+    generic_synonyms: Mapping[str, tuple[str, ...]] = field(default_factory=dict)  # só os do idioma, sem os da clínica
 
 
 @dataclass(frozen=True)

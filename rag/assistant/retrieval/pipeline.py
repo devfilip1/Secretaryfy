@@ -17,6 +17,7 @@ from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
 from assistant.index import EmbeddingMismatch, IndexInconsistent, ingest_command
 from assistant.retrieval.lexical import LexicalIndex, tokenize
+from assistant.retrieval.lexical_options import LexicalOptions
 from assistant.settings import assistant_experiment, get_experiment
 from assistant.generation.prompting import (
     HYDE_MAX_TOKENS,
@@ -48,12 +49,13 @@ class RagConfig:
     max_answer_tokens: int | None = MAX_ANSWER_TOKENS
     prompt_template: str | None = None  # None: the system prompt of the clinic profile
     user_template: str | None = None  # None: the user template of the clinic profile
+    lexical: LexicalOptions | None = None  # word search options; None: those of the experiment
 
     def __post_init__(self):
         search_fields = {
             "experiment": "exp_name", "strategy": "collection", "search_type": "search_type",
             "match_count": "match_count", "match_threshold": "match_threshold", "use_hyde": "use_hyde",
-            "prompt": "prompt",
+            "prompt": "prompt", "lexical": "lexical",
         }
         missing = [name for name in search_fields if getattr(self, name) is None]
         if missing:
@@ -74,6 +76,7 @@ class RagConfig:
             match_threshold=experiment.match_threshold,
             use_hyde=experiment.use_hyde,
             prompt=experiment.prompt,
+            lexical=experiment.lexical,
             **overrides,
         )
 
@@ -189,14 +192,14 @@ def retrieve(question, config, deps: RagDeps):
     # BM25 SEARCH (always with the original question, even with HyDE)
     bm25_chunks = []
     if config.bm25_k > 0:
-        bm25, documents = deps.lexical.get(config.strategy)
+        bm25, documents = deps.lexical.get(config.strategy, config.lexical)
         missing = [document for document in documents if document not in vectors]
         if missing:
             raise IndexInconsistent(
                 f'the index of strategy "{config.strategy}" is inconsistent: chunks.json holds {len(missing)} chunk(s) '
                 f"the vector store does not; run: {ingest_command(config.strategy)}"
             )
-        scores = bm25.get_scores(tokenize(question, clinic.lexicon, expand=True))
+        scores = bm25.get_scores(tokenize(question, clinic.lexicon, expand=True, options=config.lexical))
         ranked_docs = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)[:config.bm25_k]
         bm25_chunks = [
             RetrievedChunk(doc, rank, float(score), similarity(doc))

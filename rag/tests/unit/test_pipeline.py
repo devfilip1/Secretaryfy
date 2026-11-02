@@ -10,6 +10,7 @@ from assistant.generation import prompting
 from assistant.retrieval.pipeline import RagConfig, RagDeps, retrieve, tokenize
 from assistant.index import IndexInconsistent
 from assistant.retrieval.lexical import LexicalIndex
+from assistant.retrieval.lexical_options import LexicalOptions
 from assistant.settings import Experiment
 
 CLEANING = "Dental Cleaning — The First Step Toward a Healthy Smile\nDuration: 30–50 minutes\nPrice: $40–$85"
@@ -34,7 +35,7 @@ BRACES_QUESTION = "how long do braces take"  # the vector search ranks the brace
 
 def config(search_type="hybrid", match_count=4, match_threshold=0.0, use_hyde=False):
     return RagConfig(experiment="test", strategy="fake", search_type=search_type, match_count=match_count,
-                     match_threshold=match_threshold, use_hyde=use_hyde)
+                     match_threshold=match_threshold, use_hyde=use_hyde, lexical=LexicalOptions())
 
 
 class FakeChunkSource:

@@ -117,6 +117,42 @@ Each run writes two files in `runs/experiments/`: `<date-time>-summary.csv`, wit
 
 An experiment whose index is missing or out of date shows up as not run, with the command that fixes it, and the others run normally. The reserved part of the answer key never enters the bench.
 
+### Word search options (`lex_*`)
+
+The word search (BM25) reads the text with three options, chosen per experiment under `lexical` in `config/experiments.yaml`. A missing key keeps the project's default.
+
+| Option | Values | Default |
+|---|---|---|
+| `stopwords` | `profile` (the profile's list), `none`, `stopwordsiso` (the library's list for the profile's language) | `profile` |
+| `stemmer` | `plural` (cuts the final "s"), `none`, `snowball` (PyStemmer, the profile's language) | `plural` |
+| `synonyms` | `profile` (language and clinic), `none`, `generic` (language only) | `profile` |
+
+The eight `lex_*` experiments measure combinations on the assistant's search (section, hybrid, 4 chunks). `lex_base` is the control: the settings the assistant had before the libraries. The assistant (`section_hybrid`) now uses `lex_snowball_stopwordsiso_no_synonyms`. To run only these:
+
+```powershell
+python -m evaluation experiments lex_base lex_no_synonyms lex_generic_synonyms lex_stopwordsiso lex_snowball lex_snowball_stopwordsiso lex_snowball_no_synonyms lex_snowball_stopwordsiso_no_synonyms
+```
+
+- The bench runs the dev subset only. It has no holdout option; the reserved part is used with the answer evaluation of one experiment: `python -m evaluation run --holdout --experiment lex_snowball`.
+- `stopwordsiso` and `PyStemmer` come from `requirements.txt`. Without them, the variant that needs one is shown as not run, with the install command as the reason.
+- A run with options other than the defaults records a `lexical` entry in its configuration. Runs of the default configuration do not, so their content is the same as before. `python -m evaluation compare` shows the options under the configuration changes.
+
+### Result of the word search options (Stage 6a-B2)
+
+Answer evaluation without the judge, one run per variant, compared with the answers of `main`. The model is deterministic here, so the differences come from the search.
+
+| Variant | dev (51) | holdout (21) |
+|---|---|---|
+| `lex_base` (before) | 80.4%, same as `main` | 71.4% |
+| `lex_snowball_stopwordsiso` | 80.4% | 81.0% |
+| `lex_no_synonyms` | 80.4% | 71.4% |
+| `lex_snowball_stopwordsiso_no_synonyms` (now the assistant's) | 80.4% | 81.0% |
+
+- On dev, no question changed between right and wrong in any variant; 3 to 6 answers changed their text and the chosen chunks changed more often.
+- On holdout, the libraries turned two questions from wrong to right (`braces-result-01`, `comp-implants-braces-01`). With 21 questions this can be chance: the result says the libraries did not make it worse, not that they make it better.
+- Removing the synonyms cost no answer. The position of the right chunk (MRR) fell from 1.000 to 0.972 on holdout, so the synonyms help the ranking a little.
+- No question of the answer key needs a synonym that the brochure does not have. If one appears, set `synonyms: profile` in the experiment.
+
 ## Limits of what is measured
 
 - The check is by value, not by sentence. If the answer assigns the duration of the cleaning to the whitening and both values are facts of the question, the deterministic score does not notice. The judge's "faithfulness" criterion exists for those cases.

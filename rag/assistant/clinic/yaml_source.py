@@ -100,6 +100,8 @@ def _lexicon(clinic, pack, clinic_path, language_path):
     return Lexicon(
         stopwords=frozenset(pack["stopwords"]),
         synonyms={word: tuple(words) for word, words in merged.items()},
+        language=clinic["language"],
+        generic_synonyms={word: tuple(words) for word, words in pack["query_synonyms"].items()},
     )
 
 
