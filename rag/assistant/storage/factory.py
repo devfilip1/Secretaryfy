@@ -10,6 +10,7 @@ _default_generator_instance = None
 _default_chunk_source_instance = None
 _default_clinic_instance = None
 _default_lexical_instance = None
+_default_knowledge_instance = None
 
 
 def default_embeddings():
@@ -102,3 +103,26 @@ def reset_default_lexical_index() -> None:
     """Forgets the process-wide lexical index, so the next call builds a new one. Used by tests."""
     global _default_lexical_instance
     _default_lexical_instance = None
+
+
+def default_knowledge_source():
+    """The knowledge source of the process: the index checks its version and the ingestion reads its document."""
+    global _default_knowledge_instance
+    if _default_knowledge_instance is None:
+        from assistant.config import IGNORED_LINE_PREFIXES, INTRO_SECTION_SUFFIX, ROOT, SOURCE_PDF, TEXT_FIXES
+        from assistant.ingestion.pdf_source import PdfBrochureSource
+
+        _default_knowledge_instance = PdfBrochureSource(
+            SOURCE_PDF,
+            name=SOURCE_PDF.relative_to(ROOT).as_posix(),
+            text_fixes=TEXT_FIXES,
+            ignored_line_prefixes=IGNORED_LINE_PREFIXES,
+            intro_suffix=INTRO_SECTION_SUFFIX,
+        )
+    return _default_knowledge_instance
+
+
+def reset_default_knowledge_source() -> None:
+    """Forgets the process-wide knowledge source, so the next call builds a new one. Used by tests."""
+    global _default_knowledge_instance
+    _default_knowledge_instance = None

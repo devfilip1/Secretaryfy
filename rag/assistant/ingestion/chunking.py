@@ -3,48 +3,7 @@ import re
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from assistant.config import IGNORED_LINE_PREFIXES, INTRO_SECTION_SUFFIX, ROOT, SOURCE_PDF, TEXT_FIXES
-BULLET = "\x7f"  # this is how the PDF's list marker comes out of the extraction
-# the running header of each page: "<document name> <marker> <page number>"
-PAGE_HEADER = re.compile(rf"^\S.*\s{BULLET}\s+\d+$")
 HEADING_STOPWORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "for", "with", "without", "your", "before"}
-
-
-def clean_text(text):
-    """Fixes the extraction of one page.
-
-    List markers become '- item', page headers and the paragraphs listed in IGNORED_LINE_PREFIXES are dropped,
-    and the TEXT_FIXES are applied. Used by every strategy, so comparing them measures only the chunking.
-    """
-    for wrong, right in TEXT_FIXES.items():
-        text = text.replace(wrong, right)
-
-    lines = []
-    pending_bullet = False
-    ignoring = False
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or PAGE_HEADER.match(line):
-            continue
-        if line == BULLET:  # marker alone: the item is the next line
-            pending_bullet = True
-            ignoring = False
-            continue
-        if line.startswith(BULLET):  # marker and item on the same line
-            lines.append(f"- {line[len(BULLET):].strip()}")
-            pending_bullet = ignoring = False
-            continue
-        if line.startswith(IGNORED_LINE_PREFIXES):
-            ignoring = True
-            continue
-        if ignoring:
-            # the ignored paragraph goes on until something that is clearly not its continuation
-            if not pending_bullet and ":" not in line and not is_heading(line):
-                continue
-            ignoring = False
-        lines.append(f"- {line}" if pending_bullet else line)
-        pending_bullet = False
-    return "\n".join(lines)
 
 
 def is_heading(line):
@@ -59,7 +18,7 @@ def is_heading(line):
     return sum(word[0].isupper() for word in words) / len(words) >= 0.75
 
 
-def split_sections(text):
+def split_sections(text, intro_suffix):
     """Splits an already clean text into sections: a list of (title, body lines)."""
     lines = text.splitlines()
     sections = []
@@ -68,7 +27,7 @@ def split_sections(text):
     # A document that opens with its own name (one or two words, not a heading) has an opening block with no
     # heading: the name titles it, and the tagline right below the name is body, even though it looks like a heading.
     if lines and not is_heading(lines[0]) and len(lines[0].split()) <= 2 and ":" not in lines[0]:
-        sections.append([f"{lines[0]} — {INTRO_SECTION_SUFFIX}", lines[1:2]])
+        sections.append([f"{lines[0]} — {intro_suffix}", lines[1:2]])
         lines = lines[2:]
 
     for line in lines:
@@ -89,14 +48,14 @@ def split_sections(text):
     return [(title, body) for title, body in sections]
 
 
-def split_by_section(pages, parameters):
+def split_by_section(document, parameters):
     """One chunk per section, so each value stays next to the name of the treatment it belongs to."""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=parameters["max_chars"], chunk_overlap=parameters["overlap"], length_function=len
     )
     chunks = []
     # the pages are joined: a section may start on one page and end on the next
-    for title, body in split_sections("\n".join(pages)):
+    for title, body in split_sections("\n".join(document.pages), document.intro_suffix):
         content = "\n".join([title, *body])
         # section larger than the limit: split the body and repeat the title in each part
         if len(content) <= parameters["max_chars"]:
@@ -107,17 +66,17 @@ def split_by_section(pages, parameters):
     return chunks
 
 
-def split_by_characters(pages, parameters):
+def split_by_characters(document, parameters):
     """Recursive character splitting of the whole text."""
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=parameters["chunk_size"], chunk_overlap=parameters["chunk_overlap"], length_function=len
     )
-    return [(part, {}) for part in splitter.split_text("\n".join(pages))]
+    return [(part, {}) for part in splitter.split_text("\n".join(document.pages))]
 
 
-def split_by_page(pages, parameters):
+def split_by_page(document, parameters):
     """One chunk per page."""
-    return [(page, {"page": number}) for number, page in enumerate(pages, start=1) if page]
+    return [(page, {"page": number}) for number, page in enumerate(document.pages, start=1) if page]
 
 
 # To create a new kind of chunking: write the function and register it here (and in the schema under config/schemas).
@@ -128,16 +87,14 @@ STRATEGY_TYPES = {
 }
 
 
-def build_chunks(strategy, pages):
-    """Chunks the brochure according to the strategy. pages is the text of each page, as it comes out of the PDF."""
+def build_chunks(strategy, document):
+    """Chunks a knowledge document according to the strategy."""
     if strategy.type not in STRATEGY_TYPES:
         raise ValueError(f"unknown strategy type: {strategy.type}")
 
-    source = SOURCE_PDF.relative_to(ROOT).as_posix()
-    cleaned = [clean_text(page) for page in pages]
     return [
-        Document(page_content=content, metadata={"source": source, "strategy": strategy.name, **extra})
-        for content, extra in STRATEGY_TYPES[strategy.type](cleaned, strategy.parameters)
+        Document(page_content=content, metadata={"source": document.name, "strategy": strategy.name, **extra})
+        for content, extra in STRATEGY_TYPES[strategy.type](document, strategy.parameters)
     ]
 
 

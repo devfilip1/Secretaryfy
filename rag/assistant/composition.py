@@ -9,6 +9,7 @@ from assistant.storage.factory import (
     default_clinic_profile,
     default_embeddings,
     default_generator,
+    default_knowledge_source,
     default_lexical_index,
     default_vector_store_provider,
 )
@@ -16,6 +17,7 @@ from assistant.storage.vector_store import VectorStore
 
 if TYPE_CHECKING:
     from assistant.generation.model import TextGenerator
+    from assistant.ingestion.source import KnowledgeSource
     from assistant.retrieval.lexical import LexicalIndex
     from assistant.retrieval.pipeline import RagConfig, RagDeps
     from assistant.retrieval.service import RagService
@@ -42,6 +44,10 @@ def build_lexical_provider() -> "LexicalIndex":
 def build_clinic_provider() -> "ClinicProfileSource":
     # the same instance the lexical index reads: one clinic profile per process
     return default_clinic_profile()
+
+
+def build_knowledge_source() -> "KnowledgeSource":
+    return default_knowledge_source()
 
 
 def build_rag_deps() -> "RagDeps":

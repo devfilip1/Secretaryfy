@@ -146,7 +146,7 @@ def test_current_index(tmp_path):
     "change, expected",
     [
         ({"strategy": Strategy("section", "section", {"max_chars": 800, "overlap": 100})}, "strategy definition"),
-        ({"source": "pdf-2"}, "brochure changed"),
+        ({"source": "pdf-2"}, "knowledge source changed"),
         ({"model": "bge-m3"}, "embedding model"),
     ],
 )

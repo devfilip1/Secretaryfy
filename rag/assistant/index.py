@@ -1,10 +1,9 @@
-"""Where the index of each strategy lives and whether it still matches the declared strategy and the brochure."""
-import hashlib
+"""Where the index of each strategy lives and whether it still matches the declared strategy and the knowledge source."""
 import json
 from datetime import datetime
 from pathlib import Path
 
-from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL, SOURCE_PDF
+from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL
 
 CURRENT, STALE, MISSING = "current", "stale", "missing"
 
@@ -45,8 +44,11 @@ def index_version(name, base=None):
     return None
 
 
-def source_hash(path=SOURCE_PDF):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+def source_hash():
+    """Version of the knowledge source the process is configured with."""
+    from assistant.storage.factory import default_knowledge_source
+
+    return default_knowledge_source().version()
 
 
 def ingest_command(name):
@@ -54,7 +56,7 @@ def ingest_command(name):
 
 
 def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None, embedding_dimensions=None):
-    """Records which definition, brochure, and model the index was built with."""
+    """Records which definition, knowledge source, and model the index was built with."""
     manifest = {
         "strategy": strategy.name,
         "definition_hash": strategy.definition_hash(),
@@ -92,7 +94,7 @@ def index_state(strategy, base=None, source=None, embedding_model=None):
     if manifest.get("definition_hash") != strategy.definition_hash():
         changed.append("the strategy definition changed")
     if manifest.get("source_hash") != (source or source_hash()):
-        changed.append("the brochure changed")
+        changed.append("the knowledge source changed")
     if manifest.get("embedding_model") != (embedding_model or OLLAMA_EMBEDDING_MODEL):
         changed.append("the embedding model changed")
     if changed:

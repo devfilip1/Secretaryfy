@@ -47,13 +47,14 @@ def test_import_has_no_side_effects(monkeypatch):
 def test_every_index_matches_its_strategy_and_the_current_brochure():
     """If it fails, some index is missing or out of date: run python -m assistant.ingest."""
     from assistant.index import CURRENT, chunks_path, index_state
-    from assistant.ingest import build_chunks, load_pages
+    from assistant.composition import build_knowledge_source
+    from assistant.ingest import build_chunks
     from assistant.settings import strategies
 
-    pages = load_pages()
+    document = build_knowledge_source().load()
     for strategy in strategies():
         assert index_state(strategy) == (CURRENT, None), strategy.name
-        expected = [chunk.page_content for chunk in build_chunks(strategy, pages)]
+        expected = [chunk.page_content for chunk in build_chunks(strategy, document)]
         with open(chunks_path(strategy.name), encoding="utf-8") as f:
             indexed = [chunk["content"] for chunk in json.load(f)]
         assert indexed == expected, strategy.name
