@@ -99,6 +99,13 @@ def evaluate_item(item, answer_result, answer_key, index, judge_fn=None):
     return result
 
 
+def answer_with_service(question, config):
+    """Answers one question with the service composed for the configuration."""
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).answer(question)
+
+
 def run_evaluation(items, answer_key, config, judge_fn=None, repeat=1, on_progress=None, answer_fn=None):
     """Runs the set `repeat` times. The judge only evaluates the first repetition.
 
@@ -106,7 +113,7 @@ def run_evaluation(items, answer_key, config, judge_fn=None, repeat=1, on_progre
     skipped (ids not evaluated), and error (message, when incomplete).
     """
     if answer_fn is None:
-        from assistant.pipeline import answer as answer_fn
+        answer_fn = answer_with_service
 
     index = FactIndex(answer_key)
     repetitions = []
@@ -134,7 +141,7 @@ def run_evaluation(items, answer_key, config, judge_fn=None, repeat=1, on_progre
 def warm_up(config, answer_fn=None):
     """Loads the models before measuring, so the first question does not carry the load time."""
     if answer_fn is None:
-        from assistant.pipeline import answer as answer_fn
+        answer_fn = answer_with_service
     answer_fn("Hello", config)
 
 

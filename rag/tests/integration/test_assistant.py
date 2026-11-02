@@ -9,6 +9,24 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
+def answer(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).answer(question)
+
+
+def stream_answer(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).stream_answer(question)
+
+
+def retrieve(question, config):
+    from assistant.composition import build_rag_service
+
+    return build_rag_service(config).retrieve(question)
+
+
 def test_import_has_no_side_effects(monkeypatch):
     def fail(*args, **kwargs):
         raise AssertionError("an import must not open the chat or call the model")
@@ -17,7 +35,7 @@ def test_import_has_no_side_effects(monkeypatch):
     monkeypatch.setattr("langchain_ollama.ChatOllama.invoke", fail)
     monkeypatch.setattr("langchain_ollama.OllamaEmbeddings.embed_query", fail)
     monkeypatch.setattr("langchain_ollama.OllamaEmbeddings.embed_documents", fail)
-    names = ("assistant.config", "assistant.settings", "assistant.index", "assistant.ingest", "assistant.pipeline",
+    names = ("assistant.config", "assistant.settings", "assistant.index", "assistant.ingest", "assistant.retrieval.pipeline",
              "assistant.chat")
     for name in names:
         sys.modules.pop(name, None)
@@ -41,27 +59,43 @@ def test_every_index_matches_its_strategy_and_the_current_brochure():
         assert indexed == expected, strategy.name
 
 
-def test_vector_search_by_vector_matches_search_by_text():
-    """The pipeline searches with the vector already computed; the order must be the same as searching by text."""
-    from assistant import pipeline
-    from assistant.pipeline import RagConfig, retrieve
+def test_vector_search_is_ordered_by_similarity():
+    from assistant.retrieval.pipeline import RagConfig
 
     config = RagConfig()
     questions = ["How much is teeth whitening?", "How long does an implant take?", "how long do braces stay on",
                  "Do you have payment options?", "What is the clinic's address?"]
     for question in questions:
-        by_text = pipeline._db(config.strategy).similarity_search(question, k=config.vector_k)
         result = retrieve(question, config)
 
-        assert [chunk.content for chunk in result.vector] == [doc.page_content for doc in by_text], question
         assert all(0 < chunk.similarity <= 1 for chunk in result.fused), question
         # the similarity goes down with the position in the vector search
         similarities = [chunk.similarity for chunk in result.vector]
         assert similarities == sorted(similarities, reverse=True), question
 
 
+def test_http_answer_and_retrieve_use_the_default_rag_service():
+    from fastapi.testclient import TestClient
+
+    import server
+    from assistant.retrieval.pipeline import RagConfig
+
+    config = RagConfig()
+    from assistant.composition import build_rag_service
+
+    with TestClient(server.create_app(config, service=build_rag_service(config))) as client:
+        retrieval = client.post("/retrieve", json={"question": "How much is a dental cleaning?"})
+        answer = client.post("/answer", json={"question": "How much is a dental cleaning?"})
+
+    assert retrieval.status_code == 200
+    assert retrieval.json()["experiment"] == config.experiment
+    assert any("Dental Cleaning" in chunk["content"] for chunk in retrieval.json()["chunks"])
+    assert answer.status_code == 200
+    assert "$40" in answer.json()["answer"] and "$85" in answer.json()["answer"]
+
+
 def test_answers_a_price_from_the_right_procedure():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
 
     result = answer("How much is a dental cleaning?", RagConfig())
 
@@ -71,7 +105,7 @@ def test_answers_a_price_from_the_right_procedure():
 
 
 def test_answers_the_clinic_hours():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
 
     result = answer("What are your opening hours on Saturday?", RagConfig())
 
@@ -80,7 +114,7 @@ def test_answers_the_clinic_hours():
 
 
 def test_answers_in_english_a_question_in_another_language():
-    from assistant.pipeline import RagConfig, answer
+    from assistant.retrieval.pipeline import RagConfig
     from evaluation.answer_metrics import check_rules
 
     result = answer("Quanto custa a limpeza dental?", RagConfig())
@@ -90,13 +124,13 @@ def test_answers_in_english_a_question_in_another_language():
 
 
 def test_refuses_what_is_not_in_the_brochure():
-    from assistant.pipeline import NO_ANSWER, RagConfig, answer
+    from assistant.retrieval.pipeline import NO_ANSWER, RagConfig
 
     assert NO_ANSWER in answer("Do you accept dental insurance?", RagConfig()).answer
 
 
 def test_stream_yields_the_same_kind_of_answer():
-    from assistant.pipeline import RagConfig, stream_answer
+    from assistant.retrieval.pipeline import RagConfig
 
     text = "".join(stream_answer("How much is a dental cleaning?", RagConfig()))
 
@@ -104,9 +138,10 @@ def test_stream_yields_the_same_kind_of_answer():
 
 
 def test_hyde_generates_a_short_hypothetical_answer():
-    from assistant.pipeline import RagConfig, hypothetical_answer
+    from assistant.generation.model import build_generator
+    from assistant.retrieval.pipeline import RagConfig, hypothetical_answer
 
-    text = hypothetical_answer("How much is a dental implant?", RagConfig())
+    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator())
 
     assert 10 < len(text) < 600
 

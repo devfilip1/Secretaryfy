@@ -22,7 +22,7 @@ Every message is interpreted first. Booking-related intents (book, availability,
 
 ### BR-CNV-05 · Brochure answers are short and honest
 At most 3 messages per reply, split by paragraph (or by sentence when one long block). When the brochure doesn't have the answer, the assistant says "I don't have that information right now." instead of guessing. The assistant always writes in English.
-- **Where:** `splitReply` and `MAX_PARTS` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `NO_ANSWER` and the system prompt in [rag/assistant/pipeline.py](../rag/assistant/pipeline.py)
+- **Where:** `splitReply` and `MAX_PARTS` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `NO_ANSWER` and the system prompt in [rag/assistant/generation/prompting.py](../rag/assistant/generation/prompting.py)
 
 ### BR-CNV-06 · The operator takes over a conversation by writing in it
 Sending a message from the panel pauses the assistant in that conversation and cancels any reply it was about to send. It stays silent until the operator clicks **Resume**. Pause is checked before the assistant thinks and again right before sending.

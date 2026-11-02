@@ -9,8 +9,16 @@ from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL, SOURCE_PDF
 CURRENT, STALE, MISSING = "current", "stale", "missing"
 
 
+class EmbeddingMismatch(Exception):
+    """The embedding model gives vectors of another size than the index. The message carries the command that fixes it."""
+
+
 class IndexUnavailable(Exception):
     """The index of a strategy is missing or out of date. The message carries the command that fixes it."""
+
+
+class IndexInconsistent(Exception):
+    """The chunks file and the vector store of a strategy hold different chunks. The message carries the command that fixes it."""
 
 
 def index_dir(name, base=None):
@@ -29,6 +37,14 @@ def manifest_path(name, base=None):
     return index_dir(name, base) / "manifest.json"
 
 
+def index_version(name, base=None):
+    """Changes when a finished index is written: the manifest is written last. None when there is no index."""
+    for path in (manifest_path(name, base), chunks_path(name, base)):
+        if path.is_file():
+            return str(path.stat().st_mtime_ns)
+    return None
+
+
 def source_hash(path=SOURCE_PDF):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
 
@@ -37,7 +53,7 @@ def ingest_command(name):
     return f"python -m assistant.ingest {name}"
 
 
-def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None):
+def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None, embedding_dimensions=None):
     """Records which definition, brochure, and model the index was built with."""
     manifest = {
         "strategy": strategy.name,
@@ -47,6 +63,8 @@ def write_manifest(strategy, chunk_count, base=None, source=None, embedding_mode
         "chunk_count": chunk_count,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
+    if embedding_dimensions is not None:
+        manifest["embedding_dimensions"] = embedding_dimensions
     path = manifest_path(strategy.name, base)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -82,6 +100,27 @@ def index_state(strategy, base=None, source=None, embedding_model=None):
             f"the index of strategy \"{strategy.name}\" is out of date ({' and '.join(changed)}); run: {command}"
         )
     return CURRENT, None
+
+
+def check_embedding_dimensions(strategy, embeddings, base=None):
+    """Refuses an index built with another embedding size than the model returns now.
+
+    Nothing is checked for an index built without the field, or while the embedding model does not answer:
+    the server and the chat still start, and /health reports the model.
+    """
+    manifest = read_manifest(strategy.name, base)
+    if manifest is None or manifest.get("embedding_dimensions") is None:
+        return
+    try:
+        returned = len(embeddings.embed_query("dimension check"))
+    except Exception:
+        return
+    built = manifest["embedding_dimensions"]
+    if returned != built:
+        raise IndexUnavailable(
+            f'the embedding model returns {returned} dimensions but the index of strategy "{strategy.name}" '
+            f"was built with {built}; run: {ingest_command(strategy.name)}"
+        )
 
 
 def require_index(strategy, base=None):

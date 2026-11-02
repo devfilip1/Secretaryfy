@@ -1,0 +1,14 @@
+"""Backend-independent vector-store contract for retrieval and index building."""
+from typing import Protocol, Sequence
+
+
+class VectorStore(Protocol):
+    """Operations the RAG pipeline needs from vector storage."""
+
+    def search_by_vector(self, vector: Sequence[float], limit: int): ...
+
+    def vectors_by_content(self) -> dict[str, Sequence[float]]: ...
+
+    def documents(self) -> list[str]: ...
+
+    def rebuild(self, documents: Sequence[object]) -> None: ...

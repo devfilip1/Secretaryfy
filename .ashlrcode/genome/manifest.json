@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "project": "Secretaryfy",
+  "sections": [
+    {
+      "path": "vision/north-star.md",
+      "title": "North Star Vision",
+      "summary": "Ultimate end-state vision for the project",
+      "tags": [
+        "vision",
+        "north-star",
+        "goal",
+        "purpose"
+      ],
+      "tokens": 39,
+      "updatedAt": "2026-10-30T20:50:44.898Z"
+    },
+    {
+      "path": "vision/architecture.md",
+      "title": "Architecture",
+      "summary": "System architecture decisions and design",
+      "tags": [
+        "vision",
+        "architecture",
+        "design",
+        "system"
+      ],
+      "tokens": 34,
+      "updatedAt": "2026-10-30T20:50:44.900Z"
+    },
+    {
+      "path": "vision/principles.md",
+      "title": "Design Principles",
+      "summary": "Core design principles and constraints",
+      "tags": [
+        "vision",
+        "principles",
+        "constraints",
+        "rules"
+      ],
+      "tokens": 22,
+      "updatedAt": "2026-10-30T20:50:44.902Z"
+    },
+    {
+      "path": "vision/anti-patterns.md",
+      "title": "Anti-Patterns",
+      "summary": "Approaches to avoid, learned from failures",
+      "tags": [
+        "vision",
+        "anti-patterns",
+        "avoid",
+        "failures",
+        "lessons"
+      ],
+      "tokens": 23,
+      "updatedAt": "2026-10-30T20:50:44.904Z"
+    },
+    {
+      "path": "milestones/current.md",
+      "title": "Current Milestone",
+      "summary": "Initial setup",
+      "tags": [
+        "milestone",
+        "current",
+        "active"
+      ],
+      "tokens": 31,
+      "updatedAt": "2026-10-30T20:50:44.905Z"
+    },
+    {
+      "path": "milestones/backlog.md",
+      "title": "Milestone Backlog",
+      "summary": "Future milestones ordered by priority",
+      "tags": [
+        "milestone",
+        "backlog",
+        "future",
+        "planning"
+      ],
+      "tokens": 21,
+      "updatedAt": "2026-10-30T20:50:44.907Z"
+    },
+    {
+      "path": "strategies/active.md",
+      "title": "Active Strategies",
+      "summary": "Currently winning development approaches",
+      "tags": [
+        "strategies",
+        "active",
+        "current",
+        "methodology"
+      ],
+      "tokens": 53,
+      "updatedAt": "2026-10-30T20:50:44.909Z"
+    },
+    {
+      "path": "strategies/graveyard.md",
+      "title": "Strategy Graveyard",
+      "summary": "Failed approaches with post-mortems",
+      "tags": [
+        "strategies",
+        "graveyard",
+        "failed",
+        "lessons"
+      ],
+      "tokens": 17,
+      "updatedAt": "2026-10-30T20:50:44.910Z"
+    },
+    {
+      "path": "strategies/experiments.md",
+      "title": "Experimental Strategies",
+      "summary": "Approaches being tested this generation",
+      "tags": [
+        "strategies",
+        "experiments",
+        "testing"
+      ],
+      "tokens": 17,
+      "updatedAt": "2026-10-30T20:50:44.911Z"
+    },
+    {
+      "path": "knowledge/decisions.md",
+      "title": "Decisions",
+      "summary": "Architectural decision records with rationale",
+      "tags": [
+        "knowledge",
+        "decisions",
+        "adr",
+        "rationale"
+      ],
+      "tokens": 201,
+      "updatedAt": "2026-10-30T20:50:44.918Z"
+    },
+    {
+      "path": "knowledge/discoveries.md",
+      "title": "Discoveries",
+      "summary": "Agent-discovered codebase and domain knowledge",
+      "tags": [
+        "knowledge",
+        "discoveries",
+        "learned",
+        "codebase"
+      ],
+      "tokens": 19,
+      "updatedAt": "2026-10-30T20:50:44.915Z"
+    },
+    {
+      "path": "knowledge/dependencies.md",
+      "title": "Dependencies",
+      "summary": "External deps, API contracts, integration notes",
+      "tags": [
+        "knowledge",
+        "dependencies",
+        "external",
+        "api"
+      ],
+      "tokens": 17,
+      "updatedAt": "2026-10-30T20:50:44.916Z"
+    },
+    {
+      "path": "knowledge/architecture.md",
+      "title": "Architecture (scanned)",
+      "summary": "Auto-populated architecture snapshot from baseline scan",
+      "tags": [
+        "knowledge",
+        "architecture",
+        "scanned",
+        "structure"
+      ],
+      "tokens": 272,
+      "updatedAt": "2026-10-30T20:50:45.290Z"
+    },
+    {
+      "path": "knowledge/conventions.md",
+      "title": "Conventions",
+      "summary": "Auto-populated conventions detected from config files",
+      "tags": [
+        "knowledge",
+        "conventions",
+        "style",
+        "lint"
+      ],
+      "tokens": 109,
+      "updatedAt": "2026-10-30T20:50:45.293Z"
+    },
+    {
+      "path": "knowledge/workspace.md",
+      "title": "Workspace (discovered)",
+      "summary": "0 git repos and 0 projects with CLAUDE.md discovered in workspace",
+      "tags": [
+        "knowledge",
+        "workspace",
+        "projects",
+        "related"
+      ],
+      "tokens": 95,
+      "updatedAt": "2026-10-30T20:50:45.299Z"
+    }
+  ],
+  "generation": {
+    "number": 1,
+    "milestone": "Initial setup",
+    "startedAt": "2026-10-30T20:50:44.896Z"
+  },
+  "fitnessHistory": [],
+  "createdAt": "2026-10-30T20:50:44.896Z",
+  "updatedAt": "2026-10-30T20:50:45.299Z"
+}

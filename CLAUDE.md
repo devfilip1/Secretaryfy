@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Secretaryfy
 
 WhatsApp assistant for a clinic (demo: DentalSafe): brochure answers via RAG, booking on Google Calendar, reminders, and a web panel for staff. Full documentation in [docs/](docs/README.md).

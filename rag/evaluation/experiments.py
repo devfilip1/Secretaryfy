@@ -86,9 +86,10 @@ def default_index_check(experiment):
 
 
 def default_retrieve(question, experiment):
-    from assistant.pipeline import RagConfig, retrieve
+    from assistant.composition import build_rag_service
+    from assistant.retrieval.pipeline import RagConfig
 
-    return retrieve(question, RagConfig.from_experiment(experiment))
+    return build_rag_service(RagConfig.from_experiment(experiment)).retrieve(question)
 
 
 def evaluate_question(experiment, item, retrieval, answer_key, latency_ms):

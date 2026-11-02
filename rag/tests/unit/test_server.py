@@ -1,10 +1,13 @@
 """The HTTP service, with the pipeline and Ollama replaced: no model is needed."""
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
 import server
 from assistant.index import CURRENT, STALE, IndexUnavailable
-from assistant.pipeline import AnswerResult, RagConfig, RetrievalResult, RetrievedChunk
+from assistant.retrieval.pipeline import AnswerResult, RagConfig, RagDeps, RetrievalResult, RetrievedChunk
+from assistant.retrieval.service import RagService
 from assistant.settings import SettingsError
 
 BRACES = "Braces and Orthodontic Treatment\nPrice: $180–$450 (Initial cost) and $35–$90 (Monthly)"
@@ -16,29 +19,53 @@ ANSWER = "Braces cost $180–$450 (Initial cost) and $35–$90 (Monthly). Would 
 HISTORIES = []  # the conversation each answer received
 
 
+def test_rag_service_requires_the_deps():
+    with pytest.raises(ValueError, match="deps is required"):
+        RagService(RagConfig.from_experiment("section_hybrid"), None)
+
+
+@pytest.mark.parametrize("missing", ["vector_store_provider", "embeddings", "generator", "lexical"])
+def test_rag_service_refuses_a_missing_dependency_by_name(missing):
+    fields = dict(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object())
+    fields[missing] = None
+
+    with pytest.raises(ValueError, match=f"{missing} is required"):
+        RagService(RagConfig.from_experiment("section_hybrid"), RagDeps(**fields))
+
+
 @pytest.fixture
 def calls(monkeypatch):
     """Replaces the pipeline and records the questions it received."""
+    from assistant.retrieval import pipeline
+
     asked = []
     HISTORIES.clear()
 
-    def fake_answer(question, config, history=None):
+    def fake_answer(question, config, history, deps):
         asked.append(question)
         HISTORIES.append(history)
         return AnswerResult(answer=ANSWER, retrieval=RETRIEVAL, latency_s=0.74)
 
-    def fake_retrieve(question, config):
+    def fake_retrieve(question, config, deps):
         asked.append(question)
         return RETRIEVAL
 
-    monkeypatch.setattr(server, "answer", fake_answer)
-    monkeypatch.setattr(server, "retrieve", fake_retrieve)
+    monkeypatch.setattr(pipeline, "answer", fake_answer)
+    monkeypatch.setattr(pipeline, "retrieve", fake_retrieve)
     return asked
 
 
 @pytest.fixture
 def client():
-    return TestClient(server.create_app(RagConfig.from_experiment("section_hybrid")))
+    return TestClient(server.create_app(
+        RagConfig.from_experiment("section_hybrid"),
+        deps=RagDeps(
+            vector_store_provider=lambda strategy: pytest.fail("the fakes replace the pipeline, the store is not used"),
+            embeddings=object(),  # the fakes replace the pipeline, so the model is not called
+            generator=object(),
+            lexical=object(),
+        ),
+    ))
 
 
 def test_answer_returns_the_reply_and_the_chunks_it_used(client, calls):
@@ -52,6 +79,54 @@ def test_answer_returns_the_reply_and_the_chunks_it_used(client, calls):
     assert body["experiment"] == "section_hybrid"
     assert calls == ["How much are braces?"]
     assert HISTORIES == [[]]
+
+
+def test_app_uses_injected_vector_store_for_answer_and_retrieve(monkeypatch):
+    from types import SimpleNamespace
+
+    from assistant.retrieval import pipeline
+
+    config = RagConfig(
+        experiment="fake", strategy="fake", search_type="vector", match_count=1,
+        match_threshold=0.0, use_hyde=False, prompt="rules",
+    )
+    document = SimpleNamespace(page_content=BRACES)
+    calls = []
+
+    class FakeStore:
+        def search_by_vector(self, vector, limit):
+            calls.append(("search", vector, limit))
+            return [document]
+
+        def vectors_by_content(self):
+            return {BRACES: [1.0, 0.0]}
+
+    class FakeEmbeddings:
+        def embed_query(self, question):
+            return [1.0, 0.0]
+
+    class FakeModel:
+        def generate(self, prompt, **kwargs):
+            return "Braces cost $180–$450."
+
+    def provider(strategy):
+        calls.append(("provider", strategy))
+        return FakeStore()
+
+    embeddings = FakeEmbeddings()
+    generator = FakeModel()
+    monkeypatch.setitem(sys.modules, "assistant.storage.chroma", None)
+    app = server.create_app(config, deps=RagDeps(vector_store_provider=provider, embeddings=embeddings, generator=generator, lexical=object()))
+
+    with TestClient(app) as client:
+        retrieved = client.post("/retrieve", json={"question": "How much are braces?"})
+        answered = client.post("/answer", json={"question": "How much are braces?"})
+
+    assert retrieved.status_code == 200
+    assert retrieved.json()["chunks"][0]["content"] == BRACES
+    assert answered.status_code == 200
+    assert answered.json()["answer"] == "Braces cost $180–$450."
+    assert [call for call in calls if call[0] == "provider"] == [("provider", "fake"), ("provider", "fake")]
 
 
 def test_answer_passes_the_conversation_along(client, calls):
@@ -94,10 +169,12 @@ def test_an_empty_question_is_rejected_without_calling_the_model(client, calls, 
 
 @pytest.mark.parametrize("path, name", [("/answer", "answer"), ("/retrieve", "retrieve")])
 def test_a_model_failure_becomes_503(client, monkeypatch, path, name):
-    def fail(question, config, history=None):
+    from assistant.retrieval import pipeline
+
+    def fail(*args, **kwargs):
         raise ConnectionError("Ollama is not running")
 
-    monkeypatch.setattr(server, name, fail)
+    monkeypatch.setattr(pipeline, name, fail)
 
     response = client.post(path, json={"question": "How much are braces?"})
 
@@ -182,6 +259,7 @@ def test_main_refuses_to_start_with_an_invalid_configuration(monkeypatch, capsys
 def test_main_starts_on_the_configured_address(monkeypatch):
     started = {}
     monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
     monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: started.update(host=host, port=port))
     monkeypatch.setenv("RAG_PORT", "8123")
     monkeypatch.delenv("RAG_HOST", raising=False)
@@ -189,3 +267,151 @@ def test_main_starts_on_the_configured_address(monkeypatch):
     server.main()
 
     assert started == {"host": "127.0.0.1", "port": 8123}
+
+
+def test_main_listens_on_the_host_set_in_the_environment(monkeypatch):
+    started = {}
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
+    monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: started.update(host=host, port=port))
+    monkeypatch.setenv("RAG_HOST", "0.0.0.0")
+    monkeypatch.setenv("RAG_PORT", "9000")
+
+    server.main()
+
+    assert started == {"host": "0.0.0.0", "port": 9000}
+
+
+def test_create_app_needs_a_service_or_a_provider():
+    with pytest.raises(ValueError, match="create_app needs a service or deps"):
+        server.create_app(RagConfig.from_experiment("section_hybrid"))
+
+
+def test_main_serves_the_service_built_by_the_composition_root(monkeypatch):
+    built, served = [], []
+    sentinel = object()
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: None)
+    monkeypatch.setattr(server, "build_rag_service", lambda config: built.append(config) or sentinel)
+    monkeypatch.setattr(server, "create_app", lambda config, *, service: served.append(service) or "app")
+    monkeypatch.setattr(server.uvicorn, "run", lambda app, host, port: None)
+
+    server.main()
+
+    assert len(built) == 1
+    assert served == [sentinel]
+
+
+def test_a_generator_failure_on_answer_becomes_503():
+    from types import SimpleNamespace
+
+    from assistant.retrieval.pipeline import RagConfig as Config
+
+    class DownGenerator:
+        def generate(self, prompt, **kwargs):
+            raise ConnectionError("Ollama is not running")
+
+    class OneChunkStore:
+        def vectors_by_content(self):
+            return {BRACES: [1.0, 0.0]}
+
+        def search_by_vector(self, vector, limit):
+            return [SimpleNamespace(page_content=BRACES)]
+
+    config = Config(experiment="fake", strategy="fake", search_type="vector", match_count=1,
+                    match_threshold=0.0, use_hyde=False, prompt="rules")
+    app = server.create_app(config, deps=RagDeps(vector_store_provider=lambda strategy: OneChunkStore(), embeddings=SimpleNamespace(embed_query=lambda text: [1.0, 0.0]), generator=DownGenerator(), lexical=object()))
+    response = TestClient(app).post("/answer", json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Ollama is not running"}
+
+
+def test_main_refuses_to_start_when_the_embedding_dimensions_differ(monkeypatch, capsys):
+    message = ('the embedding model returns 768 dimensions but the index of strategy "section" was built with 1024; '
+               'run: python -m assistant.ingest section')
+
+    def mismatched(strategy, embeddings):
+        raise IndexUnavailable(message)
+
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", mismatched)
+    monkeypatch.setattr(server.uvicorn, "run", lambda *args, **kwargs: pytest.fail("must not start"))
+
+    with pytest.raises(SystemExit) as exit_info:
+        server.main()
+
+    assert exit_info.value.code == 1
+    assert capsys.readouterr().out.strip() == f"Could not start: {message}"
+
+
+def test_main_checks_the_dimensions_with_the_composition_root_embeddings(monkeypatch):
+    checked = []
+    monkeypatch.setattr(server, "build_embeddings_provider", lambda: "embeddings")
+    monkeypatch.setattr(server, "require_index", lambda strategy: None)
+    monkeypatch.setattr(server, "check_embedding_dimensions", lambda strategy, embeddings: checked.append((strategy, embeddings)))
+    monkeypatch.setattr(server.uvicorn, "run", lambda *args, **kwargs: None)
+
+    server.main()
+
+    assert [embeddings for _, embeddings in checked] == ["embeddings"]
+
+
+def test_create_app_needs_embeddings_with_a_provider():
+    with pytest.raises(ValueError, match="embeddings is required"):
+        server.create_app(RagConfig.from_experiment("section_hybrid"), deps=RagDeps(vector_store_provider=lambda strategy: None, embeddings=None, generator=None, lexical=None))
+
+
+@pytest.mark.parametrize("path", ["/answer", "/retrieve"])
+def test_an_embedding_mismatch_becomes_503_with_the_rebuild_command(path):
+    from assistant.index import EmbeddingMismatch
+
+    message = 'the embedding model returned 768 dimensions but the index of strategy "section" has 1024; run: python -m assistant.ingest section'
+
+    class MismatchedService:
+        def answer(self, question, history):
+            raise EmbeddingMismatch(message)
+
+        def retrieve(self, question):
+            raise EmbeddingMismatch(message)
+
+    app = server.create_app(RagConfig.from_experiment("section_hybrid"), service=MismatchedService())
+    response = TestClient(app).post(path, json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": message}
+
+
+
+def test_create_app_hands_the_deps_to_the_service(monkeypatch):
+    received = []
+
+    class RecordingService:
+        def __init__(self, config, deps):
+            received.append(deps)
+
+    monkeypatch.setattr(server, "RagService", RecordingService)
+    deps = RagDeps(vector_store_provider=lambda strategy: None, embeddings=object(), generator=object(), lexical=object())
+    server.create_app(RagConfig.from_experiment("section_hybrid"), deps=deps)
+
+    assert received == [deps]
+
+
+def test_an_inconsistent_index_becomes_503_with_the_rebuild_command():
+    from assistant.index import IndexInconsistent
+
+    message = ('the index of strategy "section" is inconsistent: chunks.json holds 2 chunk(s) the vector store does not; '
+               'run: python -m assistant.ingest section')
+
+    class InconsistentService:
+        def answer(self, question, history):
+            raise IndexInconsistent(message)
+
+        def retrieve(self, question):
+            raise IndexInconsistent(message)
+
+    app = server.create_app(RagConfig.from_experiment("section_hybrid"), service=InconsistentService())
+    response = TestClient(app).post("/retrieve", json={"question": "How much are braces?"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": message}

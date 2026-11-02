@@ -1,7 +1,7 @@
 import pytest
 
 from assistant.ingest import build_chunks, clean_text, is_heading, load_pages, split_sections
-from assistant.settings import Strategy
+from assistant.settings import SettingsError, Strategy
 
 B = "\x7f"  # list marker as it comes out of the PDF
 
@@ -217,6 +217,57 @@ def test_unknown_strategy_type():
         build_chunks(Strategy("x", "semantic", {}), PAGES)
 
 
+def test_vectorize_chunks_uses_the_injected_store_rebuild_operation(monkeypatch):
+    from assistant import ingest
+
+    strategy = Strategy("section", "section", {"max_chars": 1200, "overlap": 100})
+    chunks = [build_chunks(strategy, PAGES)[0]]
+    calls = []
+
+    class FakeStore:
+        def rebuild(self, documents):
+            calls.append(("rebuild", documents))
+
+    def provider(name):
+        calls.append(("provider", name))
+        return FakeStore()
+
+    ingest.vectorize_chunks(strategy, chunks, vector_store_provider=provider)
+
+    assert calls == [("provider", "section"), ("rebuild", chunks)]
+
+
+def test_ingest_cli_forwards_vector_store_provider_through_index_build(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    from assistant import ingest
+    from assistant import ingestion
+
+    strategy = Strategy("fake", "page", {})
+    documents = []
+    calls = []
+
+    class FakeStore:
+        def rebuild(self, chunks):
+            documents.extend(chunks)
+
+    def provider(name):
+        calls.append(name)
+        return FakeStore()
+
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"fake": strategy}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: ["Dental Cleaning\nPrice: $40–$85"])
+    monkeypatch.setattr(ingestion.service, "save_chunks", lambda strategy, chunks: None)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda *args, **kwargs: None)
+
+    result = ingest.main(["fake"], vector_store_provider=provider)
+
+    assert result == 0
+    assert calls == ["fake"]
+    assert len(documents) == 1 and "$40–$85" in documents[0].page_content
+    assert "fake: 1 chunks" in capsys.readouterr().out
+
+
 def test_the_real_brochure_gives_one_section_per_subject():
     chunks = build_chunks(SECTION, load_pages())
 
@@ -236,3 +287,164 @@ def test_the_real_brochure_gives_one_section_per_subject():
     for chunk in chunks:
         assert B not in chunk.page_content and "fictional" not in chunk.page_content
     assert "Recovery: 3–7 days" in chunks[7].page_content
+
+
+PAGE = Strategy("page", "page", {})
+
+
+def test_ingest_cli_rejects_an_unknown_strategy_before_reading_the_brochure(monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    from assistant import ingest
+    from assistant import ingestion
+
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: pytest.fail("must not read the brochure"))
+
+    result = ingest.main(["section", "bogus"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+
+    assert result == 2
+    assert capsys.readouterr().out.strip() == "Unknown strategy: bogus. Use one of: section, page"
+
+
+def test_build_index_records_the_dimensions_of_the_stored_vectors(monkeypatch, tmp_path):
+    import json
+
+    from assistant import index as index_module
+    from assistant import ingestion
+
+    class FakeStore:
+        def rebuild(self, chunks):
+            pass
+
+        def vectors_by_content(self):
+            return {"chunk": [0.1, 0.2, 0.3]}
+
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the files go to tmp_path, not data/
+    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
+
+    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: FakeStore())
+
+    manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["embedding_dimensions"] == 3
+
+
+def test_build_index_leaves_the_dimensions_out_when_the_store_cannot_tell(monkeypatch, tmp_path):
+    import json
+
+    from assistant import index as index_module
+    from assistant import ingestion
+
+    class BareStore:
+        def rebuild(self, chunks):
+            pass
+
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
+
+    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: BareStore())
+
+    manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert "embedding_dimensions" not in manifest
+
+
+def test_ingest_cli_stops_with_the_configuration_problems(monkeypatch, capsys):
+    from assistant import ingest
+    from assistant import ingestion
+
+    def invalid():
+        raise SettingsError(["strategies.yaml: first problem", "strategies.yaml: second problem"])
+
+    monkeypatch.setattr(ingestion.service, "load_settings", invalid)
+
+    result = ingest.main(["section"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+
+    assert result == 2
+    assert capsys.readouterr().out.strip() == (
+        "Invalid configuration: 2 problem(s)\n"
+        "  - strategies.yaml: first problem\n"
+        "  - strategies.yaml: second problem"
+    )
+
+
+def test_index_location_is_relative_to_the_rag_folder_by_default():
+    from assistant.ingestion import service
+
+    assert service.shown_index_dir("section") == "data/index/section"
+
+
+def test_ingestion_main_requires_an_explicit_vector_store_provider():
+    from assistant.ingestion import service
+
+    with pytest.raises(TypeError):
+        service.main(["section"])
+
+
+def test_ingest_cli_uses_the_composition_root_when_no_provider_is_given(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from assistant import index as index_module
+    from assistant import ingest
+    from assistant import ingestion
+
+    names = []
+    store = SimpleNamespace(rebuild=lambda chunks: None)
+    monkeypatch.setattr(ingest, "build_vector_store_provider", lambda: lambda name: names.append(name) or store)
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: None)
+
+    result = ingest.main(["page"])
+
+    assert result == 0
+    assert names == ["page"]
+
+
+def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch, tmp_path, capsys):
+    from types import SimpleNamespace
+
+    from assistant import index as index_module
+    from assistant import ingest
+    from assistant import ingestion
+
+    rebuilt = {}
+
+    class FakeStore:
+        def __init__(self, name):
+            self.name = name
+
+        def rebuild(self, chunks):
+            rebuilt[self.name] = len(chunks)
+
+    manifests = []
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the chunk files go to tmp_path, not data/
+    monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
+    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
+    monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: manifests.append((strategy.name, count)))
+
+    result = ingest.main([], vector_store_provider=FakeStore)
+
+    assert result == 0
+    assert rebuilt == {"section": 5, "page": 2}
+    assert manifests == [("section", 5), ("page", 2)]
+    assert (tmp_path / "section" / "chunks.json").is_file()
+    assert (tmp_path / "page" / "chunks.json").is_file()
+    assert capsys.readouterr().out == (
+        f"section: 5 chunks in {(tmp_path / 'section').resolve().as_posix()}/\n"
+        f"page: 2 chunks in {(tmp_path / 'page').resolve().as_posix()}/\n"
+    )
+
+
+def test_the_ingest_facade_reexports_the_ingestion_functions():
+    from assistant import ingest, ingestion
+
+    assert ingest.build_index is ingestion.service.build_index
+    assert ingest.vectorize_chunks is ingestion.service.vectorize_chunks
+
+
+def test_the_ingest_facade_builds_nothing_without_the_store_provider():
+    from assistant import ingest
+
+    with pytest.raises(TypeError):
+        ingest.build_index("section", [])

@@ -120,7 +120,7 @@ An experiment whose index is missing or out of date shows up as not run, with th
 ## Limits of what is measured
 
 - The check is by value, not by sentence. If the answer assigns the duration of the cleaning to the whitening and both values are facts of the question, the deterministic score does not notice. The judge's "faithfulness" criterion exists for those cases.
-- A refusal is recognized by a list of phrases in `answer_metrics.py` (`ABSTENTION_PATTERNS`). The sentence the assistant uses is in `assistant/pipeline.py` (`NO_ANSWER`); if it changes, update the list. A unit test ties the two together.
+- A refusal is recognized by a list of phrases in `answer_metrics.py` (`ABSTENTION_PATTERNS`). The sentence the assistant uses is in `assistant/generation/prompting.py` (`NO_ANSWER`); if it changes, update the list. A unit test ties the two together.
 - The evaluation runs with `temperature=0` and `seed=42`. The chat (`python -m assistant.chat`) also uses temperature 0, with no fixed `seed`.
 - Only single-message questions. Conversations with several turns are not evaluated.
 

@@ -16,8 +16,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StringConstraints
 
 from assistant.config import OLLAMA_BASE_URL
-from assistant.index import CURRENT, IndexUnavailable, index_state, require_index
-from assistant.pipeline import RagConfig, answer, retrieve
+from assistant.index import CURRENT, IndexUnavailable, check_embedding_dimensions, index_state, require_index
+from assistant.retrieval.pipeline import RagConfig, RagDeps
+from assistant.retrieval.service import RagService
+from assistant.composition import build_embeddings_provider, build_rag_service
 from assistant.settings import SettingsError, get_strategy
 
 logger = logging.getLogger("rag.server")
@@ -54,7 +56,12 @@ def ollama_reachable(url=OLLAMA_BASE_URL, timeout=OLLAMA_TIMEOUT_S):
         return False
 
 
-def create_app(config):
+def create_app(config, *, service: RagService | None = None, deps: RagDeps | None = None):
+    if service is None:
+        if deps is None:
+            raise ValueError("create_app needs a service or deps")
+        service = RagService(config, deps)
+
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
 
     @app.get("/health")
@@ -73,7 +80,7 @@ def create_app(config):
     @app.post("/answer")
     def post_answer(body: QuestionIn):
         try:
-            result = answer(body.question, config, [turn.model_dump() for turn in body.history])
+            result = service.answer(body.question, [turn.model_dump() for turn in body.history])
         except Exception as error:
             logger.exception("answer failed")
             raise HTTPException(503, detail=str(error)) from error
@@ -88,7 +95,7 @@ def create_app(config):
     def post_retrieve(body: QuestionIn):
         start = time.perf_counter()
         try:
-            result = retrieve(body.question, config)
+            result = service.retrieve(body.question)
         except Exception as error:
             logger.exception("retrieve failed")
             raise HTTPException(503, detail=str(error)) from error
@@ -104,7 +111,9 @@ def create_app(config):
 def main():
     try:
         config = RagConfig()
-        require_index(get_strategy(config.strategy))
+        strategy = get_strategy(config.strategy)
+        require_index(strategy)
+        check_embedding_dimensions(strategy, build_embeddings_provider())
     except SettingsError as error:
         print(f"Invalid configuration: {len(error.problems)} problem(s)")
         for problem in error.problems:
@@ -117,7 +126,7 @@ def main():
     # assistant.config has already loaded rag/.env
     host = os.getenv("RAG_HOST", DEFAULT_HOST)
     port = int(os.getenv("RAG_PORT", DEFAULT_PORT))
-    uvicorn.run(create_app(config), host=host, port=port)
+    uvicorn.run(create_app(config, service=build_rag_service(config)), host=host, port=port)
 
 
 if __name__ == "__main__":

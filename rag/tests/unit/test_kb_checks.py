@@ -71,3 +71,20 @@ def test_sources_with_different_count_and_content():
     report = find_source_mismatch([CLEANING] * 5 + [HEADING], [CLEANING, PRICE])
 
     assert report == {"vector_count": 6, "file_count": 2, "only_in_vector": 5, "only_in_file": 1, "mismatch": True}
+
+
+def test_load_kb_reads_the_vector_base_through_the_composition_root(monkeypatch, tmp_path):
+    import json
+    from types import SimpleNamespace
+
+    from assistant import composition
+    from assistant import index
+    from evaluation.kb_checks import load_kb
+
+    (tmp_path / "section").mkdir()
+    (tmp_path / "section" / "chunks.json").write_text(json.dumps([{"content": "file chunk", "metadata": {}}]), encoding="utf-8")
+    monkeypatch.setattr(index, "INDEX_DIR", tmp_path)
+    store = SimpleNamespace(documents=lambda: ["vector chunk"])
+    monkeypatch.setattr(composition, "build_vector_store_provider", lambda: lambda strategy: store)
+
+    assert load_kb("section") == (["vector chunk"], ["file chunk"])

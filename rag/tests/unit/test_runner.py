@@ -10,7 +10,7 @@ REFUSAL = "I don't have that information right now."
 
 @dataclass
 class Chunk:
-    """Same shape as assistant.pipeline.RetrievedChunk, without importing the pipeline."""
+    """Same shape as assistant.retrieval.pipeline.RetrievedChunk, without importing the pipeline."""
     content: str
     rank: int
     score: float | None = None
@@ -183,3 +183,25 @@ def test_interruption_makes_the_run_incomplete(answer_key):
 
     assert outcome["status"] == "incomplete"
     assert len(outcome["skipped"]) == 5
+
+
+def test_without_an_answer_function_each_question_goes_to_the_service_of_the_configuration(monkeypatch, answer_key):
+    from assistant import composition
+
+    asked = []
+
+    class FakeService:
+        def __init__(self, config):
+            asked.append(("config", config))
+
+        def answer(self, question):
+            asked.append(("answer", question))
+            return answer_result(REFUSAL)
+
+    monkeypatch.setattr(composition, "build_rag_service", FakeService)
+
+    outcome = run_evaluation(list(answer_key.items), answer_key, "the-config")
+
+    assert outcome["status"] == "complete"
+    assert {value for kind, value in asked if kind == "config"} == {"the-config"}
+    assert [value for kind, value in asked if kind == "answer"] == [item.question for item in answer_key.items]

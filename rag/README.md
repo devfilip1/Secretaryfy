@@ -59,6 +59,6 @@ The evaluation manual is in [evaluation/README.md](evaluation/README.md).
 - Any change that can affect answers (prompt, synonyms, chunking, search) is measured with `evaluation run --no-judge` and compared with the reference. Read the regressions before the score.
 - One or two questions of difference are noise with `llama3`. Confirm with `--repeat 3` before claiming a change.
 - Never tune on the reserved questions; `--holdout` runs once after a round of changes.
-- `NO_ANSWER` in `assistant/pipeline.py` and `ABSTENTION_PATTERNS` in `evaluation/answer_metrics.py` must stay in step.
+- `NO_ANSWER` in `assistant/generation/prompting.py` and `ABSTENTION_PATTERNS` in `evaluation/answer_metrics.py` must stay in step.
 - `assistant` never imports `evaluation` or `server`.
 - The Makefile and `run.ps1` offer the same shortcuts; `tests/unit/test_shortcuts.py` checks it.

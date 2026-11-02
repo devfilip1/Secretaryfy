@@ -12,3 +12,6 @@ __pycache__/
 .pytest_cache/
 web/dist/
 .playwright-mcp/
+
+# ashlr genome (gerado por máquina)
+.ashlrcode/genome/proposals.jsonl
