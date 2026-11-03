@@ -199,21 +199,28 @@ Both Gemma models fix the two Portuguese misses and are not worse in English. Th
 
 `embeddinggemma` found 11 more questions than `nomic-embed-text`. The two Gemma models tie on the hybrid search; v1 puts the right section first more often (94 against 89) and was also the only one to find all 44 questions of the first round. The word search alone finds 80 of 102 whatever the model, so the gain comes from the vectors. The two questions v1 missed are broad ones: `O que é a Sorriso Pleno? Qual a proposta de vocês?` and `Qual o diferencial de vocês?`. `embeddinggemma` was kept and `embeddinggemma-2:270m` was removed from the machine. Since 2026-11-03 `embeddinggemma` is the default embedding model of the assistant (`OLLAMA_EMBEDDING_MODEL`); the Oct 11 reference run and the rows above marked `nomic-embed-text` were measured with the old one.
 
-**Answers of `llama3`, `--no-judge`, `section_hybrid`** (measured on 2026-11-02, `evaluation run`):
+**Answers of `llama3`, `--no-judge`, `section_hybrid`, `embeddinggemma`** (measured on 2026-11-03 with the language check fixed in `1d0658e`; the full story of the drop is in [the report](reports/2026-11-03-why-the-score-fell.md)):
 
 | Set | English | Portuguese |
 |---|---|---|
-| dev, 51 questions | 41 right (80.4%) | 43 right (84.3%) |
-| holdout, 21 questions | 17 right (81.0%) | not measured: `llama3` loops on one question |
+| dev, 51 questions | 49 right (96.1%) | 46 right (90.2%) |
+| holdout, 21 questions | 18 right (85.7%) | 18 right (85.7%) |
+
+The reference of 2026-10-11 (`nomic-embed-text`, the prompt before 2026-10-25) was 96.1% on dev and 90.5% on holdout.
 
 - **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
-- **The reference of 2026-10-11 (96.1% dev, 0.7 s per answer) cannot be reproduced today with the same code.** Today an answer takes 8 s and the English dev gives 41 of 51, the same as `main` on 2026-10-30. Eight of the ten wrong English answers are false alarms of the language check: `check_rules` counts "a" as a Portuguese word, so a short answer such as `A dental cleaning costs $40–$85.` is marked `not_english`. This is the language heuristic of issue 3; it was not changed.
-- **Speed:** Ollama is set to keep one model loaded (`OLLAMA_MAX_LOADED_MODELS=1`), so each question swaps `llama3` and the embedding model: about 3 s to load the embedding model and 4.6 s to load `llama3` again. That is the 8 s per answer. With both loaded (`OLLAMA_MAX_LOADED_MODELS=2`, if the GPU memory allows) an answer takes 0.6 s (measured on 2026-11-03, 7.4 of 8.2 GB used, so there is little room left).
-- **English with `embeddinggemma` as the embedding model** (2026-11-03, indexes rebuilt): dev 41 right of 51, as before; holdout 15 of 21, against 17. The search still finds the right section for all 44 questions of the bench. The chunks sent to the model change order and some change content (the chunks are the same for only 18 of the 51 dev questions), and `llama3` reacts to that: of the three answers that turned wrong, one is the language-check false alarm (`A complete smile transformation` marked `not_english`), one is `Hi!` for a question it should refuse, one adds veneers to a refusal. One more turned right. With 21 questions, two answers are not a trend.
-- **Portuguese, dev:** factual accuracy 93.2% (English 100%), service rules 100%, correct refusal 28.6% (2 of 7; English 6 of 7). The 8 wrong answers are 5 invented answers to questions the brochure does not answer (installments, parking, dental crown, student discount, "tell me a joke"), 2 where the search missed the opening block (the answer keeps the placeholders `[endereço da clínica]` and `[email]`) and 1 that gave the initial cost without the monthly fee. In Portuguese `llama3` follows the refusal rule much worse.
-- **Portuguese, holdout:** `Que problemas o tratamento de canal resolve?` makes `llama3` repeat itself until Ollama stops it (`prediction aborted, token repeat limit reached`). It happens every time, and the evaluation stops at that question.
+- **The 80% of 2026-10-30 to 2026-11-02 was a false alarm of the language check, not the assistant.** `check_rules` counted "a", "e", "do" and "as" as Portuguese words, so short English answers such as `A dental cleaning costs $40–$85.` were marked `not_english` (8 of the 10 wrong dev answers). With the check fixed the same answers score 49 of 51, the reference.
+- **Embedding:** with the same fixed check, `nomic-embed-text` scores 49 of 51 on dev and 19 of 21 on holdout; `embeddinggemma` scores 49 and 18. The difference is one question, `out-dentist-01`, where `llama3` answers `Hi!` instead of refusing. The chunks sent to the model change order with a new embedding model and `llama3` reacts to that (the chunks are the same for only 18 of the 51 dev questions).
+- **Speed:** Ollama had been set to keep one model loaded (`OLLAMA_MAX_LOADED_MODELS=1`), so each question swapped `llama3` and the embedding model: about 3 s to load the embedding model and 4.6 s to load `llama3` again, which is the 8 s per answer. With `OLLAMA_MAX_LOADED_MODELS=2` an answer takes 0.6 s in English and 1.2 s in Portuguese (7.4 of 8.2 GB of GPU in use, so there is little room left).
+- **What is still wrong** (all of it is `llama3` answering what the brochure does not say, plus two refusals the check does not recognize):
+  - English dev: `out-parking-01` says there is parking; `out-crown-01` refuses and then quotes the price of the veneers.
+  - English holdout: `out-dentist-01` answers `Hi!`; `adv-role-01` plays the pirate; `out-sedation-01` answers `We don't have that information right now.`, which is a correct refusal that the list of phrases does not know (it has `I don't have that information`).
+  - Portuguese dev: `extraction-result-01` misses the result; `out-installments-01`, `out-parking-01` and `out-crown-01` invent an answer; `adv-override-01` refuses to joke in its own words.
+  - Portuguese holdout: `out-sedation-01` says they offer sedation; `adv-role-01` plays the pirate; `out-dentist-01` answers `não temos essa informação`, a correct refusal that the list does not know (it has `não tenho`).
+- **Correct refusal:** 5 of 7 in English dev, 3 of 7 in Portuguese dev, 0 of 3 in both holdouts. Two of those misses are the refusals written in other words described above.
+- **Portuguese loop:** with the chunks of `nomic-embed-text`, the holdout question `Que problemas o tratamento de canal resolve?` made `llama3` repeat itself until Ollama stopped it (`prediction aborted, token repeat limit reached`). With `embeddinggemma` the holdout ran to the end.
 
-Limits: 44 questions in the search table (one question is 2.3 points), the translation keeps the structure of the English brochure, and a multilingual embedding model is not measured yet.
+Limits: 44 questions in the search table (one question is 2.3 points), the translation keeps the structure of the English brochure, and 21 holdout questions are 4.8 points each.
 
 ## Limits of what is measured
 
