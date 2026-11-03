@@ -9,6 +9,7 @@ import re
 from evaluation.normalize import EN, canonical_text, extract_values, normalize_text
 
 MAX_ANSWER_CHARS = 1200
+MIN_WRONG_LANGUAGE_WORDS = 2  # a short answer has too few words to tell the language
 
 
 def check_facts(answer, expected_facts, locale=EN):
@@ -73,6 +74,8 @@ def check_rules(answer, locale=EN):
     if len(answer) > MAX_ANSWER_CHARS:
         violations.append("too_long")
     words = re.findall(r"[a-z]+", text)
-    if sum(w in locale.other_language_words for w in words) > sum(w in locale.language_words for w in words):
+    other = sum(w in locale.other_language_words for w in words)
+    own = sum(w in locale.language_words for w in words)
+    if other >= MIN_WRONG_LANGUAGE_WORDS and other > own:
         violations.append(locale.wrong_language)
     return violations

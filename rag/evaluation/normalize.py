@@ -200,7 +200,7 @@ EN = Locale(
         "provided information": r"\b(?:provided information|information provided|clinic information)\b",
     },
     language_words=frozenset({"the", "is", "and", "of", "to", "you", "for", "with", "our", "your", "this", "that", "are", "can"}),
-    other_language_words=frozenset({"o", "a", "de", "que", "e", "para", "com", "nao", "um", "uma", "os", "as", "do", "da", "em", "voce"}),
+    other_language_words=frozenset({"o", "de", "que", "para", "com", "nao", "um", "uma", "os", "da", "em", "voce"}),
     wrong_language="not_english",
 )
 
@@ -239,7 +239,7 @@ PT = Locale(
         "banco de dados": r"\bbancos? de dados\b",
         "informacoes fornecidas": r"\b(?:informacoes fornecidas|informacoes da clinica)\b",
     },
-    language_words=frozenset({"o", "a", "de", "que", "e", "para", "com", "nao", "um", "uma", "os", "as", "do", "da", "em", "voce"}),
+    language_words=frozenset({"o", "de", "que", "para", "com", "nao", "um", "uma", "os", "da", "em", "voce"}),
     other_language_words=frozenset({"the", "is", "and", "of", "to", "you", "for", "with", "our", "your", "this", "that", "are", "can"}),
     wrong_language="not_portuguese",
 )

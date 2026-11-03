@@ -159,3 +159,29 @@ def test_portuguese_facts_are_found_with_the_portuguese_number_format():
 
     assert check_facts("O implante custa de R$ 900 a R$ 2.000.", facts, PT) == [{"label": "price", "found": True}]
     assert unexpected_values("Custa R$ 2.500.", facts, locale=PT) == ["R$ 2.500"]
+
+# --- language check ---
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "A complete smile transformation",
+        "A dental cleaning costs $40–$85.",
+        "Yes, we do! Do you want to book?",
+        "You can write to appointments@dentalsafe.example",
+    ],
+)
+def test_short_english_answer_is_not_flagged_as_portuguese(answer):
+    assert check_rules(answer) == []
+
+
+def test_short_portuguese_answer_is_not_flagged_as_english():
+    from evaluation.normalize import PT
+
+    assert check_rules("Sim, o clareamento custa R$ 180 a R$ 450.", PT) == []
+
+
+def test_english_sentence_is_flagged_as_not_portuguese():
+    from evaluation.normalize import PT
+
+    assert check_rules("Teeth whitening is great for you and the price is high.", PT) == ["not_portuguese"]
