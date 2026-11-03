@@ -57,6 +57,28 @@ def test_other_models_get_no_prefix(model):
     assert inner.queries == ["how much"]
 
 
+def test_embeddinggemma_gets_its_own_prefixes():
+    inner = FakeInner()
+    provider = PrefixedEmbeddings("embeddinggemma", "http://127.0.0.1:9", inner=inner)
+
+    provider.embed_documents(["Price: $40"])
+    provider.embed_query("how much")
+
+    assert inner.documents == [["title: none | text: Price: $40"]]
+    assert inner.queries == ["task: search result | query: how much"]
+
+
+def test_a_model_name_with_a_tag_matches_its_listed_key():
+    inner = FakeInner()
+    provider = PrefixedEmbeddings("nomic-embed-text:latest", "http://127.0.0.1:9", inner=inner)
+
+    provider.embed_documents(["Price: $40"])
+    provider.embed_query("how much")
+
+    assert inner.documents == [["search_document: Price: $40"]]
+    assert inner.queries == ["search_query: how much"]
+
+
 def test_build_embeddings_wraps_an_ollama_model_of_the_given_name():
     provider = build_embeddings("nomic-embed-text", "http://127.0.0.1:9")
 
