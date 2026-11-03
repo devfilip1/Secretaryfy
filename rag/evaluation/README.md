@@ -189,6 +189,16 @@ What the two hybrid misses have in common: `Onde vocês ficam?` and `Vocês têm
 
 Both Gemma models fix the two Portuguese misses and are not worse in English. The prefixes come from the model cards (`PREFIXES` in `assistant/storage/embeddings.py`). The difference between the two Gemma models is one question, which is within the noise of 44 questions that were also used to choose; the models were not compared on the answers of `llama3` yet.
 
+**Second round, 102 new questions** (`data/retrieval_questions_pt.json`, written apart from the answer key: informal, with typos, indirect, or without the words of the brochure; each one names the section that holds its answer; measured on 2026-11-03, search only, `section` strategy, the same word search for every model):
+
+| Model | Right section first (vector) | In the 4 chunks sent to the model (hybrid) | Rank of the right section (vector, MRR) |
+|---|---|---|---|
+| `nomic-embed-text` | 57 | 89 of 102 | 0.65 |
+| `embeddinggemma` | **94** | **100 of 102** | **0.94** |
+| `embeddinggemma-2:270m` | 89 | 100 of 102 | 0.92 |
+
+`embeddinggemma` found 11 more questions than `nomic-embed-text`. The two Gemma models tie on the hybrid search; v1 puts the right section first more often (94 against 89) and was also the only one to find all 44 questions of the first round. The word search alone finds 80 of 102 whatever the model, so the gain comes from the vectors. The two questions v1 missed are broad ones: `O que é a Sorriso Pleno? Qual a proposta de vocês?` and `Qual o diferencial de vocês?`. `embeddinggemma` was kept and `embeddinggemma-2:270m` was removed from the machine.
+
 **Answers of `llama3`, `--no-judge`, `section_hybrid`** (measured on 2026-11-02, `evaluation run`):
 
 | Set | English | Portuguese |
