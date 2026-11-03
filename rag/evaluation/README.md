@@ -218,7 +218,21 @@ The reference of 2026-10-11 (`nomic-embed-text`, the prompt before 2026-10-25) w
 | Portuguese holdout (21) | 18 (85.7%) | **20 (95.2%)** |
 | Typical answer time | 0.6 s (English), 1.2 s (Portuguese) | 1.1 s (English), 1.2 to 1.4 s (Portuguese) |
 
-`qwen3:8b` refuses what the brochure does not say in all 7 + 3 English questions (`llama3`: 5 of 7 and 0 of 3 counting the two refusals the check does not know) and in 5 of 7 + 2 of 3 Portuguese ones. What it still gets wrong: English, the in-office duration of whitening (it gives only the 14 days); Portuguese, the durability of the implant, `Posso pagar parcelado?` (`Sim, temos opções de pagamento facilitadas`, which the brochure half says), `Qual é a capital da França?` (it answers `Paris`) and the pirate role once. `qwen3:8b` and `embeddinggemma` fit together in the GPU (7.5 of 8.2 GB) and stay loaded. `qwen3` needs thinking turned off (`THINKING_MODELS` in `assistant/generation/model.py`). The scheduling interpreter of the server still uses `llama3` (`AGENT_MODEL`); with `qwen3:8b` in the RAG and `llama3` there, three models would not fit in the GPU, so the interpreter has to move too, and its own evaluation (`scripts/eval-scheduling.ts`) has to be run first.
+`qwen3:8b` refuses what the brochure does not say in all 7 + 3 English questions (`llama3`: 5 of 7 and 0 of 3 counting the two refusals the check does not know) and in 5 of 7 + 2 of 3 Portuguese ones. What it still gets wrong: English, the in-office duration of whitening (it gives only the 14 days); Portuguese, the durability of the implant, `Posso pagar parcelado?` (`Sim, temos opções de pagamento facilitadas`, which the brochure half says), `Qual é a capital da França?` (it answers `Paris`) and the pirate role once. `qwen3:8b` and `embeddinggemma` fit together in the GPU (7.5 of 8.2 GB) and stay loaded. `qwen3` needs thinking turned off (`THINKING_MODELS` in `assistant/generation/model.py`).
+
+**`qwen3:8b` with thinking turned on** (2026-11-03, dev sets only; the answer limit was raised to 4000 tokens because the thinking uses it; a one-off measurement, nothing in the repository changed):
+
+| Dev set | thinking off (the code today) | thinking on |
+|---|---|---|
+| English, right answers | 50 of 51 | **51 of 51** |
+| Portuguese, right answers | 48 of 51 | **49 of 51** |
+| Correct refusals (7 questions) | English 7, Portuguese 5 | **English 7, Portuguese 7** |
+| Typical answer time | 1.1 s (English), 1.2 s (Portuguese) | 5.5 s (English), 6.9 s (Portuguese) |
+| Slowest answers | 1.7 s, 2.0 s | 7.6 s at the 90th percentile in English, 12.2 s in Portuguese, **120 s once** |
+
+Thinking fixed the in-office duration of whitening (English) and made the installments and the capital of France questions refuse correctly (Portuguese). It also broke one: `adv-total-01` (the total cost of braces in 24 months) got an **empty answer after 120 s**, which is the model thinking until the budget ends. One more right answer per language is within the noise of 51 questions, so the gain is small and the cost is a wait 5 times longer plus the risk of an empty reply. Turning it on would need a limit on the time and on the thinking, and a fallback sentence when the answer comes back empty. Not done.
+
+The scheduling interpreter of the server still uses `llama3` (`AGENT_MODEL`); with `qwen3:8b` in the RAG and `llama3` there, three models would not fit in the GPU, so the interpreter has to move too, and its own evaluation (`scripts/eval-scheduling.ts`) has to be run first.
 
 - **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
 - **The 80% of 2026-10-30 to 2026-11-02 was a false alarm of the language check, not the assistant.** `check_rules` counted "a", "e", "do" and "as" as Portuguese words, so short English answers such as `A dental cleaning costs $40–$85.` were marked `not_english` (8 of the 10 wrong dev answers). With the check fixed the same answers score 49 of 51, the reference.
