@@ -6,9 +6,12 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
-# the clinic brochure (source) and the indexes built from it by assistant.ingest, one per strategy
-SOURCE_PDF = ROOT / "data" / "source" / "DentalSafe.pdf"
-INDEX_DIR = ROOT / "data" / "index"
+# The clinic and where its knowledge, indexes and answer key are. Each one can be pointed elsewhere with an environment
+# variable, to run another clinic (for example the Portuguese one) without touching the default: see docs/development.md.
+# The knowledge is a PDF brochure or, for any other extension, a Markdown file (one "## Title" per subject).
+SOURCE_PDF = Path(os.getenv("KNOWLEDGE_PATH") or ROOT / "data" / "source" / "DentalSafe.pdf")
+# the indexes built from the knowledge by assistant.ingest, one per strategy
+INDEX_DIR = Path(os.getenv("INDEX_DIR") or ROOT / "data" / "index")
 
 # chunking strategies and search experiments, edited by hand (read by assistant.settings)
 CONFIG_DIR = ROOT / "config"
@@ -17,7 +20,7 @@ EXPERIMENTS_PATH = CONFIG_DIR / "experiments.yaml"
 SCHEMAS_DIR = CONFIG_DIR / "schemas"
 
 # the clinic profile (identity and what is specific to its specialty) and one language package per language
-CLINIC_PATH = CONFIG_DIR / "clinic.yaml"
+CLINIC_PATH = Path(os.getenv("CLINIC_PATH") or CONFIG_DIR / "clinic.yaml")
 LANGUAGES_DIR = CONFIG_DIR / "languages"
 
 COLLECTION_NAME = "raglab"

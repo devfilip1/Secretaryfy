@@ -1,6 +1,7 @@
 """Answer key of questions: loading, validation, and subsets."""
 import hashlib
 import json
+import os
 from collections import Counter
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -11,7 +12,7 @@ import jsonschema
 from evaluation.normalize import FACT_UNITS, extract_values, locale_for, normalize_text
 
 PACKAGE_DIR = Path(__file__).parent
-ANSWER_KEY_PATH = PACKAGE_DIR / "data" / "answer_key.json"
+ANSWER_KEY_PATH = Path(os.getenv("ANSWER_KEY_PATH") or PACKAGE_DIR / "data" / "answer_key.json")
 SCHEMA_PATH = PACKAGE_DIR / "schemas" / "answer_key.schema.json"
 
 MIN_ITEMS = 60
@@ -125,10 +126,13 @@ def load_answer_key(path=ANSWER_KEY_PATH):
 
 @lru_cache(maxsize=1)
 def load_source_text():
-    """Full text of the clinic brochure, page by page."""
-    from pypdf import PdfReader
-
+    """Full text of the clinic knowledge as it is written in its file: a PDF page by page, or a Markdown file."""
     from assistant.config import SOURCE_PDF
+
+    if SOURCE_PDF.suffix.lower() != ".pdf":
+        return SOURCE_PDF.read_text(encoding="utf-8")
+
+    from pypdf import PdfReader
 
     return "\n".join(page.extract_text() for page in PdfReader(SOURCE_PDF).pages)
 

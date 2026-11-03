@@ -110,15 +110,21 @@ def default_knowledge_source():
     global _default_knowledge_instance
     if _default_knowledge_instance is None:
         from assistant.config import IGNORED_LINE_PREFIXES, INTRO_SECTION_SUFFIX, ROOT, SOURCE_PDF, TEXT_FIXES
+        from assistant.ingestion.markdown_source import MarkdownKnowledgeSource
         from assistant.ingestion.pdf_source import PdfBrochureSource
 
-        _default_knowledge_instance = PdfBrochureSource(
-            SOURCE_PDF,
-            name=SOURCE_PDF.relative_to(ROOT).as_posix(),
-            text_fixes=TEXT_FIXES,
-            ignored_line_prefixes=IGNORED_LINE_PREFIXES,
-            intro_suffix=INTRO_SECTION_SUFFIX,
-        )
+        path = SOURCE_PDF.resolve()
+        name = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else path.name
+        if path.suffix.lower() == ".pdf":
+            _default_knowledge_instance = PdfBrochureSource(
+                path,
+                name=name,
+                text_fixes=TEXT_FIXES,
+                ignored_line_prefixes=IGNORED_LINE_PREFIXES,
+                intro_suffix=INTRO_SECTION_SUFFIX,
+            )
+        else:
+            _default_knowledge_instance = MarkdownKnowledgeSource(path, name=name)
     return _default_knowledge_instance
 
 
