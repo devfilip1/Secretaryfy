@@ -5,6 +5,8 @@ from typing import Protocol
 from assistant.config import KEEP_ALIVE, OLLAMA_BASE_URL
 
 MAX_CACHED_MODELS = 4
+# Models that think before answering unless told not to. Thinking is turned off: it would use the answer budget and slow every answer.
+THINKING_MODELS = ("qwen3",)
 
 
 class TextGenerator(Protocol):
@@ -48,6 +50,8 @@ class OllamaChat:
             options["seed"] = seed
         if max_tokens is not None:
             options["num_predict"] = max_tokens
+        if model.startswith(THINKING_MODELS):
+            options["reasoning"] = False
         chat = ChatOllama(model=model, base_url=self._base_url, keep_alive=self._keep_alive, **options)
         self._models[key] = chat
         return chat

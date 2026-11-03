@@ -42,6 +42,24 @@ def test_only_the_options_that_are_set_reach_the_model(built):
     }
 
 
+def test_qwen3_models_get_thinking_turned_off(built):
+    OllamaChat().generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is False
+
+
+def test_models_other_than_qwen3_get_no_reasoning_argument(built):
+    OllamaChat().generate("hi", model="llama3", temperature=None, seed=None, max_tokens=None)
+
+    assert "reasoning" not in built[0].kwargs
+
+
+def test_qwen3_small_models_get_thinking_turned_off(built):
+    OllamaChat().generate("hi", model="qwen3:4b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is False
+
+
 def test_the_same_settings_reuse_the_model_and_other_settings_build_another(built):
     chat = OllamaChat()
 
