@@ -153,6 +153,34 @@ Answer evaluation without the judge, one run per variant, compared with the answ
 - Removing the synonyms cost no answer. The position of the right chunk (MRR) fell from 1.000 to 0.972 on holdout, so the synonyms help the ranking a little.
 - No question of the answer key needs a synonym that the brochure does not have. If one appears, set `synonyms: profile` in the experiment.
 
+## Portuguese (Stage 6c)
+
+A second clinic, "Sorriso Pleno", is a translation of DentalSafe: the same 11 subjects, the same numbers (in R$), and the same 72 questions with the same dev/holdout split (`data/answer_key_pt.json`, `language: pt`). Because only the language changes, a drop in the results is the cost of the language and not of the content. Its files: `data/source/sorrisopleno.md` (Markdown knowledge), `config/clinics/sorrisopleno.yaml` (profile), `config/languages/pt.yaml` (prompt, refusal, word lists).
+
+To run it, point the process at the clinic with environment variables (the default clinic is untouched; the Portuguese indexes go to `data/index/pt/`):
+
+```powershell
+$env:CLINIC_PATH = "config\clinics\sorrisopleno.yaml"
+$env:KNOWLEDGE_PATH = "data\source\sorrisopleno.md"
+$env:INDEX_DIR = "data\index\pt"
+$env:ANSWER_KEY_PATH = "evaluation\data\answer_key_pt.json"
+python -m assistant.ingest section
+python -m evaluation experiments section_vector section_bm25 section_hybrid
+```
+
+**Search only, 44 questions, `nomic-embed-text`, `section` strategy** (measured on 2026-11-02, no chat model involved):
+
+| | Vector | Words (BM25) | Hybrid (sent to the model) |
+|---|---|---|---|
+| English | 43 of 44 | 44 of 44 | 44 of 44 |
+| Portuguese | 40 of 44 | 41 of 44 | 42 of 44 |
+
+The word-search options on the Portuguese clinic (hybrid, 44 questions): 43 with `snowball` or with `snowball` + `stopwordsiso` and the clinic's synonyms, 42 with the assistant's choice (`snowball` + `stopwordsiso`, no synonyms), 41 with `no_synonyms`. In English all eight give 44.
+
+What the two hybrid misses have in common: `Onde vocês ficam?` and `Vocês têm e-mail?` are both answered by the opening block of the brochure (address, hours, contact). The library list of Portuguese stop words removes `onde`, `quanto` and `custa`, words that carry the intent of the question, and the brochure never writes "e-mail". The vector search finds the e-mail question but the word search pushes it out of the four chunks.
+
+Limits: 44 questions (one question is 2.3 points), the translation keeps the structure of the English brochure, and the answers of `llama3` and a multilingual embedding model are not measured yet.
+
 ## Limits of what is measured
 
 - The check is by value, not by sentence. If the answer assigns the duration of the cleaning to the whitening and both values are facts of the question, the deterministic score does not notice. The judge's "faithfulness" criterion exists for those cases.

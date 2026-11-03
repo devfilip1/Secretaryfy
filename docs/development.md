@@ -68,6 +68,8 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 
 The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example).
 
+To run another clinic without touching the default one, set `CLINIC_PATH` (the clinic file), `KNOWLEDGE_PATH` (a PDF, or a Markdown file with one `## Title` per subject), `INDEX_DIR` and, for the evaluation, `ANSWER_KEY_PATH`. The Portuguese clinic and the commands are in [rag/evaluation/README.md](../rag/evaluation/README.md#portuguese-stage-6c).
+
 ## Google Calendar setup
 
 Once, in the [Google Cloud Console](https://console.cloud.google.com/), in the project of `GOOGLE_CLIENT_ID`:
