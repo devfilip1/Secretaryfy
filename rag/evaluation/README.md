@@ -179,7 +179,19 @@ The word-search options on the Portuguese clinic (hybrid, 44 questions): 43 with
 
 What the two hybrid misses have in common: `Onde vocês ficam?` and `Vocês têm e-mail?` are both answered by the opening block of the brochure (address, hours, contact). The library list of Portuguese stop words removes `onde`, `quanto` and `custa`, words that carry the intent of the question, and the brochure never writes "e-mail". The vector search finds the e-mail question but the word search pushes it out of the four chunks.
 
-Limits: 44 questions (one question is 2.3 points), the translation keeps the structure of the English brochure, and the answers of `llama3` and a multilingual embedding model are not measured yet.
+**Answers of `llama3`, `--no-judge`, `section_hybrid`** (measured on 2026-11-02, `evaluation run`):
+
+| Set | English | Portuguese |
+|---|---|---|
+| dev, 51 questions | 41 right (80.4%) | 43 right (84.3%) |
+| holdout, 21 questions | 17 right (81.0%) | not measured: `llama3` loops on one question |
+
+- **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
+- **The reference of 2026-10-11 (96.1% dev, 0.7 s per answer) cannot be reproduced today with the same code.** Today an answer takes 8 s and the English dev gives 41 of 51, the same as `main` on 2026-10-30. Eight of the ten wrong English answers are false alarms of the language check: `check_rules` counts "a" as a Portuguese word, so a short answer such as `A dental cleaning costs $40–$85.` is marked `not_english`. This is the language heuristic of issue 3; it was not changed.
+- **Portuguese, dev:** factual accuracy 93.2% (English 100%), service rules 100%, correct refusal 28.6% (2 of 7; English 6 of 7). The 8 wrong answers are 5 invented answers to questions the brochure does not answer (installments, parking, dental crown, student discount, "tell me a joke"), 2 where the search missed the opening block (the answer keeps the placeholders `[endereço da clínica]` and `[email]`) and 1 that gave the initial cost without the monthly fee. In Portuguese `llama3` follows the refusal rule much worse.
+- **Portuguese, holdout:** `Que problemas o tratamento de canal resolve?` makes `llama3` repeat itself until Ollama stops it (`prediction aborted, token repeat limit reached`). It happens every time, and the evaluation stops at that question.
+
+Limits: 44 questions in the search table (one question is 2.3 points), the translation keeps the structure of the English brochure, and a multilingual embedding model is not measured yet.
 
 ## Limits of what is measured
 
