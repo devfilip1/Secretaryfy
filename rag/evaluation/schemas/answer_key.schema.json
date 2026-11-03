@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "properties": {
     "version": { "type": "string", "minLength": 1 },
+    "language": { "type": "string", "enum": ["en", "pt"], "description": "Language of the questions and of the brochure; default en" },
     "procedures": {
       "type": "object",
       "additionalProperties": {

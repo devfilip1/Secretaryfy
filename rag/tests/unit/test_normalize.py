@@ -1,6 +1,8 @@
 import pytest
 
 from evaluation.normalize import (
+    EN,
+    PT,
     canonical_text,
     extract_durations,
     extract_money,
@@ -8,6 +10,7 @@ from evaluation.normalize import (
     extract_values,
     format_money,
     format_time,
+    locale_for,
     normalize_text,
     words_to_number,
 )
@@ -158,3 +161,47 @@ def test_canonical_text_keeps_the_pronoun_but_converts_a_range():
 def test_formatting():
     assert (format_money(1500), format_money(99.9)) == ("$1,500", "$99.90")
     assert (format_time(540), format_time(1080), format_time(0), format_time(750)) == ("9:00 AM", "6:00 PM", "12:00 AM", "12:30 PM")
+
+
+PT_VALUES = [
+    ("Preço: R$ 40 a R$ 85", [("money", 40), ("money", 85)]),
+    ("R$ 900 a R$ 2.000", [("money", 900), ("money", 2000)]),
+    ("R$900-2.000", [("money", 900), ("money", 2000)]),
+    ("custa de 180 a R$ 450", [("money", 180), ("money", 450)]),
+    ("R$ 99,90", [("money", 99.9)]),
+    ("por R$ 1.500,50", [("money", 1500.5)]),
+    ("R$ 2 mil", [("money", 2000)]),
+    ("400 reais por dente", [("money", 400)]),
+    ("Duração: 30 a 50 minutos", [("duration", 30), ("duration", 50)]),
+    ("12 a 36 meses", [("duration", 12), ("duration", 36)]),
+    ("até 14 dias", [("duration", 20160)]),
+    ("1 a 3 sessões", [("duration", 1), ("duration", 3)]),
+    ("2 a 3 consultas", [("duration", 2), ("duration", 3)]),
+    ("durabilidade de mais de 10 anos", [("duration", 120)]),
+    ("Segunda a sexta: 9h às 18h", [("time", 540), ("time", 1080)]),
+    ("das 9h30 às 14:00", [("time", 570), ("time", 840)]),
+]
+
+
+@pytest.mark.parametrize("text, expected", PT_VALUES)
+def test_portuguese_values(text, expected):
+    assert [(v.kind, v.value) for v in extract_values(text, PT)] == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["(21) 5555-0148", "Avenida Atlântica, 125, Sala 204", "Rio de Janeiro, RJ, 22010-000, Brasil", "Não tenho essa informação."],
+)
+def test_portuguese_text_without_money_duration_or_time(text):
+    assert extract_values(text, PT) == []
+
+
+def test_portuguese_formatting():
+    assert (PT.format_money(1500), PT.format_money(99.9)) == ("R$ 1.500", "R$ 99,90")
+    assert (PT.format_time(540), PT.format_time(1110)) == ("9h", "18h30")
+
+
+def test_the_locale_is_chosen_by_language_and_an_unknown_one_is_refused():
+    assert locale_for("pt") is PT and locale_for("en") is EN
+    with pytest.raises(ValueError, match="fr"):
+        locale_for("fr")

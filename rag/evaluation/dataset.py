@@ -8,7 +8,7 @@ from pathlib import Path
 
 import jsonschema
 
-from evaluation.normalize import FACT_UNITS, extract_values, normalize_text
+from evaluation.normalize import FACT_UNITS, extract_values, locale_for, normalize_text
 
 PACKAGE_DIR = Path(__file__).parent
 ANSWER_KEY_PATH = PACKAGE_DIR / "data" / "answer_key.json"
@@ -67,6 +67,7 @@ class Item:
 class AnswerKey:
     version: str
     hash: str
+    language: str = "en"  # how money, durations and clock times are written, and what a refusal sounds like
     procedures: dict = field(default_factory=dict)  # name -> list of anchors
     items: tuple = ()
 
@@ -112,7 +113,9 @@ def parse_answer_key(data, file_hash=""):
         for raw in data["items"]
     )
     procedures = {name: list(value["anchors"]) for name, value in data["procedures"].items()}
-    return AnswerKey(version=data["version"], hash=file_hash, procedures=procedures, items=items)
+    return AnswerKey(
+        version=data["version"], hash=file_hash, language=data.get("language", "en"), procedures=procedures, items=items
+    )
 
 
 def load_answer_key(path=ANSWER_KEY_PATH):
@@ -134,6 +137,7 @@ def validate(answer_key, source_text, check_coverage=True):
     """Applies the validation rules of the answer key. Returns the list of problems."""
     problems = []
     source = normalize_text(source_text)
+    locale = locale_for(answer_key.language)
     by_id = answer_key.by_id()
 
     for item_id, count in Counter(item.id for item in answer_key.items).items():
@@ -156,7 +160,7 @@ def validate(answer_key, source_text, check_coverage=True):
                     f"{item.id}: the evidence \"{evidence}\" appears {occurrences} times in the brochure (must be 1)"
                 )
 
-        evidence_values = {v.key for evidence in item.evidence for v in extract_values(evidence)}
+        evidence_values = {v.key for evidence in item.evidence for v in extract_values(evidence, locale)}
         for fact in item.expected_facts:
             for target in fact.targets():
                 if target not in evidence_values:

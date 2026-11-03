@@ -156,7 +156,7 @@ Answer evaluation without the judge, one run per variant, compared with the answ
 ## Limits of what is measured
 
 - The check is by value, not by sentence. If the answer assigns the duration of the cleaning to the whitening and both values are facts of the question, the deterministic score does not notice. The judge's "faithfulness" criterion exists for those cases.
-- A refusal is recognized by a list of phrases in `answer_metrics.py` (`ABSTENTION_PATTERNS`). The sentence the assistant uses is in `config/languages/en.yaml` (`no_answer`); if it changes, update the list. A unit test ties the two together.
+- A refusal is recognized by a list of phrases in the `Locale` of the answer key's language (`normalize.py`, `abstention_patterns`). The sentence the assistant uses is in `config/languages/<language>.yaml` (`no_answer`); if it changes, update the list. The `Locale` also holds how that language writes money, durations and clock times (`R$ 2.000`, `30 a 50 minutos`, `9h` in Portuguese), the terms the assistant must not say and the language check. The answer key chooses it with its top-level `language` field (default `en`). Portuguese reads numbers written in digits only, and `9h` is a clock time, never a duration. A unit test ties the two together.
 - The evaluation runs with `temperature=0` and `seed=42`. The chat (`python -m assistant.chat`) also uses temperature 0, with no fixed `seed`.
 - Only single-message questions. Conversations with several turns are not evaluated.
 
