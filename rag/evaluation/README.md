@@ -179,6 +179,16 @@ The word-search options on the Portuguese clinic (hybrid, 44 questions): 43 with
 
 What the two hybrid misses have in common: `Onde vocês ficam?` and `Vocês têm e-mail?` are both answered by the opening block of the brochure (address, hours, contact). The library list of Portuguese stop words removes `onde`, `quanto` and `custa`, words that carry the intent of the question, and the brochure never writes "e-mail". The vector search finds the e-mail question but the word search pushes it out of the four chunks.
 
+**Embedding models, search only, same 44 questions** (measured on 2026-11-02; questions found of 44, `section` strategy; the word search is the same for every model: 41 in Portuguese, 44 in English):
+
+| Model | Size, dimensions | Portuguese vector / hybrid | English vector / hybrid |
+|---|---|---|---|
+| `nomic-embed-text` (assistant today) | 274 MB, 768 | 40 / 42 | 43 / 44 |
+| `embeddinggemma` | 621 MB, 768 | 44 / 44 | 44 / 44 |
+| `embeddinggemma-2:270m` | 303 MB, 512 | 43 / 43 | 44 / 44 |
+
+Both Gemma models fix the two Portuguese misses and are not worse in English. The prefixes come from the model cards (`PREFIXES` in `assistant/storage/embeddings.py`). The difference between the two Gemma models is one question, which is within the noise of 44 questions that were also used to choose; the models were not compared on the answers of `llama3` yet.
+
 **Answers of `llama3`, `--no-judge`, `section_hybrid`** (measured on 2026-11-02, `evaluation run`):
 
 | Set | English | Portuguese |
@@ -188,6 +198,7 @@ What the two hybrid misses have in common: `Onde vocês ficam?` and `Vocês têm
 
 - **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
 - **The reference of 2026-10-11 (96.1% dev, 0.7 s per answer) cannot be reproduced today with the same code.** Today an answer takes 8 s and the English dev gives 41 of 51, the same as `main` on 2026-10-30. Eight of the ten wrong English answers are false alarms of the language check: `check_rules` counts "a" as a Portuguese word, so a short answer such as `A dental cleaning costs $40–$85.` is marked `not_english`. This is the language heuristic of issue 3; it was not changed.
+- **Speed:** Ollama is set to keep one model loaded (`OLLAMA_MAX_LOADED_MODELS=1`), so each question swaps `llama3` and the embedding model: about 3 s to load the embedding model and 4.6 s to load `llama3` again. That is the 8 s per answer. With both loaded (`OLLAMA_MAX_LOADED_MODELS=2`, if the GPU memory allows) the answers should be fast again; not measured.
 - **Portuguese, dev:** factual accuracy 93.2% (English 100%), service rules 100%, correct refusal 28.6% (2 of 7; English 6 of 7). The 8 wrong answers are 5 invented answers to questions the brochure does not answer (installments, parking, dental crown, student discount, "tell me a joke"), 2 where the search missed the opening block (the answer keeps the placeholders `[endereço da clínica]` and `[email]`) and 1 that gave the initial cost without the monthly fee. In Portuguese `llama3` follows the refusal rule much worse.
 - **Portuguese, holdout:** `Que problemas o tratamento de canal resolve?` makes `llama3` repeat itself until Ollama stops it (`prediction aborted, token repeat limit reached`). It happens every time, and the evaluation stops at that question.
 
