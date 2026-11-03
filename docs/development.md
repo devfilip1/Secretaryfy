@@ -5,7 +5,7 @@
 - **Node.js 24** and npm
 - **Docker Desktop** (Postgres 17, Redis, Evolution API)
 - **Python 3.14** (RAG service)
-- **[Ollama](https://ollama.com)** with `llama3` and `nomic-embed-text` pulled
+- **[Ollama](https://ollama.com)** with `llama3` and `embeddinggemma` pulled
 - A **WhatsApp number** to connect (ideally not a personal one; see the [anti-ban advice](#keeping-the-number-safe))
 - A **Google Cloud project** with an OAuth client, and a Google account whose calendar the clinic uses
 
@@ -18,7 +18,7 @@ Four things run at once: Docker, the RAG service, the server and (in development
 ```bash
 # 1. Models
 ollama pull llama3
-ollama pull nomic-embed-text
+ollama pull embeddinggemma
 
 # 2. RAG service (PowerShell, from rag/)
 python -m venv .venv

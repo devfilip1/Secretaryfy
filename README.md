@@ -17,7 +17,7 @@ A WhatsApp assistant for clinics. It answers patients' questions from the clinic
 Requires Node 24, Docker Desktop, Python 3.14 and [Ollama](https://ollama.com).
 
 ```bash
-ollama pull llama3 && ollama pull nomic-embed-text
+ollama pull llama3 && ollama pull embeddinggemma
 
 # RAG service (PowerShell, in rag/)
 python -m venv .venv

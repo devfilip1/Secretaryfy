@@ -34,7 +34,7 @@ One Google account and one calendar per installation, chosen in the panel ([goog
 
 ## Ollama
 
-Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`nomic-embed-text`), query rewriting and answers (`llama3`).
+Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`embeddinggemma`), query rewriting and answers (`llama3`).
 
 - Interpreter call: `POST {OLLAMA_URL}/api/chat` with `stream: false`, `format: <JSON Schema>`, `temperature: 0`, `keep_alive: "30m"`, and a 20 s timeout. Non-JSON output or any error raises `InterpreterUnavailable`.
 - The model in use is `llama3:latest`: 8.0B parameters, Q4_0 quantization, 8k context. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models.

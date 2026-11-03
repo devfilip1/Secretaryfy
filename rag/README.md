@@ -19,7 +19,7 @@ Measured right after the copy (run `20261015-233316`, compared with the referenc
 
 ## Setup
 
-Requires Python 3.14 and [Ollama](https://ollama.com) with `llama3` and `nomic-embed-text`.
+Requires Python 3.14 and [Ollama](https://ollama.com) with `llama3` and `embeddinggemma`.
 
 ```powershell
 python -m venv .venv
