@@ -8,11 +8,19 @@ from typing import Protocol
 
 
 @dataclass(frozen=True)
+class Section:
+    """One subject of the document: a treatment, or the clinic itself (address, hours, contact)."""
+
+    title: str
+    body: tuple[str, ...]  # the lines under the title; a list item starts with "- "
+
+
+@dataclass(frozen=True)
 class KnowledgeDocument:
     name: str  # how the source is shown in each chunk's metadata
     version: str  # changes when the content changes; recorded in the manifest of every index built from it
-    pages: tuple[str, ...]  # clean text, one entry per page, in reading order
-    intro_suffix: str  # a document that opens with its own name has an opening block: "<name> — <this suffix>"
+    pages: tuple[str, ...]  # clean text, one entry per page, in reading order; a source without pages has one
+    sections: tuple[Section, ...]  # the same content split by subject; the source decides where each one starts
 
 
 class KnowledgeSource(Protocol):

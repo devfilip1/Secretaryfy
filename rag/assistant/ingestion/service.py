@@ -4,16 +4,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 from assistant.ingestion.chunking import (
-    HEADING_STOPWORDS,
     STRATEGY_TYPES,
     build_chunks,
-    is_heading,
     split_by_characters,
     split_by_page,
     split_by_section,
-    split_sections,
 )
-from assistant.ingestion.pdf_source import BULLET, PAGE_HEADER, clean_text
+from assistant.ingestion.pdf_source import BULLET, HEADING_STOPWORDS, PAGE_HEADER, clean_text, is_heading, split_sections
 from assistant.ingestion.source import KnowledgeDocument, KnowledgeSource
 from assistant.storage.embeddings import PrefixedEmbeddings
 from assistant.index import chunks_path, index_dir, write_manifest

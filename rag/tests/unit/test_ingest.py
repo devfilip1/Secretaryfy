@@ -3,7 +3,7 @@ import pytest
 from assistant.composition import build_knowledge_source
 from assistant.ingest import build_chunks, is_heading, split_sections
 from assistant.ingestion.pdf_source import clean_text as clean_pdf_text
-from assistant.ingestion.source import KnowledgeDocument
+from assistant.ingestion.source import KnowledgeDocument, Section
 from assistant.settings import SettingsError, Strategy
 
 B = "\x7f"  # list marker as it comes out of the PDF
@@ -56,7 +56,9 @@ def clean_text(text):
 
 
 def document(pages, version="pdf-1"):
-    return KnowledgeDocument(SOURCE_NAME, version, tuple(clean_text(page) for page in pages), INTRO_SUFFIX)
+    cleaned = tuple(clean_text(page) for page in pages)
+    sections = tuple(Section(title, tuple(body)) for title, body in split_sections("\n".join(cleaned), INTRO_SUFFIX))
+    return KnowledgeDocument(SOURCE_NAME, version, cleaned, sections)
 
 
 class FakeSource:
@@ -507,5 +509,6 @@ def test_the_pdf_source_renders_a_document_and_versions_it_by_content(tmp_path):
     loaded = source.load()
 
     assert loaded.version == source.version() == hashlib.sha256(source.path.read_bytes()).hexdigest()[:16]
-    assert loaded.name == SOURCE_NAME and loaded.intro_suffix == INTRO_SUFFIX
+    assert loaded.name == SOURCE_NAME
+    assert loaded.sections[0].title == CLINIC and loaded.sections[1].title == CLEANING
     assert loaded.pages and all(B not in page and "fictional" not in page for page in loaded.pages)
