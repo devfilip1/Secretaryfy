@@ -2,10 +2,10 @@
 from collections.abc import Iterable
 from typing import Protocol
 
-from assistant.config import KEEP_ALIVE, OLLAMA_BASE_URL
+from assistant.config import KEEP_ALIVE, OLLAMA_BASE_URL, OLLAMA_THINKING, THINKING_ANSWER_TOKENS
 
 MAX_CACHED_MODELS = 4
-# Models that think before answering unless told not to. Thinking is turned off: it would use the answer budget and slow every answer.
+# Models that think before answering unless told not to. Thinking is off unless OLLAMA_THINKING is on: it uses the answer budget and slows every answer.
 THINKING_MODELS = ("qwen3",)
 
 
@@ -21,9 +21,10 @@ class TextGenerator(Protocol):
 class OllamaChat:
     """Text generation through Ollama. Keeps the langchain model of the last few combinations of settings."""
 
-    def __init__(self, base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE):
+    def __init__(self, base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE, thinking: bool = OLLAMA_THINKING):
         self._base_url = base_url
         self._keep_alive = keep_alive
+        self._thinking = thinking
         self._models = {}  # the order is the usage order: the first key is the least recently used
 
     def generate(self, prompt, *, model, temperature, seed, max_tokens):
@@ -51,11 +52,16 @@ class OllamaChat:
         if max_tokens is not None:
             options["num_predict"] = max_tokens
         if model.startswith(THINKING_MODELS):
-            options["reasoning"] = False
+            if self._thinking:
+                options["reasoning"] = True
+                if max_tokens is not None:
+                    options["num_predict"] = max(max_tokens, THINKING_ANSWER_TOKENS)
+            else:
+                options["reasoning"] = False
         chat = ChatOllama(model=model, base_url=self._base_url, keep_alive=self._keep_alive, **options)
         self._models[key] = chat
         return chat
 
 
-def build_generator(base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE) -> TextGenerator:
-    return OllamaChat(base_url=base_url, keep_alive=keep_alive)
+def build_generator(base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE, thinking=OLLAMA_THINKING) -> TextGenerator:
+    return OllamaChat(base_url=base_url, keep_alive=keep_alive, thinking=thinking)

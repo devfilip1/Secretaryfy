@@ -60,6 +60,28 @@ def test_qwen3_small_models_get_thinking_turned_off(built):
     assert built[0].kwargs["reasoning"] is False
 
 
+def test_thinking_on_turns_thinking_on_and_raises_the_answer_budget(built):
+    OllamaChat(thinking=True).generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=200)
+
+    assert built[0].kwargs["reasoning"] is True
+    assert built[0].kwargs["num_predict"] >= 2000
+
+
+def test_thinking_on_without_a_token_cap_leaves_num_predict_unset(built):
+    OllamaChat(thinking=True).generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is True
+    assert "num_predict" not in built[0].kwargs
+
+
+@pytest.mark.parametrize("thinking", [False, True])
+def test_models_other_than_qwen3_are_the_same_whatever_the_thinking_setting(built, thinking):
+    OllamaChat(thinking=thinking).generate("hi", model="llama3", temperature=None, seed=None, max_tokens=50)
+
+    assert "reasoning" not in built[0].kwargs
+    assert built[0].kwargs["num_predict"] == 50
+
+
 def test_the_same_settings_reuse_the_model_and_other_settings_build_another(built):
     chat = OllamaChat()
 

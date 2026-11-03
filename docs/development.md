@@ -66,7 +66,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |
 | `PORT`, `LOG_LEVEL` | no | 3000, `info` |
 
-The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example).
+The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example). `OLLAMA_CHAT_MODEL` and `OLLAMA_EMBEDDING_MODEL` choose the models. `OLLAMA_THINKING=on` (default `off`) lets a `qwen3` chat model think before answering: a bit more right, about 5 times slower, and it can end with an empty answer; it is read at start, so restart the service after changing it.
 
 To run another clinic without touching the default one, set `CLINIC_PATH` (the clinic file), `KNOWLEDGE_PATH` (a PDF, or a Markdown file with one `## Title` per subject), `INDEX_DIR` and, for the evaluation, `ANSWER_KEY_PATH`. The Portuguese clinic and the commands are in [rag/evaluation/README.md](../rag/evaluation/README.md#portuguese-stage-6c).
 
