@@ -208,6 +208,18 @@ Both Gemma models fix the two Portuguese misses and are not worse in English. Th
 
 The reference of 2026-10-11 (`nomic-embed-text`, the prompt before 2026-10-25) was 96.1% on dev and 90.5% on holdout.
 
+**Chat model: `qwen3:8b` against `llama3`** (2026-11-03, same prompt, same `embeddinggemma` indexes, thinking turned off for `qwen3`; right answers):
+
+| Set | `llama3` | `qwen3:8b` |
+|---|---|---|
+| English dev (51) | 49 (96.1%) | **50 (98.0%)** |
+| English holdout (21) | 18 (85.7%) | **21 (100%)** |
+| Portuguese dev (51) | 46 (90.2%) | **48 (94.1%)** |
+| Portuguese holdout (21) | 18 (85.7%) | **20 (95.2%)** |
+| Typical answer time | 0.6 s (English), 1.2 s (Portuguese) | 1.1 s (English), 1.2 to 1.4 s (Portuguese) |
+
+`qwen3:8b` refuses what the brochure does not say in all 7 + 3 English questions (`llama3`: 5 of 7 and 0 of 3 counting the two refusals the check does not know) and in 5 of 7 + 2 of 3 Portuguese ones. What it still gets wrong: English, the in-office duration of whitening (it gives only the 14 days); Portuguese, the durability of the implant, `Posso pagar parcelado?` (`Sim, temos opções de pagamento facilitadas`, which the brochure half says), `Qual é a capital da França?` (it answers `Paris`) and the pirate role once. `qwen3:8b` and `embeddinggemma` fit together in the GPU (7.5 of 8.2 GB) and stay loaded. `qwen3` needs thinking turned off (`THINKING_MODELS` in `assistant/generation/model.py`). The scheduling interpreter of the server still uses `llama3` (`AGENT_MODEL`); with `qwen3:8b` in the RAG and `llama3` there, three models would not fit in the GPU, so the interpreter has to move too, and its own evaluation (`scripts/eval-scheduling.ts`) has to be run first.
+
 - **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
 - **The 80% of 2026-10-30 to 2026-11-02 was a false alarm of the language check, not the assistant.** `check_rules` counted "a", "e", "do" and "as" as Portuguese words, so short English answers such as `A dental cleaning costs $40–$85.` were marked `not_english` (8 of the 10 wrong dev answers). With the check fixed the same answers score 49 of 51, the reference.
 - **Embedding:** with the same fixed check, `nomic-embed-text` scores 49 of 51 on dev and 19 of 21 on holdout; `embeddinggemma` scores 49 and 18. The difference is one question, `out-dentist-01`, where `llama3` answers `Hi!` instead of refusing. The chunks sent to the model change order with a new embedding model and `llama3` reacts to that (the chunks are the same for only 18 of the 51 dev questions).
