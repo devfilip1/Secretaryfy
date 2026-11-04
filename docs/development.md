@@ -62,6 +62,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
 | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`qwen3:8b`), timeout (20000) |
+| `HUMANIZE_REPLIES` | no | `1` lets the model reword scheduling replies so they sound human (opt-in: one extra model call, ~1 s; a code guard falls back to the fixed text). Default `0` |
 | `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES`, `REMINDER_TICK_MS` | no | Reminder window (1440 / 120 min) and scheduler tick (60000 ms). Shorten only to test |
 | `ANTIBAN_*` | no | About 30 anti-ban limits; the ones most likely to change: `ANTIBAN_CONVERSATIONS_PER_DAY` (150), `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` (8 / 200), `ANTIBAN_ALLOWED_LINK_DOMAINS` (empty), `ANTIBAN_WARMUP_DAYS` (14; 0 turns it off) |
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |

@@ -33,6 +33,7 @@ function setup({
   name = null,
   reminded = null,
   messagesSinceReminder = 1,
+  humanize,
 }: {
   intent?: Interpretation["intent"];
   session?: SchedulingSessionRow | null;
@@ -48,6 +49,7 @@ function setup({
   /** Horário cujo lembrete saiu e espera a resposta (specs/006) */
   reminded?: AppointmentRow | null;
   messagesSinceReminder?: number;
+  humanize?: (reply: string, customerText: string) => Promise<string>;
 }) {
   const inputs: InterpretInput[] = [];
   const handled: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }[] = [];
@@ -112,6 +114,7 @@ function setup({
       asked.push(q);
       return "do folheto";
     },
+    humanize,
   });
   return { reply: () => reply({ conversationId: "c1", message: MESSAGE }, log), inputs, handled, asked, histories, savedNames, askedAt, confirmed, notes };
 }
@@ -157,6 +160,18 @@ test("o interpretador recebe a etapa, as opções e o histórico sem a mensagem 
 test("Ollama fora do ar: sem etapa vai para o folheto; com etapa, indisponibilidade", async () => {
   assert.deepEqual(await setup({ unavailable: true }).reply(), { text: "do folheto", split: true });
   assert.deepEqual(await setup({ unavailable: true, session: SESSION }).reply(), { text: UNAVAILABLE_MESSAGE });
+});
+
+test("a reescrita só mexe na resposta do fluxo, nunca no folheto nem no handoff", async () => {
+  const seen: string[] = [];
+  const humanize = async (reply: string) => {
+    seen.push(reply);
+    return `[h] ${reply}`;
+  };
+  assert.deepEqual(await setup({ intent: "book", humanize }).reply(), { text: "[h] do agendamento", ignorePause: undefined });
+  assert.deepEqual(await setup({ intent: "question", humanize }).reply(), { text: "do folheto", split: true });
+  assert.deepEqual(await setup({ intent: "unclear", session: SESSION, humanize }).reply(), { text: "handoff", ignorePause: true });
+  assert.deepEqual(seen, ["do agendamento"]);
 });
 
 test("o folheto recebe o histórico sem a mensagem atual", async () => {

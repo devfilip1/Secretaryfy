@@ -36,6 +36,8 @@ const envSchema = z.object({
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),
   AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  // Reescreve as respostas do agendamento para soarem humanas (opt-in, uma chamada extra ao modelo; humanize.ts)
+  HUMANIZE_REPLIES: z.stringbool().default(false),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
   PANEL_URL: z.url().optional(),
 

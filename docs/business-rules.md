@@ -91,6 +91,10 @@ A booking made by staff runs the same checks as the assistant (rules, free times
 
 > ⚠️ Known limitation: the `+` is dropped before counting, so any 10–11 digit input is read as Brazilian. A US or Canadian number (`+1` plus 10 digits, 11 digits in total) becomes `551…` and can't be booked from the panel. Other countries with 12–15 digits work. See [phone.test.ts](../src/modules/scheduling/phone.test.ts).
 
+### BR-SCH-13 · Replies may be reworded, facts may not
+
+With `HUMANIZE_REPLIES=1` the model may reword a scheduling reply, but only if every time, date, number, name, list line and quoted option survives unchanged (see [message-pipeline](message-pipeline.md#optional-humanizer-humanize_replies1)). Otherwise the fixed text is sent. Handoffs are never reworded.
+
 ## Names and customer registry
 
 ### BR-NAM-01 · The assistant asks for the name once

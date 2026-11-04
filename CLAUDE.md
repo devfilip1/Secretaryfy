@@ -25,7 +25,7 @@ cd rag && .\run.ps1 test                             # RAG unit tests
 
 ## Rules the code doesn't show
 - Every WhatsApp send goes through the gate (`gate.sendAssistant` / `gate.sendOperator` in `src/modules/antiban/gate.ts`). Never call `evolution.ts` send functions directly.
-- The model only interprets. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Prefer a rule in `interpret.ts` over prompt changes.
+- The model only interprets, and may only rephrase flow replies when HUMANIZE_REPLIES=1, under a code guard (`guardRewrite` in `humanize.ts`) that falls back to the fixed text. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Prefer a rule in `interpret.ts` over prompt changes.
 - Appointments belong to the **phone**, not the conversation (`conversation_id` can be null). Booking from anywhere goes through `bookSlot` in `scheduling/booking.ts`.
 - Google Calendar is the source of truth: call `syncAppointment` before acting on a stored appointment.
 - Single process only: calendar lock, send queue, SSE bus and reminder timer are in memory.

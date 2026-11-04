@@ -12,7 +12,7 @@ import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/han
 import { instance } from "../modules/whatsapp/instance.js";
 import { connectionStore, rulesStore } from "./calendar.js";
 import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
-import { schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
+import { humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
 import { fixedTextsFor } from "../modules/antiban/texts.js";
 
 // Textos fixos na língua da clínica (CLINIC_LANGUAGE)
@@ -26,6 +26,7 @@ const reply = createSchedulingRouter({
   }),
   flow: schedulingFlow,
   replies: schedulingReplies,
+  humanize,
   store: schedulingStore,
   inbox,
   connection: connectionStore,

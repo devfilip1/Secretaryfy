@@ -12,7 +12,7 @@ Everything Secretaryfy does for a patient starts with a WhatsApp message and end
 | 4. Handle | Opt-out/opt-in, paused conversation, then ask for a reply | [handle-message.ts](../src/modules/whatsapp/handle-message.ts) |
 | 5. Route | Known name, reminder answer, interpret, then scheduling or brochure | [router.ts](../src/modules/scheduling/router.ts) |
 | 6a. Interpret | Rules first; the model only when rules can't decide | [interpret.ts](../src/modules/scheduling/interpret.ts), [ollama.ts](../src/modules/scheduling/ollama.ts) |
-| 6b. Scheduling | State machine decides the next step and writes the reply | [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
+| 6b. Scheduling | State machine decides the next step and writes the reply (optionally reworded by the humanizer, see below) | [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
 | 6c. Brochure | RAG service answers from the clinic's PDF | [rag/client.ts](../src/modules/rag/client.ts), [rag/server.py](../rag/server.py) |
 | 7. Gate | Anti-ban rules, read receipt, typing, queue, send | [gate.ts](../src/modules/antiban/gate.ts) |
 
@@ -147,6 +147,10 @@ The Evolution API then echoes the sent message back through the webhook; the uni
 - `npx tsx --env-file=.env scripts/eval-scheduling.ts`: 23 scripted booking conversations against the **real** local model and a fake calendar; reports per-criterion results and latency (last run: 23/23).
 - `npx tsx --env-file=.env scripts/simulate-customer.ts "I'd like to book an appointment"`: posts a message to the webhook as if it came from your own number; the reply arrives in your WhatsApp "You" chat.
 - Manual end-to-end scripts: [specs/003 quickstart](../specs/003-google-calendar-scheduling/quickstart.md), [specs/004 quickstart](../specs/004-whatsapp-anti-ban/quickstart.md), [specs/006 quickstart](../specs/006-panel-appointments-reminders/quickstart.md).
+
+### Optional humanizer (HUMANIZE_REPLIES=1)
+
+Only the text of a scheduling flow reply (not brochure answers, handoffs, reminders or the interpreter-unavailable text) can pass through [humanize.ts](../src/modules/scheduling/humanize.ts). The model rewords it as a warm message, and `guardRewrite` accepts the rewrite only if every numbered line, 📅 👤 🦷 line, number, time, quoted word and YES/NO/SIM/NÃO of the original survives unchanged, with no new numbers, no markdown and no growth beyond about 1.6x. Any refusal, error or timeout sends the fixed text.
 
 ## See also
 
