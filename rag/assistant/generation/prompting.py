@@ -56,4 +56,7 @@ def clean_answer(text, clinic: ClinicProfile, history=None):
         rest = clinic.greeting.sub("", text, count=1)
         if rest:
             text = rest[0].upper() + rest[1:]
+    if not text.strip():
+        # an empty reply (the model ran out of tokens) must not reach the patient
+        return clinic.no_answer
     return text

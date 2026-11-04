@@ -458,6 +458,17 @@ def test_greeting_is_removed_only_in_an_ongoing_conversation():
     assert clean_answer("Highly recommended.", CONVERSATION) == "Highly recommended."
 
 
+def test_empty_reply_gives_the_refusal_sentence():
+    # the model ran out of tokens: the patient gets the refusal sentence, never a blank message
+    assert clean_answer("") == NO_ANSWER
+    assert clean_answer("  \n\t ") == NO_ANSWER
+    assert clean_answer("\n\n---\n\n(Note: I did not invite the customer to schedule.)") == NO_ANSWER
+
+
+def test_normal_reply_is_unchanged_by_the_empty_check():
+    assert clean_answer("Braces cost $180–$450.") == "Braces cost $180–$450."
+
+
 # --- injected embeddings and the dimension check ---
 
 class RecordingEmbeddings:
@@ -578,6 +589,16 @@ def test_answer_asks_the_model_with_the_configured_settings_and_cleans_the_reply
         ("llama3.1", 0.3, 11, 99),
     ]
 
+
+def test_empty_model_reply_gives_the_refusal_sentence_to_the_patient():
+    from dataclasses import replace
+
+    generator = FakeGenerator("")
+    cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
+
+    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
+
+    assert result.answer == NO_ANSWER
 
 def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pieces():
     from dataclasses import replace
