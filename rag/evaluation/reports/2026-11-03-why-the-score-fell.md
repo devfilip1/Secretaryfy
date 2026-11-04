@@ -80,4 +80,4 @@ Both are correct refusals. Counted as such, the English holdout scores 19 of 21 
 - Widen the refusal phrases (`We don't have…`, `não temos…`) or, better, recognize a refusal by the sentence the assistant is told to use plus the sentences that follow the same pattern.
 
 - Portuguese is a different problem and is measured in the README of the evaluation: `llama3` refuses only 2 of 7 unanswerable questions and loops on one holdout question.
-- The reference run in `runs/baseline.json` should be replaced by a run made with the current prompt and the fixed check.
+- Done on 2026-11-03: the reference in `runs/baseline.json` is now a run with the current prompt, `embeddinggemma` and the language check on `expected_language`: dev 49 of 51 (96.1%), holdout 19 of 21 (90.5%).

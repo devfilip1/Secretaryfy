@@ -41,7 +41,9 @@ While adjusting, use `--smoke` (10 questions) and `--no-judge` to get an answer 
 
 ## Current results
 
-Measured on 2026-10-11 with `llama3`, `nomic-embed-text`, and the `section_hybrid` experiment. The runs are stored in `evaluation/runs/`.
+**Reference since 2026-11-03** (`evaluation/runs/baseline.json`): `llama3` with `embeddinggemma`, the prompt of 2026-10-25 and the language check fixed on `expected_language`: dev `20261103-215520-7-llama3-en-dev`, 49 of 51 (96.1%); holdout `20261103-215550-7-llama3-en-holdout`, 19 of 21 (90.5%). A run that changes the prompt, the model or the search is compared with these.
+
+The table below is the earlier reference, measured on 2026-10-11 with `llama3`, `nomic-embed-text`, and the `section_hybrid` experiment, kept as history. The runs are stored in `evaluation/runs/`.
 
 | Run | Subset | Overall score | Typical answer time |
 |---|---|---|---|
@@ -232,7 +234,7 @@ The reference of 2026-10-11 (`nomic-embed-text`, the prompt before 2026-10-25) w
 
 Thinking fixed the in-office duration of whitening (English) and made the installments and the capital of France questions refuse correctly (Portuguese). It also broke one: `adv-total-01` (the total cost of braces in 24 months) got an **empty answer after 120 s**, which is the model thinking until the budget ends. One more right answer per language is within the noise of 51 questions, so the gain is small and the cost is a wait 5 times longer plus the risk of an empty reply. It is a setting, `OLLAMA_THINKING=on|off` (default off; with it on the answer limit rises from 200 to 2000 tokens). A limit on the time and a fallback sentence for an empty answer are not done.
 
-The scheduling interpreter of the server still uses `llama3` (`AGENT_MODEL`); with `qwen3:8b` in the RAG and `llama3` there, three models would not fit in the GPU, so the interpreter has to move too, and its own evaluation (`scripts/eval-scheduling.ts`) has to be run first.
+**The scheduling interpreter of the server decided it: `llama3` stays.** `scripts/eval-scheduling.ts` (23 scenarios, real model, fake calendar, 2026-11-03): `llama3` passes every criterion (23 of 23 times right, 3 of 3 service names in the event title, 0.8 s at the 95th percentile); `qwen3:8b` with thinking off gets 16 of 23 (70%, the goal is 90%) and 0 of 3 titles, because it misreads the first message (it offers one time on the same day instead of the next day, or sends `I would like to book an appointment` to the brochure). The prompts of the interpreter were written for `llama3`. With `qwen3:8b` in the RAG and `llama3` in the interpreter there would be three models for the 8 GB of the GPU (5.3 + 4.8 + 0.7 GB), and Ollama would swap the chat model on messages that alternate between the brochure and the scheduling. So `OLLAMA_CHAT_MODEL` and `AGENT_MODEL` both stay `llama3`; `qwen3:8b` is one environment variable away for a machine that can pay the swap or that serves the RAG alone.
 
 - **The refactoring of Stage 6b/6c changed nothing in English.** The 51 dev and 21 holdout answers, the chunks and the right/wrong marks are identical to the runs of Stage 6a-B2 (same assistant, before the changes).
 - **The 80% of 2026-10-30 to 2026-11-02 was a false alarm of the language check, not the assistant.** `check_rules` counted "a", "e", "do" and "as" as Portuguese words, so short English answers such as `A dental cleaning costs $40–$85.` were marked `not_english` (8 of the 10 wrong dev answers). With the check fixed the same answers score 49 of 51, the reference.
