@@ -124,6 +124,42 @@ test("horário em texto escolhe a opção oferecida, sem o modelo", async () => 
   assert.equal(bodies.length, 0);
 });
 
+test("pedido sem dia: a data de hoje devolvida pelo modelo vira null; com \"today\" na frase, vale", async () => {
+  const { interpreter } = fakeOllama({ intent: "book", option: null, date: "2026-10-20", name: null });
+
+  const semDia = await interpreter.interpret(input({ text: "I'd like to book an appointment" }));
+  assert.equal(semDia.intent, "book");
+  assert.equal(semDia.date, null);
+
+  const hoje = await interpreter.interpret(input({ text: "I want to book something for today" }));
+  assert.equal(hoje.date, "2026-10-20");
+
+  // outra data, mesmo sem citação na frase, continua valendo
+  const { interpreter: outro } = fakeOllama({ intent: "book", option: null, date: "2026-10-27", name: null });
+  assert.equal((await outro.interpret(input({ text: "I'd like to book an appointment in a week" }))).date, "2026-10-27");
+});
+
+test("choose sem opções na tela vira book com a data citada, ou unclear sem data", async () => {
+  const { interpreter } = fakeOllama({ intent: "choose", option: null, date: "2026-10-21", name: null });
+  const comData = await interpreter.interpret(input({ text: "I'd like an appointment on Wednesday" }));
+  assert.equal(comData.intent, "book");
+  assert.equal(comData.date, "2026-10-21");
+
+  const { interpreter: semData } = fakeOllama({ intent: "choose", option: null, date: null, name: null });
+  assert.equal((await semData.interpret(input({ text: "that one" }))).intent, "unclear");
+
+  // com opções na tela, choose continua choose
+  const { interpreter: comOpcoes } = fakeOllama({ intent: "choose", option: 2, date: null, name: null });
+  assert.equal((await comOpcoes.interpret(input({ text: "the second one please", step: "choose_day", options: days }))).intent, "choose");
+});
+
+test("o prompt manda a data ser null quando o cliente não diz um dia", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+  await interpreter.interpret(input({ text: "hmm" }));
+  const system = bodies[0].messages[0].content;
+  assert.match(system, /names no day, so its date is null/);
+});
+
 test("a data citada na frase substitui a data errada do modelo", async () => {
   // O modelo diz sábado; a frase diz domingo
   const { interpreter } = fakeOllama({ intent: "availability", option: null, date: "2026-10-24", name: null });

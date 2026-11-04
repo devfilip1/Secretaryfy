@@ -71,7 +71,11 @@ console.log(`Modelo: ${model} · ${scenarios.length} cenários · hoje: ${fixtur
 for (const scenario of scenarios) {
   const testDb = await createTestDb();
   const repo = createInboxRepository(testDb.db as never);
-  const inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() });
+  // O relógio do inbox acompanha a linha do tempo da conversa: a resposta do assistente vem depois da mensagem do cliente.
+  // Com um relógio fixo as respostas ficavam antes das perguntas no histórico, e o modelo recebia uma conversa de cabeça para baixo.
+  let offsetMs = -119_000; // a resposta ao citado (abaixo) vem 1 s depois da pergunta
+  let tick = 0;
+  const inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() + offsetMs + tick++ });
   const store = createSchedulingStore(testDb.db as never);
   const fake = createFakeCalendar({ calendars: [{ id: "primary", name: "DentalSafe", timeZone: tz, primary: true }] });
   for (const [start, end] of scenario.busy ?? []) fake.block(local(start), local(end));
@@ -118,6 +122,7 @@ for (const scenario of scenarios) {
     const eventsBefore = fake.calls.createEvent + fake.calls.moveEvent + fake.calls.deleteEvent;
 
     const message = { kind: "message" as const, id: `E${++seq}`, phone, pushName: name ?? undefined, fromMe: false, type: "text" as const, text, sentAt: new Date(now.getTime() + seq * 1000) };
+    offsetMs = seq * 1000 + 500; // a resposta do assistente vem meio segundo depois
     await inbox.recordIncoming(message);
     const started = performance.now();
     const answer = await reply({ conversationId: conversation.id, message }, silent);

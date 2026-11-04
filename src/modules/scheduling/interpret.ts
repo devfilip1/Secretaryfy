@@ -57,6 +57,8 @@ export interface InterpretInput {
 }
 
 const HISTORY_LIMIT = 20;
+/** O cliente fala de hoje: só então a data de hoje, devolvida pelo modelo num pedido sem dia, vale */
+const SAYS_TODAY = /\b(today|tonight|now|this (?:morning|afternoon|evening))\b/i;
 
 const YES = new Set(["yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay", "confirm", "confirmed", "correct", "sim", "yes please", "ok thanks"]);
 const NO = new Set(["no", "n", "nope", "not", "nao", "não", "no thanks", "no thank you"]);
@@ -235,7 +237,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     '- cancel: wants to cancel their appointment',
     '- reschedule: wants to change the date or time of their appointment',
     '- my_appointment: asks when their appointment is',
-    '- choose: picks one of the offered options, by number, by its time ("the 10 am one") or by naming a day; set "option" to the number, or "date" when they name a day',
+    '- choose: picks one of the offered options, by number, by its time ("the 10 am one") or by naming a day; set "option" to the number, or "date" when they name a day. Never use it when no options are on screen',
     '- more: wants to see more times',
     '- other_day: wants a different day than the ones offered',
     '- yes / no: answers a yes/no question from the assistant',
@@ -246,7 +248,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     '- question: any question about the clinic, treatments, prices, location or hours',
     "- unclear: anything else, or when you are not sure",
     "",
-    'Rules: "date" must be YYYY-MM-DD computed from today\'s date, or null. Only use "option" with a number from the list above. When in doubt, use unclear.',
+    'Rules: "date" is null unless the customer names a day or a date ("Friday", "tomorrow", "the 25th"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
     ...(awaitingName ? ["", `The assistant has just asked the customer's name. If the message contains it, set "name".`] : []),
     ...(awaitingReminder
       ? ["", "The assistant reminded the customer of their appointment and asked them to reply YES to confirm. A confirmation is \"yes\"; a refusal is \"no\"."]
@@ -258,12 +260,19 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
 function validate(raw: unknown, { text, options, window, now, timeZone, awaitingName }: InterpretInput): Interpretation {
   const parsed = modelOutput.safeParse(raw);
   if (!parsed.success) return result("unclear", { source: "model" });
-  const { intent, option, name } = parsed.data;
+  const { option, name } = parsed.data;
   let { date } = parsed.data;
+  // "choose" só existe com opções na tela: sem elas, um dia citado é um pedido de agendamento (alguns modelos erram isso)
+  const intent: Intent = parsed.data.intent === "choose" && options.length === 0 ? (date ? "book" : "unclear") : parsed.data.intent;
 
   // Uma data simples citada na frase vale mais que a calculada pelo modelo, que erra dias da semana
   const cited = findDatesInText(text, { now, timeZone });
   if (cited.length === 1 && ["book", "availability", "choose", "reschedule"].includes(intent)) date = cited[0];
+  // Alguns modelos preenchem a data de hoje num pedido sem dia ("I want to book"): sem data na frase, hoje só vale se o cliente disse hoje
+  const todayLocal = DateTime.fromJSDate(now, { zone: timeZone }).toISODate();
+  if (date !== null && date === todayLocal && cited.length === 0 && ["book", "availability", "reschedule"].includes(intent) && !SAYS_TODAY.test(text)) {
+    date = null;
+  }
 
   if (date !== null) {
     const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && DateTime.fromISO(date).isValid;
