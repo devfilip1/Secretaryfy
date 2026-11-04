@@ -12,6 +12,7 @@ from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 
 GOLDEN = Path(__file__).parent / "golden" / "lexicon.json"
 REAL_PACK = yaml.safe_load((LANGUAGES_DIR / "en.yaml").read_text(encoding="utf-8"))
+REAL_PROMPTS = yaml.safe_load((LANGUAGES_DIR.parent / "prompts.yaml").read_text(encoding="utf-8"))
 REAL_CLINIC = yaml.safe_load(CLINIC_PATH.read_text(encoding="utf-8"))
 CLINIC = {
     "name": "Smile Lab",
@@ -24,13 +25,14 @@ CLINIC = {
 
 
 def write_profile(directory, clinic=CLINIC, pack=REAL_PACK):
-    """Writes config/clinic.yaml and config/languages/en.yaml under directory; returns the source."""
+    """Writes config/clinic.yaml, config/languages/en.yaml and config/prompts.yaml under directory; returns the source."""
     clinic_path = directory / "clinic.yaml"
     languages = directory / "languages"
     languages.mkdir(exist_ok=True)
     clinic_path.write_text(yaml.safe_dump(clinic, allow_unicode=True), encoding="utf-8")
     if pack is not None:
         (languages / "en.yaml").write_text(yaml.safe_dump(pack, allow_unicode=True), encoding="utf-8")
+    (directory / "prompts.yaml").write_text(yaml.safe_dump(REAL_PROMPTS, allow_unicode=True), encoding="utf-8")
     return YamlClinicProfile(clinic_path, languages)
 
 

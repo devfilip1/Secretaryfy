@@ -4,7 +4,7 @@ The RAG assistant of the fictional DentalSafe clinic and the bench that measures
 
 ## What is the same as RagLab
 
-The brochure, the system prompt and refusal sentence, the synonyms and stop words (in `config/languages/en.yaml` and `config/clinic.yaml`), the chunking strategies, the search experiments, the answer key, the evaluation code, and the reference runs (`evaluation/runs/baseline.json` and the two runs it points to).
+The brochure, the prompt texts (`config/prompts.yaml`, shared by every language), the refusal sentence and the synonyms and stop words (in `config/languages/<language>.yaml` and `config/clinic.yaml`), the chunking strategies, the search experiments, the answer key, the evaluation code, and the reference runs (`evaluation/runs/baseline.json` and the two runs it points to).
 
 Measured right after the copy (run `20261015-233316`, compared with the reference `20261011-191541`): 96.1% (49 of 51), with no question going from right to wrong. The search bench gave `section_hybrid` 44/44.
 

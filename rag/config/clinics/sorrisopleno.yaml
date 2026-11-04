@@ -28,4 +28,4 @@ query_synonyms:
 # The example treatment of rule 3 of the prompt, written the way a customer would say it.
 example_treatment: clareamento dental
 # Rule 5 of the prompt: the rule about treatments with two prices or two durations. The number is written here.
-extra_rules: '5. Alguns tratamentos têm dois preços ou duas durações. Aparelho: o "Custo inicial" é pago uma vez e a "Mensalidade" é paga todo mês. Extração dentária: "Extração simples" e "Siso" têm preços diferentes. Clareamento dental: "No consultório" e "Tratamento completo" têm durações diferentes. Dê o que o cliente perguntou; se a pergunta for geral, dê os dois, cada um com o seu nome.'
+extra_rules: '5. Some treatments have two prices or two durations. Braces: the "Custo inicial" is paid once and the "Mensalidade" is paid every month. Tooth extraction: "Extração simples" and "Siso" have different prices. Teeth whitening: "No consultório" and "Tratamento completo" have different durations. Give the one the customer asked about; if the question is general, give both, each with its name.'

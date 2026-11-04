@@ -6,7 +6,9 @@ from assistant.clinic.profile import ClinicProfileError
 from assistant.clinic.yaml_source import YamlClinicProfile
 from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 
+PROMPTS_PATH = LANGUAGES_DIR.parent / "prompts.yaml"
 REAL_PACK = yaml.safe_load((LANGUAGES_DIR / "en.yaml").read_text(encoding="utf-8"))
+REAL_PROMPTS = yaml.safe_load(PROMPTS_PATH.read_text(encoding="utf-8"))
 CLINIC = {
     "name": "Smile Lab",
     "kind": "dental clinic",
@@ -17,14 +19,17 @@ CLINIC = {
 }
 
 
-def write_profile(directory, clinic=CLINIC, pack=REAL_PACK, language="en"):
-    """Writes config/clinic.yaml and config/languages/<language>.yaml under directory; returns the two paths."""
+def write_profile(directory, clinic=CLINIC, pack=REAL_PACK, language="en", prompts=REAL_PROMPTS):
+    """Writes clinic.yaml, languages/<language>.yaml and prompts.yaml under directory (the prompts sit beside the
+    languages folder, as in config/); returns the two paths."""
     clinic_path = directory / "clinic.yaml"
     languages = directory / "languages"
     languages.mkdir(exist_ok=True)
     clinic_path.write_text(yaml.safe_dump(clinic, allow_unicode=True), encoding="utf-8")
     if pack is not None:
         (languages / f"{language}.yaml").write_text(yaml.safe_dump(pack, allow_unicode=True), encoding="utf-8")
+    if prompts is not None:
+        (directory / "prompts.yaml").write_text(yaml.safe_dump(prompts, allow_unicode=True), encoding="utf-8")
     return clinic_path, languages
 
 
@@ -43,6 +48,21 @@ def test_the_real_profile_fills_the_clinic_into_the_texts():
     assert "5. Some treatments have two prices" in profile.system_prompt
     assert "{no_answer}" in profile.system_prompt  # the question fills it, not the profile
     assert "{clinic_" not in profile.system_prompt + profile.user_template + profile.original_template
+    assert "Always answer in English, even when" in profile.system_prompt  # the language fills {answer_language}
+    assert "{answer_language}" not in profile.system_prompt and "{examples}" not in profile.system_prompt
+
+
+def test_both_clinics_share_one_prompt_skeleton():
+    english = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR).load()
+    portuguese = YamlClinicProfile(PROMPTS_PATH.parent / "clinics" / "sorrisopleno.yaml", LANGUAGES_DIR).load()
+
+    def line_starting(text, start):
+        return [line for line in text.split("\n") if line.startswith(start)]
+
+    assert line_starting(english.system_prompt, "2. ") == line_starting(portuguese.system_prompt, "2. ")
+    assert line_starting(english.system_prompt, "6. ") == line_starting(portuguese.system_prompt, "6. ")
+    assert "Always answer in Brazilian Portuguese, even when" in portuguese.system_prompt
+    assert "RECENT CONVERSATION" in english.user_template and "RECENT CONVERSATION" in portuguese.user_template
 
 
 def test_the_clinic_name_fills_the_baseline_and_hyde_texts_too():
@@ -76,6 +96,20 @@ def test_a_missing_or_empty_clinic_field_is_refused_by_name(tmp_path, field):
         YamlClinicProfile(clinic_path, languages).load()
 
 
+def test_a_missing_prompts_file_is_refused_with_the_file_to_create(tmp_path):
+    clinic_path, languages = write_profile(tmp_path, prompts=None)
+
+    with pytest.raises(ClinicProfileError, match="prompts.yaml cannot be read"):
+        YamlClinicProfile(clinic_path, languages).load()
+
+
+def test_a_prompt_text_missing_from_prompts_yaml_is_refused_by_name(tmp_path):
+    clinic_path, languages = write_profile(tmp_path, prompts={key: value for key, value in REAL_PROMPTS.items() if key != "hyde_prompt"})
+
+    with pytest.raises(ClinicProfileError, match="missing field: hyde_prompt"):
+        YamlClinicProfile(clinic_path, languages).load()
+
+
 def test_a_language_without_a_file_is_refused_with_the_file_to_create(tmp_path):
     clinic_path, languages = write_profile(tmp_path, clinic={**CLINIC, "language": "pt"}, pack=None)
 
@@ -102,7 +136,7 @@ def test_braces_in_a_clinic_value_are_refused_because_they_would_be_placeholders
         YamlClinicProfile(clinic_path, languages).load()
 
 
-@pytest.mark.parametrize("field", ["system_prompt", "no_answer", "conversation_roles", "greeting", "refusal_offer", "small_talk"])
+@pytest.mark.parametrize("field", ["answer_language", "examples", "no_answer", "conversation_roles", "greeting", "refusal_offer", "small_talk"])
 def test_a_language_file_missing_a_field_is_refused_by_name(tmp_path, field):
     pack = {key: value for key, value in REAL_PACK.items() if key != field}
     clinic_path, languages = write_profile(tmp_path, pack=pack)
@@ -126,7 +160,7 @@ def test_conversation_roles_need_the_user_and_assistant_keys(tmp_path):
 
 
 def test_a_text_that_is_not_a_string_is_refused(tmp_path):
-    clinic_path, languages = write_profile(tmp_path, pack={**REAL_PACK, "hyde_prompt": ["a", "list"]})
+    clinic_path, languages = write_profile(tmp_path, prompts={**REAL_PROMPTS, "hyde_prompt": ["a", "list"]})
 
     with pytest.raises(ClinicProfileError, match="hyde_prompt"):
         YamlClinicProfile(clinic_path, languages).load()
@@ -142,17 +176,19 @@ def test_an_invalid_regular_expression_is_refused_with_its_field(tmp_path):
 def test_invalid_yaml_is_refused_with_the_file_name(tmp_path):
     clinic_path = tmp_path / "clinic.yaml"
     clinic_path.write_text("name: [unclosed", encoding="utf-8")
+    (tmp_path / "prompts.yaml").write_text("{}", encoding="utf-8")
 
     with pytest.raises(ClinicProfileError, match="clinic.yaml: invalid YAML"):
-        YamlClinicProfile(clinic_path, tmp_path).load()
+        YamlClinicProfile(clinic_path, tmp_path, tmp_path / "prompts.yaml").load()
 
 
 def test_a_file_that_is_not_a_mapping_is_refused(tmp_path):
     clinic_path = tmp_path / "clinic.yaml"
     clinic_path.write_text("- just\n- a list\n", encoding="utf-8")
+    (tmp_path / "prompts.yaml").write_text("{}", encoding="utf-8")
 
     with pytest.raises(ClinicProfileError, match="not a mapping"):
-        YamlClinicProfile(clinic_path, tmp_path).load()
+        YamlClinicProfile(clinic_path, tmp_path, tmp_path / "prompts.yaml").load()
 
 
 def test_a_missing_clinic_file_is_refused_with_how_to_fix_it(tmp_path):

@@ -19,10 +19,12 @@ def profile():
 
 def test_the_portuguese_profile_loads_with_the_clinic_values_filled(profile):
     assert (profile.name, profile.language) == ("Sorriso Pleno", "pt")
-    assert "Sorriso Pleno, uma clínica odontológica" in profile.system_prompt
-    assert "SOBRE SORRISO PLENO" in profile.user_template
+    assert "Sorriso Pleno, a clínica odontológica" in profile.system_prompt
+    assert "ABOUT SORRISO PLENO" in profile.user_template
     assert "clareamento dental" in profile.system_prompt
-    assert '5. Alguns tratamentos têm dois preços' in profile.system_prompt
+    assert '5. Some treatments have two prices' in profile.system_prompt
+    assert "Always answer in Brazilian Portuguese, even when" in profile.system_prompt
+    assert '("Oi!", "Olá!")' in profile.system_prompt and "Por nada! Tenha um ótimo dia 😊" in profile.system_prompt
     assert "{clinic" not in profile.system_prompt and "{example" not in profile.system_prompt and "{extra" not in profile.system_prompt
 
 

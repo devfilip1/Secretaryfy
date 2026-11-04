@@ -9,8 +9,16 @@ from assistant.clinic.profile import ClinicProfile, ClinicProfileError, Lexicon
 LANGUAGE_CODE = re.compile(r"^[a-z][a-z0-9_-]*$")
 CLINIC_FIELDS = ("name", "kind", "language", "example_treatment", "extra_rules")
 TEXT_FIELDS = (
-    "no_answer", "no_information", "no_conversation", "original_separator", "system_prompt", "user_template",
-    "standalone_prompt", "original_template", "hyde_prompt", "refusal_offer",
+    "no_answer", "no_information", "no_conversation", "original_separator", "refusal_offer",
+    "answer_language", "greeting_examples", "thanks_example", "examples",
+)
+# Os textos de prompt, iguais para todos os idiomas: config/prompts.yaml.
+PROMPT_FIELDS = ("system_prompt", "user_template", "standalone_prompt", "original_template", "hyde_prompt")
+# Valores do idioma preenchidos nos prompts. Os exemplos vêm antes: trazem {no_answer}, que fica para a pergunta.
+LANGUAGE_PLACEHOLDERS = (
+    ("{answer_language}", "answer_language"),
+    ("{greeting_examples}", "greeting_examples"),
+    ("{thanks_example}", "thanks_example"),
 )
 PATTERN_FIELDS = ("afterthought", "greeting", "small_talk")
 LEXICON_FIELDS = ("stopwords", "query_synonyms")
@@ -34,11 +42,11 @@ def _read_yaml(path):
     return data
 
 
-def _mtime(path):
+def _mtime(path, hint="create it with the clinic's profile"):
     try:
         return path.stat().st_mtime_ns
     except OSError as error:
-        raise ClinicProfileError(f"{path} cannot be read ({error.strerror}); create it with the clinic's profile") from error
+        raise ClinicProfileError(f"{path} cannot be read ({error.strerror}); {hint}") from error
 
 
 def _is_string_list(value):
@@ -81,6 +89,15 @@ def _check_language(pack, path):
     _check_synonyms(pack["query_synonyms"], path.name)
 
 
+def _check_prompts(prompts, path):
+    missing = [field for field in PROMPT_FIELDS if field not in prompts]
+    if missing:
+        raise ClinicProfileError(f"{path.name}: missing field: {', '.join(missing)}")
+    wrong = [field for field in PROMPT_FIELDS if not isinstance(prompts[field], str)]
+    if wrong:
+        raise ClinicProfileError(f"{path.name}: the prompt texts must be strings (wrong: {', '.join(wrong)})")
+
+
 def _compile(pack, field, path):
     try:
         return re.compile(pack[field], re.IGNORECASE)
@@ -105,7 +122,7 @@ def _lexicon(clinic, pack, clinic_path, language_path):
     )
 
 
-def _build(clinic_path, languages_dir):
+def _build(clinic_path, languages_dir, prompts_path):
     clinic = _read_yaml(clinic_path)
     _check_clinic(clinic, clinic_path)
     language_path = languages_dir / f"{clinic['language']}.yaml"
@@ -116,12 +133,16 @@ def _build(clinic_path, languages_dir):
         )
     pack = _read_yaml(language_path)
     _check_language(pack, language_path)
+    prompts = _read_yaml(prompts_path)
+    _check_prompts(prompts, prompts_path)
 
     def fill(text):
+        text = text.replace("{examples}", pack["examples"])  # first: the examples hold {no_answer}, which stays
+        for placeholder, field in LANGUAGE_PLACEHOLDERS:
+            text = text.replace(placeholder, pack[field])
         for placeholder, value in CLINIC_PLACEHOLDERS:
             text = text.replace(placeholder, value(clinic))
         return text
-
     return ClinicProfile(
         name=clinic["name"],
         kind=clinic["kind"],
@@ -131,11 +152,11 @@ def _build(clinic_path, languages_dir):
         no_conversation=pack["no_conversation"],
         conversation_roles=dict(pack["conversation_roles"]),
         original_separator=pack["original_separator"],
-        system_prompt=fill(pack["system_prompt"]),
-        user_template=fill(pack["user_template"]),
-        standalone_prompt=fill(pack["standalone_prompt"]),
-        original_template=fill(pack["original_template"]),
-        hyde_prompt=fill(pack["hyde_prompt"]),
+        system_prompt=fill(prompts["system_prompt"]),
+        user_template=fill(prompts["user_template"]),
+        standalone_prompt=fill(prompts["standalone_prompt"]),
+        original_template=fill(prompts["original_template"]),
+        hyde_prompt=fill(prompts["hyde_prompt"]),
         afterthought=_compile(pack, "afterthought", language_path),
         greeting=_compile(pack, "greeting", language_path),
         refusal_offer=pack["refusal_offer"],
@@ -146,18 +167,21 @@ def _build(clinic_path, languages_dir):
 
 class YamlClinicProfile:
     """Implementa ClinicProfileSource. Relê os arquivos quando a data de modificação de um deles muda."""
-
-    def __init__(self, clinic_path, languages_dir):
+    def __init__(self, clinic_path, languages_dir, prompts_path=None):
         self._clinic_path = Path(clinic_path)
         self._languages_dir = Path(languages_dir)
+        # os prompts ficam ao lado da pasta de idiomas: config/prompts.yaml
+        self._prompts_path = Path(prompts_path) if prompts_path is not None else self._languages_dir.parent / "prompts.yaml"
         self._loaded = None  # (versão, perfil)
 
     def version(self):
         files = [self._clinic_path, *sorted(self._languages_dir.glob("*.yaml"))]
-        return ";".join(f"{path.name}:{_mtime(path)}" for path in files)
+        version = ";".join(f"{path.name}:{_mtime(path)}" for path in files)
+        prompts = _mtime(self._prompts_path, "create it: it holds the prompt texts shared by every language")
+        return f"{version};{self._prompts_path.name}:{prompts}"
 
     def load(self):
         version = self.version()
         if self._loaded is None or self._loaded[0] != version:
-            self._loaded = (version, _build(self._clinic_path, self._languages_dir))
+            self._loaded = (version, _build(self._clinic_path, self._languages_dir, self._prompts_path))
         return self._loaded[1]
