@@ -1,5 +1,5 @@
 {
-  "dev": "20261103-215520-7-llama3-en-dev",
-  "set_at": "2026-11-03T22:02:23",
-  "holdout": "20261103-215550-7-llama3-en-holdout"
+  "dev": "20261103-222522-8-qwen3-en-dev",
+  "set_at": "2026-11-03T22:29:02",
+  "holdout": "20261103-222621-8-qwen3-en-holdout"
 }
