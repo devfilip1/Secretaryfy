@@ -244,6 +244,8 @@ def answer(question, config, history, deps: RagDeps):
 
     clinic = deps.clinic.load()
     retrieval = retrieve(standalone_question(question, history, config, deps.generator, clinic), config, deps)
+    if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
+        return AnswerResult(answer=clinic.no_answer, retrieval=retrieval, latency_s=time.perf_counter() - start)
     prompt = build_prompt(question, retrieval, config, clinic, history)
     reply = deps.generator.generate(
         prompt,
@@ -260,7 +262,11 @@ def stream_answer(question, config, deps: RagDeps):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
     retrieval = retrieve(question, config, deps)
-    prompt = build_prompt(question, retrieval, config, deps.clinic.load())
+    clinic = deps.clinic.load()
+    if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
+        yield clinic.no_answer
+        return
+    prompt = build_prompt(question, retrieval, config, clinic)
     yield from deps.generator.stream(
         prompt,
         model=config.chat_model,

@@ -600,6 +600,38 @@ def test_empty_model_reply_gives_the_refusal_sentence_to_the_patient():
 
     assert result.answer == NO_ANSWER
 
+
+class EmptyVectorStore:
+    def vectors_by_content(self):
+        return {}
+
+    def search_by_vector(self, vector, limit):
+        return []
+
+
+def test_no_chunk_found_gives_the_refusal_sentence_without_calling_the_model():
+    generator = FakeGenerator("the model must not answer this")
+    deps = RagDeps(vector_store_provider=lambda strategy: EmptyVectorStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+    result = pipeline.answer(BRACES_QUESTION, config("vector", 1), None, deps)
+
+    assert result.answer == NO_ANSWER
+    assert result.retrieval.fused == []
+    assert generator.calls == []
+
+
+def test_no_chunk_found_streams_the_refusal_sentence_without_calling_the_model():
+    generator = FakeGenerator(pieces=["the model must not answer this"])
+    deps = RagDeps(vector_store_provider=lambda strategy: EmptyVectorStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), deps))
+
+    assert pieces == [NO_ANSWER]
+    assert generator.calls == []
+
+
 def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pieces():
     from dataclasses import replace
 
