@@ -35,7 +35,7 @@ cd rag && .\run.ps1 test                             # RAG unit tests
 - Modules take dependencies as `createX(deps)`; tests inject PGlite (`src/test/db.ts`), the fake calendar and a clock. Tests must not import `src/routes/{inbox,calendar,scheduling}.ts`.
 - Tests are `*.test.ts` next to the code and excluded from `tsc`.
 - Many files use CRLF line endings; `router.ts` and some others use LF. Preserve each file's style.
-- Commit messages in Portuguese, with no co-author or "generated with" lines.
+- Commit messages in English, with no co-author or "generated with" lines.
 
 ## Where to read before changing
 | Changing | Read |
