@@ -14,5 +14,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0008](0008-reminder-only-inside-24h-window.md) | Reminders only inside the 24 h window | Accepted |
 | [0009](0009-rag-composition-root.md) | One composition root for the RAG service, with injected providers | Accepted |
 | [0010](0010-multi-clinic-and-knowledge-table.md) | Many clinics, with each clinic's knowledge in a table | Proposed |
+| [0011](0011-grounded-answers-measured-not-adopted.md) | Grounded answers: built, measured, off by default | Accepted |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.
