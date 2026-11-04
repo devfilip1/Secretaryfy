@@ -62,6 +62,7 @@ class Item:
     evidence: tuple = ()
     variant_of: str | None = None
     notes: str | None = None
+    expected_language: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +111,7 @@ def parse_answer_key(data, file_hash=""):
             evidence=tuple(raw.get("evidence", ())),
             variant_of=raw.get("variant_of"),
             notes=raw.get("notes"),
+            expected_language=raw.get("expected_language"),
         )
         for raw in data["items"]
     )

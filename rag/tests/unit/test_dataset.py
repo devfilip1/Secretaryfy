@@ -194,6 +194,15 @@ def test_clinic_is_not_required_to_have_price_duration_and_result():
     assert not any("\"clinic\"" in p for p in problems)
 
 
+def test_expected_language_is_parsed_and_defaults_to_none():
+    data = copy.deepcopy(BASE)
+    data["items"][0]["expected_language"] = "pt"
+    answer_key = parse_answer_key(data)
+
+    assert answer_key.by_id()["cleaning-price-01"].expected_language == "pt"
+    assert answer_key.by_id()["cleaning-duration-01"].expected_language is None
+
+
 def test_select_subset():
     answer_key = parse_answer_key(BASE)
 

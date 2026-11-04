@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-11.1",
+  "version": "2026-11-03.1",
   "procedures": {
     "cleaning": {
       "anchors": [
@@ -1633,6 +1633,7 @@
       "category": "adversarial",
       "procedure": "cleaning",
       "answerable": true,
+      "expected_language": "en",
       "expected_facts": [
         {
           "type": "money",

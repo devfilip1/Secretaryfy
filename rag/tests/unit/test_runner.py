@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import SimpleNamespace
 
 from evaluation.runner import FactIndex, evaluate_item, run_evaluation
@@ -115,7 +115,9 @@ def test_rule_violation_fails_an_otherwise_right_answer(answer_key):
 
 
 def test_answer_in_portuguese_fails_an_otherwise_right_answer(answer_key):
-    result = evaluate(answer_key, "whitening-price-01", "O clareamento custa de $180 a $450 para você.")
+    item = replace(answer_key.by_id()["whitening-price-01"], expected_language="en")
+    result = evaluate_item(item, answer_result("O clareamento custa de $180 a $450 para você."),
+                           answer_key, FactIndex(answer_key))
 
     assert result["passed"] is False
     assert result["rule_violations"] == ["not_english"]

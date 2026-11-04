@@ -39,7 +39,8 @@
         "variant_of": { "type": "string" },
         "split": { "enum": ["dev", "holdout"] },
         "smoke": { "type": "boolean" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "expected_language": { "type": "string", "enum": ["en", "pt"], "description": "Language the answer must be written in; the language check runs only on items that have it" }
       },
       "if": { "properties": { "answerable": { "const": true } } },
       "then": {

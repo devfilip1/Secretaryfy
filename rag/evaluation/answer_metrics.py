@@ -6,7 +6,7 @@ when the prompt changes.
 """
 import re
 
-from evaluation.normalize import EN, canonical_text, extract_values, normalize_text
+from evaluation.normalize import EN, canonical_text, extract_values, locale_for, normalize_text
 
 MAX_ANSWER_CHARS = 1200
 MIN_WRONG_LANGUAGE_WORDS = 2  # a short answer has too few words to tell the language
@@ -64,8 +64,11 @@ def detect_abstention(answer, locale=EN):
     return any(pattern in text for pattern in locale.abstention_patterns)
 
 
-def check_rules(answer, locale=EN):
-    """Service rules with an objective answer. Returns the violations."""
+def check_rules(answer, locale=EN, expected_language=None):
+    """Service rules with an objective answer. Returns the violations.
+
+    The language check runs only when expected_language is given: most items do not ask for a language.
+    """
     text = normalize_text(answer)
     violations = []
     for term, pattern in locale.forbidden_terms.items():
@@ -73,9 +76,11 @@ def check_rules(answer, locale=EN):
             violations.append(f"forbidden_term:{term}")
     if len(answer) > MAX_ANSWER_CHARS:
         violations.append("too_long")
-    words = re.findall(r"[a-z]+", text)
-    other = sum(w in locale.other_language_words for w in words)
-    own = sum(w in locale.language_words for w in words)
-    if other >= MIN_WRONG_LANGUAGE_WORDS and other > own:
-        violations.append(locale.wrong_language)
+    if expected_language is not None:
+        language = locale_for(expected_language)
+        words = re.findall(r"[a-z]+", text)
+        other = sum(w in language.other_language_words for w in words)
+        own = sum(w in language.language_words for w in words)
+        if other >= MIN_WRONG_LANGUAGE_WORDS and other > own:
+            violations.append(language.wrong_language)
     return violations

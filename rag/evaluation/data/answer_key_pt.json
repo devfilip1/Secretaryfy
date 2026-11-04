@@ -1,5 +1,5 @@
 {
-  "version": "pt-2026-11-03.1",
+  "version": "pt-2026-11-03.2",
   "language": "pt",
   "procedures": {
     "cleaning": {
@@ -1636,6 +1636,7 @@
       "category": "adversarial",
       "procedure": "cleaning",
       "answerable": true,
+      "expected_language": "pt",
       "expected_facts": [
         {
           "type": "money",

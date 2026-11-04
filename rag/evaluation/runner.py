@@ -72,7 +72,7 @@ def evaluate_item(item, answer_result, answer_key, index, judge_fn=None):
     ]
 
     abstained = detect_abstention(answer, locale)
-    violations = check_rules(answer, locale)
+    violations = check_rules(answer, locale, item.expected_language)
     if item.answerable:
         passed = all(fact["found"] for fact in facts) and not unexpected and not violations
     else:

@@ -190,6 +190,10 @@ EN = Locale(
         "i cannot",
         "i'm not sure",
         "i am not sure",
+        "we don't have that information",
+        "we do not have that information",
+        "we don't have information",
+        "we do not have information",
     ),
     forbidden_terms={
         "according to": r"\baccording to\b",
@@ -230,6 +234,10 @@ PT = Locale(
         "nao consigo",
         "nao posso",
         "nao tenho certeza",
+        "nao temos essa informacao",
+        "nao temos informacao",
+        "nao possuo essa informacao",
+        "nao possuimos essa informacao",
     ),
     forbidden_terms={
         "de acordo com": r"\bde acordo com\b",
