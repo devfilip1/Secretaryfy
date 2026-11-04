@@ -40,6 +40,8 @@ class ClinicProfile:
     hyde_prompt: str
     afterthought: re.Pattern  # o que o modelo escreve depois da resposta
     greeting: re.Pattern  # saudação no início da resposta
+    refusal_offer: str  # the offer after the refusal sentence: written by the code, never by the model
+    small_talk: re.Pattern  # the whole customer message is only greetings, thanks or goodbyes
     lexicon: Lexicon  # idioma e clínica juntos: o que a busca por palavras lê
 
 

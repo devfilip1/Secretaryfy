@@ -102,12 +102,19 @@ def test_braces_in_a_clinic_value_are_refused_because_they_would_be_placeholders
         YamlClinicProfile(clinic_path, languages).load()
 
 
-@pytest.mark.parametrize("field", ["system_prompt", "no_answer", "conversation_roles", "greeting"])
+@pytest.mark.parametrize("field", ["system_prompt", "no_answer", "conversation_roles", "greeting", "refusal_offer", "small_talk"])
 def test_a_language_file_missing_a_field_is_refused_by_name(tmp_path, field):
     pack = {key: value for key, value in REAL_PACK.items() if key != field}
     clinic_path, languages = write_profile(tmp_path, pack=pack)
 
     with pytest.raises(ClinicProfileError, match=f"missing field: {field}"):
+        YamlClinicProfile(clinic_path, languages).load()
+
+
+def test_an_invalid_small_talk_pattern_is_refused_with_its_field(tmp_path):
+    clinic_path, languages = write_profile(tmp_path, pack={**REAL_PACK, "small_talk": "(unclosed"})
+
+    with pytest.raises(ClinicProfileError, match="small_talk is not a valid regular expression"):
         YamlClinicProfile(clinic_path, languages).load()
 
 

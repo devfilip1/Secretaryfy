@@ -10,9 +10,9 @@ LANGUAGE_CODE = re.compile(r"^[a-z][a-z0-9_-]*$")
 CLINIC_FIELDS = ("name", "kind", "language", "example_treatment", "extra_rules")
 TEXT_FIELDS = (
     "no_answer", "no_information", "no_conversation", "original_separator", "system_prompt", "user_template",
-    "standalone_prompt", "original_template", "hyde_prompt",
+    "standalone_prompt", "original_template", "hyde_prompt", "refusal_offer",
 )
-PATTERN_FIELDS = ("afterthought", "greeting")
+PATTERN_FIELDS = ("afterthought", "greeting", "small_talk")
 LEXICON_FIELDS = ("stopwords", "query_synonyms")
 # Valores da clínica preenchidos nos textos antes de o prompt existir: chaves com chaves não podem entrar.
 CLINIC_PLACEHOLDERS = (
@@ -138,6 +138,8 @@ def _build(clinic_path, languages_dir):
         hyde_prompt=fill(pack["hyde_prompt"]),
         afterthought=_compile(pack, "afterthought", language_path),
         greeting=_compile(pack, "greeting", language_path),
+        refusal_offer=pack["refusal_offer"],
+        small_talk=_compile(pack, "small_talk", language_path),
         lexicon=_lexicon(clinic, pack, clinic_path, language_path),
     )
 

@@ -28,15 +28,18 @@ def standalone_question_prompt(question, history, clinic: ClinicProfile):
     return clinic.standalone_prompt.format(conversation=format_conversation(history, clinic), ask=question)
 
 
-def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=None):
+def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=None, extra_system=""):
     if config.prompt == "original":
         knowledge = clinic.original_separator.join(chunk.content for chunk in retrieval.fused)
         return ChatPromptTemplate.from_template(clinic.original_template).invoke({"ask": question, "knowledge": knowledge})
 
     knowledge = "\n---\n".join(chunk.content for chunk in retrieval.fused) or clinic.no_information
+    system = config.prompt_template or clinic.system_prompt
+    if extra_system:
+        system += "\n\n" + extra_system  # no braces in extra_system: the system text is a template
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", config.prompt_template or clinic.system_prompt),
+        ("system", system),
         ("human", config.user_template or clinic.user_template),
     ])
     return prompt.invoke({

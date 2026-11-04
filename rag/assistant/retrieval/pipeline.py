@@ -10,8 +10,10 @@ from assistant.config import (
     MAX_ANSWER_TOKENS,
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBEDDING_MODEL,
+    RAG_GROUNDED,
     TEMPERATURE,
 )
+from assistant.generation.grounded import FORMAT_INSTRUCTION, GROUNDED_SCHEMA, verify
 from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
@@ -50,6 +52,7 @@ class RagConfig:
     prompt_template: str | None = None  # None: the system prompt of the clinic profile
     user_template: str | None = None  # None: the user template of the clinic profile
     lexical: LexicalOptions | None = None  # word search options; None: those of the experiment
+    grounded: bool = RAG_GROUNDED  # the model quotes the knowledge and the quote is checked before the answer is given
 
     def __post_init__(self):
         search_fields = {
@@ -118,6 +121,7 @@ class AnswerResult:
     answer: str
     retrieval: RetrievalResult
     latency_s: float
+    grounding: str | None = None  # the grounded status of the answer; None when the answer is not grounded
 
 
 @dataclass(frozen=True)
@@ -233,8 +237,38 @@ def standalone_question(question, history, config, generator: TextGenerator, cli
     return rewritten or question
 
 
+# A grounded reply is JSON that also holds the quote, so it needs more room than the usual answer cap.
+GROUNDED_MIN_ANSWER_TOKENS = 400
+
+
 def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=None):
-    return _build_prompt(question, retrieval, config, clinic, history)
+    extra = FORMAT_INSTRUCTION if config.grounded else ""
+    return _build_prompt(question, retrieval, config, clinic, history, extra_system=extra)
+
+
+def _reply(question, retrieval, config, deps: RagDeps, clinic: ClinicProfile, history=None):
+    """The text to give the patient, and its grounding status (None when the answer is not grounded)."""
+    prompt = build_prompt(question, retrieval, config, clinic, history)
+    if not config.grounded:
+        reply = deps.generator.generate(
+            prompt,
+            model=config.chat_model,
+            temperature=config.temperature,
+            seed=config.seed,
+            max_tokens=config.max_answer_tokens,
+        )
+        return clean_answer(reply, clinic, history), None
+    max_tokens = None if config.max_answer_tokens is None else max(config.max_answer_tokens, GROUNDED_MIN_ANSWER_TOKENS)
+    reply = deps.generator.generate(
+        prompt,
+        model=config.chat_model,
+        temperature=config.temperature,
+        seed=config.seed,
+        max_tokens=max_tokens,
+        response_format=GROUNDED_SCHEMA,
+    )
+    outcome = verify(reply, [chunk.content for chunk in retrieval.fused], clinic, question)
+    return clean_answer(outcome.text, clinic, history), outcome.status
 
 
 def answer(question, config, history, deps: RagDeps):
@@ -246,16 +280,8 @@ def answer(question, config, history, deps: RagDeps):
     retrieval = retrieve(standalone_question(question, history, config, deps.generator, clinic), config, deps)
     if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
         return AnswerResult(answer=clinic.no_answer, retrieval=retrieval, latency_s=time.perf_counter() - start)
-    prompt = build_prompt(question, retrieval, config, clinic, history)
-    reply = deps.generator.generate(
-        prompt,
-        model=config.chat_model,
-        temperature=config.temperature,
-        seed=config.seed,
-        max_tokens=config.max_answer_tokens,
-    )
-
-    return AnswerResult(answer=clean_answer(reply, clinic, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
+    text, grounding = _reply(question, retrieval, config, deps, clinic, history)
+    return AnswerResult(answer=text, retrieval=retrieval, latency_s=time.perf_counter() - start, grounding=grounding)
 
 
 def stream_answer(question, config, deps: RagDeps):
@@ -265,6 +291,10 @@ def stream_answer(question, config, deps: RagDeps):
     clinic = deps.clinic.load()
     if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
         yield clinic.no_answer
+        return
+    if config.grounded:  # the JSON is checked as a whole, so the verified answer is given in one piece
+        text, _ = _reply(question, retrieval, config, deps, clinic)
+        yield text
         return
     prompt = build_prompt(question, retrieval, config, clinic)
     yield from deps.generator.stream(

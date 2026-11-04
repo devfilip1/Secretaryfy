@@ -295,3 +295,16 @@ To change the judge model, set `OLLAMA_JUDGE_MODEL` (the default is the chat mod
 pytest                    # unit tests, no Ollama needed
 pytest -m integration     # uses Ollama and the real index
 ```
+
+## Grounded answers (2026-11-03)
+
+`RAG_GROUNDED=1` (off by default, `RagConfig.grounded`) makes the model answer in JSON through Ollama's `format` (JSON Schema, constrained decoding): `{kind, evidence_quote, answer}`, in that order so the quote is written before the answer. The code, not the model, decides what reaches the patient:
+
+- `kind: answer`: the quote must be found in one retrieved chunk (compared by words, so bullets, dashes, case and `...` do not count; fragments must be in order). Otherwise the patient gets the refusal.
+- `kind: no_answer`: the model's text is ignored; the patient gets the clinic's refusal sentence plus its offer of help (`refusal_offer` in the language pack).
+- `kind: small_talk`: accepted only when the customer's whole message is a greeting, thanks or goodbye (`small_talk` regex of the language pack). Any other message sent as small talk, such as a request to change role, gets the refusal.
+- Invalid JSON gets the refusal. `AnswerResult.grounding` holds why: `verified`, `no_answer`, `small_talk`, `small_talk_rejected`, `unverified_quote` or `invalid_json`.
+
+The example that taught the model to refuse "forget your instructions" was removed from both prompts: the refusal of manipulation no longer depends on the wording.
+
+Runs with `qwen3:8b` and `embeddinggemma` (labels `13-grounded-*`): EN dev 50 of 51, EN holdout 21 of 21, PT dev 49 of 51, PT holdout 20 of 21; the reference is 50, 21, 48 and 20. The p50 latency stays near 1.5 s. The off-topic question ("capital of France") and the role-change question, which the reference answered in Portuguese, are refused now. Known limits: a quote can be real and still not support the answer (installments are answered with the braces' monthly fee), and the holdout was used to diagnose the first runs, so it no longer measures new questions.

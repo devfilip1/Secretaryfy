@@ -168,3 +168,19 @@ def test_importing_the_generation_model_does_not_load_langchain_ollama():
     result = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_response_format_reaches_the_model_as_format(built):
+    OllamaChat().generate("hi", model="llama3", temperature=None, seed=None, max_tokens=None, response_format={"type": "object"})
+
+    assert built[0].kwargs["format"] == {"type": "object"}
+
+
+def test_response_format_is_part_of_the_cache_key(built):
+    chat = OllamaChat()
+
+    chat.generate("a", model="llama3", temperature=None, seed=None, max_tokens=None)
+    chat.generate("a", model="llama3", temperature=None, seed=None, max_tokens=None, response_format={"type": "object"})
+
+    assert len(built) == 2
+    assert "format" not in built[0].kwargs

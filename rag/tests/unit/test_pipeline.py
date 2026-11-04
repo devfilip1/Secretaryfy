@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -70,6 +71,7 @@ UNUSED_GENERATOR = UnusedGenerator()
 SOURCE = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)  # the source the pipeline gets in RagDeps
 CLINIC = SOURCE.load()
 NO_ANSWER, NO_CONVERSATION, NO_INFORMATION = CLINIC.no_answer, CLINIC.no_conversation, CLINIC.no_information
+REFUSAL = f"{NO_ANSWER} {CLINIC.refusal_offer}"  # the refusal of a grounded answer: the sentence and the offer of help
 
 
 def build_prompt(question, retrieval, config, history=None):
@@ -727,3 +729,105 @@ def test_hyde_is_asked_of_the_generator_in_the_dependencies():
     pipeline.retrieve(BRACES_QUESTION, config("vector", 1, use_hyde=True), deps)
 
     assert [call["method"] for call in generator.calls] == ["generate"]
+
+# --- grounded answers: the model quotes the brochure and the code checks the quote ---
+
+class GroundedGenerator(FakeGenerator):
+    """Like FakeGenerator, and records the response format each generate call asks for."""
+
+    def generate(self, prompt, *, model, temperature, seed, max_tokens, response_format=None):
+        self.calls.append(dict(method="generate", prompt=prompt, model=model, temperature=temperature, seed=seed,
+                               max_tokens=max_tokens, response_format=response_format))
+        return self.replies.pop(0)
+
+
+def grounded_deps(generator):
+    return RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+
+def grounded_config(**overrides):
+    from dataclasses import replace
+
+    return replace(config("vector", 1), grounded=True, chat_model="llama3.1", max_answer_tokens=99, **overrides)
+
+
+def test_grounded_answer_whose_quote_is_in_the_chunks_is_given():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == "Cleaning is in the brochure."
+    assert result.grounding == "verified"
+
+
+def test_grounded_answer_whose_quote_is_invented_gives_the_refusal():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free on Sundays."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unverified_quote"
+
+
+def test_grounded_call_asks_for_the_schema_with_the_format_in_the_system_message():
+    from assistant.generation.grounded import FORMAT_INSTRUCTION, GROUNDED_SCHEMA
+
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    call = generator.calls[0]
+    assert call["response_format"] == GROUNDED_SCHEMA
+    assert call["max_tokens"] == 400  # the grounded JSON needs more room than the usual 99
+    assert FORMAT_INSTRUCTION in call["prompt"].to_messages()[0].content
+
+
+def test_without_grounding_the_model_gets_no_schema_and_no_format_instruction():
+    from dataclasses import replace
+
+    from assistant.generation.grounded import FORMAT_INSTRUCTION
+
+    generator = FakeGenerator("Braces cost $180.")
+
+    result = pipeline.answer(BRACES_QUESTION, replace(config("vector", 1), grounded=False), None, grounded_deps(generator))
+
+    assert result.answer == "Braces cost $180."
+    assert result.grounding is None
+    assert FORMAT_INSTRUCTION not in generator.calls[0]["prompt"].to_messages()[0].content
+
+
+def test_grounded_stream_yields_the_verified_answer_in_one_piece():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, grounded_config(), grounded_deps(generator)))
+
+    assert pieces == ["Cleaning is in the brochure."]
+    assert generator.calls[0]["method"] == "generate"
+
+
+def test_grounded_stream_with_an_invented_quote_yields_the_refusal():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free on Sundays."}))
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, grounded_config(), grounded_deps(generator)))
+
+    assert pieces == [REFUSAL]
+
+
+def test_the_model_text_of_a_no_answer_is_ignored_and_the_refusal_is_given():
+    generator = GroundedGenerator(json.dumps({"kind": "no_answer", "evidence_quote": "", "answer": "Yes, we accept insurance."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "no_answer"
+
+
+def test_small_talk_is_checked_against_the_customer_question_not_the_rewritten_one():
+    # With a conversation the question is first rewritten by one model call; the small talk check reads the customer's words.
+    generator = GroundedGenerator("How long do braces take?", json.dumps({"kind": "small_talk", "evidence_quote": "", "answer": "You're welcome!"}))
+
+    result = pipeline.answer("Thanks!", grounded_config(), CONVERSATION, grounded_deps(generator))
+
+    assert result.answer == "You're welcome!"
+    assert result.grounding == "small_talk"
