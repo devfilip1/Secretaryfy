@@ -1,5 +1,5 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { formatDay, formatDayTime, formatTime } from "./dates.js";
+import { formatDay, formatDayTime, formatTime, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 import type { Replies } from "./replies.js";
 
@@ -21,6 +21,10 @@ export function createEnglishReplies(clinicName: string): Replies {
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
       const tail = hasMore ? 'Say "more" for more options or "other day" for another date.' : 'Say "other day" for another date.';
       return `Available times on ${formatDay(date, tz)}:\n${numbered(slots.map((s) => formatTime(s, tz)))}\nReply with the number of the time. ${tail}`;
+    },
+
+    closedDay(date: string, closest: string[], tz: string) {
+      return r.offerDays(closest, tz, `We're closed on ${weekdayName(date, tz)}s. The closest days with openings are:`);
     },
 
     dayFull(date: string, closest: string[], tz: string) {

@@ -347,7 +347,9 @@ class Run {
       const closest = await this.closestDays(date);
       if (closest.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(closest);
-      return { reply: this.replies.dayFull(date, closest, this.tz) };
+      // Dia sem atendimento nas regras semanais: avisa que está fechado, em vez de "sem horários"
+      const closed = !this.rules.weeklyHours[String(DateTime.fromISO(date, { zone: this.tz }).weekday) as keyof Rules["weeklyHours"]];
+      return { reply: closed ? this.replies.closedDay(date, closest, this.tz) : this.replies.dayFull(date, closest, this.tz) };
     }
     return this.offerSlots(date, slots);
   }

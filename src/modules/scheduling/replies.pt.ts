@@ -1,5 +1,5 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { formatDay, formatDayTime, formatTime } from "./dates.js";
+import { formatDay, formatDayTime, formatTime, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 import type { Replies } from "./replies.js";
 
@@ -22,6 +22,10 @@ export function createPortugueseReplies(clinicName: string): Replies {
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
       const tail = hasMore ? 'Digite "mais" para ver outras opções ou "outro dia" para outra data.' : 'Digite "outro dia" para outra data.';
       return `Horários disponíveis em ${formatDay(date, tz, pt)}:\n${numbered(slots.map((s) => formatTime(s, tz, pt)))}\nResponda com o número do horário. ${tail}`;
+    },
+
+    closedDay(date: string, closest: string[], tz: string) {
+      return r.offerDays(closest, tz, `Neste dia (${weekdayName(date, tz, pt)}) a clínica não atende. Os dias mais próximos com horários livres são:`);
     },
 
     dayFull(date: string, closest: string[], tz: string) {

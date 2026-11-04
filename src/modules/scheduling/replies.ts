@@ -10,6 +10,8 @@ export interface Replies {
   offerDays(days: string[], tz: string, intro?: string): string;
   offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean): string;
   dayFull(date: string, closest: string[], tz: string): string;
+  /** O dia pedido é um dia em que a clínica não atende (regras semanais do painel) */
+  closedDay(date: string, closest: string[], tz: string): string;
   tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string): string;
   noOpenings(): string;
   askName(): string;

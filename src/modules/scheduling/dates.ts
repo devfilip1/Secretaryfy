@@ -157,6 +157,12 @@ export function minutesOfDay(at: Date, timeZone: string): number {
 }
 
 /** "Wed, Oct 21" (en) ou "qua., 21 de out." (pt) no fuso da clínica (textos ao cliente). */
+/** Nome do dia da semana por extenso ("Saturday", "sábado"). */
+export function weekdayName(at: Date | string, timeZone: string, language: Language = "en"): string {
+  const dt = toZoned(at, timeZone);
+  return language === "pt" ? dt.setLocale("pt-BR").toFormat("cccc") : dt.setLocale("en-US").toFormat("cccc");
+}
+
 export function formatDay(at: Date | string, timeZone: string, language: Language = "en"): string {
   const dt = toZoned(at, timeZone);
   return language === "pt" ? dt.setLocale("pt-BR").toFormat("ccc, d 'de' LLL") : dt.setLocale("en-US").toFormat("ccc, LLL d");

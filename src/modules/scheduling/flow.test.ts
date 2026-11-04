@@ -141,12 +141,19 @@ test("escolher o dia mostra os horários livres; more mostra o resto", async () 
   assert.match(more.reply, /^Available times on Wed, Oct 21:\n1\. 5:00 PM\n/);
 });
 
-test("dia sem atendimento: day_full com os dias mais próximos", async () => {
+test("dia fechado nas regras semanais: avisa que não atende e oferece os dias mais próximos", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability", { date: "2026-10-25" }));
-  assert.match(reply, /^Sorry, there are no openings on Sun, Oct 25\. The closest days with openings are:\n1\. Wed, Oct 21/);
+  assert.match(reply, /^We're closed on Sundays\. The closest days with openings are:\n1\. Wed, Oct 21/);
   assert.match(reply, /Mon, Oct 26/);
   assert.equal((await sessionOf(conv))?.step, "choose_day");
+});
+
+test("dia que atende mas está lotado: day_full com os dias mais próximos", async () => {
+  fake.block(at("2026-10-21T00:00"), at("2026-10-22T00:00"));
+  const conv = await conversation();
+  const { reply } = await say(conv, I("availability", { date: "2026-10-21" }));
+  assert.match(reply, /^Sorry, there are no openings on Wed, Oct 21\. The closest days with openings are:/);
 });
 
 test("data além do limite: too_far com os primeiros dias", async () => {
