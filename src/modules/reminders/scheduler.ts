@@ -5,7 +5,7 @@ import { FALLBACK_TIME_ZONE, type CalendarGateway } from "../google/gateway.js";
 import type { InboxRepository } from "../inbox/repository.js";
 import type { InboxService } from "../inbox/service.js";
 import { syncAppointment } from "../scheduling/booking.js";
-import { reminderReasonText, replies, systemNotes } from "../scheduling/replies.js";
+import { reminderReasonText, replies as defaultReplies, systemNotes, type Replies } from "../scheduling/replies.js";
 import { ASSESSMENT } from "../scheduling/services.js";
 import type { SchedulingStore } from "../scheduling/sessions.js";
 
@@ -28,6 +28,8 @@ interface Deps {
   /** Depois disso (minutos antes do horário) o lembrete não sai mais (padrão 2 h) */
   cutoffMinutes: number;
   tickMs: number;
+  /** Textos na língua da clínica (padrão: inglês) */
+  replies?: Replies;
 }
 
 /**
@@ -47,6 +49,7 @@ export function createReminderScheduler({
   leadMinutes,
   cutoffMinutes,
   tickMs,
+  replies = defaultReplies,
 }: Deps) {
   let running = false;
   let timer: ReturnType<typeof setInterval> | null = null;

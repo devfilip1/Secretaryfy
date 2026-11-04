@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Gate } from "../antiban/gate.js";
 import { matchCommand } from "../antiban/opt-out.js";
-import { fixedTexts, protectionNotes } from "../antiban/texts.js";
+import { fixedTexts, protectionNotes, type FixedTexts } from "../antiban/texts.js";
 import type { ConversationTurn, RagAnswer } from "../rag/client.js";
 import type { IncomingMessage } from "./evolution.js";
 
@@ -72,7 +72,10 @@ export type Replier = (
 ) => Promise<Reply | null>;
 
 /** Resposta do folheto; com o assistente fora do ar, a mensagem de indisponibilidade. */
-export function createRagAnswerer(ask: (question: string, history?: ConversationTurn[]) => Promise<RagAnswer>) {
+export function createRagAnswerer(
+  ask: (question: string, history?: ConversationTurn[]) => Promise<RagAnswer>,
+  { unavailable = UNAVAILABLE_MESSAGE }: { unavailable?: string } = {},
+) {
   return async function answerQuestion(
     question: string,
     log: FastifyBaseLogger,
@@ -85,7 +88,7 @@ export function createRagAnswerer(ask: (question: string, history?: Conversation
       return result.answer;
     } catch (err) {
       log.error({ phone, err }, "assistente indisponível");
-      return UNAVAILABLE_MESSAGE;
+      return unavailable;
     }
   };
 }
@@ -106,6 +109,8 @@ interface Deps {
     setOptedOut(conversationId: string, optedOut: boolean, note: string): Promise<unknown>;
   };
   /** Há um agendamento em andamento? Nele, "cancelar" é do agendamento e não um pedido de saída */
+  /** Textos fixos na língua da clínica (padrão: inglês) */
+  texts?: FixedTexts;
   hasSchedulingSession?: (conversationId: string) => Promise<boolean>;
 }
 
@@ -114,7 +119,7 @@ interface Deps {
  * Pedidos de saída e de volta são tratados antes de tudo, sem depender do modelo (specs/004 FR-019 a FR-021).
  * Respeita a pausa da conversa antes de decidir e de novo antes de enviar. Nunca rejeita: as falhas vão para o log.
  */
-export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession = async () => false }: Deps) {
+export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession = async () => false, texts = fixedTexts }: Deps) {
   /** As partes que o cliente não recebeu há pouco (a mesma janela da regra de texto repetido do portão). */
   async function keepFresh(conversationId: string, parts: string[]) {
     const fresh: string[] = [];
@@ -137,13 +142,13 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
         if (optedOut) return;
         await inbox.setOptedOut(conversationId, true, protectionNotes.optedOut);
         // Uma única confirmação, mesmo com a conversa pausada pelo operador
-        const text = await gate.pickVariant(conversationId, fixedTexts.optOutConfirmation);
+        const text = await gate.pickVariant(conversationId, texts.optOutConfirmation);
         if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true, bypass: ["opted_out", "unanswered"] });
         return;
       }
       if (command === "opt_in" && optedOut) {
         await inbox.setOptedOut(conversationId, false, protectionNotes.optedIn);
-        const text = await gate.pickVariant(conversationId, fixedTexts.optIn);
+        const text = await gate.pickVariant(conversationId, texts.optIn);
         if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true });
         return;
       }
@@ -161,8 +166,8 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
         return;
       }
 
-      if (fixedTexts.unavailable.includes(answer.text)) {
-        const text = await gate.pickVariant(conversationId, fixedTexts.unavailable);
+      if (texts.unavailable.includes(answer.text)) {
+        const text = await gate.pickVariant(conversationId, texts.unavailable);
         if (!text) {
           log.info({ conversationId }, "indisponibilidade já avisada a este cliente");
           return;

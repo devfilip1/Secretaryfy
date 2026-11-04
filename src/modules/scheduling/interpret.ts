@@ -60,22 +60,22 @@ const HISTORY_LIMIT = 20;
 /** O cliente fala de hoje: só então a data de hoje, devolvida pelo modelo num pedido sem dia, vale */
 const SAYS_TODAY = /\b(today|tonight|now|this (?:morning|afternoon|evening))\b/i;
 
-const YES = new Set(["yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay", "confirm", "confirmed", "correct", "sim", "yes please", "ok thanks"]);
-const NO = new Set(["no", "n", "nope", "not", "nao", "não", "no thanks", "no thank you"]);
+const YES = new Set(["yes", "y", "yeah", "yep", "yup", "sure", "ok", "okay", "confirm", "confirmed", "correct", "sim", "yes please", "ok thanks", "claro", "pode ser", "com certeza", "confirmo", "isso"]);
+const NO = new Set(["no", "n", "nope", "not", "nao", "não", "no thanks", "no thank you", "nao quero", "de jeito nenhum"]);
 /** Respostas ao lembrete que também confirmam presença (normalizadas: sem apóstrofo nem pontuação) */
 const ATTENDING = new Set(["i ll be there", "ill be there", "i will be there", "see you", "see you there", "see you then", "yes i ll be there", "yes confirmed", "confirmed thanks", "yes thanks"]);
-const MORE = new Set(["more", "more options", "others", "other times", "more times", "show more", "anything else"]);
-const OTHER_DAY = new Set(["other day", "another day", "different day", "other date", "another date", "a different day"]);
+const MORE = new Set(["more", "more options", "others", "other times", "more times", "show more", "anything else", "mais", "mais horarios", "outros horarios"]);
+const OTHER_DAY = new Set(["other day", "another day", "different day", "other date", "another date", "a different day", "outro dia", "outra data", "outro dia por favor", "outra data por favor"]);
 const CHOOSING: (SchedulingStep | null)[] = ["choose_day", "choose_slot"];
 const CONFIRMING: (SchedulingStep | null)[] = ["confirm_booking", "confirm_cancel", "confirm_reschedule", "offer_reschedule"];
 /** Agradecimento ou despedida sem mais nada ("right, thank you so much, bye"): uma destas palavras... */
-const CLOSING_CORE = new Set(["thank", "thanks", "thx", "ty", "bye", "byee", "by", "goodbye", "cya", "cheers", "appreciate", "obrigado", "obrigada", "valeu", "tchau"]);
+const CLOSING_CORE = new Set(["thank", "thanks", "thx", "ty", "bye", "byee", "by", "goodbye", "cya", "cheers", "appreciate", "obrigado", "obrigada", "brigado", "brigada", "valeu", "tchau"]);
 /** ...e as demais só desta lista */
 const CLOSING_FILLER = new Set(
   (
     "right alright all ok okay oh ah great perfect cool awesome nice good wonderful excellent yes yeah sure " +
     "you so much very a lot many for it that s everything your help again then now the have day night evening weekend " +
-    "see ya later soon take care kind regards got will do"
+    "see ya later soon take care kind regards got will do muito ate mais logo bom boa dia noite tarde um uma"
   ).split(" "),
 );
 const NAME = /^[\p{L}][\p{L}'.-]*(?: [\p{L}][\p{L}'.-]*){0,3}$/u;
@@ -85,17 +85,17 @@ const NOT_NAMES = new Set(
     "hi hello hey why what how who when where which no yes ok okay sure thanks thank bye please help price prices cost " +
     "much is are the a an you your my me i it this that do does can could would want need book appointment " +
     "today tomorrow monday tuesday wednesday thursday friday saturday sunday morning afternoon evening " +
-    "teeth tooth dental not know"
+    "teeth tooth dental not know oi ola sim nao obrigado obrigada valeu tchau quero marcar agendar consulta preciso horario amanha segunda terca quarta quinta sexta sabado domingo por favor quanto custa"
   )
     .split(" ")
     // As palavras dos tratamentos ("Braces" não é um nome)
-    .concat(SERVICES.flatMap((s) => s.words.flatMap((w) => w.split(" ")))),
+    .concat(SERVICES.flatMap((s) => [...s.words, ...s.wordsPt].flatMap((w) => w.split(" ")))),
 );
 const MAX_NAME_CHARS = 60;
 /** "my name is X" vale em qualquer momento */
-const MY_NAME = /^(?:(?:hi|hello|hey)[,!.]?\s+)?(?:my name is|my name's|call me)\s+(.+)$/i;
+const MY_NAME = /^(?:(?:hi|hello|hey)[,!.]?\s+)?(?:my name is|my name's|call me|meu nome [eé]|me chamo)\s+(.+)$/i;
 /** "I'm X" só logo depois do pedido de nome: fora dele, "I'm interested" não é um nome */
-const I_AM = /^(?:(?:hi|hello|hey)[,!.]?\s+)?(?:i'm|i am|im|it's|its|this is)\s+(.+)$/i;
+const I_AM = /^(?:(?:hi|hello|hey)[,!.]?\s+)?(?:i'm|i am|im|it's|its|this is|sou(?: o| a)?|eu sou)\s+(.+)$/i;
 
 /** O nome escrito pelo cliente, limpo e com iniciais maiúsculas; null se não parecer um nome (contracts/interpreter.md). */
 export function cleanName(raw: string | null | undefined): string | null {
@@ -110,6 +110,7 @@ export function cleanName(raw: string | null | undefined): string | null {
 const normalize = (text: string) =>
   text
     .toLowerCase()
+    .normalize("NFD").replace(/\p{M}/gu, "")
     .replace(/[^\p{L}\p{N}/ ]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -214,7 +215,7 @@ const STEP_HINTS: Record<SchedulingStep, string> = {
   choose_service: "The assistant offered a numbered list of SERVICES (treatments) and is waiting for the customer to pick one.",
 };
 
-function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput): string {
+function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput, clinicName: string): string {
   const today = DateTime.fromJSDate(now, { zone: timeZone }).setLocale("en-US");
   const offered = options
     .map((o) => {
@@ -224,8 +225,9 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     })
     .join("\n");
   return [
-    "You classify WhatsApp messages sent to the scheduling assistant of DentalSafe, a dental clinic.",
+    `You classify WhatsApp messages sent to the scheduling assistant of ${clinicName}, a dental clinic.`,
     "Do NOT answer the customer. Return only the JSON object.",
+    "The customer may write in English or Brazilian Portuguese.",
     "",
     `Today is ${today.toFormat("cccc, yyyy-MM-dd")}. Time zone: ${timeZone}.`,
     `Current step: ${step ? `${step}. ${STEP_HINTS[step]}` : "none (no booking in progress)."}`,
@@ -302,7 +304,7 @@ function validate(raw: unknown, { text, options, window, now, timeZone, awaiting
   };
 }
 
-export function createInterpreter({ ollama }: { ollama: Pick<OllamaClient, "chat"> }) {
+export function createInterpreter({ ollama, clinicName = "DentalSafe" }: { ollama: Pick<OllamaClient, "chat">; clinicName?: string }) {
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -312,7 +314,7 @@ export function createInterpreter({ ollama }: { ollama: Pick<OllamaClient, "chat
       const raw = await ollama.chat({
         format: FORMAT,
         messages: [
-          { role: "system", content: systemPrompt(input) },
+          { role: "system", content: systemPrompt(input, clinicName) },
           ...input.history.slice(-HISTORY_LIMIT),
           { role: "user", content: input.text },
         ],

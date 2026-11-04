@@ -21,7 +21,7 @@ Every message is interpreted first. Booking-related intents (book, availability,
 - **Where:** [router.ts](../src/modules/scheduling/router.ts); detail in [message pipeline](message-pipeline.md)
 
 ### BR-CNV-05 · Brochure answers are short and honest
-At most 3 messages per reply, split by paragraph (or by sentence when one long block). When the brochure doesn't have the answer, the assistant says "I don't have that information right now." instead of guessing. The assistant always writes in English.
+At most 3 messages per reply, split by paragraph (or by sentence when one long block). When the brochure doesn't have the answer, the assistant says "I don't have that information right now." instead of guessing. The assistant writes in the clinic language (`CLINIC_LANGUAGE`, English by default); panel text stays English.
 - **Where:** `splitReply` and `MAX_PARTS` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `NO_ANSWER` in [rag/config/languages/en.yaml](../rag/config/languages/en.yaml), the system prompt in [rag/config/prompts.yaml](../rag/config/prompts.yaml) (shared by every language), with the clinic data in [rag/config/clinic.yaml](../rag/config/clinic.yaml)
 
 ### BR-CNV-06 · The operator takes over a conversation by writing in it

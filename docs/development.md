@@ -65,6 +65,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES`, `REMINDER_TICK_MS` | no | Reminder window (1440 / 120 min) and scheduler tick (60000 ms). Shorten only to test |
 | `ANTIBAN_*` | no | About 30 anti-ban limits; the ones most likely to change: `ANTIBAN_CONVERSATIONS_PER_DAY` (150), `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` (8 / 200), `ANTIBAN_ALLOWED_LINK_DOMAINS` (empty), `ANTIBAN_WARMUP_DAYS` (14; 0 turns it off) |
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |
+| `CLINIC_LANGUAGE`, `CLINIC_NAME` | no | Language of the messages to patients: `en` (default) or `pt`; the panel stays English. Clinic name in those messages (`DentalSafe`) |
 | `PORT`, `LOG_LEVEL` | no | 3000, `info` |
 
 The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example). `OLLAMA_CHAT_MODEL` and `OLLAMA_EMBEDDING_MODEL` choose the models. `RAG_GROUNDED=1` makes the RAG answer in JSON and the code check the quote (see [rag/evaluation/README.md](../rag/evaluation/README.md)). `OLLAMA_THINKING=on` (default `off`) lets a `qwen3` chat model think before answering: a bit more right, about 5 times slower, and it can end with an empty answer; it is read at start, so restart the service after changing it.

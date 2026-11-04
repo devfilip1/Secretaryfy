@@ -8,7 +8,7 @@ import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
 import type { Intent, Interpreter } from "./interpret.js";
 import { InterpreterUnavailable } from "./ollama.js";
-import { replies, systemNotes } from "./replies.js";
+import { replies as defaultReplies, systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import { detectService } from "./services.js";
 import type { SchedulingStore } from "./sessions.js";
@@ -32,10 +32,12 @@ interface Deps {
    */
   answerQuestion: (question: string, log: FastifyBaseLogger, phone: string, history?: ConversationTurn[]) => Promise<string>;
   now?: () => Date;
+  /** Textos na língua da clínica (padrão: inglês) */
+  replies?: Replies;
 }
 
 /** Decide se a mensagem vai para o agendamento ou para o folheto, e devolve o texto da resposta. */
-export function createSchedulingRouter({ interpreter, flow, store, inbox, connection, rules, answerQuestion, now = () => new Date() }: Deps) {
+export function createSchedulingRouter({ interpreter, flow, store, inbox, connection, rules, answerQuestion, now = () => new Date(), replies = defaultReplies }: Deps) {
   return async function reply(
     { conversationId, message }: { conversationId: string; message: IncomingMessage },
     log: FastifyBaseLogger,

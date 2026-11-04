@@ -5,6 +5,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   PUBLIC_URL: z.url(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  // Língua das mensagens ao cliente (en ou pt) e nome da clínica nelas; o painel continua em inglês
+  CLINIC_LANGUAGE: z.enum(["en", "pt"]).default("en"),
+  CLINIC_NAME: z.string().min(1).default("DentalSafe"),
 
   DATABASE_URL: z.url(),
   APP_SECRET: z

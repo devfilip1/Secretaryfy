@@ -1,177 +1,55 @@
-import { UNAVAILABLE_MESSAGE } from "../whatsapp/handle-message.js";
-import { formatDay, formatDayTime, formatTime } from "./dates.js";
-import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
+import { formatDayTime } from "./dates.js";
+import { createEnglishReplies } from "./replies.en.js";
+import { createPortugueseReplies } from "./replies.pt.js";
 
 /**
- * Textos enviados ao cliente pelo WhatsApp, em inglês (contracts/conversation.md). O modelo nunca escreve estes textos:
- * "booked" só sai daqui depois de o evento existir na agenda (FR-024).
+ * Textos enviados ao cliente pelo WhatsApp, na língua da clínica (CLINIC_LANGUAGE, contracts/conversation.md). O modelo
+ * nunca escreve estes textos: "booked" só sai daqui depois de o evento existir na agenda (FR-024).
  */
+export interface Replies {
+  offerDays(days: string[], tz: string, intro?: string): string;
+  offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean): string;
+  dayFull(date: string, closest: string[], tz: string): string;
+  tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string): string;
+  noOpenings(): string;
+  askName(): string;
+  chooseService(): string;
+  confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string): string;
+  booked(start: Date, tz: string): string;
+  slotTaken(date: string, slots: Date[], tz: string): string;
+  alreadyBooked(start: Date, tz: string): string;
+  myAppointment(start: Date, tz: string): string;
+  noAppointment(): string;
+  confirmCancel(start: Date, tz: string): string;
+  cancelled(start: Date, tz: string): string;
+  keptAppointment(start: Date, tz: string): string;
+  confirmReschedule(from: Date, to: Date, tz: string): string;
+  rescheduled(start: Date, tz: string): string;
+  tooLateToChange(cancelNoticeMinutes: number): string;
+  stopped(): string;
+  askNameFollowUp(random?: () => number): string;
+  nameReceived(name: string, random?: () => number): string;
+  goodbye(random?: () => number): string;
+  unclear(repeat: string): string;
+  handoff(): string;
+  calendarUnavailable(): string;
+  interpreterUnavailable(): string;
+  reminder(start: Date, service: string, name: string | null, tz: string): string[];
+  reminderConfirmed(start: Date, name: string | null, tz: string): string;
+  /** Textos de apoio das etapas (a pergunta repetida, a lista de dias com vaga) */
+  daysIntro(): string;
+  noMoreOpeningsToday(): string;
+  yesOrNo(): string;
+  howCanIHelp(): string;
+}
 
-const numbered = (lines: string[]) => lines.map((line, i) => `${i + 1}. ${line}`).join("\n");
+/** Os textos na língua e com o nome da clínica dados (CLINIC_LANGUAGE, CLINIC_NAME). */
+export function createReplies({ language, clinicName }: { language: "en" | "pt"; clinicName: string }): Replies {
+  return language === "pt" ? createPortugueseReplies(clinicName) : createEnglishReplies(clinicName);
+}
 
-const hoursText = (minutes: number) => {
-  if (minutes % 60 !== 0) return `${minutes} minutes`;
-  const h = minutes / 60;
-  return h === 1 ? "1 hour" : `${h} hours`;
-};
-
-export const replies = {
-  offerDays(days: string[], tz: string, intro = "Sure! These days have openings:") {
-    return `${intro}\n${numbered(days.map((d) => formatDay(d, tz)))}\nReply with the number of the day, or tell me another date.`;
-  },
-
-  offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
-    const tail = hasMore ? 'Say "more" for more options or "other day" for another date.' : 'Say "other day" for another date.';
-    return `Available times on ${formatDay(date, tz)}:\n${numbered(slots.map((s) => formatTime(s, tz)))}\nReply with the number of the time. ${tail}`;
-  },
-
-  dayFull(date: string, closest: string[], tz: string) {
-    return replies.offerDays(closest, tz, `Sorry, there are no openings on ${formatDay(date, tz)}. The closest days with openings are:`);
-  },
-
-  tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string) {
-    return replies.offerDays(
-      closest,
-      tz,
-      `I can only book up to ${maxDaysAhead} days ahead, until ${formatDay(lastDate, tz)}. Here are the closest days:`,
-    );
-  },
-
-  noOpenings() {
-    return "Sorry, there are no openings in the coming days. Please contact the clinic directly.";
-  },
-
-  askName() {
-    return "What name should I put on the appointment?";
-  },
-
-  /** Lista numerada dos serviços (specs/005, etapa choose_service). */
-  chooseService() {
-    const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
-    return `Which service is this appointment for?\n${numbered(lines)}\nReply with the number or the name of the service.`;
-  },
-
-  confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
-    return [
-      "Please confirm your appointment:",
-      `📅 ${formatDayTime(start, tz)} (${slotMinutes} min)`,
-      `👤 ${name}`,
-      `🦷 ${serviceLabel(service)}`,
-      "Reply YES to confirm, NO to choose another time, or tell me another service.",
-    ].join("\n");
-  },
-
-  booked(start: Date, tz: string) {
-    return `You're booked! 📅 ${formatDayTime(start, tz)}. See you at DentalSafe.`;
-  },
-
-  slotTaken(date: string, slots: Date[], tz: string) {
-    const list = numbered(slots.map((s) => formatTime(s, tz)));
-    return `Sorry, that time was just taken. The closest available times on ${formatDay(date, tz)} are:\n${list}\nReply with the number of the time, or say "other day".`;
-  },
-
-  alreadyBooked(start: Date, tz: string) {
-    return `You already have an appointment on ${formatDayTime(start, tz)}. Would you like to reschedule it? (YES/NO)`;
-  },
-
-  myAppointment(start: Date, tz: string) {
-    return `Your appointment is on ${formatDayTime(start, tz)}.`;
-  },
-
-  noAppointment() {
-    return "I couldn't find an appointment for this number.";
-  },
-
-  confirmCancel(start: Date, tz: string) {
-    return `Cancel your appointment on ${formatDayTime(start, tz)}? (YES/NO)`;
-  },
-
-  cancelled(start: Date, tz: string) {
-    return `Your appointment on ${formatDayTime(start, tz)} was cancelled.`;
-  },
-
-  keptAppointment(start: Date, tz: string) {
-    return `Okay, your appointment on ${formatDayTime(start, tz)} stays as it is.`;
-  },
-
-  confirmReschedule(from: Date, to: Date, tz: string) {
-    return `Move your appointment from ${formatDayTime(from, tz)} to ${formatDayTime(to, tz)}? (YES/NO)`;
-  },
-
-  rescheduled(start: Date, tz: string) {
-    return `Done! Your appointment is now on ${formatDayTime(start, tz)}.`;
-  },
-
-  tooLateToChange(cancelNoticeMinutes: number) {
-    return `Your appointment is in less than ${hoursText(cancelNoticeMinutes)}, so I can't change it here. Please contact the clinic directly.`;
-  },
-
-  stopped() {
-    return "No problem. Let me know if you'd like to book later.";
-  },
-
-  /** Última mensagem da primeira resposta a quem ainda não disse o nome (specs/005, contracts/conversation.md). */
-  askNameFollowUp(random: () => number = Math.random) {
-    const options = [
-      "By the way, may I have your name?",
-      "By the way, what's your name?",
-      "Before I forget, may I have your name?",
-    ];
-    return options[Math.floor(random() * options.length)];
-  },
-
-  /** O cliente disse o nome, sem pergunta junto. */
-  nameReceived(name: string, random: () => number = Math.random) {
-    const options = [`Nice to meet you, ${name}! How can I help you?`, `Thanks, ${name}! How can I help you today?`];
-    return options[Math.floor(random() * options.length)];
-  },
-
-  /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */
-  goodbye(random: () => number = Math.random) {
-    const options = [
-      "You're welcome! Have a great day 😊",
-      "Anytime! Take care 😊",
-      "My pleasure! See you soon at DentalSafe.",
-      "Glad I could help! Have a nice day.",
-    ];
-    return options[Math.floor(random() * options.length)];
-  },
-
-  unclear(repeat: string) {
-    return `Sorry, I didn't get that. ${repeat}`;
-  },
-
-  handoff() {
-    return "Sorry, I'm having trouble understanding. Someone from our team will continue with you here shortly.";
-  },
-
-  calendarUnavailable() {
-    return "Sorry, I can't book appointments right now. Please try again later or contact the clinic.";
-  },
-
-  interpreterUnavailable() {
-    return UNAVAILABLE_MESSAGE;
-  },
-
-  /**
-   * Lembrete 24 h antes (specs/006, contracts/conversation.md): três variações, para nunca repetir o último texto
-   * enviado à conversa. O agendador escolhe com gate.pickVariant.
-   */
-  reminder(start: Date, service: string, name: string | null, tz: string): string[] {
-    const when = formatDayTime(start, tz);
-    const label = serviceLabel(service);
-    return [
-      `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at DentalSafe on ${when} (${label}). Please reply YES to confirm.`,
-      `Hello${name ? ` ${name}` : ""}, your ${label} appointment at DentalSafe is on ${when}. Can you confirm you'll be there? Reply YES to confirm.`,
-      `Hi${name ? ` ${name}` : ""}, this is DentalSafe reminding you of your appointment on ${when} for ${label}. Reply YES to confirm, or tell me if you need to reschedule.`,
-    ];
-  },
-
-  /** O cliente respondeu YES ao lembrete. */
-  reminderConfirmed(start: Date, name: string | null, tz: string) {
-    return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatDayTime(start, tz)} is confirmed. See you at DentalSafe.`;
-  },
-};
+/** Os textos em inglês da DentalSafe: o padrão de quem não passa as configurações. */
+export const replies: Replies = createReplies({ language: "en", clinicName: "DentalSafe" });
 
 /** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */
 export const systemNotes = {

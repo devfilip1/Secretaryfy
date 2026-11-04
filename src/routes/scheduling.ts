@@ -4,6 +4,7 @@ import { bus } from "../modules/inbox/events.js";
 import { createBooking } from "../modules/scheduling/booking.js";
 import { createSchedulingFlow } from "../modules/scheduling/flow.js";
 import { createSchedulingStore, withAppointmentEvents } from "../modules/scheduling/sessions.js";
+import { createReplies } from "../modules/scheduling/replies.js";
 import { connectionStore, googleCalendar, rulesStore } from "./calendar.js";
 import { customerRepo, inbox } from "./inbox.js";
 
@@ -13,6 +14,9 @@ import { customerRepo, inbox } from "./inbox.js";
  */
 export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), () => bus.publish({ type: "appointments.updated" }));
 
+/** Textos aos clientes na língua e com o nome da clínica da configuração (CLINIC_LANGUAGE, CLINIC_NAME). */
+export const schedulingReplies = createReplies({ language: env.CLINIC_LANGUAGE, clinicName: env.CLINIC_NAME });
+
 const deps = {
   calendar: googleCalendar,
   connection: connectionStore,
@@ -21,6 +25,7 @@ const deps = {
   inbox,
   customers: customerRepo,
   reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
+  replies: schedulingReplies,
 };
 
 // Agendamento pelo WhatsApp (specs/003): o Ollama interpreta, a máquina de estados decide

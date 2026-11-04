@@ -8,7 +8,7 @@ import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { instance } from "./modules/whatsapp/instance.js";
 import { connectionStore, googleCalendar, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
-import { booking, schedulingStore } from "./routes/scheduling.js";
+import { booking, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
 import { googleOAuthRoutes } from "./routes/google-oauth.js";
 import { healthRoutes } from "./routes/health.js";
@@ -139,6 +139,7 @@ const reminders = createReminderScheduler({
   leadMinutes: env.REMINDER_LEAD_MINUTES,
   cutoffMinutes: env.REMINDER_CUTOFF_MINUTES,
   tickMs: env.REMINDER_TICK_MS,
+  replies: schedulingReplies,
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

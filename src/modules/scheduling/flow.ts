@@ -8,7 +8,7 @@ import { initialReminderStatus } from "../reminders/status.js";
 import { availableDays, bookingWindow, isSlotAvailable, slotsForDay } from "./availability.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { Interpretation } from "./interpret.js";
-import { replies, systemNotes } from "./replies.js";
+import { replies as defaultReplies, systemNotes, type Replies } from "./replies.js";
 import { ASSESSMENT, SERVICES } from "./services.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
@@ -37,6 +37,8 @@ interface Deps {
   now?: () => Date;
   /** Antecedência do lembrete, para o status inicial e o de um horário remarcado (specs/006) */
   reminderLeadMinutes?: number;
+  /** Textos na língua da clínica (padrão: inglês) */
+  replies?: Replies;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
@@ -50,6 +52,7 @@ export function createSchedulingFlow({
   log = console,
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
+  replies = defaultReplies,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
   const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });
@@ -80,6 +83,7 @@ export function createSchedulingFlow({
         inbox,
         booking,
         reminderLeadMinutes,
+        replies,
         conversation,
         session,
         knownName,
@@ -109,6 +113,7 @@ class Run {
   private readonly inbox: Deps["inbox"];
   private readonly booking: Booking;
   private readonly reminderLeadMinutes: number;
+  private readonly replies: Replies;
   private readonly conversation: ConversationRow;
   private readonly session: SchedulingSessionRow | null;
   private readonly knownName: string | null;
@@ -126,6 +131,7 @@ class Run {
     inbox: Deps["inbox"];
     booking: Booking;
     reminderLeadMinutes: number;
+    replies: Replies;
     conversation: ConversationRow;
     session: SchedulingSessionRow | null;
     knownName: string | null;
@@ -140,6 +146,7 @@ class Run {
     this.inbox = v.inbox;
     this.booking = v.booking;
     this.reminderLeadMinutes = v.reminderLeadMinutes;
+    this.replies = v.replies;
     this.conversation = v.conversation;
     this.session = v.session;
     this.knownName = v.knownName;
@@ -159,7 +166,7 @@ class Run {
   async dispatch(i: Interpretation): Promise<FlowResult> {
     const s = this.session;
 
-    if (i.intent === "stop") return this.finish(replies.stopped());
+    if (i.intent === "stop") return this.finish(this.replies.stopped());
     if (i.tooFar && ["availability", "choose", "book"].includes(i.intent)) return this.tooFar();
 
     switch (i.intent) {
@@ -173,7 +180,7 @@ class Run {
         return this.startReschedule();
       case "my_appointment": {
         const appt = await this.currentAppointment();
-        return { reply: appt ? replies.myAppointment(appt.startsAt, this.tz) : replies.noAppointment() };
+        return { reply: appt ? this.replies.myAppointment(appt.startsAt, this.tz) : this.replies.noAppointment() };
       }
     }
 
@@ -234,13 +241,13 @@ class Run {
   private async misunderstood(): Promise<FlowResult> {
     const s = this.session;
     // Sem etapa em andamento não há pergunta a repetir nem contador
-    if (!s) return { reply: replies.unclear("How can I help you?") };
+    if (!s) return { reply: this.replies.unclear(this.replies.howCanIHelp()) };
     const count = s.misunderstoodCount + 1;
     if (count >= MAX_MISUNDERSTOOD) {
       await this.store.clearSession(this.conversation.id);
       await this.inbox.flagNeedsAttention(this.conversation.id);
       await this.inbox.recordSystem(this.conversation.id, systemNotes.handoff());
-      return { reply: replies.handoff(), handoff: true };
+      return { reply: this.replies.handoff(), handoff: true };
     }
     await this.store.saveSession(
       {
@@ -256,24 +263,24 @@ class Run {
       },
       this.now,
     );
-    return { reply: replies.unclear(this.repeatPrompt(s)) };
+    return { reply: this.replies.unclear(this.repeatPrompt(s)) };
   }
 
   /** A pergunta da etapa, repetida depois de um "não entendi". */
   private repeatPrompt(s: SchedulingSessionRow): string {
     switch (s.step) {
       case "choose_day":
-        return replies.offerDays(this.optionDays(s.options), this.tz, "These days have openings:");
+        return this.replies.offerDays(this.optionDays(s.options), this.tz, this.replies.daysIntro());
       case "choose_slot": {
         const slots = this.optionSlots(s.options);
-        return replies.offerSlots(this.isoDate(slots[0]), slots, this.tz, false);
+        return this.replies.offerSlots(this.isoDate(slots[0]), slots, this.tz, false);
       }
       case "ask_name":
-        return replies.askName();
+        return this.replies.askName();
       case "choose_service":
-        return replies.chooseService();
+        return this.replies.chooseService();
       default:
-        return "Please reply YES or NO.";
+        return this.replies.yesOrNo();
     }
   }
 
@@ -327,9 +334,9 @@ class Run {
 
   private async offerDays({ after }: { after?: string } = {}): Promise<FlowResult> {
     const days = (await this.daysWithOpenings(after)).slice(0, PAGE);
-    if (days.length === 0) return this.finish(replies.noOpenings());
+    if (days.length === 0) return this.finish(this.replies.noOpenings());
     await this.saveDays(days);
-    return { reply: replies.offerDays(days, this.tz) };
+    return { reply: this.replies.offerDays(days, this.tz) };
   }
 
   /** Horários de um dia; sem vaga, os dias livres mais próximos (US2, cenário 3). */
@@ -338,9 +345,9 @@ class Run {
     const slots = await this.slotsOn(date);
     if (slots.length === 0) {
       const closest = await this.closestDays(date);
-      if (closest.length === 0) return this.finish(replies.noOpenings());
+      if (closest.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(closest);
-      return { reply: replies.dayFull(date, closest, this.tz) };
+      return { reply: this.replies.dayFull(date, closest, this.tz) };
     }
     return this.offerSlots(date, slots);
   }
@@ -350,7 +357,7 @@ class Run {
     const page = slots.slice(0, PAGE);
     await this.save({ step: "choose_slot", options: page.map((s, i) => ({ n: i + 1, kind: "slot" as const, start: s.toISOString() })) });
     const reply =
-      kind === "taken" ? replies.slotTaken(date, page, this.tz) : replies.offerSlots(date, page, this.tz, slots.length > PAGE);
+      kind === "taken" ? this.replies.slotTaken(date, page, this.tz) : this.replies.offerSlots(date, page, this.tz, slots.length > PAGE);
     return { reply };
   }
 
@@ -360,9 +367,9 @@ class Run {
     const rest = (await this.slotsOn(date)).filter((s) => s > last);
     if (rest.length === 0) {
       const days = (await this.daysWithOpenings(date)).slice(0, PAGE);
-      if (days.length === 0) return this.finish(replies.noOpenings());
+      if (days.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(days);
-      return { reply: replies.offerDays(days, this.tz, "There are no more openings that day. Other days with openings:") };
+      return { reply: this.replies.offerDays(days, this.tz, this.replies.noMoreOpeningsToday()) };
     }
     return this.offerSlots(date, rest);
   }
@@ -378,9 +385,9 @@ class Run {
 
   private async tooFar(): Promise<FlowResult> {
     const days = (await this.daysWithOpenings()).slice(0, PAGE);
-    if (days.length === 0) return this.finish(replies.noOpenings());
+    if (days.length === 0) return this.finish(this.replies.noOpenings());
     await this.saveDays(days);
-    return { reply: replies.tooFar(this.rules.maxDaysAhead, this.window.lastDate, days, this.tz) };
+    return { reply: this.replies.tooFar(this.rules.maxDaysAhead, this.window.lastDate, days, this.tz) };
   }
 
   // --- Marcar ---
@@ -395,20 +402,20 @@ class Run {
   private async offerReschedule(appt: AppointmentRow): Promise<FlowResult> {
     this.carry = { ...this.carry, flow: "book", appointmentId: appt.id };
     await this.save({ step: "offer_reschedule" });
-    return { reply: replies.alreadyBooked(appt.startsAt, this.tz) };
+    return { reply: this.replies.alreadyBooked(appt.startsAt, this.tz) };
   }
 
   private async selectSlot(start: Date): Promise<FlowResult> {
     if (this.session?.flow === "reschedule") {
       const appt = this.session.appointmentId ? await this.store.findAppointment(this.session.appointmentId) : null;
-      if (!appt) return this.finish(replies.noAppointment());
+      if (!appt) return this.finish(this.replies.noAppointment());
       await this.save({ step: "confirm_reschedule", selectedStart: start });
-      return { reply: replies.confirmReschedule(appt.startsAt, start, this.tz) };
+      return { reply: this.replies.confirmReschedule(appt.startsAt, start, this.tz) };
     }
     const name = this.session?.customerName ?? this.knownName;
     if (!name) {
       await this.save({ step: "ask_name", selectedStart: start });
-      return { reply: replies.askName() };
+      return { reply: this.replies.askName() };
     }
     return this.toSummary(start, name);
   }
@@ -424,7 +431,7 @@ class Run {
     if (this.carry.service) return this.confirmBooking(start, name);
     const options = SERVICES.map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
     await this.save({ step: "choose_service", options, selectedStart: start, customerName: name });
-    return { reply: replies.chooseService() };
+    return { reply: this.replies.chooseService() };
   }
 
   private async serviceChosen(service: string): Promise<FlowResult> {
@@ -435,7 +442,7 @@ class Run {
 
   private async confirmBooking(start: Date, name: string): Promise<FlowResult> {
     await this.save({ step: "confirm_booking", selectedStart: start, customerName: name });
-    return { reply: replies.confirmBooking(start, this.rules.slotMinutes, name, this.carry.service!, this.tz) };
+    return { reply: this.replies.confirmBooking(start, this.rules.slotMinutes, name, this.carry.service!, this.tz) };
   }
 
   /**
@@ -466,7 +473,7 @@ class Run {
         throw new CalendarUnavailable("agenda desconectada durante a marcação");
       case "booked":
         await this.store.clearSession(this.conversation.id);
-        return { reply: replies.booked(start, this.tz) };
+        return { reply: this.replies.booked(start, this.tz) };
     }
   }
 
@@ -505,29 +512,29 @@ class Run {
 
   private async keep(): Promise<FlowResult> {
     const appt = await this.refreshSessionAppointment();
-    return this.finish(appt ? replies.keptAppointment(appt.startsAt, this.tz) : replies.stopped());
+    return this.finish(appt ? this.replies.keptAppointment(appt.startsAt, this.tz) : this.replies.stopped());
   }
 
   // --- Cancelar (FR-026, FR-027) ---
 
   private async startCancel(): Promise<FlowResult> {
     const appt = await this.currentAppointment();
-    if (!appt) return this.finish(replies.noAppointment());
-    if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+    if (!appt) return this.finish(this.replies.noAppointment());
+    if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
     this.carry = { ...this.carry, flow: "cancel", appointmentId: appt.id };
     await this.save({ step: "confirm_cancel" });
-    return { reply: replies.confirmCancel(appt.startsAt, this.tz) };
+    return { reply: this.replies.confirmCancel(appt.startsAt, this.tz) };
   }
 
   private cancel(): Promise<FlowResult> {
     return withCalendarLock(async () => {
       const appt = await this.refreshSessionAppointment();
-      if (!appt) return this.finish(replies.noAppointment());
-      if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+      if (!appt) return this.finish(this.replies.noAppointment());
+      if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
       await this.calendar.deleteEvent(appt.googleEventId);
       await this.store.markCancelled(appt.id, "customer");
       await this.inbox.recordSystem(this.conversation.id, systemNotes.cancelledByCustomer(appt.startsAt, this.tz));
-      return this.finish(replies.cancelled(appt.startsAt, this.tz));
+      return this.finish(this.replies.cancelled(appt.startsAt, this.tz));
     });
   }
 
@@ -535,8 +542,8 @@ class Run {
 
   private async startReschedule(): Promise<FlowResult> {
     const appt = this.session?.step === "offer_reschedule" ? await this.refreshSessionAppointment() : await this.currentAppointment();
-    if (!appt) return this.finish(replies.noAppointment());
-    if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+    if (!appt) return this.finish(this.replies.noAppointment());
+    if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
     this.carry = { ...this.carry, flow: "reschedule", appointmentId: appt.id };
     return this.offerDays();
   }
@@ -547,8 +554,8 @@ class Run {
 
     return withCalendarLock(async () => {
       const appt = await this.refreshSessionAppointment();
-      if (!appt) return this.finish(replies.noAppointment());
-      if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+      if (!appt) return this.finish(this.replies.noAppointment());
+      if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
 
       // O próprio horário atual não conta como ocupado
       const busy = (await this.calendar.busy(start, end)).filter(
@@ -562,7 +569,7 @@ class Run {
         return this.slotTaken(start);
       }
       await this.inbox.recordSystem(this.conversation.id, systemNotes.rescheduled(appt.startsAt, start, this.tz));
-      return this.finish(replies.rescheduled(start, this.tz));
+      return this.finish(this.replies.rescheduled(start, this.tz));
     });
   }
 }
