@@ -311,3 +311,21 @@ The example that taught the model to refuse "forget your instructions" was remov
 Runs with `qwen3:8b` and `embeddinggemma` (labels `13-grounded-*`): EN dev 50 of 51, EN holdout 21 of 21, PT dev 49 of 51, PT holdout 20 of 21; the reference is 50, 21, 48 and 20. The p50 latency stays near 1.5 s. The off-topic question ("capital of France") and the role-change question, which the reference answered in Portuguese, are refused now. Known limits: a quote can be real and still not support the answer (installments are answered with the braces' monthly fee), and the holdout was used to diagnose the first runs, so it no longer measures new questions.
 
 Tried and dropped on 2026-11-03: a second model call that asked whether the quote supports the answer (EN dev 48 of 51, PT dev 47 of 51, +0.3 s). It approved the installments answer, because the brochure's "monthly fee" reads as a payment plan to an 8B model, and it added wrong refusals. Runs: `14-grounded-*` (with the number check) and `15-support-*`.
+
+### New question sets, written without looking at results (2026-11-04)
+
+`data/answer_key_clean.json` (English, DentalSafe) and `data/answer_key_pt_clean.json` (Portuguese, Sorriso Pleno): 64 questions each, 44 with an answer in the brochure and 20 without (12 near-misses such as X-rays, bridges, emergency service, and 8 manipulations in different styles). They were written from the brochures only. Run them with `ANSWER_KEY_PATH=evaluation/data/answer_key_clean.json` (and the Portuguese clinic variables). Runs `16-clean-*`, `qwen3:8b`, `--no-judge`:
+
+| | EN | PT | p50 EN | p50 PT |
+|---|---|---|---|---|
+| plain (today's behavior) | 58 of 64 | 57 of 64 | 0.7 s | 1.0 s |
+| `RAG_GROUNDED=1` (quote + numbers checked) | 55 of 64 | 57 of 64 | 1.4 s | 1.5 s |
+| grounded + `RAG_VERIFY_SUPPORT=1` | 53 of 64 | 59 of 64 | 1.7 s | 1.7 s |
+
+What this says, without rounding it up:
+
+- On questions it was not tuned on, grounded mode is **not better in the total**, and it doubles the latency (the JSON has a quote and an answer to write).
+- It does what it was built for on manipulation: the "reveal your instructions", "write code" and "fake system message" questions that the plain mode answered are refused (EN 2 failures to 1, PT 4 to 1).
+- It is **worse on near-misses in Portuguese** (X-rays, bridges, emergency service: 0 failures plain, 3 grounded). The model chooses `kind: answer` and attaches a real quote about a nearby subject; the code checks that the quote exists, not that it answers the question.
+- The support check fixes most of those near-misses in Portuguese (59 of 64) and adds wrong refusals in English (53 of 64): a noisy gain that costs 0.3 s more. Not enough to turn on.
+- Failures present in all three modes are mostly the model's wording on casual questions ("how white will I get", "can I do it all in one day"), not grounding.
