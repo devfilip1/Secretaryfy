@@ -31,6 +31,7 @@ One Google account and one calendar per installation, chosen in the panel ([goog
 - **Failures:** network or API errors become `CalendarUnavailable`. The assistant tells the patient it can't book right now, and the panel gets 502 `calendar_unavailable`. A revoked token sets the connection to `needs_reauth` and the panel asks to reconnect.
 - **One-time Google Cloud setup:** enable the Calendar API; add the redirect URI; add the scopes and the clinic's Gmail as a test user on the consent screen. Steps in [development](development.md#google-calendar-setup).
 - **Tests** use [fake-calendar.ts](../src/test/fake-calendar.ts), an in-memory implementation of the same interface.
+- **Offline mode:** `CALENDAR_MODE=fake` uses that same in-memory calendar in development, with no OAuth and nothing sent to Google. See [development](development.md#offline-calendar).
 
 ## Ollama
 

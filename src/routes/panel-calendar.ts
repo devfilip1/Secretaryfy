@@ -12,12 +12,14 @@ interface Deps {
   /** GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET preenchidos com credenciais reais */
   googleConfigured: () => boolean;
   revoke: (refreshToken: string) => Promise<void>;
+  /** CALENDAR_MODE=fake: o OAuth do Google fica desligado */
+  fakeMode?: boolean;
 }
 
 const selectionBody = z.object({ calendarId: z.string().min(1) });
 
 /** API da agenda no painel (contracts/panel-api.md). A autenticação fica no hook de panel-session.ts. */
-export function panelCalendarRoutes({ connection, calendar, rules, buildConnectUrl, googleConfigured, revoke }: Deps) {
+export function panelCalendarRoutes({ connection, calendar, rules, buildConnectUrl, googleConfigured, revoke, fakeMode = false }: Deps) {
   async function state() {
     return { connection: await connection.get(), rules: await rules.get() };
   }
@@ -41,6 +43,7 @@ export function panelCalendarRoutes({ connection, calendar, rules, buildConnectU
     app.get("/api/calendar", async () => state());
 
     app.post("/api/calendar/connect", async (_req, reply) => {
+      if (fakeMode) return reply.code(501).send({ error: "calendar_fake_mode", message: "CALENDAR_MODE=fake: a agenda é a falsa em memória; o OAuth do Google está desligado" });
       if (!googleConfigured()) return reply.code(503).send({ error: "google_not_configured" });
       return { url: buildConnectUrl() };
     });

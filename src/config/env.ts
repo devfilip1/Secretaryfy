@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { calendarModeRefusal } from "../modules/google/fake-mode.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
@@ -12,6 +13,9 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // "fake": agenda em memória no lugar do Google, só para desenvolvimento offline (docs/development.md)
+  CALENDAR_MODE: z.enum(["google", "fake"]).default("google"),
+  NODE_ENV: z.string().optional(),
 
   EVOLUTION_API_URL: z.url(),
   EVOLUTION_API_KEY: z.string().min(1),
@@ -94,6 +98,8 @@ const ANTIBAN_RANGES = [
 
 const parsed = envSchema
   .superRefine((v, ctx) => {
+    const refusal = calendarModeRefusal(v.CALENDAR_MODE, v.NODE_ENV);
+    if (refusal) ctx.addIssue({ code: "custom", path: ["CALENDAR_MODE"], message: refusal });
     for (const [low, high] of ANTIBAN_RANGES) {
       if (v[low] > v[high]) ctx.addIssue({ code: "custom", path: [low], message: `${low} não pode ser maior que ${high}` });
     }

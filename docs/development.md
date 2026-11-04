@@ -57,6 +57,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `EVOLUTION_WEBHOOK_TOKEN` | yes | Random secret of 16+ characters, put in the webhook URL |
 | `WEBHOOK_BASE_URL` | no | Server address as seen from Docker: `http://host.docker.internal:3000` |
 | `OPERATOR_PASSWORD` | no | Panel password, 12+ characters; without it the panel is off |
+| `CALENDAR_MODE` | no | `google` (default) or `fake`: in-memory calendar for development only, see [Offline calendar](#offline-calendar) |
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
 | `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
@@ -150,6 +151,16 @@ ANTIBAN_WARMUP_DAYS=0
 ```
 
 Keep `ANTIBAN_WARMUP_PER_MINUTE` no higher than `ANTIBAN_PER_MINUTE`, and the minimum of each pair no higher than its maximum, or the server refuses to start.
+
+## Offline calendar
+
+`CALENDAR_MODE=fake` replaces Google Calendar with the in-memory calendar the tests use, so the whole scheduling flow runs without a Google account, network or OAuth. It pairs with `npm run dev:whatsapp`: set it in `.env`, restart `npm run dev`, and follow the steps above with the fake number. The default stays `CALENDAR_MODE=google`.
+
+- At startup the connection is seeded as connected to a calendar named DentalSafe (`America/Bahia`) with a placeholder token that never leaves the process. The panel shows it connected; **Connect** answers 501 `calendar_fake_mode` and the OAuth callback redirects with `google=error`. Disconnecting is not undone by reconnecting: restart to seed again.
+- Events live only in memory, so a restart empties the calendar while the `appointments` table keeps its rows. The server warns at startup how many there are. Google Calendar is the source of truth ([ADR 0005](decisions/0005-google-calendar-source-of-truth.md)), so each of those appointments reads as cancelled in Google until it is cancelled in the panel. For a clean run, use a fresh database (or delete the rows).
+- Seeding replaces a Google connection stored in the database; its token is not revoked.
+- The server refuses to start with `CALENDAR_MODE=fake` and `NODE_ENV=production`.
+- For a real test calendar, leave `CALENDAR_MODE` unset and follow [Google Calendar setup](#google-calendar-setup).
 
 ## Build and deploy
 

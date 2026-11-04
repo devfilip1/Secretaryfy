@@ -7,7 +7,7 @@ import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { instance } from "./modules/whatsapp/instance.js";
-import { connectionStore, googleCalendar, listCalendarsFor, rulesStore } from "./routes/calendar.js";
+import { connectionStore, googleCalendar, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
 import { booking, schedulingStore } from "./routes/scheduling.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
 import { googleOAuthRoutes } from "./routes/google-oauth.js";
@@ -33,6 +33,12 @@ const app = Fastify({
 
 useProtectionLogger(app.log);
 
+const fakeMode = env.CALENDAR_MODE === "fake";
+// Modo fake: sem OAuth. Se o callback do Google chegar mesmo assim, o painel recebe erro em vez de falar com o Google
+const exchangeOffline = async (): Promise<never> => {
+  throw new Error("CALENDAR_MODE=fake: OAuth do Google desligado");
+};
+
 // Respostas do assistente que estavam na fila quando o servidor parou não são reenviadas (specs/004, research.md R2)
 for (const message of await antibanRepo.blockOrphanSending()) {
   bus.publish({ type: "message.updated", conversationId: message.conversationId, message: presentMessage(message) });
@@ -45,12 +51,21 @@ if (!isGoogleConfigured()) {
   app.log.warn("Google Agenda indisponível: GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não são credenciais reais (docs/development.md, Google Calendar setup)");
 }
 
+if (fakeMode) {
+  // Sem Google: a conexão do banco passa a ser a falsa, e os agendamentos antigos viram "cancelados no Google"
+  const { storedAppointments } = await startFakeCalendar();
+  app.log.warn("Agenda falsa em memória: nada é gravado no Google");
+  if (storedAppointments > 0) {
+    app.log.warn({ storedAppointments }, "há agendamentos no banco que a agenda falsa não tem (ela começa vazia a cada início)");
+  }
+}
+
 await app.register(healthRoutes);
 await app.register(
   googleOAuthRoutes({
     connection: connectionStore,
     panelUrl: env.PANEL_URL ?? env.PUBLIC_URL,
-    exchangeCode,
+    exchangeCode: fakeMode ? exchangeOffline : exchangeCode,
     listCalendars: listCalendarsFor,
   }),
 );
@@ -98,7 +113,9 @@ await app.register(
     rules: rulesStore,
     buildConnectUrl,
     googleConfigured: isGoogleConfigured,
-    revoke,
+    // Modo fake: o token da conexão falsa não existe no Google, então não há o que revogar
+    revoke: fakeMode ? async () => {} : revoke,
+    fakeMode,
   }),
 );
 await app.register(
