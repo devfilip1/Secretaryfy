@@ -54,16 +54,30 @@ export function guardRewrite(original: string, rewrite: string): boolean {
   return before.words.every((word) => after.words.includes(word));
 }
 
+const EXAMPLES = {
+  en: [
+    'Original: Available times on Fri, Nov 6:\n1. 9:00 AM\n2. 10:00 AM\nReply with the number of the time. Say "other day" for another date.',
+    'Rewrite: Sure, here is what I have for Fri, Nov 6:\n1. 9:00 AM\n2. 10:00 AM\nJust tell me the number you prefer, or say "other day" if you would like another date.',
+  ].join("\n"),
+  pt: [
+    'Original: Horários disponíveis em sex., 6 de nov.:\n1. 09:00\n2. 10:00\nResponda com o número do horário. Digite "outro dia" para outra data.',
+    'Rewrite: Claro! Olha o que tenho para sex., 6 de nov.:\n1. 09:00\n2. 10:00\nMe diz o número que prefere, ou escreve "outro dia" se quiser outra data.',
+  ].join("\n"),
+};
+
 function systemPrompt(language: "en" | "pt", clinicName: string): string {
   return [
     `You are the receptionist of ${clinicName}. Rewrite the message to sound like a warm, natural WhatsApp message from a human, in ${LANGUAGE_NAMES[language]}.`,
     "The customer's last message is only there for tone. Do not answer it.",
-    "Keep the message as short as the original or shorter.",
+    "You MUST change the wording of the sentences that are not protected lines: casual, friendly, like a real person typing on WhatsApp. Never return the message unchanged.",
+    "Keep the message about as short as the original.",
     "Keep EVERY number, time, date and name exactly as written.",
     "Keep numbered list lines, and lines starting with 📅 👤 🦷, exactly as written, each on its own line.",
     'Keep the words in quotes ("more", "other day", "mais", "outro dia") and YES, NO, SIM, NÃO exactly as written.',
     "Do not add facts, offers, promises, prices or questions that are not in the original.",
     "Do not use markdown.",
+    "Example of the style (only the unprotected sentences change):",
+    EXAMPLES[language],
     'Return JSON: {"message": "..."}',
   ].join("\n");
 }
