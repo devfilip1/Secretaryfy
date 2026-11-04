@@ -1,5 +1,8 @@
 /** Cliente mínimo da /api/chat do Ollama local, com saída restrita por JSON Schema (research.md R2). */
 
+// Modelos que pensam antes de responder (família qwen3): o pensamento é desligado, ele gasta tempo e pode quebrar o JSON do `format`.
+const MODELOS_QUE_PENSAM = ["qwen3"];
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -24,6 +27,8 @@ export function createOllamaClient({
   timeoutMs: number;
   fetch?: typeof fetch;
 }) {
+  const desligaPensamento = MODELOS_QUE_PENSAM.some((prefixo) => model.startsWith(prefixo));
+
   return {
     model,
     /** Devolve o JSON gerado pelo modelo, ainda sem validar, ou null se o conteúdo não for JSON. */
@@ -38,6 +43,7 @@ export function createOllamaClient({
             messages,
             format,
             stream: false,
+            ...(desligaPensamento ? { think: false } : {}),
             // Mantém o modelo carregado entre as mensagens (SC-008)
             keep_alive: "30m",
             options: { temperature: 0 },
