@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake WhatsApp</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #eef1f4; --panel: #ffffff; --text: #1b1f23; --muted: #6a737d; --border: #d8dee4;
+    --thread: #e5ddd5; --in: #ffffff; --out: #d9fdd3; --accent: #128c7e; --ok: #1a7f37; --off: #9a6700; --err: #cf222e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --border: #30363d;
+      --thread: #0b141a; --in: #202c33; --out: #005c4b; --accent: #25d366; --ok: #3fb950; --off: #d29922; --err: #f85149;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --border: #30363d;
+    --thread: #0b141a; --in: #202c33; --out: #005c4b; --accent: #25d366; --ok: #3fb950; --off: #d29922; --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; display: flex; justify-content: center; }
+  .phone { width: 100%; max-width: 420px; min-height: 100vh; background: var(--panel); display: flex; flex-direction: column; }
+  header { padding: 12px 16px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  header h1 { font-size: 17px; margin: 0; }
+  .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.25); white-space: nowrap; }
+  .notice { margin: 0; padding: 8px 16px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .notice.warn { color: var(--off); }
+  .customer { padding: 10px 16px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .customer label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+  .customer .wide { grid-column: 1 / -1; }
+  .row { display: flex; gap: 6px; }
+  input, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; min-width: 0; }
+  input, select { width: 100%; }
+  button { cursor: pointer; background: var(--accent); color: #fff; border-color: transparent; }
+  button.secondary { background: transparent; color: var(--text); border-color: var(--border); }
+  main { flex: 1; background: var(--thread); padding: 12px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 320px; }
+  .empty { margin: auto; color: var(--muted); font-size: 13px; text-align: center; max-width: 280px; }
+  .bubble { max-width: 80%; padding: 6px 9px; border-radius: 8px; background: var(--in); box-shadow: 0 1px 0 rgba(0,0,0,.08); white-space: pre-wrap; word-wrap: break-word; }
+  .bubble.out { align-self: flex-end; background: var(--out); }
+  .bubble.in { align-self: flex-start; }
+  .meta { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; text-align: right; }
+  .typing { padding: 4px 16px; font-size: 13px; color: var(--muted); font-style: italic; min-height: 22px; }
+  .error { padding: 6px 16px; color: var(--err); font-size: 13px; }
+  form { display: flex; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); }
+  form input { flex: 1; }
+  @media (max-width: 380px) { .customer { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <h1>Fake WhatsApp</h1>
+    <span class="badge" id="badge">checking…</span>
+  </header>
+  <p class="notice" id="notice">Connect the number first: open the panel, log in, go to Connection and click Connect.</p>
+
+  <section class="customer">
+    <label>Customer phone
+      <input id="phone" value="5511988887777" inputmode="numeric" autocomplete="off">
+    </label>
+    <label>Name
+      <input id="name" value="Maria" autocomplete="off">
+    </label>
+    <label class="wide">Known customers
+      <select id="known"></select>
+    </label>
+    <div class="row wide">
+      <button type="button" class="secondary" id="newCustomer">New customer</button>
+    </div>
+  </section>
+
+  <main id="thread"></main>
+  <div class="typing" id="typing" hidden>Assistant is typing…</div>
+  <div class="error" id="error" hidden></div>
+
+  <form id="composer">
+    <input id="text" placeholder="Type a message" autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+  const state = { since: 0, messages: [], typing: [], connection: null };
+  const $ = (id) => document.getElementById(id);
+  const phoneInput = $("phone");
+  const nameInput = $("name");
+
+  function selectedPhone() { return phoneInput.value.trim(); }
+
+  function showError(text) { $("error").textContent = text; $("error").hidden = false; }
+  function hideError() { $("error").hidden = true; }
+
+  function renderBadge() {
+    const badge = $("badge");
+    const c = state.connection;
+    if (!c) { badge.textContent = "checking…"; return; }
+    if (c.state === "open") {
+      badge.textContent = "connected " + (c.number ? "as " + c.number : "");
+      badge.style.background = "rgba(0,0,0,.25)";
+      $("notice").textContent = "Connected. Chat away: the assistant replies through the same webhook the real Evolution API uses.";
+      $("notice").className = "notice";
+    } else {
+      badge.textContent = c.state === "connecting" ? "connecting…" : "not connected";
+      $("notice").textContent = "Not connected. Open the panel (http://localhost:5173), log in, go to Connection and click Connect.";
+      $("notice").className = "notice warn";
+    }
+  }
+
+  function knownPhones() {
+    const set = new Map();
+    for (const m of state.messages) if (!set.has(m.phone)) set.set(m.phone, m.name || m.phone);
+    if (!set.has(selectedPhone()) && selectedPhone()) set.set(selectedPhone(), nameInput.value || selectedPhone());
+    return set;
+  }
+
+  function renderKnown() {
+    const select = $("known");
+    const current = selectedPhone();
+    const phones = knownPhones();
+    select.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Pick a customer…";
+    select.append(placeholder);
+    for (const [phone, label] of phones) {
+      const option = document.createElement("option");
+      option.value = phone;
+      option.textContent = label + " (" + phone + ")";
+      if (phone === current) option.selected = true;
+      select.append(option);
+    }
+  }
+
+  function renderThread() {
+    const thread = $("thread");
+    const phone = selectedPhone();
+    const mine = state.messages.filter((m) => m.phone === phone);
+    thread.replaceChildren();
+    if (!mine.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = "No messages with this customer yet. Say hello below.";
+      thread.append(empty);
+      return;
+    }
+    for (const m of mine) {
+      const bubble = document.createElement("div");
+      bubble.className = "bubble " + (m.direction === "out" ? "in" : "out");
+      bubble.textContent = m.text;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = (m.direction === "out" ? "Assistant" : (m.name || "Customer")) + " · " + new Date(m.at).toLocaleTimeString();
+      bubble.append(meta);
+      thread.append(bubble);
+    }
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function renderTyping() {
+    $("typing").hidden = !state.typing.includes(selectedPhone());
+  }
+
+  let lastPhone = selectedPhone();
+  function render(forceThread) {
+    renderBadge();
+    renderTyping();
+    if (forceThread || lastPhone !== selectedPhone()) {
+      lastPhone = selectedPhone();
+      renderKnown();
+      renderThread();
+    }
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch("/__chat/messages?since=" + state.since);
+      const data = await res.json();
+      let added = false;
+      for (const m of data.messages) {
+        state.messages.push(m);
+        state.since = Math.max(state.since, m.n);
+        added = true;
+      }
+      state.typing = data.typing;
+      state.connection = data.connection;
+      if (added) { renderKnown(); renderThread(); }
+      render(false);
+    } catch (err) {
+      $("badge").textContent = "server offline";
+    }
+    setTimeout(poll, 700);
+  }
+
+  $("known").addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    const match = state.messages.find((m) => m.phone === e.target.value && m.direction === "in");
+    phoneInput.value = e.target.value;
+    if (match && match.name) nameInput.value = match.name;
+    render(true);
+  });
+
+  phoneInput.addEventListener("change", () => render(true));
+
+  $("newCustomer").addEventListener("click", () => {
+    const digits = "9" + String(Math.floor(10000000 + Math.random() * 89999999));
+    phoneInput.value = "5511" + digits;
+    nameInput.value = "Customer " + digits.slice(-4);
+    hideError();
+    render(true);
+  });
+
+  $("composer").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = $("text").value.trim();
+    if (!text) return;
+    if (!/^\d{8,15}$/.test(selectedPhone())) { showError("The customer phone must be digits only, with country code (e.g. 5511988887777)."); return; }
+    try {
+      const res = await fetch("/__chat/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phone: selectedPhone(), name: nameInput.value.trim() || "Customer", text }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { showError(body.error || "Request failed (" + res.status + ")"); return; }
+      hideError();
+      $("text").value = "";
+      poll();
+    } catch (err) {
+      showError("Could not reach the fake Evolution server.");
+    }
+  });
+
+  render(true);
+  poll();
+</script>
+</body>
+</html>

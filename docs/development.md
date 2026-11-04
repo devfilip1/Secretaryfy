@@ -115,6 +115,42 @@ The message is posted to the webhook as if it came from your own number; the rep
 
 To test reminders without waiting a day: set `REMINDER_LEAD_MINUTES=10`, `REMINDER_CUTOFF_MINUTES=2`, `REMINDER_TICK_MS=15000`, restart, and follow [specs/006 quickstart](../specs/006-panel-appointments-reminders/quickstart.md). Reset them afterwards.
 
+## Testing without a WhatsApp account
+
+`npm run dev:whatsapp` starts a fake Evolution API ([scripts/fake-evolution.ts](../scripts/fake-evolution.ts)) on `FAKE_EVOLUTION_PORT` (default 8080) with a chat page. The whole flow runs without a number: a customer message goes to the webhook, through the inbox, the router and the gate, and the reply comes back to the chat page. It is for development only: it refuses to start unless `EVOLUTION_API_URL` points to `localhost`, `127.0.0.1` or `[::1]`, or if `NODE_ENV=production`, and it listens on `127.0.0.1` only.
+
+1. Start only Postgres and Redis, so the fake can use port 8080: `docker compose up -d postgres redis`.
+2. Terminal 1: `npm run dev` (server on :3000). Ollama must be running as usual.
+3. Terminal 2: `npm run dev:whatsapp` (fake Evolution on :8080).
+4. Open http://localhost:8080. The badge says "not connected".
+5. Terminal 3: `npm run dev:web`, then http://localhost:5173, log in with `OPERATOR_PASSWORD`, open **Connection** and click **Connect**. The fake "pairs" after about 1.5 s and the badge changes to "connected".
+6. Pick or create a customer (phone and name) on the chat page and type. The reply appears in the thread; "Assistant is typing…" shows while a reply is being sent.
+
+Notes:
+- Customer messages are refused (409, "Connect the number in the panel first") until the panel has connected the number, and sends from the app fail while it is disconnected, as with the real API.
+- Everything is in memory. Restarting either process disconnects the number: connect again in the panel.
+- The fake sends webhook events to the app at `http://localhost:${PORT}` (the server's `PORT`), not to `WEBHOOK_BASE_URL`, which only resolves inside Docker.
+- Logout from the panel does not send a 401 event, so conversations are kept.
+- The anti-ban pacing still applies: the 4 s debounce, read/think/typing delays, the per-minute and per-hour limits, and the warm-up for a number less than 14 days old. The fake caps the typing wait at 3 s, and the real delay is logged. To go faster in development, copy this block into `.env` (not into the code). Restart `npm run dev` after changing it:
+
+```bash
+# Development only: shorter pauses and no warm-up, same code paths as production
+ANTIBAN_DEBOUNCE_MS=1000
+ANTIBAN_READ_MIN_MS=200
+ANTIBAN_READ_MAX_MS=800
+ANTIBAN_THINK_MIN_MS=200
+ANTIBAN_THINK_MAX_MS=600
+ANTIBAN_TYPING_MIN_MS=500
+ANTIBAN_TYPING_MAX_MS=2000
+ANTIBAN_GAP_MIN_MS=200
+ANTIBAN_GAP_MAX_MS=800
+ANTIBAN_PER_MINUTE=60
+ANTIBAN_WARMUP_PER_MINUTE=60
+ANTIBAN_WARMUP_DAYS=0
+```
+
+Keep `ANTIBAN_WARMUP_PER_MINUTE` no higher than `ANTIBAN_PER_MINUTE`, and the minimum of each pair no higher than its maximum, or the server refuses to start.
+
 ## Build and deploy
 
 There is no deployment setup yet: no Dockerfile for the server or the RAG service, no CI. `npm run build` + `npm start` is the production-like path. The server must run as **a single process** ([ADR 0007](decisions/0007-single-process-in-memory-coordination.md)). `PUBLIC_URL` must be reachable by Google (OAuth redirect); behind HTTPS the session cookie becomes `Secure` automatically.
