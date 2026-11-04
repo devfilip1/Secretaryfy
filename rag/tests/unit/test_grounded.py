@@ -8,6 +8,8 @@ from assistant.generation.grounded import (
     MIN_QUOTE_CHARS,
     GroundedOutcome,
     _fragments,
+    is_supported,
+    support_prompt,
     tokens,    verify,
 )
 
@@ -245,6 +247,23 @@ def test_answer_without_numbers_is_not_affected_by_the_number_check():
     assert check(raw) == GroundedOutcome("Braces are on for a while.", "verified")
 
 
+def test_support_reply_counts_only_a_supported_flag_that_is_true():
+    assert is_supported('{"supported": true}')
+    assert is_supported('```json\n{"supported": true}\n```')
+    assert not is_supported('{"supported": false}')
+    assert not is_supported('{"supported": "true"}')
+    assert not is_supported("not json")
+    assert not is_supported("[true]")
+
+
+def test_support_prompt_carries_the_question_the_quote_and_the_answer():
+    prompt = support_prompt(QUESTION, "Braces cost $180 to $450 per month.", "Braces cost $180.")
+
+    assert QUESTION in prompt
+    assert "Braces cost $180 to $450 per month." in prompt
+    assert "Braces cost $180." in prompt
+
+
 def test_punctuation_only_quote_is_not_a_quote():
     assert MIN_QUOTE_CHARS == 8
     raw = reply(kind="answer", evidence_quote="... , ...", answer="a")

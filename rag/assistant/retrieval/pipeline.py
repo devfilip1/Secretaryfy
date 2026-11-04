@@ -11,9 +11,19 @@ from assistant.config import (
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBEDDING_MODEL,
     RAG_GROUNDED,
+    RAG_VERIFY_SUPPORT,
     TEMPERATURE,
 )
-from assistant.generation.grounded import FORMAT_INSTRUCTION, GROUNDED_SCHEMA, verify
+from assistant.generation.grounded import (
+    FORMAT_INSTRUCTION,
+    GROUNDED_SCHEMA,
+    SUPPORT_MAX_TOKENS,
+    SUPPORT_SCHEMA,
+    is_supported,
+    refusal_text,
+    support_prompt,
+    verify,
+)
 from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
@@ -53,6 +63,7 @@ class RagConfig:
     user_template: str | None = None  # None: the user template of the clinic profile
     lexical: LexicalOptions | None = None  # word search options; None: those of the experiment
     grounded: bool = RAG_GROUNDED  # the model quotes the knowledge and the quote is checked before the answer is given
+    verify_support: bool = RAG_VERIFY_SUPPORT  # one more model call checks the quote supports the answer; only when grounded
 
     def __post_init__(self):
         search_fields = {
@@ -122,7 +133,7 @@ class AnswerResult:
     retrieval: RetrievalResult
     latency_s: float
     # None when the answer is not grounded; else "verified", "no_answer", "small_talk", "small_talk_rejected",
-    # "unverified_quote", "ungrounded_number" or "invalid_json"
+    # "unverified_quote", "ungrounded_number", "unsupported" (the support check refused it) or "invalid_json"
     grounding: str | None = None
 
 
@@ -270,7 +281,19 @@ def _reply(question, retrieval, config, deps: RagDeps, clinic: ClinicProfile, hi
         response_format=GROUNDED_SCHEMA,
     )
     outcome = verify(reply, [chunk.content for chunk in retrieval.fused], clinic, question)
-    return clean_answer(outcome.text, clinic, history), outcome.status
+    text, status = outcome.text, outcome.status
+    if config.verify_support and status == "verified":
+        support = deps.generator.generate(
+            support_prompt(question, outcome.quote, text),
+            model=config.chat_model,
+            temperature=0.0,
+            seed=config.seed,
+            max_tokens=SUPPORT_MAX_TOKENS,
+            response_format=SUPPORT_SCHEMA,
+        )
+        if not is_supported(support):
+            text, status = refusal_text(clinic), "unsupported"
+    return clean_answer(text, clinic, history), status
 
 
 def answer(question, config, history, deps: RagDeps):

@@ -823,6 +823,71 @@ def test_the_model_text_of_a_no_answer_is_ignored_and_the_refusal_is_given():
     assert result.grounding == "no_answer"
 
 
+SUPPORTED = json.dumps({"supported": True})
+NOT_SUPPORTED = json.dumps({"supported": False})
+GROUNDED_CLEANING = json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."})
+
+
+def test_a_supported_answer_is_kept_after_one_support_call_with_fixed_settings():
+    from assistant.generation.grounded import SUPPORT_MAX_TOKENS, SUPPORT_SCHEMA
+
+    generator = GroundedGenerator(GROUNDED_CLEANING, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == "Cleaning is in the brochure."
+    assert result.grounding == "verified"
+    support = generator.calls[1]
+    assert support["response_format"] == SUPPORT_SCHEMA
+    assert (support["temperature"], support["max_tokens"]) == (0.0, SUPPORT_MAX_TOKENS)
+
+
+def test_an_unsupported_answer_gives_the_refusal():
+    generator = GroundedGenerator(GROUNDED_CLEANING, NOT_SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unsupported"
+
+
+def test_an_unreadable_support_reply_gives_the_refusal():
+    generator = GroundedGenerator(GROUNDED_CLEANING, "maybe")
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unsupported"
+
+
+def test_the_support_call_is_skipped_when_the_answer_was_already_refused():
+    invented = json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free."})
+    generator = GroundedGenerator(invented, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.grounding == "unverified_quote"
+    assert len(generator.calls) == 1
+
+
+def test_the_support_call_is_skipped_when_the_number_check_refused_the_answer():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning costs $200."}), SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.grounding == "ungrounded_number"
+    assert len(generator.calls) == 1
+
+
+def test_the_support_call_is_skipped_when_verify_support_is_off():
+    generator = GroundedGenerator(GROUNDED_CLEANING, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=False), None, grounded_deps(generator))
+
+    assert result.grounding == "verified"
+    assert len(generator.calls) == 1
+
+
 def test_small_talk_is_checked_against_the_customer_question_not_the_rewritten_one():
     # With a conversation the question is first rewritten by one model call; the small talk check reads the customer's words.
     generator = GroundedGenerator("How long do braces take?", json.dumps({"kind": "small_talk", "evidence_quote": "", "answer": "You're welcome!"}))

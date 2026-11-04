@@ -48,4 +48,6 @@ OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "qwen3:8b")
 OLLAMA_THINKING = os.getenv("OLLAMA_THINKING", "off").strip().lower() in ("on", "1", "true", "yes")
 # Grounded answers: the model quotes the knowledge and the code checks the quote before the answer is given. Off by default.
 RAG_GROUNDED = os.getenv("RAG_GROUNDED", "").lower() in ("1", "true", "yes", "on")
+# Support check of grounded answers: one more model call checks that the quote states the answer. Only with RAG_GROUNDED.
+RAG_VERIFY_SUPPORT = os.getenv("RAG_VERIFY_SUPPORT", "").lower() in ("1", "true", "yes", "on")
 OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "embeddinggemma")
