@@ -45,6 +45,8 @@ _WORD = re.compile(r"[^\W_]+")  # letters and digits of any script; punctuation,
 # Where a quote has parts that are not next to each other in the text: an ellipsis, or a bullet or dash that starts a
 # list item (at the start or after a space). A hyphen inside a word ("check-up") or between digits ("$40–$85") is not one.
 _BREAK = re.compile(r"\.\.\.|…|(?:^|(?<=\s))[-*•–—]\s+")
+# A number is a run of digits, with an optional decimal part written with a dot or a comma ("35,50" is "35.50").
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 _FENCE = re.compile(r"^```[A-Za-z]*\s*|\s*```$")
 
 
@@ -59,10 +61,20 @@ def _fragments(quote):
     return [part for part in parts if part]
 
 
+def _numbers(text):
+    return {match.replace(",", ".") for match in _NUMBER.findall(text)}
+
+
+def refusal_text(clinic):
+    """What the patient gets when the answer cannot be given: the no-answer sentence, then the offer of help."""
+    return f"{clinic.no_answer} {clinic.refusal_offer}"
+
+
 @dataclass(frozen=True)
 class GroundedOutcome:
     text: str
-    status: str  # "verified" | "no_answer" | "small_talk" | "small_talk_rejected" | "unverified_quote" | "invalid_json"
+    # "verified" | "no_answer" | "small_talk" | "small_talk_rejected" | "unverified_quote" | "ungrounded_number" | "invalid_json"
+    status: str
 
 
 def _parse(raw):
@@ -71,9 +83,9 @@ def _parse(raw):
         data = json.loads(_FENCE.sub("", raw.strip()))
     except json.JSONDecodeError:
         return None
-    if not isinstance(data, dict) or any(field not in data for field in FIELDS):
+    if not isinstance(data, dict) or any(field_name not in data for field_name in FIELDS):
         return None
-    kind, quote, answer = (data[field] for field in FIELDS)
+    kind, quote, answer = (data[field_name] for field_name in FIELDS)
     if kind not in KINDS or not all(isinstance(value, str) for value in (quote, answer)):
         return None
     return kind, quote, answer.strip()
@@ -110,10 +122,10 @@ def _is_in_chunks(quote, chunks):
 def verify(raw, chunks, clinic, question):
     """The text to give the patient for the model's reply, and why.
 
-    The refusal is always written by the code. The model's own text is used only for a verified quote, or for small
-    talk when the customer's whole message is small talk.
+    The refusal is always written by the code. The model's own text is used only for a verified quote whose numbers are
+    in the chunks, or for small talk when the customer's whole message is small talk.
     """
-    refusal = f"{clinic.no_answer} {clinic.refusal_offer}"
+    refusal = refusal_text(clinic)
     parsed = _parse(raw)
     if parsed is None:
         return GroundedOutcome(refusal, "invalid_json")
@@ -128,4 +140,7 @@ def verify(raw, chunks, clinic, question):
         return GroundedOutcome(refusal, "small_talk_rejected")
     if not _is_in_chunks(quote, chunks):
         return GroundedOutcome(refusal, "unverified_quote")
+    chunk_numbers = set().union(*(_numbers(chunk) for chunk in chunks))
+    if not _numbers(answer) <= chunk_numbers:  # a number the model added, for example one only the customer said
+        return GroundedOutcome(refusal, "ungrounded_number")
     return GroundedOutcome(answer, "verified")

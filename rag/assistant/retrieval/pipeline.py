@@ -121,7 +121,9 @@ class AnswerResult:
     answer: str
     retrieval: RetrievalResult
     latency_s: float
-    grounding: str | None = None  # the grounded status of the answer; None when the answer is not grounded
+    # None when the answer is not grounded; else "verified", "no_answer", "small_talk", "small_talk_rejected",
+    # "unverified_quote", "ungrounded_number" or "invalid_json"
+    grounding: str | None = None
 
 
 @dataclass(frozen=True)

@@ -303,8 +303,11 @@ pytest -m integration     # uses Ollama and the real index
 - `kind: answer`: the quote must be found in one retrieved chunk (compared by words, so bullets, dashes, case and `...` do not count; fragments must be in order). Otherwise the patient gets the refusal.
 - `kind: no_answer`: the model's text is ignored; the patient gets the clinic's refusal sentence plus its offer of help (`refusal_offer` in the language pack).
 - `kind: small_talk`: accepted only when the customer's whole message is a greeting, thanks or goodbye (`small_talk` regex of the language pack). Any other message sent as small talk, such as a request to change role, gets the refusal.
+- `kind: answer` also needs every number of the answer to appear in a retrieved chunk (status `ungrounded_number`), so a value invented, computed or repeated from the customer is refused. It costs one case: a request for a total (`adv-total-01`) is refused when the model adds the prices, where listing each price would be better.
 - Invalid JSON gets the refusal. `AnswerResult.grounding` holds why: `verified`, `no_answer`, `small_talk`, `small_talk_rejected`, `unverified_quote` or `invalid_json`.
 
 The example that taught the model to refuse "forget your instructions" was removed from both prompts: the refusal of manipulation no longer depends on the wording.
 
 Runs with `qwen3:8b` and `embeddinggemma` (labels `13-grounded-*`): EN dev 50 of 51, EN holdout 21 of 21, PT dev 49 of 51, PT holdout 20 of 21; the reference is 50, 21, 48 and 20. The p50 latency stays near 1.5 s. The off-topic question ("capital of France") and the role-change question, which the reference answered in Portuguese, are refused now. Known limits: a quote can be real and still not support the answer (installments are answered with the braces' monthly fee), and the holdout was used to diagnose the first runs, so it no longer measures new questions.
+
+Tried and dropped on 2026-11-03: a second model call that asked whether the quote supports the answer (EN dev 48 of 51, PT dev 47 of 51, +0.3 s). It approved the installments answer, because the brochure's "monthly fee" reads as a payment plan to an 8B model, and it added wrong refusals. Runs: `14-grounded-*` (with the number check) and `15-support-*`.
