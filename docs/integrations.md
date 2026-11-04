@@ -4,7 +4,7 @@
 |---|---|---|---|
 | Evolution API v2.3.7 | WhatsApp connection: receive, send, read receipts, QR code | REST calls with an API key; webhook to `/webhooks/evolution` | `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`, `EVOLUTION_WEBHOOK_TOKEN`, `WEBHOOK_BASE_URL` |
 | Google Calendar API | Free/busy, create, move, rename and delete events | `googleapis` with OAuth 2 (offline refresh token) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`, `PANEL_URL` |
-| Ollama (`llama3`) | Interpreting patient messages | `POST /api/chat` with a JSON Schema `format` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
+| Ollama (`qwen3:8b`) | Interpreting patient messages | `POST /api/chat` with a JSON Schema `format` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
 | RAG service (`rag/`) | Answering questions from the brochure | `POST /answer` on the local Python service | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` |
 
 Values never go in the docs; see [development](development.md#environment-variables) for what each variable is and where to get it.
@@ -34,10 +34,10 @@ One Google account and one calendar per installation, chosen in the panel ([goog
 
 ## Ollama
 
-Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`embeddinggemma`), query rewriting and answers (`llama3`).
+Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`embeddinggemma`), query rewriting and answers (`qwen3:8b`).
 
 - Interpreter call: `POST {OLLAMA_URL}/api/chat` with `stream: false`, `format: <JSON Schema>`, `temperature: 0`, `keep_alive: "30m"`, and a 20 s timeout. Non-JSON output or any error raises `InterpreterUnavailable`.
-- The model in use is `llama3:latest`: 8.0B parameters, Q4_0 quantization, 8k context. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models.
+- The model in use is `qwen3:8b`: 8.2B parameters, Q4_K_M quantization, 40k context, with its thinking turned off (`think: false` in this client, `OLLAMA_THINKING` in the RAG). One chat model serves the RAG and the interpreter, so the GPU holds it and the embedding model together. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models: `qwen3:8b` and `llama3` both pass its 23 scenarios.
 - Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times, names and services ([message pipeline](message-pipeline.md#6a-interpret)).
 
 ## RAG service

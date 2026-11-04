@@ -2,7 +2,7 @@
 
 A WhatsApp assistant for a clinic. It answers patients' questions from the clinic's brochure, books, reschedules and cancels appointments on the clinic's Google Calendar, and reminds patients the day before. Staff follow every conversation in a web panel and can take over at any time. The demo clinic is the fictional **DentalSafe**.
 
-**Stack:** Node 24 + TypeScript · Fastify 5 · PostgreSQL 17 + Drizzle · React 19 + Vite 8 · Python 3.14 RAG service (FastAPI, Chroma, BM25) · Ollama (`llama3` 8B, local) · Evolution API v2.3.7 · Google Calendar API
+**Stack:** Node 24 + TypeScript · Fastify 5 · PostgreSQL 17 + Drizzle · React 19 + Vite 8 · Python 3.14 RAG service (FastAPI, Chroma, BM25) · Ollama (`qwen3:8b`, local) · Evolution API v2.3.7 · Google Calendar API
 **Status:** working prototype, run locally against a real WhatsApp number and Google Calendar.
 
 ## Documentation map
@@ -30,7 +30,7 @@ flowchart LR
   EVO -- webhook --> S[Secretaryfy server<br/>Node + Fastify]
   S -- send / typing / read --> EVO
   S <--> DB[(PostgreSQL)]
-  S -- interpret message --> OL[Ollama<br/>llama3 8B]
+  S -- interpret message --> OL[Ollama<br/>qwen3 8B]
   S -- brochure question --> RAG[RAG service<br/>Python]
   RAG --> OL
   S <--> GC[Google Calendar]
@@ -38,7 +38,7 @@ flowchart LR
 ```
 
 - Every message the clinic number sends or receives is stored and shown live in the panel.
-- A small local model (`llama3` 8B) only **interprets** messages; deterministic code decides, checks the calendar and writes the replies ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
+- A small local model (`qwen3:8b`) only **interprets** messages; deterministic code decides, checks the calendar and writes the replies ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
 - Brochure questions go to the RAG service reused from the RagLab project ([ADR 0001](decisions/0001-reuse-raglab-as-separate-service.md)).
 - Every outgoing WhatsApp message passes one anti-ban gate ([ADR 0003](decisions/0003-single-send-gate.md)).
 - Google Calendar is the source of truth for appointments.

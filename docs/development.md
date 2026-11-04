@@ -5,7 +5,7 @@
 - **Node.js 24** and npm
 - **Docker Desktop** (Postgres 17, Redis, Evolution API)
 - **Python 3.14** (RAG service)
-- **[Ollama](https://ollama.com)** with `llama3` and `embeddinggemma` pulled
+- **[Ollama](https://ollama.com)** with `qwen3:8b` and `embeddinggemma` pulled
 - A **WhatsApp number** to connect (ideally not a personal one; see the [anti-ban advice](#keeping-the-number-safe))
 - A **Google Cloud project** with an OAuth client, and a Google account whose calendar the clinic uses
 
@@ -17,7 +17,7 @@ Four things run at once: Docker, the RAG service, the server and (in development
 
 ```bash
 # 1. Models
-ollama pull llama3
+ollama pull qwen3:8b
 ollama pull embeddinggemma
 
 # 2. RAG service (PowerShell, from rag/)
@@ -60,7 +60,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
 | `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
-| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`llama3`), timeout (20000) |
+| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`qwen3:8b`), timeout (20000) |
 | `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES`, `REMINDER_TICK_MS` | no | Reminder window (1440 / 120 min) and scheduler tick (60000 ms). Shorten only to test |
 | `ANTIBAN_*` | no | About 30 anti-ban limits; the ones most likely to change: `ANTIBAN_CONVERSATIONS_PER_DAY` (150), `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` (8 / 200), `ANTIBAN_ALLOWED_LINK_DOMAINS` (empty), `ANTIBAN_WARMUP_DAYS` (14; 0 turns it off) |
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |
@@ -95,7 +95,7 @@ cd rag && .\run.ps1 test   # RAG unit tests, no Ollama needed
 ```bash
 npx tsx --env-file=.env scripts/eval-scheduling.ts                    # 23 scripted conversations, fake calendar
 npx tsx --env-file=.env scripts/eval-scheduling.ts --only "name"      # one scenario
-AGENT_MODEL=llama3.1:8b npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
+AGENT_MODEL=llama3 npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
 ```
 
 Scenarios are in [scheduling-scenarios.json](../scripts/fixtures/scheduling-scenarios.json). It checks that offered times follow the rules, nothing is double-booked, nothing is booked without "yes", the right time is booked in at least 90% of scenarios, replies take under 30 s, and the service is in the event title. Run it after any change to the interpreter, the router or the flow.

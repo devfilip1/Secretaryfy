@@ -10,7 +10,7 @@
 | Validation | Zod | 4 | Env vars, request bodies, interpreter output |
 | Dates | Luxon | 3.7 | All scheduling math in the calendar's time zone |
 | Panel | React + Vite | React 19, Vite 8 | Plain CSS, no component library, in [`web/`](../web) |
-| Message interpreter | Ollama `llama3` (8B, Q4) | — | Local; JSON-schema-constrained output |
+| Message interpreter | Ollama `qwen3:8b` (8B, Q4_K_M) | — | Local; JSON-schema-constrained output |
 | Brochure answers (RAG) | Python, FastAPI, LangChain, Chroma, rank-bm25 | Python 3.14 | Separate service in [`rag/`](../rag), copied from RagLab |
 | WhatsApp | Evolution API | v2.3.7 | Docker; Baileys-based (WhatsApp Web protocol) |
 | Calendar | Google Calendar API (`googleapis`) | 186 | OAuth with offline access |
@@ -37,7 +37,7 @@ flowchart TB
     INBOX[Inbox service<br/>+ event bus]
     API[Panel API + SSE]
   end
-  OLL[Ollama llama3]
+  OLL[Ollama qwen3:8b]
   RAG[RAG service :8001]
   GC[Google Calendar]
   PANEL[Panel SPA]
@@ -143,7 +143,7 @@ The panel is a single-page React app in [`web/src`](../web/src). In development 
 
 ## Planned: cloud-ready dependency composition
 
-This is a future work plan, not a description of the current implementation, except for what [ADR 0009](decisions/0009-rag-composition-root.md) records as done in the RAG service (composition root, vector store, embedding, chat model and chunk source contracts, embedding dimensions in the index manifest). Keep Ollama (`llama3` and `embeddinggemma`) as the default and preserve the current RAG and scheduling behavior.
+This is a future work plan, not a description of the current implementation, except for what [ADR 0009](decisions/0009-rag-composition-root.md) records as done in the RAG service (composition root, vector store, embedding, chat model and chunk source contracts, embedding dimensions in the index manifest). Keep Ollama (`qwen3:8b` and `embeddinggemma`) as the default and preserve the current RAG and scheduling behavior.
 
 - Define explicit configuration and a composition root for each process: the TypeScript backend, the Python RAG HTTP service, and the ingestion CLI. Register and select implementations in those entry points, with a .NET-style single registration point per process; use a DI library only if it makes the code simpler.
 - Decouple the chat model, embedding provider, vector store, and BM25 chunk source behind small contracts where substitution is useful. Keep existing implementations and support test fakes. Ensure provider selection reaches answer, retrieval, streaming, ingestion, and index health checks rather than only a lower-level function.

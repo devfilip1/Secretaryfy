@@ -5,7 +5,7 @@
 Small clinics answer patients on WhatsApp by hand: the same questions about prices and treatments, back-and-forth to find a free time, and patients who forget their appointment. Secretaryfy puts an assistant on the clinic's own WhatsApp number that answers from the clinic's material, books straight into the clinic's Google Calendar and reminds patients the day before. Staff keep full control from a web panel.
 
 Two things set it apart:
-- **It runs on a small local model.** `llama3` 8B (4-bit) runs on the clinic's machine through Ollama, with no paid API and no conversation leaving the machine. Reliability comes from the design: rules and code do the deciding, and the model only interprets ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
+- **It runs on a small local model.** `qwen3:8b` (4-bit) runs on the clinic's machine through Ollama, with no paid API and no conversation leaving the machine. Reliability comes from the design: rules and code do the deciding, and the model only interprets ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
 - **It protects the number.** It connects like WhatsApp Web (QR code), not through Meta's official platform, so every message passes an anti-ban gate that imitates human pacing and refuses risky sends ([business rules](business-rules.md#anti-ban-protection)).
 
 ## User roles

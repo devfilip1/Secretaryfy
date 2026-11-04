@@ -1,6 +1,6 @@
 # Secretaryfy
 
-A WhatsApp assistant for clinics. It answers patients' questions from the clinic's brochure, books, reschedules and cancels appointments on the clinic's Google Calendar, and sends a reminder the day before, all on a small **local** model (`llama3` 8B via Ollama) with no paid API. Staff follow every conversation live in a web panel and can take over at any time. The demo clinic is the fictional **DentalSafe**.
+A WhatsApp assistant for clinics. It answers patients' questions from the clinic's brochure, books, reschedules and cancels appointments on the clinic's Google Calendar, and sends a reminder the day before, all on a small **local** model (`qwen3:8b` via Ollama) with no paid API. Staff follow every conversation live in a web panel and can take over at any time. The demo clinic is the fictional **DentalSafe**.
 
 **Stack:** Node 24 + TypeScript · Fastify 5 · PostgreSQL 17 + Drizzle · React 19 + Vite 8 · Python 3.14 RAG (FastAPI, Chroma, BM25) · Ollama · Evolution API v2.3.7 · Google Calendar API
 
@@ -17,7 +17,7 @@ A WhatsApp assistant for clinics. It answers patients' questions from the clinic
 Requires Node 24, Docker Desktop, Python 3.14 and [Ollama](https://ollama.com).
 
 ```bash
-ollama pull llama3 && ollama pull embeddinggemma
+ollama pull qwen3:8b && ollama pull embeddinggemma
 
 # RAG service (PowerShell, in rag/)
 python -m venv .venv

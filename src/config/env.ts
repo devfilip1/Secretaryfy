@@ -27,7 +27,7 @@ const envSchema = z.object({
 
   // Agendamento: o Ollama interpreta as mensagens do cliente (specs/003, research.md R2)
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),
-  AGENT_MODEL: z.string().min(1).default("llama3"),
+  AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
   PANEL_URL: z.url().optional(),

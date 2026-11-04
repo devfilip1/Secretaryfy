@@ -47,7 +47,7 @@ delete process.env.DATABASE_URL_TEST;
 const tz = fixture.timeZone;
 const now = DateTime.fromISO(fixture.now).toJSDate();
 const local = (iso: string) => DateTime.fromISO(iso, { zone: tz }).toJSDate();
-const model = process.env.AGENT_MODEL ?? "llama3";
+const model = process.env.AGENT_MODEL ?? "qwen3:8b";
 const ollama = createOllamaClient({
   url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
   model,

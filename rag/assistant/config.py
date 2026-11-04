@@ -43,7 +43,7 @@ THINKING_ANSWER_TOKENS = 2000   # answer budget when thinking is on: the thinkin
 KEEP_ALIVE = "30m"        # keeps the model loaded between questions, so the load time is not paid again
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "llama3")
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "qwen3:8b")
 # Thinking of the chat models that think (qwen3): "off" (default) answers at once, "on" thinks first: a bit more right, about 5 times slower, and it can end with an empty answer.
 OLLAMA_THINKING = os.getenv("OLLAMA_THINKING", "off").strip().lower() in ("on", "1", "true", "yes")
 OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "embeddinggemma")

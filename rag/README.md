@@ -19,7 +19,7 @@ Measured right after the copy (run `20261015-233316`, compared with the referenc
 
 ## Setup
 
-Requires Python 3.14 and [Ollama](https://ollama.com) with `llama3` and `embeddinggemma`.
+Requires Python 3.14 and [Ollama](https://ollama.com) with `qwen3:8b` and `embeddinggemma`.
 
 ```powershell
 python -m venv .venv
@@ -57,7 +57,7 @@ The evaluation manual is in [evaluation/README.md](evaluation/README.md).
 ## Rules that still apply
 
 - Any change that can affect answers (prompt, synonyms, chunking, search) is measured with `evaluation run --no-judge` and compared with the reference. Read the regressions before the score.
-- One or two questions of difference are noise with `llama3`. Confirm with `--repeat 3` before claiming a change.
+- One or two questions of difference are noise with `qwen3:8b`. Confirm with `--repeat 3` before claiming a change.
 - Never tune on the reserved questions; `--holdout` runs once after a round of changes.
 - `no_answer` in `config/languages/<language>.yaml` and the `abstention_patterns` of that language's `Locale` in `evaluation/normalize.py` must stay in step.
 - `assistant` never imports `evaluation` or `server`.
