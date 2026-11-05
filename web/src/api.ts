@@ -1,3 +1,5 @@
+import type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+
 // Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
 // e specs/004-whatsapp-anti-ban/contracts/panel-api.md
 
@@ -229,3 +231,33 @@ export const createAppointment = (body: { phone: string; name: string; service: 
 
 /** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome para o painel. */
 export const listServices = () => request<{ services: { name: string; label: string }[] }>("GET", "/api/services");
+
+// --- Conhecimento da clínica (src/routes/panel-knowledge.ts; tipos em src/modules/knowledge/types.ts) ---
+
+export type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+export type TreatmentRow = Extract<KnowledgeRow, { kind: "treatment" }>;
+export type InfoRow = Extract<KnowledgeRow, { kind: "info" }>;
+
+/** Campos de uma seção como o painel envia (a chave e a posição o servidor define). */
+export interface SectionInput {
+  title: string;
+  tagline: string | null;
+  data: KnowledgeData;
+}
+
+export interface KnowledgeStatus {
+  version: string;
+  indexedVersion: string | null;
+  state: "upToDate" | "unpublished" | "unavailable";
+}
+
+export const listKnowledge = () => request<{ sections: KnowledgeRow[] }>("GET", "/api/knowledge");
+export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
+  request<{ section: KnowledgeRow }>("POST", "/api/knowledge", input);
+export const updateSection = (key: string, input: SectionInput) =>
+  request<{ section: KnowledgeRow }>("PUT", `/api/knowledge/${encodeURIComponent(key)}`, input);
+export const deleteSection = (key: string) => request<void>("DELETE", `/api/knowledge/${encodeURIComponent(key)}`);
+/** Nova ordem: as chaves de todas as seções, na ordem da lista. */
+export const reorderSections = (keys: string[]) => request<void>("PUT", "/api/knowledge/order", { keys });
+export const knowledgeStatus = () => request<KnowledgeStatus>("GET", "/api/knowledge/status");
+export const publishKnowledge = () => request<KnowledgeStatus>("POST", "/api/knowledge/publish", {});

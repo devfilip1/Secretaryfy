@@ -16,6 +16,7 @@ import { AppointmentsPage } from "./pages/Appointments";
 import { CalendarPage } from "./pages/Calendar";
 import { ConnectionPage } from "./pages/Connection";
 import { CustomersPage } from "./pages/Customers";
+import { KnowledgePage } from "./pages/Knowledge";
 import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
@@ -23,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
 
 type Session = "loading" | "login" | "disabled" | "ready";
-type View = "inbox" | "appointments" | "connection" | "calendar" | "customers";
+type View = "inbox" | "appointments" | "connection" | "calendar" | "customers" | "knowledge";
 
 function viewFromHash(): View {
   const path = window.location.hash.split("?")[0];
@@ -31,6 +32,7 @@ function viewFromHash(): View {
   if (path === "#/connection" || path === "#/conexao") return "connection";
   if (path === "#/calendar" || path === "#/agenda") return "calendar";
   if (path === "#/customers" || path === "#/clientes") return "customers";
+  if (path === "#/knowledge") return "knowledge";
   return "inbox";
 }
 
@@ -121,7 +123,9 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
             <a href="#/customers" className={navLinkClass(view === "customers")}>
               Customers
             </a>
-          </nav>
+            <a href="#/knowledge" className={navLinkClass(view === "knowledge")}>
+              Knowledge
+            </a>          </nav>
           <ConnectionBadge connection={connection} />
           <Button variant="link" onClick={leave}>
             Sign out
@@ -134,6 +138,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         {view === "connection" && <ConnectionPage connection={connection} onChange={setConnection} />}
         {view === "calendar" && <CalendarPage />}
         {view === "customers" && <CustomersPage />}
+        {view === "knowledge" && <KnowledgePage />}
       </div>
     </EventsContext.Provider>
   );
