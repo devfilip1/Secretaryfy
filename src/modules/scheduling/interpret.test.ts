@@ -54,7 +54,7 @@ test("regras resolvem números, sim/não e datas simples sem chamar o modelo", a
     intent: "availability", option: null, date: "2026-10-21", name: null, source: "rule",
   });
   assert.deepEqual(await interpreter.interpret(input({ text: "Friday", step: "choose_day", options: days })), {
-    intent: "choose", option: 3, date: null, name: null, source: "rule",
+    intent: "choose", option: null, date: "2026-10-23", name: null, source: "rule",
   });
   assert.deepEqual(await interpreter.interpret(input({ text: "Maria Souza", step: "ask_name" })), {
     intent: "give_name", option: null, date: null, name: "Maria Souza", source: "rule",

@@ -117,7 +117,7 @@ test("dentro da janela, com a conversa aberta: um lembrete só, com nome, dia, h
   await scheduler.tick();
   await scheduler.tick();
   assert.equal(sent.length, 1);
-  assert.match(sent[0].text, /^Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM \(Dental Cleaning\)\. Please reply YES to confirm\.$/);
+  assert.match(sent[0].text, /^Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM \(Dental Cleaning\)\. Can you confirm\?$/);
   const after = await reload(appt);
   assert.deepEqual([after.reminderStatus, after.reminderSentAt?.getTime()], ["sent", NOW.getTime()]);
   assert.deepEqual(await systemTexts(conv.id), ["🔔 Reminder sent for Wed, Oct 21 at 10:00 AM"]);

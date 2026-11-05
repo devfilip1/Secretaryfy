@@ -56,11 +56,11 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
       return [
-        "Please confirm your appointment:",
+        "Just to confirm:",
         `📅 ${formatWhen(start, tz)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service)}`,
-        "Reply YES to confirm, NO to choose another time, or tell me another service.",
+        "Shall I book it? If you'd prefer another time or service, just tell me.",
       ].join("\n");
     },
 
@@ -75,7 +75,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     alreadyBooked(start: Date, tz: string) {
-      return `You already have an appointment on ${formatWhen(start, tz)}. Would you like to reschedule it? (YES/NO)`;
+      return `You already have an appointment on ${formatWhen(start, tz)}. Would you like to reschedule it?`;
     },
 
     myAppointment(start: Date, tz: string) {
@@ -87,7 +87,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     confirmCancel(start: Date, tz: string) {
-      return `Cancel your appointment on ${formatWhen(start, tz)}? (YES/NO)`;
+      return `Do you really want to cancel your appointment on ${formatWhen(start, tz)}?`;
     },
 
     cancelled(start: Date, tz: string) {
@@ -99,7 +99,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     confirmReschedule(from: Date, to: Date, tz: string) {
-      return `Move your appointment from ${formatWhen(from, tz)} to ${formatWhen(to, tz)}? (YES/NO)`;
+      return `Shall I move your appointment from ${formatWhen(from, tz)} to ${formatWhen(to, tz)}?`;
     },
 
     rescheduled(start: Date, tz: string) {
@@ -126,7 +126,8 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
 
     /** O cliente disse o nome, sem pergunta junto. */
     nameReceived(name: string, random: () => number = Math.random) {
-      const options = [`Nice to meet you, ${name}! How can I help you?`, `Thanks, ${name}! How can I help you today?`];
+      const who = firstName(name);
+      const options = [`Nice to meet you, ${who}! How can I help you?`, `Thanks, ${who}! How can I help you today?`];
       return options[Math.floor(random() * options.length)];
     },
 
@@ -166,9 +167,9 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       const when = formatWhen(start, tz);
       const label = serviceLabel(service);
       return [
-        `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinicName} on ${when} (${label}). Please reply YES to confirm.`,
-        `Hello${name ? ` ${name}` : ""}, your ${label} appointment at ${clinicName} is on ${when}. Can you confirm you'll be there? Reply YES to confirm.`,
-        `Hi${name ? ` ${name}` : ""}, this is ${clinicName} reminding you of your appointment on ${when} for ${label}. Reply YES to confirm, or tell me if you need to reschedule.`,
+        `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinicName} on ${when} (${label}). Can you confirm?`,
+        `Hello${name ? ` ${name}` : ""}, your ${label} appointment at ${clinicName} is on ${when}. Can you confirm you'll be there?`,
+        `Hi${name ? ` ${name}` : ""}, this is ${clinicName} reminding you of your appointment on ${when} for ${label}. Can you confirm? Or tell me if you need to reschedule.`,
       ];
     },
 
@@ -186,7 +187,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     yesOrNo() {
-      return "Please reply YES or NO.";
+      return "Could you tell me yes or no?";
     },
 
     greeting(hour: number) {

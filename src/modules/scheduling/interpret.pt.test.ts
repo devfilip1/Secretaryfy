@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
-import { cleanName, createInterpreter, type InterpretInput } from "./interpret.js";
+import { createInterpreter, type InterpretInput } from "./interpret.js";
 
 // Regras sem modelo: o Ollama não é chamado, então um falso que lança basta.
 const noModel = { chat: async () => Promise.reject(new Error("não deveria chamar o modelo")) };
@@ -68,29 +68,32 @@ const dayOptions: SessionOption[] = [
   { n: 4, kind: "day", date: "2026-10-26" },
 ];
 
-test("o cliente escolhe o dia por frase, sem número: dia da semana, dia do mês, primeiro, último", async () => {
-  const pickDay = async (text: string) => (await interpreter.interpret(input(text, { step: "choose_day", options: dayOptions }))).option;
-  assert.equal(await pickDay("quero sexta"), 3);
-  assert.equal(await pickDay("pode ser na quinta-feira"), 2);
-  assert.equal(await pickDay("segunda"), 4);
-  assert.equal(await pickDay("quero o dia 26"), 4);
-  assert.equal(await pickDay("o primeiro"), 1);
-  assert.equal(await pickDay("o último"), 4);
+/** Interpretador com um modelo que devolve sempre a saída dada (o que o qwen devolveria para a frase). */
+const asking = (raw: object) =>
+  createInterpreter({ ollama: { chat: async () => ({ option: null, date: null, weekday: null, name: null, ...raw }) } as never });
+
+test("o modelo devolve o dia da semana pelo nome em inglês e o código faz a conta do calendário", async () => {
+  // Terça, 20/10/2026: o próximo sábado é 24/10; 'domingo' em plural, abreviado ou com erro de digitação é problema do modelo, não de lista de palavras
+  const r = await asking({ intent: "availability", weekday: "saturday" }).interpret(input("vocês atendem aos sábados?"));
+  assert.equal(r.intent, "availability");
+  assert.equal(r.date, "2026-10-24");
+  // Se o dia da semana é hoje, conta hoje
+  const today = await asking({ intent: "availability", weekday: "tuesday" }).interpret(input("tem horário na terça?"));
+  assert.equal(today.date, "2026-10-20");
 });
 
-test("o cliente escolhe o horário por frase: o das 9, às 10h; e pede mais ou outro dia falando", async () => {
-  const hours: SessionOption[] = [
-    { n: 1, kind: "slot", start: "2026-10-21T12:00:00.000Z" },
-    { n: 2, kind: "slot", start: "2026-10-21T13:00:00.000Z" },
-  ];
-  const ask = (text: string) => interpreter.interpret(input(text, { step: "choose_slot", options: hours }));
-  assert.equal((await ask("o das 9")).option, 1);
-  assert.equal((await ask("pode ser às 10h")).option, 2);
-  assert.equal((await ask("quero ver mais")).intent, "more");
-  assert.equal((await ask("quero outro dia")).intent, "other_day");
+test("na lista de dias, o dia da semana citado vira a opção oferecida; fora da lista, vira a data", async () => {
+  const inList = await asking({ intent: "choose", weekday: "friday" }).interpret(input("pode ser sexta", { step: "choose_day", options: dayOptions }));
+  assert.equal(inList.option, 3);
+  const outside = await asking({ intent: "choose", weekday: "sunday" }).interpret(input("e domingo?", { step: "choose_day", options: dayOptions }));
+  assert.equal(outside.option, null);
+  assert.equal(outside.date, "2026-10-25");
 });
 
-test("pergunta não é nome: 'Qual seu nome?' e 'como você se chama' não viram nome", () => {
-  for (const text of ["Qual seu nome?", "Como você se chama", "Queria falar com o Dr."]) assert.equal(cleanName(text), null, text);
-  assert.equal(cleanName("Maria Souza"), "Maria Souza");
+test("saudação e 'qual seu nome?' vêm do modelo como intenções; pergunta nunca vira nome", async () => {
+  assert.equal((await asking({ intent: "greeting" }).interpret(input("oi, bom dia!"))).intent, "greeting");
+  assert.equal((await asking({ intent: "who_are_you" }).interpret(input("qual seu nome?"))).intent, "who_are_you");
+  // O modelo se confunde com a palavra "nome" e devolve o nome: a interrogação derruba
+  const confused = await asking({ intent: "give_name", name: "Qual Seu Nome" }).interpret(input("Qual seu nome?"));
+  assert.equal(confused.intent, "unclear");
 });

@@ -14,16 +14,6 @@ import type { RulesStore } from "./rules.js";
 import { detectService } from "./services.js";
 import type { SchedulingStore } from "./sessions.js";
 
-/** "Qual seu nome?", "como você se chama?": o cliente quer saber quem atende (normalizado, sem acento) */
-const ASKS_MY_NAME = new RegExp(
-  "(?:qual (?:e )?(?:o )?seu nome|como (?:voce|vc) (?:se )?chama|com quem (?:eu )?(?:to|estou) falando|quem (?:e voce|esta falando)|" +
-    "what(?:s| is)? your name|who am i (?:talking|speaking|chatting) (?:to|with))",
-);
-
-/** Só uma saudação ("oi", "bom dia", "oi boa noite, tudo bem?"): a resposta é a nossa saudação, sem passar pelo folheto (normalizado) */
-const GREETING_ONLY =
-  /^(?:(?:oi+|ola|opa|e ai|hello|hi|hey|bom dia|boa tarde|boa noite|good morning|good afternoon|good evening)(?: |$))+(?:tudo bem|td bem|tudo bom|how are you)?$/;
-
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
 const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
 
@@ -90,19 +80,11 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
         ? { ...reply, text: `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)}\n\n${reply.text}`, split: true }
         : reply;
 
-    const asked = text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z' ]/g, " ").replace(/\s+/g, " ").trim();
-    if (!session && ASKS_MY_NAME.test(asked.replace(/'/g, ""))) return { text: replies.myName() };
-
     /** Pede o nome uma única vez, junto da primeira resposta de quem ainda não disse (FR-001, FR-002, FR-005). */
     async function askNameOnce(reply: Reply): Promise<Reply> {
       if (known || conversation!.nameAskedAt) return reply;
       await inbox.markNameAsked(conversationId, at);
       return { ...reply, followUp: replies.askNameFollowUp() };
-    }
-
-    if (!session && GREETING_ONLY.test(asked)) {
-      const hello = firstReply ? `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)} ${replies.howCanIHelp()}` : replies.howCanIHelp();
-      return askNameOnce({ text: hello });
     }
 
     /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
@@ -136,6 +118,13 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       { phone: message.phone, intent: interpretation.intent, source: interpretation.source, step: session?.step ?? null, latency_ms: Date.now() - started },
       "mensagem interpretada",
     );
+
+    // Quem atende e a saudação: o modelo reconhece a intenção, o texto é nosso
+    if (interpretation.intent === "who_are_you") return { text: replies.myName() };
+    if (interpretation.intent === "greeting") {
+      const hello = firstReply ? `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)} ${replies.howCanIHelp()}` : replies.howCanIHelp();
+      return askNameOnce({ text: hello });
+    }
 
     // Despedida: sem agendamento em andamento, só se despede; no meio de um, encerra o agendamento
     if (interpretation.intent === "goodbye") {

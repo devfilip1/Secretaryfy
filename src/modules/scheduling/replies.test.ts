@@ -19,7 +19,7 @@ test("confirmação mostra dia, hora, duração, nome e serviço; booked só com
   const start = new Date("2026-10-21T13:00:00Z");
   assert.equal(
     replies.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz),
-    "Please confirm your appointment:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nReply YES to confirm, NO to choose another time, or tell me another service.",
+    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I book it? If you'd prefer another time or service, just tell me.",
   );
   assert.match(replies.confirmBooking(start, 60, "Maria", "Assessment", tz), /🦷 General assessment/);
   assert.equal(replies.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
@@ -54,7 +54,7 @@ test("lista de serviços: os 8 tratamentos em bullets e a avaliação geral no f
   assert.equal(lines[10], "Just tell me which one.");
 });
 
-test("lembrete (specs/006): três variações diferentes, com dia, hora, serviço e YES, sem links", () => {
+test("lembrete (specs/006): três variações diferentes, com dia, hora, serviço e pedido de confirmação, sem links", () => {
   const start = new Date("2026-10-21T13:00:00Z");
   const withName = replies.reminder(start, "Dental Cleaning", "Maria", tz);
   assert.equal(new Set(withName).size, 3);
@@ -62,10 +62,10 @@ test("lembrete (specs/006): três variações diferentes, com dia, hora, serviç
     assert.match(text, /Maria/);
     assert.match(text, /Wednesday, October 21 at 10:00 AM/);
     assert.match(text, /Dental Cleaning/);
-    assert.match(text, /YES/);
+    assert.match(text, /confirm/i);
     assert.doesNotMatch(text, /https?:|www\./);
   }
-  assert.equal(withName[0], "Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM (Dental Cleaning). Please reply YES to confirm.");
+  assert.equal(withName[0], "Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM (Dental Cleaning). Can you confirm?");
   const anonymous = replies.reminder(start, "Assessment", null, tz);
   assert.match(anonymous[0], /^Hi! .*\(General assessment\)/);
   assert.match(anonymous[1], /^Hello, your General assessment appointment/);

@@ -346,32 +346,27 @@ test("o handoff não leva saudação, mesmo na primeira resposta", async () => {
   assert.equal(out!.ignorePause, true);
 });
 
-test("'qual seu nome?' é respondido com o nome de quem atende, sem passar pelo modelo", async () => {
-  for (const text of ["Qual seu nome?", "como você se chama?", "What's your name?"]) {
-    const r = setup({ intent: "give_name", name: "Qual Seu Nome", firstMessage: true, text });
-    assert.equal((await r.reply())!.text, "This is DentalSafe. How can I help?", text);
-    assert.equal(r.inputs.length, 0);
-  }
-});
-
-test("só uma saudação: responde com a nossa saudação e pede o nome, sem chamar o folheto nem o modelo", async () => {
-  for (const text of ["oi", "Oi, boa noite!", "bom dia tudo bem?", "hello"]) {
-    const r = setup({ intent: "question", firstMessage: true, text, customerName: null });
-    const out = await r.reply();
-    assert.match(out!.text, /^Good (morning|afternoon|evening)! You've reached DentalSafe[.] How can I help you[?]$/, text);
-    assert.ok(out!.followUp, "pede o nome");
-    assert.equal(r.asked.length, 0);
-    assert.equal(r.inputs.length, 0);
-  }
-  // Depois da primeira resposta, só pergunta como ajudar
-  const later = setup({ intent: "question", text: "oi", customerName: "Maria" });
-  assert.deepEqual(await later.reply(), { text: "How can I help you?" });
-});
-
 test("a resposta igual a uma que já demos ganha uma abertura, para não ser descartada como repetida", async () => {
   const same = setup({ intent: "book", assistantSaid: "do agendamento" });
   const out = await same.reply();
   assert.match(out!.text, /^(Sure, here it is again:|No problem, here you go:|Of course, once more:)\n\ndo agendamento$/);
   const other = setup({ intent: "book", assistantSaid: "outra coisa" });
   assert.equal((await other.reply())!.text, "do agendamento");
+});
+
+test("saudação (intenção do modelo): nossa saudação com o nome de quem atende, pede o nome uma vez, sem folheto", async () => {
+  const r = setup({ intent: "greeting", firstMessage: true, text: "Oi, boa noite!", customerName: null });
+  const out = await r.reply();
+  assert.match(out!.text, /^Good (morning|afternoon|evening)! You've reached DentalSafe[.] How can I help you[?]$/);
+  assert.ok(out!.followUp, "pede o nome");
+  assert.equal(r.asked.length, 0);
+  // Depois da primeira resposta, só pergunta como ajudar
+  const later = setup({ intent: "greeting", text: "oi", customerName: "Maria" });
+  assert.deepEqual(await later.reply(), { text: "How can I help you?" });
+});
+
+test("'qual seu nome?' (intenção who_are_you) é respondido com o nome de quem atende, sem folheto", async () => {
+  const r = setup({ intent: "who_are_you", text: "Qual seu nome?" });
+  assert.equal((await r.reply())!.text, "This is DentalSafe. How can I help?");
+  assert.equal(r.asked.length, 0);
 });

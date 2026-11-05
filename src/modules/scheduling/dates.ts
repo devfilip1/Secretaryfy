@@ -50,8 +50,6 @@ function normalize(text: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}/ ]/gu, " ")
     .replace(/ feira\b/g, " ")
-    // "aos sábados", "on Saturdays": o dia da semana no plural vale como no singular
-    .replace(/\b(segunda|terca|quarta|quinta|sexta|sabado|domingo|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s\b/g, "$1")
     .replace(/\b(please|pls|on|this|the|of|de)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();

@@ -150,6 +150,8 @@ The Evolution API then echoes the sent message back through the webhook; the uni
 
 ### Optional humanizer (HUMANIZE_REPLIES=1)
 
+The interpreter model returns a weekday as an English name (`weekday`) instead of a date, in any form the customer wrote ("sábados", "sab"), and the code does the calendar arithmetic; it also classifies `greeting` and `who_are_you`. `scripts/eval-interpret.ts` measures this with the real model.
+
 Only the text of a scheduling flow reply (not brochure answers, handoffs, reminders or the interpreter-unavailable text) can pass through [humanize.ts](../src/modules/scheduling/humanize.ts). The model rewords it as a warm message, and `guardRewrite` accepts the rewrite only if every numbered or bullet line, 📅 👤 🦷 line, number, time, quoted word and YES/NO/SIM/NÃO of the original survives unchanged, with no new numbers, no markdown and no growth beyond about 1.6x. Any refusal, error or timeout sends the fixed text.
 
 ## See also

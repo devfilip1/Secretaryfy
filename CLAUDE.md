@@ -20,12 +20,13 @@ npm run typecheck      # server + panel; run before declaring a task done
 npm run db:generate    # after changing src/db/schema.ts; review the SQL, then
 npm run db:migrate
 npx tsx --env-file=.env scripts/eval-scheduling.ts   # after touching interpret/router/flow (needs Ollama)
+npx tsx --env-file=.env scripts/eval-interpret.ts     # natural phrases through the interpreter (needs Ollama)
 cd rag && .\run.ps1 test                             # RAG unit tests
 ```
 
 ## Rules the code doesn't show
 - Every WhatsApp send goes through the gate (`gate.sendAssistant` / `gate.sendOperator` in `src/modules/antiban/gate.ts`). Never call `evolution.ts` send functions directly.
-- The model only interprets, and may only rephrase flow replies when HUMANIZE_REPLIES=1, under a code guard (`guardRewrite` in `humanize.ts`) that falls back to the fixed text. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Prefer a rule in `interpret.ts` over prompt changes.
+- The model only interprets, and may only rephrase flow replies when HUMANIZE_REPLIES=1, under a code guard (`guardRewrite` in `humanize.ts`) that falls back to the fixed text. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Do not grow keyword lists in code (weekday plurals, greeting words…): let the model understand the wording through an intent or an enum in its schema and keep the arithmetic and the texts in code. Measure with `scripts/eval-interpret.ts`.
 - Appointments belong to the **phone**, not the conversation (`conversation_id` can be null). Booking from anywhere goes through `bookSlot` in `scheduling/booking.ts`.
 - Google Calendar is the source of truth: call `syncAppointment` before acting on a stored appointment.
 - Single process only: calendar lock, send queue, SSE bus and reminder timer are in memory.

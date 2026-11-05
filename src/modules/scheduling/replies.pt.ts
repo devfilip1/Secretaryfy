@@ -68,11 +68,11 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
       return [
-        "Por favor, confirme seu agendamento:",
+        "Só para confirmar:",
         `📅 ${formatWhen(start, tz, pt)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service, "pt")}`,
-        "Responda SIM para confirmar, NÃO para escolher outro horário, ou me diga outro serviço.",
+        "Posso confirmar? Se preferir outro horário ou outro serviço, é só me dizer.",
       ].join("\n");
     },
 
@@ -87,7 +87,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     alreadyBooked(start: Date, tz: string) {
-      return `Você já tem um agendamento em ${formatWhen(start, tz, pt)}. Quer remarcá-lo? (SIM/NÃO)`;
+      return `Você já tem um agendamento em ${formatWhen(start, tz, pt)}. Quer remarcá-lo?`;
     },
 
     myAppointment(start: Date, tz: string) {
@@ -99,7 +99,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     confirmCancel(start: Date, tz: string) {
-      return `Cancelar seu agendamento de ${formatWhen(start, tz, pt)}? (SIM/NÃO)`;
+      return `Quer mesmo cancelar seu agendamento de ${formatWhen(start, tz, pt)}?`;
     },
 
     cancelled(start: Date, tz: string) {
@@ -111,7 +111,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     confirmReschedule(from: Date, to: Date, tz: string) {
-      return `Mudar seu agendamento de ${formatWhen(from, tz, pt)} para ${formatWhen(to, tz, pt)}? (SIM/NÃO)`;
+      return `Posso mudar seu agendamento de ${formatWhen(from, tz, pt)} para ${formatWhen(to, tz, pt)}?`;
     },
 
     rescheduled(start: Date, tz: string) {
@@ -138,7 +138,8 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
 
     /** O cliente disse o nome, sem pergunta junto. */
     nameReceived(name: string, random: () => number = Math.random) {
-      const options = [`Prazer, ${name}! Como posso ajudar?`, `Obrigado, ${name}! Como posso ajudar hoje?`];
+      const who = firstName(name);
+      const options = [`Prazer, ${who}! Como posso ajudar?`, `Obrigado, ${who}! Como posso ajudar hoje?`];
       return options[Math.floor(random() * options.length)];
     },
 
@@ -178,9 +179,9 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       const when = formatWhen(start, tz, pt);
       const label = serviceLabel(service, "pt");
       return [
-        `Oi${name ? ` ${name}` : ""}! Lembrete do seu agendamento na ${clinicName} em ${when} (${label}). Responda SIM para confirmar.`,
-        `Olá${name ? ` ${name}` : ""}, seu agendamento de ${label} na ${clinicName} é em ${when}. Você confirma presença? Responda SIM para confirmar.`,
-        `Oi${name ? ` ${name}` : ""}, aqui é a ${clinicName} lembrando do seu agendamento em ${when} para ${label}. Responda SIM para confirmar, ou me diga se precisa remarcar.`,
+        `Oi${name ? ` ${name}` : ""}! Lembrete do seu agendamento na ${clinicName} em ${when} (${label}). Você confirma?`,
+        `Olá${name ? ` ${name}` : ""}, seu agendamento de ${label} na ${clinicName} é em ${when}. Você confirma presença?`,
+        `Oi${name ? ` ${name}` : ""}, aqui é a ${clinicName} lembrando do seu agendamento em ${when} para ${label}. Você confirma? Se precisar remarcar, é só me dizer.`,
       ];
     },
 
@@ -198,7 +199,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     yesOrNo() {
-      return "Por favor, responda SIM ou NÃO.";
+      return "Pode me dizer se sim ou não?";
     },
 
     howCanIHelp() {

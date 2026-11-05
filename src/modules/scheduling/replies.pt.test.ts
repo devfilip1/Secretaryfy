@@ -75,10 +75,10 @@ test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horá
   assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
 });
 
-test("confirmação pede SIM, e o lembrete também", () => {
-  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /Responda SIM para confirmar/);
+test("confirmação e lembrete pedem confirmação", () => {
+  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /Posso confirmar\?/);
   assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /🦷 Limpeza Dental/);
-  for (const text of pt.reminder(start, "Dental Cleaning", "Maria", tz)) assert.match(text, /SIM/);
+  for (const text of pt.reminder(start, "Dental Cleaning", "Maria", tz)) assert.match(text, /confirma/i);
 });
 
 test("clínica em inglês continua com o nome configurado", () => {
@@ -105,4 +105,9 @@ test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
   assert.match(r.booked(start, tz), /^Tudo certo, seu horário está marcado!/);
   assert.match(r.chooseService("Paulo Lima"), /^Paulo, para qual serviço é este agendamento\?/);
   assert.match(r.goodbye(() => 0, "Paulo Lima"), /^De nada, Paulo!/);
+});
+
+test("nameReceived usa só o primeiro nome", () => {
+  const r = createReplies({ language: "pt", clinicName: "Sorriso Pleno" });
+  assert.match(r.nameReceived("Carla Souza", () => 0), /^Prazer, Carla! /);
 });

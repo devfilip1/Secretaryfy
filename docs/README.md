@@ -54,4 +54,4 @@ flowchart LR
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
 
 ---
-Last updated: 2026-11-04 (greeting-only replies, repeated-reply lead, first-name use)
+Last updated: 2026-11-04 (interpreter intents greeting/who_are_you, weekday enum, human yes/no prompts)

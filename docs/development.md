@@ -96,6 +96,7 @@ cd rag && .\run.ps1 test   # RAG unit tests, no Ollama needed
 ### Evaluating with the real model
 
 ```bash
+npx tsx --env-file=.env scripts/eval-interpret.ts                    # 31 natural phrases through the interpreter (needs Ollama)
 npx tsx --env-file=.env scripts/eval-scheduling.ts                    # 23 scripted conversations, fake calendar
 npx tsx --env-file=.env scripts/eval-scheduling.ts --only "name"      # one scenario
 AGENT_MODEL=llama3 npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model

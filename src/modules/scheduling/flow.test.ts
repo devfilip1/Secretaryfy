@@ -189,7 +189,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   const confirm = await say(conv, I("choose", { option: 2 }));
   assert.equal(
     confirm.reply,
-    "Please confirm your appointment:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nReply YES to confirm, NO to choose another time, or tell me another service.",
+    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I book it? If you'd prefer another time or service, just tell me.",
   );
 
   const done = await say(conv, I("yes"));
@@ -277,7 +277,7 @@ test("um horário futuro por número; evento apagado no Google libera para marca
   const conv = await conversation();
   await book(conv);
   const again = await say(conv, I("book"));
-  assert.equal(again.reply, "You already have an appointment on Wednesday, October 21 at 10:00 AM. Would you like to reschedule it? (YES/NO)");
+  assert.equal(again.reply, "You already have an appointment on Wednesday, October 21 at 10:00 AM. Would you like to reschedule it?");
   assert.equal((await sessionOf(conv))?.step, "offer_reschedule");
 
   fake.events.clear();
@@ -362,7 +362,7 @@ test("cancelar: confirmação, evento apagado, cancelado pelo cliente e registro
   rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
   const conv = await conversation();
   await book(conv);
-  assert.equal((await say(conv, I("cancel"))).reply, "Cancel your appointment on Wednesday, October 21 at 10:00 AM? (YES/NO)");
+  assert.equal((await say(conv, I("cancel"))).reply, "Do you really want to cancel your appointment on Wednesday, October 21 at 10:00 AM?");
   assert.equal((await say(conv, I("yes"))).reply, "Your appointment on Wednesday, October 21 at 10:00 AM was cancelled.");
   assert.equal(fake.events.size, 0);
   const [appt] = await allAppointments();
@@ -389,7 +389,7 @@ test("remarcar: escolhe dia e horário, confirma e o evento é movido", async ()
   assert.match((await say(conv, I("reschedule"))).reply, /^Sure! These days have openings/);
   await say(conv, I("choose", { option: 4 }));
   const confirm = await say(conv, I("choose", { option: 6 }));
-  assert.equal(confirm.reply, "Move your appointment from Wednesday, October 21 at 10:00 AM to Friday, October 23 at 2:00 PM? (YES/NO)");
+  assert.equal(confirm.reply, "Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Friday, October 23 at 2:00 PM?");
   assert.equal((await say(conv, I("yes"))).reply, "Done! Your appointment is now on Friday, October 23 at 2:00 PM.");
 
   assert.equal(fake.calls.moveEvent, 1);
