@@ -10,6 +10,7 @@ import {
   type Protection,
 } from "./api";
 import { ConnectionBadge } from "./components/ConnectionBadge";
+import { CenterPage } from "./components/CenterPage";
 import { ProtectionBanner } from "./components/ProtectionBanner";
 import { AppointmentsPage } from "./pages/Appointments";
 import { CalendarPage } from "./pages/Calendar";
@@ -18,6 +19,7 @@ import { CustomersPage } from "./pages/Customers";
 import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
+import { Button } from "@/components/ui/button";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
 
 type Session = "loading" | "login" | "disabled" | "ready";
@@ -30,6 +32,12 @@ function viewFromHash(): View {
   if (path === "#/calendar" || path === "#/agenda") return "calendar";
   if (path === "#/customers" || path === "#/clientes") return "customers";
   return "inbox";
+}
+
+/** Link da navegação: a aba ativa ganha a linha de destaque e a cor do texto. */
+function navLinkClass(active: boolean): string {
+  const state = active ? "border-primary text-foreground" : "border-transparent text-muted-foreground";
+  return `${state} border-b-2 px-0.5 py-1 no-underline max-md:shrink-0 max-md:px-0.5 max-md:py-2 max-md:text-sm`;
 }
 
 export function App() {
@@ -46,7 +54,7 @@ export function App() {
     check();
   }, [check]);
 
-  if (session === "loading") return <main className="center-page muted">Loading…</main>;
+  if (session === "loading") return <CenterPage className="text-muted-foreground">Loading…</CenterPage>;
   if (session === "disabled") return <Disabled />;
   if (session === "login") return <Login onLoggedIn={() => setSession("ready")} />;
   return <Shell onLoggedOut={() => setSession("login")} />;
@@ -94,32 +102,32 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           loadProtection();
         }}
       />
-      <div className="shell">
-        <header className="topbar">
-          <span className="brand">Secretaryfy</span>
-          <nav>
-            <a href="#/" className={view === "inbox" ? "active" : ""}>
+      <div className="flex h-full flex-col">
+        <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1.5 max-md:pt-2 max-md:pb-0">
+          <span className="font-bold max-md:flex-1">Secretaryfy</span>
+          <nav className="flex flex-1 gap-3.5 max-md:order-3 max-md:min-w-0 max-md:basis-full max-md:justify-between max-md:gap-0.5 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
+            <a href="#/" className={navLinkClass(view === "inbox")}>
               Conversations
             </a>
-            <a href="#/appointments" className={view === "appointments" ? "active" : ""}>
+            <a href="#/appointments" className={navLinkClass(view === "appointments")}>
               Appointments
             </a>
-            <a href="#/connection" className={view === "connection" ? "active" : ""}>
+            <a href="#/connection" className={navLinkClass(view === "connection")}>
               Connection
             </a>
-            <a href="#/calendar" className={view === "calendar" ? "active" : ""}>
+            <a href="#/calendar" className={navLinkClass(view === "calendar")}>
               Calendar
             </a>
-            <a href="#/customers" className={view === "customers" ? "active" : ""}>
+            <a href="#/customers" className={navLinkClass(view === "customers")}>
               Customers
             </a>
           </nav>
           <ConnectionBadge connection={connection} />
-          <button className="link" onClick={leave}>
+          <Button variant="link" onClick={leave}>
             Sign out
-          </button>
+          </Button>
         </header>
-        {status === "reconnecting" && <div className="banner">Reconnecting to the server…</div>}
+        {status === "reconnecting" && <div className="bg-warn p-1 text-center text-sm text-warn-foreground">Reconnecting to the server…</div>}
         <ProtectionBanner protection={protection} />
         {view === "inbox" && <Inbox connected={connection?.state === "open"} />}
         {view === "appointments" && <AppointmentsPage />}

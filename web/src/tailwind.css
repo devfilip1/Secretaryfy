@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/* Paleta do painel, claro e escuro conforme o sistema. Os componentes shadcn leem estas variáveis (ver @theme abaixo). */
+:root {
+  --radius: 0.5rem;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #e1e4e8;
+  --text: #1c1e21;
+  --muted: #65676b;
+  --accent: #128c7e;
+  --accent-text: #ffffff;
+  --selected: #e7f3f1;
+  --ok: #1f9d55;
+  --warn: #c88a04;
+  --bad: #d64545;
+  --bubble-customer: #ffffff;
+  --bubble-assistant: #dcf8c6;
+  --bubble-operator: #d6ecff;
+  --bubble-phone: #ece5f6;
+  --chat-bg: #efeae2;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111b21;
+    --surface: #1f2c33;
+    --surface-2: #2a3942;
+    --border: #2f3b43;
+    --text: #e9edef;
+    --muted: #8696a0;
+    --accent: #00a884;
+    --accent-text: #111b21;
+    --selected: #2a3942;
+    --bubble-customer: #202c33;
+    --bubble-assistant: #005c4b;
+    --bubble-operator: #1d4a6e;
+    --bubble-phone: #3f3554;
+    --chat-bg: #0b141a;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+  }
+  * {
+    @apply border-border;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  code {
+    @apply rounded-sm bg-secondary px-1 py-px;
+  }
+  a {
+    color: var(--accent);
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-text);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--selected);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--bad);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-warn-foreground: #1c1e21;
+  --color-bubble-customer: var(--bubble-customer);
+  --color-bubble-assistant: var(--bubble-assistant);
+  --color-bubble-operator: var(--bubble-operator);
+  --color-bubble-phone: var(--bubble-phone);
+  --color-chat: var(--chat-bg);
+  --opacity-disabled: 0.55;
+  --shadow-stripe-warn: inset 3px 0 0 var(--warn);
+  --shadow-bubble: 0 1px 1px rgb(0 0 0 / 0.08);
+}

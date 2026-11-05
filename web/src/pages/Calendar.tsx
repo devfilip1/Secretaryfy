@@ -13,6 +13,15 @@ import {
   type DayKey,
   type RulesIssue,
 } from "../api";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Field } from "../components/Field";
+import { Muted } from "../components/Muted";
+import { Notice } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
 
 const DAYS: { key: DayKey; label: string }[] = [
@@ -111,87 +120,82 @@ export function CalendarPage() {
     }
   }
 
-  if (!connection || !rules) return <main className="page muted">{error ?? "Loading…"}</main>;
+  if (!connection || !rules) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
 
   return (
-    <main className="page">
-      <div className="calendar-page">
+    <Page>
+      <div className="grid w-[min(720px,100%)] gap-4 max-md:gap-3">
         {notice && (
-          <div className={`flash ${notice.ok ? "ok" : "bad"}`} role="status">
+          <Notice layout="box" tone={notice.ok ? "ok" : "destructive"} role="status" onDismiss={() => setNotice(null)}>
             {notice.text}
-            <button className="link" onClick={() => setNotice(null)} aria-label="Dismiss notice">
-              ×
-            </button>
-          </div>
+          </Notice>
         )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <Notice role="alert">{error}</Notice>}
 
-        <section className="card wide">
-          <h2>Google Calendar</h2>
+        <Card as="section" className="w-full">
+          <Title level={2} className="mb-3">
+            Google Calendar
+          </Title>
           {connection.status === "disconnected" ? (
             <>
-              <p className="muted">
-                Connect the clinic calendar so the assistant can check free times and book appointments over
-                WhatsApp.
+              <p className="my-4 text-muted-foreground">
+                Connect the clinic calendar so the assistant can check free times and book appointments over WhatsApp.
               </p>
-              <button className="primary" onClick={connect} disabled={busy}>
+              <Button onClick={connect} disabled={busy}>
                 Connect Google Calendar
-              </button>
+              </Button>
             </>
           ) : (
             <>
               {connection.status === "needs_reauth" && (
-                <div className="flash bad">
+                <Notice layout="box" tone="destructive" className="mb-3">
                   Google denied access to the calendar. Reconnect so the assistant can book again.
-                  <button className="primary" onClick={connect} disabled={busy}>
+                  <Button onClick={connect} disabled={busy}>
                     Reconnect
-                  </button>
-                </div>
+                  </Button>
+                </Notice>
               )}
-              <p>
+              <p className="my-4">
                 Account: <strong>{connection.email}</strong>
                 <br />
-                <span className="muted small">
+                <Muted>
                   Time zone: <strong>{connection.timeZone}</strong>
-                </span>
+                </Muted>
               </p>
               {/^(UTC|Etc\/)/.test(connection.timeZone) && (
-                <div className="flash bad">
-                  The calendar is set to {connection.timeZone}: times offered to customers will be calculated in that zone.
-                  Change the time zone in the Google Calendar settings and reload this page.
-                </div>
+                <Notice layout="box" tone="destructive" className="mb-3">
+                  The calendar is set to {connection.timeZone}: times offered to customers will be calculated in that zone. Change the
+                  time zone in the Google Calendar settings and reload this page.
+                </Notice>
               )}
-              <label className="field">
+              <Field className="my-3">
                 Calendar used for bookings
-                <select
-                  value={connection.calendarId}
-                  onChange={(e) => choose(e.target.value)}
-                  disabled={!calendars || calendars.length === 0}
-                >
-                  {(calendars ?? [{ id: connection.calendarId, name: connection.calendarName, timeZone: "", primary: false }]).map(
-                    (c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {c.primary ? " (primary)" : ""}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-              <button className="danger" onClick={disconnect} disabled={busy}>
+                <Select value={connection.calendarId} onValueChange={choose} disabled={!calendars || calendars.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(calendars ?? [{ id: connection.calendarId, name: connection.calendarName, timeZone: "", primary: false }]).map(
+                      (c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                          {c.primary ? " (primary)" : ""}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Button variant="destructive" onClick={disconnect} disabled={busy}>
                 Disconnect
-              </button>
+              </Button>
             </>
           )}
-        </section>
+        </Card>
 
         <RulesForm initial={rules} onSaved={setRules} />
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -234,75 +238,110 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
   }
 
   return (
-    <form className="card wide rules" onSubmit={submit}>
-      <h2>Business hours</h2>
-      <p className="muted small">The assistant only offers times within these rules that are free on the calendar.</p>
+    <Card as="form" className="w-full" onSubmit={submit}>
+      <Title level={2} className="mb-1">
+        Business hours
+      </Title>
+      <Muted as="p" className="my-4">
+        The assistant only offers times within these rules that are free on the calendar.
+      </Muted>
 
-      <div className="week">
+      <div className="my-3 grid gap-1.5">
         {DAYS.map(({ key, label }) => {
           const hours = rules.weeklyHours[key];
           const problem = issueAt(`weeklyHours.${key}`);
           return (
-            <div key={key} className="day-row">
-              <label className="check">
+            <div
+              key={key}
+              className="grid min-h-9.5 grid-cols-[130px_auto_auto_auto_1fr] items-center gap-2 max-md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] max-md:gap-x-2 max-md:gap-y-1 max-md:border-b max-md:py-1.5"
+            >
+              <label className="flex items-center gap-2 max-md:col-span-full">
                 <input type="checkbox" checked={!!hours} onChange={(e) => setDay(key, e.target.checked ? {} : null)} />
                 {label}
               </label>
               {hours ? (
                 <>
-                  <input
+                  <Input
                     type="time"
                     aria-label={`${label}: start`}
+                    className="w-auto max-md:w-full"
                     value={hours.start}
                     onChange={(e) => setDay(key, { start: e.target.value })}
                   />
-                  <span className="muted">to</span>
-                  <input
+                  <span className="text-muted-foreground">to</span>
+                  <Input
                     type="time"
                     aria-label={`${label}: end`}
+                    className="w-auto max-md:w-full"
                     value={hours.end}
                     onChange={(e) => setDay(key, { end: e.target.value })}
                   />
                 </>
               ) : (
-                <span className="muted small">Closed</span>
+                <Muted className="max-md:col-span-full">Closed</Muted>
               )}
-              {problem && <span className="error small">{problem}</span>}
+              {problem && (
+                <Muted tone="destructive" className="max-md:col-span-full">
+                  {problem}
+                </Muted>
+              )}
             </div>
           );
         })}
         {issueAt("weeklyHours") && !DAYS.some((d) => issueAt(`weeklyHours.${d.key}`)) && (
-          <p className="error small">{issueAt("weeklyHours")}</p>
+          <Muted as="p" tone="destructive">
+            {issueAt("weeklyHours")}
+          </Muted>
         )}
       </div>
 
-      <div className="fields">
-        <NumberField label="Appointment length (min)" value={rules.slotMinutes} step={5} error={issueAt("slotMinutes")}
-          onChange={(v) => setNumber("slotMinutes", v)} />
-        <NumberField label="Minimum notice to book (h)" value={rules.minNoticeMinutes / 60} step={0.5}
-          error={issueAt("minNoticeMinutes")} onChange={(v) => setNumber("minNoticeMinutes", Math.round(v * 60))} />
-        <NumberField label="Book up to how many days ahead" value={rules.maxDaysAhead} step={1}
-          error={issueAt("maxDaysAhead")} onChange={(v) => setNumber("maxDaysAhead", v)} />
-        <NumberField label="Cancel or reschedule up to (h before)" value={rules.cancelNoticeMinutes / 60} step={1}
-          error={issueAt("cancelNoticeMinutes")} onChange={(v) => setNumber("cancelNoticeMinutes", Math.round(v * 60))} />
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-4">
+        <NumberField
+          label="Appointment length (min)"
+          value={rules.slotMinutes}
+          step={5}
+          error={issueAt("slotMinutes")}
+          onChange={(v) => setNumber("slotMinutes", v)}
+        />
+        <NumberField
+          label="Minimum notice to book (h)"
+          value={rules.minNoticeMinutes / 60}
+          step={0.5}
+          error={issueAt("minNoticeMinutes")}
+          onChange={(v) => setNumber("minNoticeMinutes", Math.round(v * 60))}
+        />
+        <NumberField
+          label="Book up to how many days ahead"
+          value={rules.maxDaysAhead}
+          step={1}
+          error={issueAt("maxDaysAhead")}
+          onChange={(v) => setNumber("maxDaysAhead", v)}
+        />
+        <NumberField
+          label="Cancel or reschedule up to (h before)"
+          value={rules.cancelNoticeMinutes / 60}
+          step={1}
+          error={issueAt("cancelNoticeMinutes")}
+          onChange={(v) => setNumber("cancelNoticeMinutes", Math.round(v * 60))}
+        />
       </div>
 
-      <div className="form-actions">
-        <button className="primary" type="submit" disabled={status === "saving"}>
+      <div className="flex items-center gap-3 max-md:flex-wrap">
+        <Button type="submit" disabled={status === "saving"}>
           {status === "saving" ? "Saving…" : "Save rules"}
-        </button>
-        {status === "saved" && <span className="ok-text small">Rules saved.</span>}
-        {status === "error" && <span className="error small">Check the highlighted fields.</span>}
+        </Button>
+        {status === "saved" && <Muted tone="ok">Rules saved.</Muted>}
+        {status === "error" && <Muted tone="destructive">Check the highlighted fields.</Muted>}
       </div>
-    </form>
+    </Card>
   );
 }
 
 function NumberField(props: { label: string; value: number; step: number; error?: string; onChange: (v: number) => void }) {
   return (
-    <label className="field">
+    <Field className="my-3">
       {props.label}
-      <input
+      <Input
         type="number"
         min={0}
         step={props.step}
@@ -310,7 +349,7 @@ function NumberField(props: { label: string; value: number; step: number; error?
         onChange={(e) => props.onChange(e.target.valueAsNumber)}
         aria-invalid={!!props.error}
       />
-      {props.error && <span className="error small">{props.error}</span>}
-    </label>
+      {props.error && <Muted tone="destructive">{props.error}</Muted>}
+    </Field>
   );
 }

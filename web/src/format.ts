@@ -15,6 +15,7 @@ export function formatPhone(phone: string): string {
 const timeFmt = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit" });
 const dateFmt = new Intl.DateTimeFormat("en-US", { day: "2-digit", month: "2-digit" });
 const fullFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short" });
+const shortDateFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "short" });
 
 /** Hora, se for hoje; data curta nos outros casos. */
 export function formatTime(iso: string): string {
@@ -24,6 +25,23 @@ export function formatTime(iso: string): string {
 
 export function formatDateTime(iso: string): string {
   return fullFmt.format(new Date(iso));
+}
+
+/** Só a hora (HH:MM) do instante. */
+export const formatClock = (iso: string) => timeFmt.format(new Date(iso));
+
+/** Só o dia e o mês (DD/MM) do instante. */
+export const formatDay = (iso: string) => dateFmt.format(new Date(iso));
+
+/** Data curta (M/D/YY) do instante. */
+export const formatDate = (iso: string) => shortDateFmt.format(new Date(iso));
+
+/** Formatadores de dia e hora no fuso da clínica (agenda e agendamento). */
+export function clinicFormats(timeZone: string | undefined) {
+  return {
+    day: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }),
+    time: new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }),
+  };
 }
 
 const ORIGIN_LABELS: Record<Origin, string> = {
@@ -37,13 +55,13 @@ const ORIGIN_LABELS: Record<Origin, string> = {
 export const originLabel = (origin: Origin) => ORIGIN_LABELS[origin];
 
 const MEDIA_LABELS: Record<Exclude<MessageType, "text">, string> = {
-  audio: "🎤 Audio",
-  image: "📷 Image",
-  video: "🎬 Video",
-  document: "📄 Document",
-  sticker: "🖼️ Sticker",
-  location: "📍 Location",
-  contact: "👤 Contact",
+  audio: "Audio",
+  image: "Image",
+  video: "Video",
+  document: "Document",
+  sticker: "Sticker",
+  location: "Location",
+  contact: "Contact",
   other: "Unsupported message",
 };
 

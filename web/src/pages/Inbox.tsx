@@ -84,7 +84,7 @@ export function Inbox({ connected }: { connected: boolean }) {
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <main className="inbox">
+    <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
       <ConversationList
         conversations={conversations}
         loaded={loaded}
@@ -102,7 +102,7 @@ export function Inbox({ connected }: { connected: boolean }) {
           onClose={() => setSelectedId(null)}
         />
       ) : (
-        <section className="empty-view muted">Select a conversation</section>
+        <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">Select a conversation</section>
       )}
     </main>
   );

@@ -1,5 +1,8 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ApiError, risksOf, sendMessage, type Message, type SendRisk } from "../api";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { Notice } from "./Notice";
 import { RiskDialog } from "./RiskDialog";
 
 const MAX_LENGTH = 4096;
@@ -70,16 +73,17 @@ export function Composer({
   }
 
   return (
-    <footer className="composer">
-      {!connected && <p className="notice">WhatsApp disconnected: connect the number to send messages.</p>}
+    <footer className="border-t border-border bg-card px-4 py-2.5 max-md:px-2.5 max-md:pt-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      {!connected && <Notice tone="warn" className="mb-2 text-sm">WhatsApp disconnected: connect the number to send messages.</Notice>}
       {notice && connected && (
-        <p className="notice" role="alert">
+        <Notice tone="warn" role="alert" className="mb-2 text-sm">
           {notice}
-        </p>
+        </Notice>
       )}
-      <div className="composer-row">
-        <textarea
+      <div className="flex items-end gap-2.5">
+        <Textarea
           ref={area}
+          className="max-h-40 min-h-0 flex-1 resize-none"
           rows={1}
           maxLength={MAX_LENGTH}
           placeholder={TOUCH ? "Type a message" : "Type a message (Enter sends, Shift+Enter adds a line)"}
@@ -87,9 +91,9 @@ export function Composer({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <button className="primary" onClick={() => void send()} disabled={!canSend}>
+        <Button onClick={() => void send()} disabled={!canSend}>
           {busy ? "Sending…" : "Send"}
-        </button>
+        </Button>
       </div>
       {risks && <RiskDialog risks={risks} onCancel={() => setRisks(null)} onConfirm={() => void send(true)} />}
     </footer>

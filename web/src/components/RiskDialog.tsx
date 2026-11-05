@@ -1,4 +1,7 @@
 import type { SendRisk } from "../api";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Title } from "./Title";
 
 const RISK_TEXT: Record<SendRisk, string> = {
   cold_contact: "The customer has not written in over 24 hours.",
@@ -9,24 +12,35 @@ const RISK_TEXT: Record<SendRisk, string> = {
 /** Confirmação antes de o operador enviar com risco de banimento (specs/004, US4). */
 export function RiskDialog({ risks, onCancel, onConfirm }: { risks: SendRisk[]; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="dialog-backdrop" role="presentation" onClick={onCancel}>
-      <div className="dialog" role="alertdialog" aria-labelledby="risk-title" onClick={(e) => e.stopPropagation()}>
-        <h3 id="risk-title">Send anyway?</h3>
-        <ul>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
+      <DialogContent
+        role="alertdialog"
+        showCloseButton={false}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogTitle asChild>
+          <Title level={3}>Send anyway?</Title>
+        </DialogTitle>
+        <ul className="list-disc pl-5">
           {risks.map((risk) => (
             <li key={risk}>{RISK_TEXT[risk] ?? risk}</li>
           ))}
         </ul>
-        <p className="muted small">Sending anyway increases the risk of the number being banned.</p>
-        <div className="dialog-actions">
-          <button onClick={onCancel} autoFocus>
+        <DialogDescription>Sending anyway increases the risk of the number being banned.</DialogDescription>
+        <DialogFooter className="mt-3.5 flex-row justify-end max-md:flex-wrap">
+          <Button variant="secondary" onClick={onCancel} autoFocus>
             Cancel
-          </button>
-          <button className="danger" onClick={onConfirm}>
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
             Send anyway
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

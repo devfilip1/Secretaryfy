@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, StickyNote } from "lucide-react";
 import { deleteCustomer, listCustomers, updateCustomer, type Customer, type CustomerAppointment } from "../api";
-import { formatDateTime, formatPhone } from "../format";
+import { formatDate, formatDateTime, formatPhone } from "../format";
 import { useInboxEvents } from "../useEvents";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Muted } from "../components/Muted";
+import { Notice } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Title } from "../components/Title";
 
-const dateFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "short" });
 const MAX_NOTES = 1000;
 
 /** Próximo horário marcado, se houver. */
@@ -67,74 +77,76 @@ export function CustomersPage() {
     }
   }
 
-  if (!customers) return <main className="page muted">{error ?? "Loading…"}</main>;
+  if (!customers) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
 
   return (
-    <main className="page">
-      <div className="customers-page">
-        <section className="card wide">
-          <div className="customers-head">
+    <Page>
+      <div className="w-[min(820px,100%)]">
+        <Card as="section" className="w-full">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2>Customers</h2>
-              <p className="muted small">
+              <Title level={2} className="mb-0.5">
+                Customers
+              </Title>
+              <Muted as="p">
                 {customers.length === 1 ? "1 customer" : `${customers.length} customers`} · added when they confirm a booking
-              </p>
+              </Muted>
             </div>
-            <input
+            <Input
               type="search"
               placeholder="Search by name or phone"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search customers"
+              className="w-[min(280px,100%)] max-md:w-full"
             />
           </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
+          {error && <Notice role="alert">{error}</Notice>}
+          {customers.length === 0 || shown.length === 0 ? (
+            <p className="mt-6 mb-2 text-center text-muted-foreground">
+              {customers.length === 0 ? "No customers yet. Anyone who confirms a booking shows up here." : `No customers found for “${query}”.`}
             </p>
-          )}
-          {customers.length === 0 ? (
-            <p className="muted empty">No customers yet. Anyone who confirms a booking shows up here.</p>
-          ) : shown.length === 0 ? (
-            <p className="muted empty">No customers found for “{query}”.</p>
           ) : (
-            <ul className="customer-list">
+            <ul className="border-t border-border">
               {shown.map((c) => {
                 const next = nextAppointment(c);
                 const expanded = open === c.id;
                 return (
-                  <li key={c.id} className={expanded ? "open" : ""}>
+                  <li key={c.id} className="border-b border-border">
                     <button
-                      className="customer-row"
+                      className={cn(
+                        "grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.6fr)_auto] items-center gap-3 px-1.5 py-3 text-left max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-0.5 max-md:px-1",
+                        expanded ? "bg-muted" : "hover:bg-muted",
+                      )}
                       onClick={() => setOpen(expanded ? null : c.id)}
                       aria-expanded={expanded}
                     >
-                      <span className="customer-name">{c.name}</span>
-                      <span className="customer-phone">{formatPhone(c.phone)}</span>
-                      <span className="customer-next muted small">
-                        {next ? `Next: ${appointmentLabel(next)}` : "No upcoming appointment"}
-                      </span>
-                      <span className="chevron" aria-hidden="true">
-                        {expanded ? "▾" : "▸"}
-                      </span>
-                      {c.notes && !expanded && <span className="customer-notes-preview">📝 {c.notes}</span>}
+                      <span className="truncate font-semibold">{c.name}</span>
+                      <span className="tabular-nums max-md:col-start-1">{formatPhone(c.phone)}</span>
+                      <Muted className="max-md:col-start-1">{next ? `Next: ${appointmentLabel(next)}` : "No upcoming appointment"}</Muted>
+                      {expanded ? (
+                        <ChevronDown className="size-4 text-muted-foreground max-md:col-start-2 max-md:row-start-1" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="size-4 text-muted-foreground max-md:col-start-2 max-md:row-start-1" aria-hidden="true" />
+                      )}
+                      {c.notes && !expanded && (
+                        <Muted tone="warn" className="col-span-full truncate">
+                          <StickyNote className="mr-1 inline size-3.5" />
+                          {c.notes}
+                        </Muted>
+                      )}
                     </button>
                     {expanded && (
-                      <CustomerDetail
-                        customer={c}
-                        onSaved={replace}
-                        onDelete={() => remove(c)}
-                        deleting={deleting === c.id}
-                      />
+                      <CustomerDetail customer={c} onSaved={replace} onDelete={() => remove(c)} deleting={deleting === c.id} />
                     )}
                   </li>
                 );
               })}
             </ul>
           )}
-        </section>
+        </Card>
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -187,95 +199,115 @@ function CustomerDetail({
   const notesChanged = notes !== (c.notes ?? "");
 
   return (
-    <div className="customer-detail">
-      <dl>
-        <dt>ID</dt>
-        <dd className="mono">{c.id}</dd>
-        <dt>Name</dt>
-        <dd>
+    <div className="px-1.5 pt-1 pb-3.5">
+      <dl className="mt-2 mb-3.5 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1.5">
+        <dt className="text-muted-foreground">ID</dt>
+        <dd className="m-0 font-mono text-sm wrap-anywhere">{c.id}</dd>
+        <dt className="text-muted-foreground">Name</dt>
+        <dd className="m-0 wrap-anywhere">
           {editing ? (
-            <span className="customer-edit">
-              <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} aria-label="Customer name" autoFocus />
-              <button className="primary" onClick={() => save("name")} disabled={!name.trim() || saving === "name"}>
+            <span className="flex flex-wrap items-center gap-2">
+              <Input
+                value={name}
+                maxLength={120}
+                onChange={(e) => setName(e.target.value)}
+                aria-label="Customer name"
+                autoFocus
+                className="min-w-0 flex-1"
+              />
+              <Button onClick={() => save("name")} disabled={!name.trim() || saving === "name"}>
                 {saving === "name" ? "Saving…" : "Save"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setEditing(false);
                   setName(c.name);
                 }}
               >
                 Cancel
-              </button>
+              </Button>
             </span>
           ) : (
-            <span className="customer-edit">
+            <span className="flex flex-wrap items-center gap-2">
               {c.name}
-              <button className="link" onClick={() => setEditing(true)}>
+              <Button variant="link" onClick={() => setEditing(true)}>
                 Edit
-              </button>
+              </Button>
             </span>
           )}
         </dd>
-        <dt>Phone</dt>
-        <dd>{formatPhone(c.phone)}</dd>
-        <dt>Created</dt>
-        <dd>{dateFmt.format(new Date(c.createdAt))}</dd>
+        <dt className="text-muted-foreground">Phone</dt>
+        <dd className="m-0 wrap-anywhere">{formatPhone(c.phone)}</dd>
+        <dt className="text-muted-foreground">Created</dt>
+        <dd className="m-0 wrap-anywhere">{formatDate(c.createdAt)}</dd>
         {c.updatedAt !== c.createdAt && (
           <>
-            <dt>Updated</dt>
-            <dd>{dateFmt.format(new Date(c.updatedAt))}</dd>
+            <dt className="text-muted-foreground">Updated</dt>
+            <dd className="m-0 wrap-anywhere">{formatDate(c.updatedAt)}</dd>
           </>
         )}
       </dl>
 
-      {message && <p className={`small ${message.ok ? "ok-text" : "error"}`}>{message.text}</p>}
+      {message && (
+        <Muted as="p" tone={message.ok ? "ok" : "destructive"} className="my-4">
+          {message.text}
+        </Muted>
+      )}
 
-      <div className="customer-notes">
-        <h3>Notes</h3>
-        <textarea
+      <div>
+        <Title level={3} className="mb-1.5">
+          Notes
+        </Title>
+        <Textarea
           value={notes}
           maxLength={MAX_NOTES}
           placeholder="Only the clinic sees these. E.g. allergic to latex, prefers mornings."
           onChange={(e) => setNotes(e.target.value)}
           aria-label="Notes"
         />
-        <div className="row">
-          <span className="muted small">
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <Muted>
             {notes.length}/{MAX_NOTES}
-          </span>
-          <button onClick={() => save("notes")} disabled={!notesChanged || saving === "notes"}>
+          </Muted>
+          <Button variant="secondary" onClick={() => save("notes")} disabled={!notesChanged || saving === "notes"}>
             {saving === "notes" ? "Saving…" : "Save notes"}
-          </button>
+          </Button>
         </div>
       </div>
 
-      <h3>Appointments</h3>
+      <Title level={3} className="mt-4 mb-1.5">
+        Appointments
+      </Title>
       {c.appointments.length === 0 ? (
-        <p className="muted small">No appointments linked to this record.</p>
+        <Muted as="p">No appointments linked to this record.</Muted>
       ) : (
-        <ul className="customer-appointments">
+        <ul className="list-disc pl-5 leading-relaxed">
           {c.appointments.map((a) => (
-            <li key={a.startsAt + a.status} className={a.status}>
+            <li key={a.startsAt + a.status} className={cn(a.status === "cancelled" && "text-muted-foreground line-through")}>
               {appointmentLabel(a)}
-              {a.status === "cancelled" && <span className="tag">cancelled</span>}
+              {a.status === "cancelled" && (
+                <Badge variant="secondary" className="ml-2 font-normal text-muted-foreground">
+                  cancelled
+                </Badge>
+              )}
             </li>
           ))}
         </ul>
       )}
-      <div className="actions">
+      <div className="mt-3.5 flex flex-wrap justify-end gap-2 max-md:[&>*]:flex-1 max-md:[&_button]:w-full">
         {c.conversationId ? (
-          <a className="button-link" href={`#/?c=${c.conversationId}`}>
-            View conversation
-          </a>
+          <Button asChild variant="secondary">
+            <a href={`#/?c=${c.conversationId}`}>View conversation</a>
+          </Button>
         ) : (
-          <button disabled title="No WhatsApp conversation with this customer">
+          <Button variant="secondary" disabled title="No WhatsApp conversation with this customer">
             View conversation
-          </button>
+          </Button>
         )}
-        <button className="danger" onClick={onDelete} disabled={deleting}>
+        <Button variant="destructive" onClick={onDelete} disabled={deleting}>
           {deleting ? "Deleting…" : "Delete record"}
-        </button>
+        </Button>
       </div>
     </div>
   );
