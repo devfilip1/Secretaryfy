@@ -11,7 +11,8 @@ export interface Replies {
   offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean): string;
   dayFull(date: string, closest: string[], tz: string): string;
   /** O dia pedido é um dia em que a clínica não atende (regras semanais do painel) */
-  closedDay(date: string, closest: string[], tz: string): string;
+  /** A clínica não atende nesses dias da semana (ISO, 1 = segunda): todos de uma vez, para "fim de semana?" também ter resposta */
+  closedDay(closedWeekdays: number[], closest: string[], tz: string): string;
   tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string): string;
   noOpenings(): string;
   askName(): string;
@@ -60,6 +61,10 @@ export interface Replies {
 
 /** O primeiro nome, para chamar o cliente como uma pessoa chamaria. */
 export const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || null;
+
+/** "a, b e c" / "a, b and c" */
+export const joinList = (items: string[], and: string) =>
+  items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} ${and} ${items.at(-1)}`;
 
 /** Período do dia para a saudação: de madrugada ainda é noite ("Boa noite" à 1h, não "Bom dia"). */
 export const dayPeriod = (hour: number): "morning" | "afternoon" | "evening" =>

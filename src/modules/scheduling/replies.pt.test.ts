@@ -96,7 +96,8 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
   const r = createReplies({ language: "pt", clinicName: "Sorriso Pleno" });
   assert.ok(r.offerSlots("2026-10-21", slots, tz, false).startsWith("Na quarta-feira, 21 de outubro, tenho estes horários:\n• 09:00\n• 10:00\n"));
   assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
-  assert.match(r.closedDay("2026-10-24", ["2026-10-26"], tz), /^Não atendemos no sábado\./);
+  assert.match(r.closedDay([6, 7], ["2026-10-26"], tz), /^Não atendemos sábado e domingo\./);
+  assert.match(r.closedDay([1, 3, 7], ["2026-10-27"], tz), /^Não atendemos segunda, quarta e domingo\./);
 });
 
 test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {

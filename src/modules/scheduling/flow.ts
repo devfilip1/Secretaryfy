@@ -348,8 +348,10 @@ class Run {
       if (closest.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(closest);
       // Dia sem atendimento nas regras semanais: avisa que está fechado, em vez de "sem horários"
-      const closed = !this.rules.weeklyHours[String(DateTime.fromISO(date, { zone: this.tz }).weekday) as keyof Rules["weeklyHours"]];
-      return { reply: closed ? this.replies.closedDay(date, closest, this.tz) : this.replies.dayFull(date, closest, this.tz) };
+      const isClosed = (weekday: number) => !this.rules.weeklyHours[String(weekday) as keyof Rules["weeklyHours"]];
+      if (!isClosed(DateTime.fromISO(date, { zone: this.tz }).weekday)) return { reply: this.replies.dayFull(date, closest, this.tz) };
+      const closedWeekdays = [1, 2, 3, 4, 5, 6, 7].filter(isClosed);
+      return { reply: this.replies.closedDay(closedWeekdays, closest, this.tz) };
     }
     return this.offerSlots(date, slots);
   }

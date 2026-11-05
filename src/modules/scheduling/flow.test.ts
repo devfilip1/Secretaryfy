@@ -143,7 +143,7 @@ test("escolher o dia mostra os horários livres; more mostra o resto", async () 
 test("dia fechado nas regras semanais: avisa que não atende e oferece os dias mais próximos", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability", { date: "2026-10-25" }));
-  assert.match(reply, /^We're closed on Sundays\. The closest days with openings are:\n• Wednesday, October 21/);
+  assert.match(reply, /^We're closed on Saturdays and Sundays\. The closest days with openings are:\n• Wednesday, October 21/);
   assert.match(reply, /• Monday, October 26/);
   assert.equal((await sessionOf(conv))?.step, "choose_day");
 });

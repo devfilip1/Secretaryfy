@@ -1,7 +1,8 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
+import { Info } from "luxon";
+import { formatDayLong, formatTime, formatWhen } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import { dayPeriod, firstName, type Replies } from "./replies.js";
+import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
@@ -23,8 +24,9 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       return `On ${formatDayLong(date, tz)} I have these times:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
     },
 
-    closedDay(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `We're closed on ${weekdayName(date, tz)}s. The closest days with openings are:`);
+    closedDay(closedWeekdays: number[], closest: string[], tz: string) {
+      const names = closedWeekdays.map((d) => `${Info.weekdays("long", { locale: "en-US" })[d - 1]}s`);
+      return r.offerDays(closest, tz, `We're closed on ${joinList(names, "and")}. The closest days with openings are:`);
     },
 
     dayFull(date: string, closest: string[], tz: string) {

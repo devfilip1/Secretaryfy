@@ -1,14 +1,10 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { DateTime } from "luxon";
-import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
+import { DateTime, Info } from "luxon";
+import { formatDayLong, formatTime, formatWhen } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import { dayPeriod, firstName, type Replies } from "./replies.js";
+import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
-
-/** "no sábado", "na sexta-feira": o artigo muda com o gênero do dia da semana. */
-const weekdayIn = (date: string, tz: string) =>
-  `${DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na"} ${weekdayName(date, tz, "pt")}`;
 
 /** "na sexta-feira, 6 de novembro" (ou "Na…" no começo da frase): o artigo muda com o gênero do dia da semana. */
 const onDay = (date: string, tz: string, capital = false) => {
@@ -35,8 +31,10 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
-    closedDay(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `Não atendemos ${weekdayIn(date, tz)}. Os dias mais próximos com horários livres são:`);
+    closedDay(closedWeekdays: number[], closest: string[], tz: string) {
+      // "sábado e domingo", "segunda": sem o "-feira", como se fala
+      const names = closedWeekdays.map((d) => Info.weekdays("long", { locale: "pt-BR" })[d - 1].replace(/-feira$/, ""));
+      return r.offerDays(closest, tz, `Não atendemos ${joinList(names, "e")}. Os dias mais próximos com horários livres são:`);
     },
 
     dayFull(date: string, closest: string[], tz: string) {
