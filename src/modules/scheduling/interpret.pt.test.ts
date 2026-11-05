@@ -5,7 +5,8 @@ import { cleanName, createInterpreter, type InterpretInput } from "./interpret.j
 
 // Regras sem modelo: o Ollama não é chamado, então um falso que lança basta.
 const noModel = { chat: async () => Promise.reject(new Error("não deveria chamar o modelo")) };
-const interpreter = createInterpreter({ ollama: noModel, clinicName: "Clínica Sorriso" });
+const clinic = { name: "Clínica Sorriso", kind: "dental clinic" };
+const interpreter = createInterpreter({ ollama: noModel, clinic });
 
 const now = new Date("2026-10-20T18:00:00Z");
 const timeZone = "America/Bahia";
@@ -70,7 +71,7 @@ const dayOptions: SessionOption[] = [
 
 /** Interpretador com um modelo que devolve sempre a saída dada (o que o qwen devolveria para a frase). */
 const asking = (raw: object) =>
-  createInterpreter({ ollama: { chat: async () => ({ option: null, date: null, weekday: null, name: null, ...raw }) } as never });
+  createInterpreter({ clinic, ollama: { chat: async () => ({ option: null, date: null, weekday: null, name: null, ...raw }) } as never });
 
 test("o modelo devolve o dia da semana pelo nome em inglês e o código faz a conta do calendário", async () => {
   // Terça, 20/10/2026: o próximo sábado é 24/10; 'domingo' em plural, abreviado ou com erro de digitação é problema do modelo, não de lista de palavras
@@ -107,6 +108,11 @@ test("logo depois do pedido, o nome escrito vale mesmo quando o modelo erra a in
   // Sem o pedido, não vira nome
   const other = await asking({ intent: "unclear", name: "Bia" }).interpret(input("pode me chamar de Bia"));
   assert.equal(other.intent, "unclear");
+});
+
+test("logo depois do pedido, a mensagem que é só o nome é dar o nome, mesmo lida como pergunta", async () => {
+  const r = await asking({ intent: "question", name: "Juliana" }).interpret(input("Juliana", { awaitingName: true }));
+  assert.deepEqual(pick(r), ["give_name", "Juliana"]);
 });
 
 test("pergunta nunca é nome, nem logo depois do pedido de nome", async () => {

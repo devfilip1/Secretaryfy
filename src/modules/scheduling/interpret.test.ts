@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
+import { testClinic } from "../../test/clinic.js";
 import { createInterpreter, nameInText, type InterpretInput } from "./interpret.js";
 import { createOllamaClient, InterpreterUnavailable, type ChatMessage } from "./ollama.js";
 
@@ -14,7 +15,7 @@ function fakeOllama(reply: unknown | (() => never)) {
     if (typeof reply === "function") (reply as () => never)();
     return new Response(JSON.stringify({ message: { role: "assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) } }));
   }) as typeof globalThis.fetch;
-  const interpreter = createInterpreter({ ollama: createOllamaClient({ url: "http://ollama.test", model: "m", timeoutMs: 1000, fetch }) });
+  const interpreter = createInterpreter({ clinic: testClinic, ollama: createOllamaClient({ url: "http://ollama.test", model: "m", timeoutMs: 1000, fetch }) });
   return { interpreter, bodies };
 }
 

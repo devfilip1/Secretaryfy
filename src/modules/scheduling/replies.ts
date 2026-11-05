@@ -85,9 +85,6 @@ export function createReplies({
   return language === "pt" ? createPortugueseReplies(clinicName, assistantName) : createEnglishReplies(clinicName, assistantName);
 }
 
-/** Os textos em inglês da DentalSafe: o padrão de quem não passa as configurações. */
-export const replies: Replies = createReplies({ language: "en", clinicName: "DentalSafe" });
-
 /** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */
 export const systemNotes = {
   booked: (start: Date, minutes: number, tz: string, service: string) =>

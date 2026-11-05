@@ -12,16 +12,16 @@ import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/han
 import { instance } from "../modules/whatsapp/instance.js";
 import { connectionStore, rulesStore } from "./calendar.js";
 import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
-import { humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
+import { clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
 import { fixedTextsFor } from "../modules/antiban/texts.js";
 
-// Textos fixos na língua da clínica (CLINIC_LANGUAGE)
-const texts = fixedTextsFor(env.CLINIC_LANGUAGE);
+// Textos fixos na língua da clínica
+const texts = fixedTextsFor(clinic.language);
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001
 const reply = createSchedulingRouter({
   interpreter: createInterpreter({
-    clinicName: env.CLINIC_NAME,
+    clinic,
     ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
   }),
   flow: schedulingFlow,

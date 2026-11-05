@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reminderReasonText, replies, systemNotes } from "./replies.js";
+import { reminderReasonText, systemNotes } from "./replies.js";
+import { testReplies as replies } from "../../test/clinic.js";
 
 const tz = "America/Bahia";
 

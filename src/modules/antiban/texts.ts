@@ -40,9 +40,6 @@ const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
 /** Os textos fixos na língua da clínica. */
 export const fixedTextsFor = (language: "en" | "pt"): FixedTexts => FIXED_TEXTS[language];
 
-/** Em inglês, o padrão de quem não configurou CLINIC_LANGUAGE. */
-export const fixedTexts = FIXED_TEXTS.en;
-
 /** Registros no histórico do painel (origin = system). */
 export const protectionNotes = {
   optedOut: "🚫 The customer asked not to receive messages",

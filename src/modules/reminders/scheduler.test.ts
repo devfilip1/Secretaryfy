@@ -10,6 +10,7 @@ import { createInboxRepository, type InboxRepository } from "../inbox/repository
 import { createInboxService, type InboxService } from "../inbox/service.js";
 import { createSchedulingStore, type SchedulingStore } from "../scheduling/sessions.js";
 import { createReminderScheduler, type ReminderScheduler } from "./scheduler.js";
+import { testReplies } from "../../test/clinic.js";
 
 const tz = "America/Bahia";
 // Terça, 20/10/2026, 15:00 em Salvador
@@ -46,6 +47,7 @@ beforeEach(async () => {
   sent = [];
   inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() });
   scheduler = createReminderScheduler({
+    replies: testReplies,
     store,
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },

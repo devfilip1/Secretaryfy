@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { buildClinicContext } from "../modules/clinic/context.js";
 import { db } from "../db/client.js";
 import { bus } from "../modules/inbox/events.js";
 import { createBooking } from "../modules/scheduling/booking.js";
@@ -16,15 +17,18 @@ import { customerRepo, inbox } from "./inbox.js";
  */
 export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), () => bus.publish({ type: "appointments.updated" }));
 
-/** Textos aos clientes na língua e com o nome da clínica da configuração (CLINIC_LANGUAGE, CLINIC_NAME). */
-export const schedulingReplies = createReplies({ language: env.CLINIC_LANGUAGE, clinicName: env.CLINIC_NAME, assistantName: env.ASSISTANT_NAME });
+/** Identidade da clínica, montada aqui uma vez a partir da configuração e passada aos módulos (ADR 0010). */
+export const clinic = buildClinicContext(env);
+
+/** Textos aos clientes na língua e com o nome da clínica (clinic). */
+export const schedulingReplies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName });
 
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES
   ? createHumanizer({
       ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
-      language: env.CLINIC_LANGUAGE,
-      clinicName: env.CLINIC_NAME,
+      language: clinic.language,
+      clinicName: clinic.name,
     }).humanize
   : undefined;
 

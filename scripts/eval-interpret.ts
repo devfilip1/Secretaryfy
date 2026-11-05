@@ -1,6 +1,7 @@
 // Mede só o interpretador com o modelo real (Ollama): frases naturais, sem listas de palavras no código (specs/003, R12).
 // Uso: npx tsx --env-file=.env scripts/eval-interpret.ts
 import type { SessionOption } from "../src/db/schema.js";
+import { buildClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
@@ -86,6 +87,7 @@ const cases: Case[] = [
   c("choose_service", "quero fazer um clareamento", "choose_service"),
   c("ask_name", "pode colocar Joana", "give_name", { name: "Joana" }),
   named("Carla", "Carla", "give_name"),
+  named("Juliana", "Juliana", "give_name"),
   named("pode me chamar de Bia", "Bia", "give_name"),
   named("sou o Rafael", "Rafael", "give_name"),
   named("Carla\nquanto custa a limpeza", "Carla", ["give_name", "question"]),
@@ -101,7 +103,14 @@ const ollama = createOllamaClient({
   model: process.env.AGENT_MODEL ?? "qwen3:8b",
   timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
 });
-const interpreter = createInterpreter({ ollama });
+// A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
+const clinic = buildClinicContext({
+  CLINIC_NAME: process.env.CLINIC_NAME || "DentalSafe",
+  CLINIC_LANGUAGE: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
+  ASSISTANT_NAME: process.env.ASSISTANT_NAME,
+  CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
+});
+const interpreter = createInterpreter({ ollama, clinic });
 
 let ok = 0;
 const latencies: number[] = [];

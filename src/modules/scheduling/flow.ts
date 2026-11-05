@@ -8,7 +8,7 @@ import { initialReminderStatus } from "../reminders/status.js";
 import { availableDays, bookingWindow, isSlotAvailable, slotsForDay } from "./availability.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { Interpretation } from "./interpret.js";
-import { replies as defaultReplies, systemNotes, type Replies } from "./replies.js";
+import { systemNotes, type Replies } from "./replies.js";
 import { ASSESSMENT, SERVICES } from "./services.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
@@ -37,8 +37,8 @@ interface Deps {
   now?: () => Date;
   /** Antecedência do lembrete, para o status inicial e o de um horário remarcado (specs/006) */
   reminderLeadMinutes?: number;
-  /** Textos na língua da clínica (padrão: inglês) */
-  replies?: Replies;
+  /** Textos na língua da clínica (replies.ts, createReplies) */
+  replies: Replies;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
@@ -52,7 +52,7 @@ export function createSchedulingFlow({
   log = console,
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
-  replies = defaultReplies,
+  replies,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
   const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });

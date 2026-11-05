@@ -15,5 +15,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0009](0009-rag-composition-root.md) | One composition root for the RAG service, with injected providers | Accepted |
 | [0010](0010-multi-clinic-and-knowledge-table.md) | Many clinics, with each clinic's knowledge in a table | Proposed |
 | [0011](0011-grounded-answers-measured-not-adopted.md) | Grounded answers: built, measured, off by default | Accepted |
+| [0012](0012-node-server-toward-many-clinics.md) | The Node server toward many clinics: one clinic context first, the tenant key later | Proposed |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.

@@ -12,6 +12,8 @@ import { createInboxRepository } from "../src/modules/inbox/repository.js";
 import { createInboxService } from "../src/modules/inbox/service.js";
 import { slotsForDay } from "../src/modules/scheduling/availability.js";
 import { createSchedulingFlow } from "../src/modules/scheduling/flow.js";
+import { createReplies } from "../src/modules/scheduling/replies.js";
+import { buildClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../src/modules/scheduling/router.js";
@@ -53,7 +55,15 @@ const ollama = createOllamaClient({
   model,
   timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
 });
-const interpreter = createInterpreter({ ollama });
+// A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
+const clinic = buildClinicContext({
+  CLINIC_NAME: process.env.CLINIC_NAME || "DentalSafe",
+  CLINIC_LANGUAGE: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
+  ASSISTANT_NAME: process.env.ASSISTANT_NAME,
+  CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
+});
+const replies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName });
+const interpreter = createInterpreter({ ollama, clinic });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
 const rules = DEFAULT_RULES;
 
@@ -103,7 +113,7 @@ for (const scenario of scenarios) {
 
   const connection = { getForUse: async () => ({ refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" as const }) };
   const customers = createCustomerRepository(testDb.db as never);
-  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now });
+  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now, replies });
   const reply = createSchedulingRouter({
     interpreter,
     flow,
@@ -111,6 +121,7 @@ for (const scenario of scenarios) {
     inbox,
     connection,
     rules: { get: async () => rules },
+    replies,
     answerQuestion: async () => "[resposta do folheto]",
     now: () => now,
   });

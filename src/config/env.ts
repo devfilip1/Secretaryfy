@@ -8,6 +8,8 @@ const envSchema = z.object({
   // Língua das mensagens ao cliente (en ou pt) e nome da clínica nelas; o painel continua em inglês
   CLINIC_LANGUAGE: z.enum(["en", "pt"]).default("en"),
   CLINIC_NAME: z.string().min(1).default("DentalSafe"),
+  // O que a clínica é, em inglês, para o interpretador do agendamento ("dental clinic", "physiotherapy clinic")
+  CLINIC_KIND: z.string().min(1).default("dental clinic"),
   // Nome de quem atende nas mensagens ("Meu nome é Ana, da Sorriso Pleno"); vazio = sem nome
   ASSISTANT_NAME: z
     .string()

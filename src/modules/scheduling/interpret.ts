@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { z } from "zod";
 import type { SchedulingStep, SessionOption } from "../../db/schema.js";
+import type { ClinicContext } from "../clinic/context.js";
 import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay } from "./dates.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { detectService, serviceByNumber } from "./services.js";
@@ -219,7 +220,7 @@ const STEP_HINTS: Record<SchedulingStep, string> = {
   choose_service: "The assistant offered a numbered list of SERVICES (treatments) and is waiting for the customer to pick one.",
 };
 
-function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput, clinicName: string): string {
+function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput, clinic: Pick<ClinicContext, "name" | "kind">): string {
   const today = DateTime.fromJSDate(now, { zone: timeZone }).setLocale("en-US");
   const offered = options
     .map((o) => {
@@ -229,7 +230,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     })
     .join("\n");
   return [
-    `You classify WhatsApp messages sent to the scheduling assistant of ${clinicName}, a dental clinic.`,
+    `You classify WhatsApp messages sent to the scheduling assistant of ${clinic.name}, a ${clinic.kind}.`,
     "Do NOT answer the customer. Return only the JSON object.",
     "The customer may write in English or Brazilian Portuguese.",
     "",
@@ -324,7 +325,9 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   const service = intent === "choose_service" ? detectService([parsed.data.service ?? ""]) : null;
   // Logo depois do pedido, o nome escrito vale mais que uma intenção que não serve: sem etapa, escolher opção ou serviço não existe
   // ("pode me chamar de Bia" lido como serviço ou como outro dia)
-  const outOfPlace = intent === "unclear" || (step === null && STEP_ONLY.includes(intent)) || (intent === "choose_service" && !service);
+  // A mensagem que é só o nome ("Juliana") é dar o nome, mesmo que o modelo a tenha lido como pergunta
+  const onlyName = cleaned !== null && normalize(text) === normalize(cleaned);
+  const outOfPlace = onlyName || intent === "unclear" || (step === null && STEP_ONLY.includes(intent)) || (intent === "choose_service" && !service);
   if (askedName && cleaned && outOfPlace) {
     return result("give_name", { name: cleaned, source: "model" });
   }
@@ -341,7 +344,7 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   };
 }
 
-export function createInterpreter({ ollama, clinicName = "DentalSafe" }: { ollama: Pick<OllamaClient, "chat">; clinicName?: string }) {
+export function createInterpreter({ ollama, clinic }: { ollama: Pick<OllamaClient, "chat">; clinic: Pick<ClinicContext, "name" | "kind"> }) {
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -351,7 +354,7 @@ export function createInterpreter({ ollama, clinicName = "DentalSafe" }: { ollam
       const raw = await ollama.chat({
         format: FORMAT,
         messages: [
-          { role: "system", content: systemPrompt(input, clinicName) },
+          { role: "system", content: systemPrompt(input, clinic) },
           ...input.history.slice(-HISTORY_LIMIT),
           { role: "user", content: input.text },
         ],

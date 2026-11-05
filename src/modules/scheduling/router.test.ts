@@ -3,12 +3,11 @@ import { test } from "node:test";
 import type { FastifyBaseLogger } from "fastify";
 import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../../db/schema.js";
 import type { IncomingMessage } from "../whatsapp/evolution.js";
-import { UNAVAILABLE_MESSAGE } from "../whatsapp/handle-message.js";
+import { testReplies as replies, testTexts } from "../../test/clinic.js";
 import type { SchedulingFlow } from "./flow.js";
 import type { Interpretation, InterpretInput, Interpreter } from "./interpret.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { createSchedulingRouter } from "./router.js";
-import { replies } from "./replies.js";
 import { DEFAULT_RULES } from "./rules.js";
 
 const log = { info: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
@@ -107,6 +106,7 @@ function setup({
   const reply = createSchedulingRouter({
     interpreter,
     flow,
+    replies,
     store: {
       getSession: async () => session,
       clearSession: async (id) => {
@@ -191,7 +191,7 @@ test("o interpretador recebe a etapa, as opções e o histórico sem a mensagem 
 
 test("Ollama fora do ar: sem etapa vai para o folheto; com etapa, indisponibilidade", async () => {
   assert.deepEqual(await setup({ unavailable: true }).reply(), { text: "do folheto", split: true });
-  assert.deepEqual(await setup({ unavailable: true, session: SESSION }).reply(), { text: UNAVAILABLE_MESSAGE });
+  assert.deepEqual(await setup({ unavailable: true, session: SESSION }).reply(), { text: testTexts.unavailable[0] });
 });
 
 test("a reescrita só mexe na resposta do fluxo, nunca no folheto nem no handoff", async () => {
