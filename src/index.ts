@@ -1,12 +1,16 @@
 import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
-import { sql } from "./db/client.js";
+import { db, sql } from "./db/client.js";
 import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
-import { booking, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
+import { booking, clinic, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
+import { createKnowledgeRepository } from "./modules/knowledge/repository.js";
+import { knowledgeInternalRoutes } from "./routes/knowledge-internal.js";
+import { createRagAdmin } from "./modules/rag/admin.js";
+import { panelKnowledgeRoutes } from "./routes/panel-knowledge.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
 import { googleOAuthRoutes } from "./routes/google-oauth.js";
 import { healthRoutes } from "./routes/health.js";
@@ -58,7 +62,13 @@ if (fakeMode) {
   }
 }
 
+const knowledge = createKnowledgeRepository(db);
+
 await app.register(healthRoutes);
+// Fora do login do painel: protegido só pelo INTERNAL_TOKEN (sem ele, a rota não existe)
+await app.register(
+  knowledgeInternalRoutes({ repo: knowledge, clinicName: clinic.name, token: env.INTERNAL_TOKEN ?? "" }),
+);
 await app.register(
   googleOAuthRoutes({
     connection: connectionStore,
@@ -121,6 +131,14 @@ await app.register(
     bus,
     onFirst: () => instance.startPolling((err) => app.log.warn({ err }, "falha ao consultar a conexão")),
     onLast: () => instance.stopPolling(),
+  }),
+);
+// Conhecimento do painel e publicação no RAG (sem INTERNAL_TOKEN, o RAG recusa o /reindex e a publicação dá 502)
+await app.register(
+  panelKnowledgeRoutes({
+    repo: knowledge,
+    rag: createRagAdmin({ url: env.RAG_SERVICE_URL, token: env.INTERNAL_TOKEN ?? "" }),
+    clinicName: clinic.name,
   }),
 );
 await app.register(panelStaticRoutes);

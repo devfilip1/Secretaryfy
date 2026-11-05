@@ -57,6 +57,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `EVOLUTION_WEBHOOK_TOKEN` | yes | Random secret of 16+ characters, put in the webhook URL |
 | `WEBHOOK_BASE_URL` | no | Server address as seen from Docker: `http://host.docker.internal:3000` |
 | `OPERATOR_PASSWORD` | no | Panel password, 12+ characters; without it the panel is off |
+| `INTERNAL_TOKEN` | no | Bearer token of `GET /internal/knowledge` (the RAG's view of the brochure), 32+ characters; empty = the route does not exist |
 | `CALENDAR_MODE` | no | `google` (default) or `fake`: in-memory calendar for development only, see [Offline calendar](#offline-calendar) |
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
 | `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |

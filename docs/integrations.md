@@ -41,6 +41,16 @@ Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/
 - The model in use is `qwen3:8b`: 8.2B parameters, Q4_K_M quantization, 40k context, with its thinking turned off (`think: false` in this client, `OLLAMA_THINKING` in the RAG). One chat model serves the RAG and the interpreter, so the GPU holds it and the embedding model together. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models: `qwen3:8b` and `llama3` both pass its 23 scenarios.
 - Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times, names and services ([message pipeline](message-pipeline.md#6a-interpret)).
 
+## Knowledge endpoint
+
+The Node server serves the clinic's brochure at `GET /internal/knowledge`, authenticated by `INTERNAL_TOKEN` (bearer token, see [api.md](api.md#internal-routes)). The brochure lives in the `knowledge_sections` table ([data-model.md](data-model.md#knowledge_sections)); load it once from a Markdown file with `npx tsx --env-file=.env scripts/import-knowledge.ts <file.md>`, which replaces the whole table. The RAG reads this endpoint when `KNOWLEDGE_URL` is set: the Node side is ready, but `rag/` still reads its file (`KNOWLEDGE_PATH`) and does not call the endpoint yet, so the two are not connected until the RAG side changes.
+
+### Publishing the knowledge
+
+The panel edits the sections (see [api.md](api.md#knowledge--panel-knowledgets)) and publishes them when the operator asks. `POST /api/knowledge/publish` calls the RAG's `POST /reindex` with `INTERNAL_TOKEN` as the bearer (`RAG_SERVICE_URL` is the RAG address; [admin.ts](../src/modules/rag/admin.ts)). The RAG reads the sections from `GET /internal/knowledge` and rebuilds the index; the request sends nothing. Without `INTERNAL_TOKEN` the RAG refuses the reindex and publishing answers 502.
+
+The panel compares the version of the current sections with the one the RAG reports on `GET /health` (`knowledge.version`, read only while the RAG's `index.state` is `current`, since the source version is not the indexed one otherwise): equal is `upToDate`, different is `unpublished`, and an unreachable RAG is `unavailable`. The RAG answers `/health` with 503 when it is not ready, and the panel reads that body too. A second publish while the RAG is indexing gets 409.
+
 ## RAG service
 
 The DentalSafe assistant from the RagLab project, copied into [`rag/`](../rag) and wrapped in a small FastAPI server ([ADR 0001](decisions/0001-reuse-raglab-as-separate-service.md)).

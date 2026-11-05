@@ -90,6 +90,28 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `calendar.updated` | `connection` |
 | `protection.updated` | gate state, as `GET /api/protection` |
 
+### Knowledge — [panel-knowledge.ts](../src/routes/panel-knowledge.ts)
+
+The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`.
+
+| Route | Body | Answer |
+|---|---|---|
+| `GET /api/knowledge` | — | `{sections}` in position order |
+| `POST /api/knowledge` | `{kind: "treatment" \| "info", title, tagline?, data}` | `201 {section}`. The key is a slug of the title, with `-2`, `-3`… when taken (`order` is never used). Appended at the end |
+| `PUT /api/knowledge/:key` | `{title, tagline?, data}` | `200 {section}`. Key, kind and position stay |
+| `DELETE /api/knowledge/:key` | — | `204` |
+| `PUT /api/knowledge/order` | `{keys: string[]}` | `204`. Must list every section exactly once; otherwise `400 {error: "invalid_order", message}` |
+| `GET /api/knowledge/status` | — | `{version, indexedVersion, state}`; `state` is `upToDate`, `unpublished` or `unavailable` (RAG unreachable) |
+| `POST /api/knowledge/publish` | — | Asks the RAG to reindex. `200 {version, indexedVersion, state}`; `409 {error: "already indexing"}`; `502 {error: "rag_unavailable"}` |
+
+`version` is the hash of the current sections (`toDocument` in [render.ts](../src/modules/knowledge/render.ts)); `indexedVersion` is the version the RAG's index was built from (`knowledge.version` of its `/health`, while `index.state` is `current`; `null` otherwise). Nothing is sent to the RAG until the publish.
+
+## Internal routes
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
+
 ## RAG service
 
 The Python service has its own API on `127.0.0.1:8001`: `GET /health`, `POST /answer {question, history}`, `POST /retrieve {question}`. See [rag/README.md](../rag/README.md) and [specs/001 contract](../specs/001-rag-whatsapp-dentalsafe/contracts/rag-service.md).

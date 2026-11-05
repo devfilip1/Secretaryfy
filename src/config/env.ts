@@ -49,6 +49,13 @@ const envSchema = z.object({
   HUMANIZE_REPLIES: z.stringbool().default(false),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
   PANEL_URL: z.url().optional(),
+  // Token do endpoint interno GET /internal/knowledge (o RAG lê a brochura por ele); vazio = endpoint desligado
+  INTERNAL_TOKEN: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || v.length >= 32, "INTERNAL_TOKEN deve ter pelo menos 32 caracteres (ou ficar vazio)")
+    .optional()
+    .transform((v) => v || undefined),
 
   // Painel web: sem a senha, o painel fica desligado
   OPERATOR_PASSWORD: z.string().min(12, "OPERATOR_PASSWORD deve ter pelo menos 12 caracteres").optional(),

@@ -1,9 +1,11 @@
 import { sql } from "drizzle-orm";
+import type { KnowledgeData, KnowledgeKind } from "../modules/knowledge/types.js";
 import {
   boolean,
   check,
   index,
   integer,
+  serial,
   jsonb,
   pgEnum,
   pgTable,
@@ -208,6 +210,22 @@ export const schedulingSessions = pgTable("scheduling_sessions", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Conhecimento do assistente: a brochura da clínica, uma linha por seção (ADR 0010; docs/data-model.md). */
+export const knowledgeSections = pgTable(
+  "knowledge_sections",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    kind: text("kind").$type<KnowledgeKind>().notNull(),
+    title: text("title").notNull(),
+    tagline: text("tagline"),
+    data: jsonb("data").$type<KnowledgeData>().notNull(),
+    position: integer("position").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("knowledge_sections_kind_check", sql`${t.kind} in ('treatment', 'info')`)],
+);
 
 /** Quem pediu para não receber mensagens. Fica pelo telefone, e não pela conversa, para sobreviver à limpeza ao desconectar. */
 export const contactPreferences = pgTable("contact_preferences", {
