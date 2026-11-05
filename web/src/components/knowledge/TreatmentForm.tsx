@@ -1,52 +1,71 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import { Plus } from "lucide-react";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import type { TreatmentRow } from "../../api";
-import { treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
-import { FieldMessage, FormActions, FormGroup, TextField, type SectionFormProps } from "./FormParts";
-import { LabelledValueFields } from "./LabelledValueFields";
+import { emptyFact, treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
+import { FactFields, LabelledValueFields } from "./LabelledValueFields";
+import { ItemsField } from "./ItemsField";
+import { FormSection, TextField, type SectionFormProps } from "./FormParts";
 import { Button } from "@/components/ui/button";
+import { FieldError, FieldGroup } from "@/components/ui/field";
 
-const EMPTY_FACT = { label: "", value: "" };
-
-/** Formulário de um tratamento: título, "Ideal para", fatos e as partes opcionais. */
-export function TreatmentForm({ section, saving, onCancel, onSubmit }: SectionFormProps<TreatmentRow>) {
+/** Formulário de um tratamento: nome, "Ideal para", como funciona, fatos, resultado e recuperação. */
+export function TreatmentForm({ section, formId, onSubmit }: SectionFormProps<TreatmentRow>) {
   const form = useForm<TreatmentFormValues>({
     resolver: zodResolver(treatmentFormSchema),
     defaultValues: treatmentDefaults(section),
   });
   const facts = useFieldArray({ control: form.control, name: "facts" });
-  const factsError = form.formState.errors.facts?.message;
+  const factsError = form.formState.errors.facts;
+  const factsMessage = factsError?.root?.message ?? factsError?.message;
 
   return (
     <FormProvider {...form}>
-      <form className="grid gap-4" onSubmit={form.handleSubmit((values) => onSubmit(toTreatmentInput(values)))}>
-        <TextField name="title" label="Title" />
-        <TextField name="tagline" label="Tagline" />
-        <FormGroup title="Ideal for">
-          <TextField name="ideal.title" label="Heading" placeholder="Ideal para quem quer" />
-          <TextField name="ideal.items" label="Items, one per line" multiline />
-        </FormGroup>
-        <LabelledValueFields name="howItWorks" title="How it works" />
-        <FormGroup title="Facts">
-          {facts.fields.map((field, index) => (
-            <LabelledValueFields
-              key={field.id}
-              name={`facts.${index}`}
-              onRemove={facts.fields.length > 1 ? () => facts.remove(index) : undefined}
+      <form id={formId} onSubmit={form.handleSubmit((values) => onSubmit(toTreatmentInput(values)))}>
+        <FieldGroup className="gap-10">
+          <FormSection title="Basics">
+            <TextField
+              name="title"
+              label="Title"
+              description="The name patients use, for example: Limpeza Dental. One treatment per section."
             />
-          ))}
-          <FieldMessage message={factsError} />
-          <div>
-            <Button type="button" variant="secondary" onClick={() => facts.append(EMPTY_FACT)}>
-              <Plus />
-              Add fact
-            </Button>
-          </div>
-        </FormGroup>
-        <LabelledValueFields name="result" title="Result" />
-        <LabelledValueFields name="recovery" title="Recovery" />
-        <FormActions saving={saving} onCancel={onCancel} />
+            <TextField name="tagline" label="Tagline" description="Optional. A short line shown after the title." />
+          </FormSection>
+
+          <FormSection title="Ideal for">
+            <TextField name="ideal.title" label="Heading" description="The question the list answers, for example: Ideal para quem quer" />
+            <ItemsField />
+          </FormSection>
+
+          <FormSection title="How it works">
+            <LabelledValueFields name="howItWorks" />
+          </FormSection>
+
+          <FormSection title="Facts">
+            {facts.fields.map((field, index) => (
+              <FactFields
+                key={field.id}
+                index={index}
+                onRemove={facts.fields.length > 1 ? () => facts.remove(index) : undefined}
+              />
+            ))}
+            <FieldError errors={[{ message: factsMessage }]} />
+            <div>
+              <Button type="button" variant="secondary" onClick={() => facts.append(emptyFact())}>
+                <Plus />
+                Add fact
+              </Button>
+            </div>
+          </FormSection>
+
+          <FormSection title="Result">
+            <LabelledValueFields name="result" />
+          </FormSection>
+
+          <FormSection title="Recovery">
+            <LabelledValueFields name="recovery" />
+          </FormSection>
+        </FieldGroup>
       </form>
     </FormProvider>
   );

@@ -257,7 +257,5 @@ export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
 export const updateSection = (key: string, input: SectionInput) =>
   request<{ section: KnowledgeRow }>("PUT", `/api/knowledge/${encodeURIComponent(key)}`, input);
 export const deleteSection = (key: string) => request<void>("DELETE", `/api/knowledge/${encodeURIComponent(key)}`);
-/** Nova ordem: as chaves de todas as seções, na ordem da lista. */
-export const reorderSections = (keys: string[]) => request<void>("PUT", "/api/knowledge/order", { keys });
 export const knowledgeStatus = () => request<KnowledgeStatus>("GET", "/api/knowledge/status");
 export const publishKnowledge = () => request<KnowledgeStatus>("POST", "/api/knowledge/publish", {});

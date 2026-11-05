@@ -1,21 +1,31 @@
 import { z } from "zod";
-import { infoDataSchema, treatmentDataSchema, type LabelledValue } from "@server/modules/knowledge/types";
+import { infoDataSchema, treatmentDataSchema, type Fact, type LabelledValue } from "@server/modules/knowledge/types";
 import type { InfoRow, SectionInput, TreatmentRow } from "../../api";
 
 // Valores dos formulários: texto como o operador digita. Aqui ficam o schema do formulário,
 // a conversão para a forma do servidor e o caminho de volta (seção existente -> valores).
+// Este arquivo é puro (sem React): os testes ficam em form-values.test.ts.
 
 export interface LabelledFormValue {
   label: string;
   value: string;
 }
 
+export interface FactFormValue extends LabelledFormValue {
+  assessment: boolean;
+}
+
+/** Uma linha da lista "Ideal para": a lista é um array de linhas para o useFieldArray. */
+export interface ItemFormValue {
+  text: string;
+}
+
 export interface TreatmentFormValues {
   title: string;
   tagline: string;
-  ideal: { title: string; items: string };
+  ideal: { title: string; items: ItemFormValue[] };
   howItWorks: LabelledFormValue;
-  facts: LabelledFormValue[];
+  facts: FactFormValue[];
   result: LabelledFormValue;
   recovery: LabelledFormValue;
 }
@@ -27,7 +37,7 @@ export interface InfoFormValues {
 
 const requiredText = z.string().trim().min(1, "Required");
 const optionalBlock = z.object({ label: z.string(), value: z.string() });
-const requiredBlock = z.object({ label: requiredText, value: requiredText });
+const requiredFact = z.object({ label: requiredText, value: requiredText, assessment: z.boolean() });
 
 /** Erros do schema do servidor viram erros do campo; "too_small" (vazio) vira "Required". */
 function reportServerIssues(error: z.ZodError, ctx: z.RefinementCtx) {
@@ -44,9 +54,9 @@ export const treatmentFormSchema = z
   .object({
     title: requiredText,
     tagline: z.string(),
-    ideal: z.object({ title: z.string(), items: z.string() }),
+    ideal: z.object({ title: z.string(), items: z.array(z.object({ text: z.string() })) }),
     howItWorks: optionalBlock,
-    facts: z.array(requiredBlock).min(1, "Add at least one fact"),
+    facts: z.array(requiredFact).min(1, "Add at least one fact"),
     result: optionalBlock,
     recovery: optionalBlock,
   })
@@ -62,7 +72,8 @@ export const infoFormSchema = z
     if (!checked.success) reportServerIssues(checked.error, ctx);
   });
 
-function splitLines(text: string): string[] {
+/** Uma linha por linha do texto, sem linhas vazias. */
+export function splitLines(text: string): string[] {
   return text
     .split("\n")
     .map((line) => line.trim())
@@ -76,35 +87,53 @@ function optionalLabelled(block: LabelledFormValue): LabelledValue | undefined {
   return label || value ? { label, value } : undefined;
 }
 
+/** O campo "assessment" só existe quando está ligado: a seção sem faixa de preço fica igual à de antes. */
+function toFact(fact: FactFormValue): Fact {
+  const label = fact.label.trim();
+  const value = fact.value.trim();
+  return fact.assessment ? { label, value, assessment: true } : { label, value };
+}
+
 function toBlock(block?: LabelledValue): LabelledFormValue {
   return { label: block?.label ?? "", value: block?.value ?? "" };
 }
 
+function toFactValue(fact: Fact): FactFormValue {
+  return { label: fact.label, value: fact.value, assessment: fact.assessment ?? false };
+}
+
 export function toTreatmentInput(values: TreatmentFormValues): SectionInput {
-  const items = splitLines(values.ideal.items);
-  const hasIdeal = values.ideal.title.trim() !== "" || items.length > 0;
+  const idealTitle = values.ideal.title.trim();
+  const items = values.ideal.items.map((item) => item.text.trim()).filter((text) => text !== "");
+  const hasIdeal = idealTitle !== "" || items.length > 0;
   return {
     title: values.title.trim(),
     tagline: values.tagline.trim() || null,
     data: {
-      ideal: hasIdeal ? { title: values.ideal.title.trim(), items } : undefined,
+      ideal: hasIdeal ? { title: idealTitle, items } : undefined,
       howItWorks: optionalLabelled(values.howItWorks),
-      facts: values.facts.map((fact) => ({ label: fact.label.trim(), value: fact.value.trim() })),
+      facts: values.facts.map(toFact),
       result: optionalLabelled(values.result),
       recovery: optionalLabelled(values.recovery),
     },
   };
 }
 
+export function emptyFact(): FactFormValue {
+  return { label: "", value: "", assessment: false };
+}
+
 export function treatmentDefaults(section?: TreatmentRow): TreatmentFormValues {
   const data = section?.data;
-  const facts = data?.facts.map((fact) => toBlock(fact)) ?? [];
   return {
     title: section?.title ?? "",
     tagline: section?.tagline ?? "",
-    ideal: { title: data?.ideal?.title ?? "", items: data?.ideal?.items.join("\n") ?? "" },
+    ideal: {
+      title: data?.ideal?.title ?? "",
+      items: (data?.ideal?.items ?? []).map((text) => ({ text })),
+    },
     howItWorks: toBlock(data?.howItWorks),
-    facts: facts.length > 0 ? facts : [toBlock()],
+    facts: data && data.facts.length > 0 ? data.facts.map(toFactValue) : [emptyFact()],
     result: toBlock(data?.result),
     recovery: toBlock(data?.recovery),
   };

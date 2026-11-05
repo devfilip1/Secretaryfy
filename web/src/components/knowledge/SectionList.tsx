@@ -1,32 +1,48 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, type LucideIcon } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { deleteSection, reorderSections, type KnowledgeRow } from "../../api";
+import { deleteSection, type KnowledgeRow } from "../../api";
 import { knowledgeKeys } from "../../queries";
-import { KIND_LABEL } from "./kinds";
+import { serverReason } from "./server-reason";
+import { KIND_LABEL, KIND_NOUN } from "./kinds";
+import type { SectionTarget } from "./SectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Muted } from "../Muted";
 import { Notice } from "../Notice";
 import { Title } from "../Title";
 
-/** Ordem das chaves com a seção de `index` trocada com a da posição `target`. */
-function swapped(keys: string[], index: number, target: number): string[] {
-  const next = [...keys];
-  [next[index], next[target]] = [next[target], next[index]];
-  return next;
+const NEW_TARGETS: SectionTarget[] = [{ kind: "treatment" }, { kind: "info" }];
+
+/** Os botões de criar: um por tipo de seção. */
+export function AddSectionButtons({ onAdd }: { onAdd: (target: SectionTarget) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {NEW_TARGETS.map((target) => (
+        <Button key={target.kind} variant="secondary" onClick={() => onAdd(target)}>
+          <Plus />
+          {`Add ${KIND_NOUN[target.kind]}`}
+        </Button>
+      ))}
+    </div>
+  );
 }
 
-/** Lista das seções em ordem: mover, editar e excluir (com confirmação). */
-export function SectionList({ sections, onEdit }: { sections?: KnowledgeRow[]; onEdit: (section: KnowledgeRow) => void }) {
+/** Lista das seções na ordem em que foram criadas: editar e excluir (com confirmação). */
+export function SectionList({
+  sections,
+  onEdit,
+  onAdd,
+}: {
+  sections?: KnowledgeRow[];
+  onEdit: (section: KnowledgeRow) => void;
+  onAdd: (target: SectionTarget) => void;
+}) {
   const queryClient = useQueryClient();
   const [pendingDelete, setPendingDelete] = useState<KnowledgeRow | null>(null);
-  const reorder = useMutation({
-    mutationFn: (keys: string[]) => reorderSections(keys),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: knowledgeKeys.all }),
-  });
   const remove = useMutation({
     mutationFn: (key: string) => deleteSection(key),
     onSuccess: () => {
@@ -37,43 +53,45 @@ export function SectionList({ sections, onEdit }: { sections?: KnowledgeRow[]; o
 
   if (!sections) return <SkeletonRows />;
   if (sections.length === 0) {
-    return <Muted as="p" className="py-6 text-center">No sections yet. Add a treatment or an info section.</Muted>;
+    return (
+      <div className="grid justify-items-start gap-4 py-6">
+        <Muted as="p">No sections yet. Start with a treatment, or add a few info lines such as the address and hours.</Muted>
+        <AddSectionButtons onAdd={onAdd} />
+      </div>
+    );
   }
 
-  const keys = sections.map((section) => section.key);
-  const busy = reorder.isPending;
-
   return (
-    <>
-      {reorder.isError && <Notice role="alert" className="mb-2">Could not change the order. Please try again.</Notice>}
-      <ul className="border-t border-border">
-        {sections.map((section, index) => (
-          <li key={section.key} className="flex items-center gap-2 border-b border-border px-1.5 py-3">
-            <div className="min-w-0 flex-1">
+    <TooltipProvider>
+      <ul className="divide-y divide-border border-y border-border">
+        {sections.map((section) => (
+          <li key={section.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3">
+            <div className="min-w-0 flex-1 basis-56">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate font-semibold">{section.title}</span>
+                <span className="font-semibold break-words text-balance">{section.title}</span>
                 <Badge variant="secondary">{KIND_LABEL[section.kind]}</Badge>
               </div>
-              {section.tagline && <Muted as="p" className="truncate">{section.tagline}</Muted>}
+              {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
             </div>
-            <MoveButton
-              label="Move up"
-              icon={ArrowUp}
-              disabled={busy || index === 0}
-              onClick={() => reorder.mutate(swapped(keys, index, index - 1))}
-            />
-            <MoveButton
-              label="Move down"
-              icon={ArrowDown}
-              disabled={busy || index === sections.length - 1}
-              onClick={() => reorder.mutate(swapped(keys, index, index + 1))}
-            />
-            <Button variant="secondary" onClick={() => onEdit(section)}>
-              Edit
-            </Button>
-            <Button variant="destructive" onClick={() => setPendingDelete(section)}>
-              Delete
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button variant="secondary" onClick={() => onEdit(section)}>
+                <Pencil />
+                Edit
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="destructive-ghost"
+                    size="icon"
+                    aria-label={`Delete ${section.title}`}
+                    onClick={() => setPendingDelete(section)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </Tooltip>
+            </div>
           </li>
         ))}
       </ul>
@@ -81,33 +99,25 @@ export function SectionList({ sections, onEdit }: { sections?: KnowledgeRow[]; o
         <DeleteDialog
           section={pendingDelete}
           busy={remove.isPending}
-          failed={remove.isError}
+          error={remove.isError ? remove.error : null}
           onCancel={() => setPendingDelete(null)}
           onConfirm={() => remove.mutate(pendingDelete.key)}
         />
       )}
-    </>
-  );
-}
-
-function MoveButton({ label, icon: Icon, disabled, onClick }: { label: string; icon: LucideIcon; disabled: boolean; onClick: () => void }) {
-  return (
-    <Button type="button" variant="link" aria-label={label} disabled={disabled} onClick={onClick}>
-      <Icon />
-    </Button>
+    </TooltipProvider>
   );
 }
 
 function DeleteDialog({
   section,
   busy,
-  failed,
+  error,
   onCancel,
   onConfirm,
 }: {
   section: KnowledgeRow;
   busy: boolean;
-  failed: boolean;
+  error: unknown;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -118,18 +128,18 @@ function DeleteDialog({
         if (!open) onCancel();
       }}
     >
-      <DialogContent role="alertdialog">
+      <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogTitle asChild>
-          <Title level={3}>Delete section?</Title>
+          <Title level={3}>{`Delete ${section.title}?`}</Title>
         </DialogTitle>
-        <DialogDescription>{`"${section.title}" leaves the assistant after you publish.`}</DialogDescription>
-        {failed && <Notice role="alert">Could not delete the section. Please try again.</Notice>}
-        <DialogFooter className="mt-3.5 flex-row justify-end max-md:flex-wrap">
+        <DialogDescription>The assistant stops answering about it after you publish.</DialogDescription>
+        {error ? <Notice role="alert">{serverReason(error, "Could not delete the section. Please try again.")}</Notice> : null}
+        <DialogFooter className="mt-2">
           <Button variant="secondary" onClick={onCancel} autoFocus>
-            Cancel
+            Keep
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={busy}>
-            {busy ? "Deleting…" : "Delete"}
+            {busy ? "Deleting…" : "Delete section"}
           </Button>
         </DialogFooter>
       </DialogContent>

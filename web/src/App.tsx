@@ -105,9 +105,9 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         }}
       />
       <div className="flex h-full flex-col">
-        <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-md:flex-wrap max-md:gap-x-3 max-md:gap-y-1.5 max-md:pt-2 max-md:pb-0">
-          <span className="font-bold max-md:flex-1">Secretaryfy</span>
-          <nav className="flex flex-1 gap-3.5 max-md:order-3 max-md:min-w-0 max-md:basis-full max-md:justify-between max-md:gap-0.5 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
+        <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
+          <span className="font-bold max-lg:flex-1">Secretaryfy</span>
+          <nav className="flex flex-1 gap-3.5 max-lg:order-3 max-lg:min-w-0 max-lg:basis-full max-lg:justify-between max-lg:gap-0.5 max-lg:overflow-x-auto max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden">
             <a href="#/" className={navLinkClass(view === "inbox")}>
               Conversations
             </a>
@@ -125,7 +125,8 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
             </a>
             <a href="#/knowledge" className={navLinkClass(view === "knowledge")}>
               Knowledge
-            </a>          </nav>
+            </a>
+          </nav>
           <ConnectionBadge connection={connection} />
           <Button variant="link" onClick={leave}>
             Sign out

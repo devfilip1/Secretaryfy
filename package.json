@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit && tsc -p web",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "test": "node --import tsx --import ./src/test/setup-env.ts --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\"",
+    "test": "node --import tsx --import ./src/test/setup-env.ts --test \"src/**/*.test.ts\" \"scripts/**/*.test.ts\" && tsx --tsconfig web/tsconfig.json --test \"web/src/**/*.test.ts\"",
     "dev:web": "vite --config web/vite.config.ts",
     "dev:whatsapp": "tsx --env-file=.env scripts/fake-evolution.ts",
     "build:web": "tsc -p web && vite build --config web/vite.config.ts"

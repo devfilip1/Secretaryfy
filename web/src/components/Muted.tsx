@@ -15,5 +15,5 @@ export function Muted({
   className,
   ...props
 }: HTMLAttributes<HTMLElement> & { as?: "span" | "p"; tone?: keyof typeof TONES }) {
-  return <Tag className={cn("text-sm", TONES[tone], className)} {...props} />;
+  return <Tag className={cn("text-sm text-pretty", TONES[tone], className)} {...props} />;
 }

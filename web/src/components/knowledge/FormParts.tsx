@@ -1,61 +1,59 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
 import type { InfoRow, SectionInput, TreatmentRow } from "../../api";
-import { Field } from "../Field";
-import { Muted } from "../Muted";
-import { Title } from "../Title";
-import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+/** Formulário de uma seção: `formId` liga o botão Salvar do rodapé do diálogo ao <form>. */
 export interface SectionFormProps<Row extends TreatmentRow | InfoRow> {
   section?: Row;
-  saving: boolean;
-  onCancel: () => void;
+  formId: string;
   onSubmit: (input: SectionInput) => void;
 }
 
-/** Erro de um campo, em destaque. */
-export function FieldMessage({ message }: { message?: string }) {
-  return message ? <Muted as="p" tone="destructive">{message}</Muted> : null;
-}
-
-/** Grupo de campos com título opcional. */
-export function FormGroup({ title, children }: { title?: string; children: ReactNode }) {
+/** Grupo com título. Os campos dentro ficam perto; o espaço entre grupos (FieldGroup) é maior. */
+export function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="grid gap-2">
-      {title && <Title level={3}>{title}</Title>}
+    <FieldSet className="min-w-0 gap-4">
+      <FieldLegend className="text-lg font-bold">{title}</FieldLegend>
       {children}
-    </div>
+    </FieldSet>
   );
 }
 
-/** Campo ligado ao formulário pelo nome (react-hook-form, via FormProvider). */
-export function TextField({ name, label, placeholder, multiline = false }: { name: string; label: string; placeholder?: string; multiline?: boolean }) {
+/** Campo de texto ligado ao formulário pelo nome (react-hook-form, via FormProvider). */
+export function TextField({
+  name,
+  label,
+  description,
+  placeholder,
+  multiline = false,
+}: {
+  name: string;
+  label: string;
+  description: string;
+  placeholder?: string;
+  multiline?: boolean;
+}) {
+  const id = useId();
+  const descriptionId = `${id}-description`;
   const { register, getFieldState, formState } = useFormContext();
   const { error } = getFieldState(name, formState);
   const Control = multiline ? Textarea : Input;
   return (
-    <div className="grid gap-1">
-      <Field>
-        {label}
-        <Control {...register(name)} placeholder={placeholder} aria-invalid={error ? true : undefined} maxLength={multiline ? undefined : 200} />
-      </Field>
-      <FieldMessage message={error?.message} />
-    </div>
-  );
-}
-
-/** Cancelar e salvar: o botão de envio é o único submit do formulário. */
-export function FormActions({ saving, onCancel }: { saving: boolean; onCancel: () => void }) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button type="button" variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button type="submit" disabled={saving}>
-        {saving ? "Saving…" : "Save"}
-      </Button>
-    </div>
+    <Field data-invalid={error ? true : undefined} className="min-w-0">
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Control
+        id={id}
+        {...register(name)}
+        placeholder={placeholder}
+        maxLength={multiline ? undefined : 200}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={descriptionId}
+      />
+      <FieldDescription id={descriptionId}>{description}</FieldDescription>
+      <FieldError errors={[error]} />
+    </Field>
   );
 }

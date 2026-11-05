@@ -13,7 +13,7 @@ export function ConnectionBadge({ connection }: { connection: Connection | null 
       >
         ● Connected
         {/* No celular o número some para a barra caber numa linha; fica no title */}
-        {connection.number && <span className="max-md:hidden">· {formatPhone(connection.number)}</span>}
+        {connection.number && <span className="max-xl:hidden">· {formatPhone(connection.number)}</span>}
       </Badge>
     );
   }
