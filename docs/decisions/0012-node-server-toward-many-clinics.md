@@ -15,7 +15,7 @@
 Move in small steps that each keep behavior and tests, so that the choice between "one process for all clinics" and "one process per clinic" (ADR 0010, open question 1) stays cheap until it is made.
 
 1. **One clinic context (done).** `ClinicContext` (name, assistant name, language, kind) is built once in the composition (`routes/scheduling.ts`, from the env) and injected into the interpreter, the replies, the humanizer and the fixed texts. Modules have no clinic defaults; tests use `src/test/clinic.ts`.
-2. **The clinic is a file shared with the RAG.** The Node server reads the same `config/clinics/<slug>.yaml` as the RAG service, so name, language and kind exist once and can no longer disagree. The env keeps only the slug. Needs a YAML parser dependency (owner's OK).
+2. **The clinic lives in the database, edited in an admin panel (owner decision 2026-11-05).** One `clinics` row holds name, assistant name, language and kind; the panel edits it and both the Node server and the RAG service read it from there (the RAG over the API, no YAML parser in Node). The clinic YAML becomes a seed or an export. The same panel will hold the service catalog and the knowledge texts (step 4) and re-embed on save.
 3. **Integrations as dependencies (done).** Evolution (URL, instance, key, webhook) and the Google client become `createX(deps)` like the rest, instead of import-time env reads.
 4. **The service catalog belongs to the clinic,** with a stable key stored in `appointments.service` instead of the English name (needs a migration of existing rows).
 5. **Tenant key.** A `clinics` table, `clinic_id` on every table, the `id = 1` tables keyed by clinic, phone uniqueness by `(clinic_id, phone)`. Repositories take the clinic in `createX({ db, clinicId })`, one table at a time, each with a PGlite test.
@@ -23,7 +23,7 @@ Move in small steps that each keep behavior and tests, so that the choice betwee
 7. **Per-clinic Google connection** (the OAuth state carries the clinic) and per-clinic RAG profile (the clinic sent with each question).
 8. **Panel login per clinic** (users and sessions instead of one `OPERATOR_PASSWORD`).
 
-Steps 1 to 4 serve both deployment shapes. Steps 5 to 8 are only needed for many clinics in one process; with one process per clinic behind a router they reduce to configuration.
+Steps 1 to 4 serve both deployment shapes. Steps 5 to 8 are what many clinics in one process need, and that is the chosen target.
 
 ## Alternatives considered
 - **One deployment per clinic now:** no tenant key at all, strongest isolation, but every copy wants the models in GPU memory, and updates multiply.
@@ -31,5 +31,6 @@ Steps 1 to 4 serve both deployment shapes. Steps 5 to 8 are only needed for many
 
 ## Consequences
 - Each step is a separate change with its own tests and live check in the fake WhatsApp chat.
-- Owner decisions still open: process shape (ADR 0010 Q1), cloud model and LGPD (Q4), the YAML dependency (step 2), and the service-key migration (step 4).
+- Owner decisions (2026-11-05): many clinics in one process (answers ADR 0010 Q1), so steps 5 to 8 are the target; a cloud model is accepted for the future (LGPD contract and patient consent to be settled before a clinic uses it, ADR 0010 Q4); clinic data moves from YAML to the database, edited in an admin panel.
+- Still open: the migration of stored `appointments.service` names to stable keys (step 4), and who edits the knowledge texts in the panel (clinic or developers).
 - Anti-ban limits and warmup are per WhatsApp number, so each clinic needs its own number and protection state whatever the process shape.

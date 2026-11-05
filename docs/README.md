@@ -54,4 +54,4 @@ flowchart LR
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
 
 ---
-Last updated: 2026-11-05 (name only from the model and written in the message, second name request, rude intent, greeting kept out of RAG history; panel service list from the API)
+Last updated: 2026-11-05 (knowledge editing in the panel: sections CRUD and order, status and publish to the RAG; knowledge slice 1: brochure in the knowledge_sections table, imported from Markdown, served at /internal/knowledge; ADR 0012 owner decisions, price ranges point to the assessment; name only from the model and written in the message, second name request, rude intent, greeting kept out of RAG history; panel service list from the API)
