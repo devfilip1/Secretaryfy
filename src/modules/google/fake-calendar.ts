@@ -22,6 +22,8 @@ export function createFakeCalendar({
   };
   let nextError: Error | null = null;
   let seq = 0;
+  /** Muda a cada agenda criada: os ids de execuções antigas ficam no banco e não podem se repetir (unique). */
+  const bootId = Date.now().toString(36);
   /** Chamado dentro de busy(), antes de responder: simula alguém ocupando o horário nesse meio-tempo. */
   let onBusy: (() => void) | null = null;
 
@@ -48,7 +50,7 @@ export function createFakeCalendar({
     },
     async createEvent(event) {
       maybeFail("createEvent");
-      const id = `evt${++seq}`;
+      const id = `evt${bootId}${++seq}`;
       events.set(id, { ...event, id });
       return { eventId: id };
     },

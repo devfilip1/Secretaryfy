@@ -56,7 +56,7 @@ if (fakeMode) {
   const { storedAppointments } = await startFakeCalendar();
   app.log.warn("Agenda falsa em memória: nada é gravado no Google");
   if (storedAppointments > 0) {
-    app.log.warn({ storedAppointments }, "há agendamentos no banco que a agenda falsa não tem (ela começa vazia a cada início)");
+    app.log.warn({ storedAppointments }, "agendamentos futuros do banco restaurados na agenda falsa (ela começa vazia a cada início)");
   }
 }
 

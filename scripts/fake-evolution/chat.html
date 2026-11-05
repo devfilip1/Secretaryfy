@@ -69,6 +69,7 @@
     </label>
     <div class="row wide">
       <button type="button" class="secondary" id="newCustomer">New customer</button>
+      <button type="button" class="secondary" id="clearChat">Clear chat</button>
     </div>
   </section>
 
@@ -204,6 +205,23 @@
   });
 
   phoneInput.addEventListener("change", () => render(true));
+
+  $("clearChat").addEventListener("click", async () => {
+    try {
+      const res = await fetch("/__chat/clear", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phone: selectedPhone() }),
+      });
+      if (!res.ok) { showError("Could not clear the chat (" + res.status + ")"); return; }
+      hideError();
+      state.messages = state.messages.filter((m) => m.phone !== selectedPhone());
+      renderKnown();
+      renderThread();
+    } catch (err) {
+      showError("Could not reach the fake Evolution server.");
+    }
+  });
 
   $("newCustomer").addEventListener("click", () => {
     const digits = "9" + String(Math.floor(10000000 + Math.random() * 89999999));

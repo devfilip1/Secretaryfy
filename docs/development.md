@@ -120,7 +120,7 @@ To test reminders without waiting a day: set `REMINDER_LEAD_MINUTES=10`, `REMIND
 
 ## Testing without a WhatsApp account
 
-`npm run dev:whatsapp` starts a fake Evolution API ([scripts/fake-evolution.ts](../scripts/fake-evolution.ts)) on `FAKE_EVOLUTION_PORT` (default 8080) with a chat page. The whole flow runs without a number: a customer message goes to the webhook, through the inbox, the router and the gate, and the reply comes back to the chat page. It is for development only: it refuses to start unless `EVOLUTION_API_URL` points to `localhost`, `127.0.0.1` or `[::1]`, or if `NODE_ENV=production`, and it listens on `127.0.0.1` only.
+`npm run dev:whatsapp` starts a fake Evolution API ([scripts/fake-evolution.ts](../scripts/fake-evolution.ts)) on `FAKE_EVOLUTION_PORT` (default 8080) with a chat page. The whole flow runs without a number: a customer message goes to the webhook, through the inbox, the router and the gate, and the reply comes back to the chat page. The page has a **Clear chat** button that empties the screen for the selected number (the app keeps the conversation and any booking; use **New customer** for a fresh one). Message and event ids change on every start, so restarting never makes the app drop a message as a repeat. It is for development only: it refuses to start unless `EVOLUTION_API_URL` points to `localhost`, `127.0.0.1` or `[::1]`, or if `NODE_ENV=production`, and it listens on `127.0.0.1` only.
 
 1. Start only Postgres and Redis, so the fake can use port 8080: `docker compose up -d postgres redis`.
 2. Terminal 1: `npm run dev` (server on :3000). Ollama must be running as usual.
@@ -159,7 +159,7 @@ Keep `ANTIBAN_WARMUP_PER_MINUTE` no higher than `ANTIBAN_PER_MINUTE`, and the mi
 `CALENDAR_MODE=fake` replaces Google Calendar with the in-memory calendar the tests use, so the whole scheduling flow runs without a Google account, network or OAuth. It pairs with `npm run dev:whatsapp`: set it in `.env`, restart `npm run dev`, and follow the steps above with the fake number. The default stays `CALENDAR_MODE=google`.
 
 - At startup the connection is seeded as connected to a calendar named DentalSafe (`America/Bahia`) with a placeholder token that never leaves the process. The panel shows it connected; **Connect** answers 501 `calendar_fake_mode` and the OAuth callback redirects with `google=error`. Disconnecting is not undone by reconnecting: restart to seed again.
-- Events live only in memory, so a restart empties the calendar while the `appointments` table keeps its rows. The server warns at startup how many there are. Google Calendar is the source of truth ([ADR 0005](decisions/0005-google-calendar-source-of-truth.md)), so each of those appointments reads as cancelled in Google until it is cancelled in the panel. For a clean run, use a fresh database (or delete the rows).
+- Events live only in memory, so a restart empties the calendar while the `appointments` table keeps its rows. At startup the booked appointments that have not ended yet are put back into the fake calendar with the same event id (the server logs how many), so the DB and the calendar agree; past ones are not restored. Google Calendar is the source of truth ([ADR 0005](decisions/0005-google-calendar-source-of-truth.md)).
 - Seeding replaces a Google connection stored in the database; its token is not revoked.
 - The server refuses to start with `CALENDAR_MODE=fake` and `NODE_ENV=production`.
 - For a real test calendar, leave `CALENDAR_MODE` unset and follow [Google Calendar setup](#google-calendar-setup).

@@ -1,4 +1,4 @@
-import { count } from "drizzle-orm";
+import { and, count, eq, gt } from "drizzle-orm";
 import { env } from "../config/env.js";
 import { db } from "../db/client.js";
 import { appointments } from "../db/schema.js";
@@ -20,6 +20,22 @@ export const rulesStore = createRulesStore(db);
 /** Modo fake: deixa a conexão conectada com a agenda falsa (idempotente). Chamado pelo index.ts depois que o banco está pronto. */
 export async function startFakeCalendar() {
   if (!fakeCalendar) throw new Error("startFakeCalendar só existe no modo fake");
+  // A agenda em memória nasce vazia: os horários futuros do banco voltam a ocupá-la, com o mesmo id de evento
+  const upcoming = await db
+    .select()
+    .from(appointments)
+    .where(and(eq(appointments.status, "booked"), gt(appointments.endsAt, new Date())));
+  for (const row of upcoming) {
+    fakeCalendar.events.set(row.googleEventId, {
+      id: row.googleEventId,
+      summary: row.customerName,
+      description: "",
+      start: row.startsAt,
+      end: row.endsAt,
+      timeZone: "UTC",
+      properties: {},
+    });
+  }
   return prepareFakeCalendar({
     connection: connectionStore,
     calendars: await fakeCalendar.gateway.listCalendars(),

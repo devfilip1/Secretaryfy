@@ -41,16 +41,21 @@ const state = {
   /** quantos sendText estão em "digitando…" por número */
   typing: new Map<string, number>(),
   counter: 0,
+  /** número da última mensagem do chat; não volta atrás quando o chat é limpo */
+  seq: 0,
   openTimer: null as NodeJS.Timeout | null,
 };
 
+/** Muda a cada início: o app descarta como repetido um id que já tem no banco (o contador volta a 1 ao reiniciar). */
+const BOOT_ID = Date.now().toString(36);
+
 function nextId(prefix: string): string {
   state.counter += 1;
-  return `${prefix}${state.counter}`;
+  return `${prefix}${BOOT_ID}-${state.counter}`;
 }
 
 function record(message: Omit<ChatMessage, "n" | "at">): ChatMessage {
-  const stored: ChatMessage = { ...message, n: state.messages.length + 1, at: new Date().toISOString() };
+  const stored: ChatMessage = { ...message, n: ++state.seq, at: new Date().toISOString() };
   state.messages.push(stored);
   return stored;
 }
@@ -188,6 +193,15 @@ async function handleApiRoute(req: IncomingMessage, res: ServerResponse, url: UR
 
 // --- Rotas do chat no navegador (sem apikey; o servidor só escuta em 127.0.0.1) ---
 
+/** Limpa só a tela do chat deste número; o app (conversa, agendamento) não é afetado. */
+async function handleChatClear(req: IncomingMessage, res: ServerResponse) {
+  const body = await readJson(req);
+  const phone = typeof body?.phone === "string" ? body.phone : "";
+  if (!/^\d{8,15}$/.test(phone)) return sendJson(res, 400, { error: "phone é obrigatório" });
+  state.messages = state.messages.filter((m) => m.phone !== phone);
+  sendJson(res, 200, { ok: true });
+}
+
 async function handleChatSend(req: IncomingMessage, res: ServerResponse) {
   const body = await readJson(req);
   if (!body) return sendJson(res, 400, { error: "JSON inválido" });
@@ -237,6 +251,7 @@ async function handler(req: IncomingMessage, res: ServerResponse) {
     }
     if (req.method === "GET" && url.pathname === "/__chat/messages") return handleChatMessages(res, url);
     if (req.method === "POST" && url.pathname === "/__chat/send") return await handleChatSend(req, res);
+    if (req.method === "POST" && url.pathname === "/__chat/clear") return await handleChatClear(req, res);
 
     if (!isAuthorized(req.headers.apikey as string | undefined, API_KEY)) {
       return evolutionError(res, 401, "Unauthorized");

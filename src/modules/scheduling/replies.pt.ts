@@ -10,6 +10,12 @@ const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n
 const weekdayIn = (date: string, tz: string) =>
   `${DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na"} ${weekdayName(date, tz, "pt")}`;
 
+/** "na sexta-feira, 6 de novembro" (ou "Na…" no começo da frase): o artigo muda com o gênero do dia da semana. */
+const onDay = (date: string, tz: string, capital = false) => {
+  const article = DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na";
+  return `${capital ? "N" + article.slice(1) : article} ${formatDayLong(date, tz, "pt")}`;
+};
+
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutos`;
   const h = minutes / 60;
@@ -26,7 +32,7 @@ export function createPortugueseReplies(clinicName: string): Replies {
 
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
       const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
-      return `Em ${formatDayLong(date, tz, pt)} tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
+      return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
     closedDay(date: string, closest: string[], tz: string) {
@@ -34,7 +40,7 @@ export function createPortugueseReplies(clinicName: string): Replies {
     },
 
     dayFull(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `Desculpe, não há mais horários em ${formatDayLong(date, tz, pt)}. Os dias mais próximos com horários livres são:`);
+      return r.offerDays(closest, tz, `Desculpe, não há mais horários ${onDay(date, tz)}. Os dias mais próximos com horários livres são:`);
     },
 
     tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string) {
@@ -75,7 +81,7 @@ export function createPortugueseReplies(clinicName: string): Replies {
 
     slotTaken(date: string, slots: Date[], tz: string) {
       const list = bullets(slots.map((s) => formatTime(s, tz, pt)));
-      return `Desculpe, esse horário acabou de ser ocupado. Os horários mais próximos em ${formatDayLong(date, tz, pt)} são:\n${list}\nQual prefere? Se preferir outro dia, é só pedir.`;
+      return `Desculpe, esse horário acabou de ser ocupado. Os horários mais próximos ${onDay(date, tz)} são:\n${list}\nQual prefere? Se preferir outro dia, é só pedir.`;
     },
 
     alreadyBooked(start: Date, tz: string) {
