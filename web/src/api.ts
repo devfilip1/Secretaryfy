@@ -187,7 +187,7 @@ export interface Customer {
   appointments: CustomerAppointment[];
 }
 
-export const listCustomers = () => request<{ customers: Customer[] }>("GET", "/api/customers");
+export const listCustomers = () => request<{ timeZone: string; customers: Customer[] }>("GET", "/api/customers");
 /** Exclui o cadastro; os agendamentos e o Google Agenda não mudam. */
 export const deleteCustomer = (id: string) => request<void>("DELETE", `/api/customers/${id}`);
 /** Edita nome e/ou anotações; `calendarUpdated` é false se algum título na agenda não pôde ser trocado. */

@@ -83,6 +83,7 @@ test("POST with data that does not match the kind is 400 with a message", async 
   assert.equal(res.statusCode, 400);
   assert.equal(res.json().error, "invalid_body");
   assert.equal(typeof res.json().message, "string");
+  assert.ok(res.json().fields.every((f: { path: string; message: string }) => typeof f.path === "string" && typeof f.message === "string"));
   assert.equal((await repo.list()).length, 2);
 });
 

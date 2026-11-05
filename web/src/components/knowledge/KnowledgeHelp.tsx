@@ -9,16 +9,16 @@ interface HelpBlock {
   paragraphs?: string[];
   steps?: string[];
   list?: string[];
-  example?: { label: string; value: string }[];
+  example?: { label: string; value: string[] }[];
 }
 
-const EXAMPLE_TREATMENT: { label: string; value: string }[] = [
-  { label: "Title", value: "Limpeza Dental" },
-  { label: "Tagline", value: "O Primeiro Passo para um Sorriso Saudável" },
-  { label: "Ideal for", value: "Heading Ideal para quem quer. Items: Sensação imediata de boca limpa; Hálito mais fresco" },
-  { label: "How it works", value: "Label Como funciona. Value: Remoção de placa e tártaro com ultrassom, seguida de polimento" },
-  { label: "Facts", value: "Duração: 30 a 50 minutos. Preço: R$ 40 a R$ 85, one row each" },
-  { label: "Result", value: "Resultado: Imediato, já na primeira sessão" },
+const EXAMPLE_TREATMENT: { label: string; value: string[] }[] = [
+  { label: "Title", value: ["Limpeza Dental"] },
+  { label: "Tagline", value: ["O Primeiro Passo para um Sorriso Saudável"] },
+  { label: "Ideal for", value: ["Heading: Ideal para quem quer", "Item: Sensação imediata de boca limpa", "Item: Hálito mais fresco"] },
+  { label: "How it works", value: ["Label: Como funciona", "Value: Remoção de placa e tártaro com ultrassom, seguida de polimento"] },
+  { label: "Facts", value: ["Row 1: Duração, 30 a 50 minutos", "Row 2: Preço, R$ 40 a R$ 85 (switch on: the final value depends on the assessment)"] },
+  { label: "Result", value: ["Label: Resultado", "Value: Imediato, já na primeira sessão"] },
 ];
 
 const HELP_BLOCKS: HelpBlock[] = [
@@ -113,7 +113,11 @@ export function KnowledgeHelp() {
               {block.example.map((row) => (
                 <div key={row.label} className="contents">
                   <dt className="font-semibold">{row.label}</dt>
-                  <dd className="text-pretty break-words">{row.value}</dd>
+                  <dd className="grid gap-1 text-pretty break-words">
+                    {row.value.map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </dd>
                 </div>
               ))}
             </dl>

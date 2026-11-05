@@ -122,7 +122,7 @@ test("dentro da janela, com a conversa aberta: um lembrete só, com nome, dia, h
   assert.match(sent[0].text, /^Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM \(Dental Cleaning\)\. Can you confirm\?$/);
   const after = await reload(appt);
   assert.deepEqual([after.reminderStatus, after.reminderSentAt?.getTime()], ["sent", NOW.getTime()]);
-  assert.deepEqual(await systemTexts(conv.id), ["🔔 Reminder sent for Wed, Oct 21 at 10:00 AM"]);
+  assert.deepEqual(await systemTexts(conv.id), ["Reminder sent for Wed, Oct 21 at 10:00 AM"]);
 });
 
 test("antes da janela: nada; quando ela abre, o lembrete sai", async () => {
@@ -169,7 +169,7 @@ test("cliente pediu para sair: não enviado na hora, com o motivo no histórico"
   await scheduler.tick();
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["not_sent", "opted_out"]);
   assert.deepEqual(await systemTexts(conv.id), [
-    "🔔 Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer asked not to receive messages",
+    "Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer asked not to receive messages",
   ]);
 });
 
@@ -209,7 +209,7 @@ test("apagado no Google: cancelado, sem lembrete; movido para longe: espera o ho
   fake.events.delete(gone.googleEventId);
   await scheduler.tick();
   assert.equal((await reload(gone)).status, "cancelled");
-  assert.ok((await systemTexts(conv.id)).includes("📅 Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv.id)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
 
   const moved = await appointment("2026-10-21T11:00");
   const event = fake.events.get(moved.googleEventId)!;
@@ -231,7 +231,7 @@ test("menos de 2 h antes: não enviado com o último motivo; uma vez só no hist
   await scheduler.tick();
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["not_sent", "outside_window"]);
   assert.deepEqual(await systemTexts(conv.id), [
-    "🔔 Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer has not written in over 24 h",
+    "Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer has not written in over 24 h",
   ]);
 });
 

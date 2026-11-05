@@ -208,7 +208,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   assert.equal(event.properties.secretaryfy_appointment, appt.id);
   assert.equal(await sessionOf(conv), null);
   // US4: registro no histórico
-  assert.deepEqual(await systemTexts(conv), ["📅 Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min) — Dental Cleaning"]);
+  assert.deepEqual(await systemTexts(conv), ["Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning"]);
   assert.equal(appt.service, "Dental Cleaning");
 });
 
@@ -288,7 +288,7 @@ test("um horário futuro por número; evento apagado no Google libera para marca
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "calendar");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("o horário é do telefone: sobrevive à limpeza das conversas e vale numa conversa nova (specs/006 R1)", async () => {
@@ -336,7 +336,7 @@ test("duas respostas não entendidas seguidas: handoff, pausa e destaque (FR-024
   assert.equal(after.assistantPaused, true);
   assert.equal(after.needsAttention, true);
   assert.equal(await sessionOf(conv), null);
-  assert.ok((await systemTexts(conv)).includes("⚠️ The assistant did not understand the customer and was paused in this conversation"));
+  assert.ok((await systemTexts(conv)).includes("The assistant did not understand the customer and was paused in this conversation"));
 });
 
 test("yes fora de uma pergunta de sim ou não conta como não entendido", async () => {
@@ -370,7 +370,7 @@ test("cancelar: confirmação, evento apagado, cancelado pelo cliente e registro
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "customer");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled by the customer: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled by the customer: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("no na confirmação do cancelamento mantém o horário", async () => {
@@ -399,7 +399,7 @@ test("remarcar: escolhe dia e horário, confirma e o evento é movido", async ()
   assert.equal(event.start.toISOString(), at("2026-10-23T14:00").toISOString());
   const [appt] = await allAppointments();
   assert.equal(appt.startsAt.toISOString(), at("2026-10-23T14:00").toISOString());
-  assert.ok((await systemTexts(conv)).includes("📅 Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"));
+  assert.ok((await systemTexts(conv)).includes("Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"));
 });
 
 test("yes na oferta de remarcar entra no fluxo de remarcação", async () => {
@@ -436,7 +436,7 @@ test("evento apagado no Google antes do yes do cancelamento: no_appointment e re
   await say(conv, I("cancel"));
   fake.events.clear();
   assert.equal((await say(conv, I("yes"))).reply, "I couldn't find an appointment for this number.");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("stop encerra o fluxo", async () => {

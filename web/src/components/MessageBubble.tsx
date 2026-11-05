@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Check, Clock, ShieldAlert, TriangleAlert } from "lucide-react";
+import { Check, Clock, Info, ShieldAlert, TriangleAlert } from "lucide-react";
 import type { Message } from "../api";
 import { blockReasonText, formatDateTime, formatTime, mediaLabel, originLabel } from "../format";
 import { cn } from "../lib/utils";
@@ -30,10 +30,13 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
   if (message.origin === "system") {
     return (
       <div
-        className="mx-auto my-1.5 max-w-[90%] self-center rounded-lg bg-card px-2.5 py-1 text-center text-sm text-muted-foreground"
+        className="mx-auto my-1.5 flex max-w-[90%] items-center gap-1.5 self-center rounded-lg bg-card px-2.5 py-1 text-center text-sm text-muted-foreground"
         title={formatDateTime(message.sentAt)}
       >
-        {message.text} · {formatTime(message.sentAt)}
+        <Info className="size-3.5 shrink-0" aria-hidden />
+        <span>
+          {message.text} · {formatTime(message.sentAt)}
+        </span>
       </div>
     );
   }

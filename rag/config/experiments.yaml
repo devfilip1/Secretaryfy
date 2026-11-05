@@ -33,6 +33,19 @@ experiments:
       stemmer: snowball
       synonyms: none
 
+  # --- How many chunks the model receives (same search, fewer chunks) ---
+  - exp_name: section_hybrid_3
+    collection: section
+    search_type: hybrid
+    match_count: 3
+    lexical: {stopwords: stopwordsiso, stemmer: snowball, synonyms: none}
+
+  - exp_name: section_hybrid_2
+    collection: section
+    search_type: hybrid
+    match_count: 2
+    lexical: {stopwords: stopwordsiso, stemmer: snowball, synonyms: none}
+
   # --- Where the project started: 500-character chunks, vector search with 3 chunks, and a generic prompt ---
   # Kept to show the improvement. Measure its answers with:
   #   python -m evaluation run --no-judge --experiment original_baseline

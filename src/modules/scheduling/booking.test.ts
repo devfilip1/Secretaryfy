@@ -73,7 +73,7 @@ test("com conversa: registro no histórico; pelo assistente, a descrição não 
   await slot("2026-10-22T10:00", { origin: "assistant", conversationId: conv.id });
   assert.match([...fake.events.values()][0].description, /Marcado pelo Secretaryfy\.$/);
   const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.deepEqual(notes, ["📅 Booked by the assistant: Thu, Oct 22 at 10:00 AM (60 min) — Teeth Whitening"]);
+  assert.deepEqual(notes, ["Booked by the assistant: Thu, Oct 22 at 10:00 AM (60 min), Teeth Whitening"]);
 });
 
 test("um horário futuro por telefone: already_booked com o horário atual", async () => {

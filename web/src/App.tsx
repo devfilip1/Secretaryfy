@@ -20,11 +20,28 @@ import { KnowledgePage } from "./pages/Knowledge";
 import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
+import type { LucideIcon } from "lucide-react";
+import { BookOpen, Calendar, CalendarCheck, MessageSquare, Smartphone, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
 
 type Session = "loading" | "login" | "disabled" | "ready";
 type View = "inbox" | "appointments" | "connection" | "calendar" | "customers" | "knowledge";
+
+/** Os seis destinos: a barra de baixo (celular) e os links de cima (md para cima) saem desta lista. */
+/** `short`: o rótulo curto da barra de baixo, que tem uma célula de 1/6 da largura. */
+const NAV_LINKS: { label: string; short: string; hash: string; view: View; icon: LucideIcon }[] = [
+  { label: "Conversations", short: "Chats", hash: "#/", view: "inbox", icon: MessageSquare },
+  { label: "Appointments", short: "Bookings", hash: "#/appointments", view: "appointments", icon: CalendarCheck },
+  { label: "Connection", short: "WhatsApp", hash: "#/connection", view: "connection", icon: Smartphone },
+  { label: "Calendar", short: "Calendar", hash: "#/calendar", view: "calendar", icon: Calendar },
+  { label: "Customers", short: "Customers", hash: "#/customers", view: "customers", icon: Users },
+  { label: "Knowledge", short: "Knowledge", hash: "#/knowledge", view: "knowledge", icon: BookOpen },
+];
+
+/** Conversa aberta na Inbox (#/?c=<id>): no celular ela ocupa a tela toda e tem a própria seta de voltar. */
+const conversationOpen = () => viewFromHash() === "inbox" && window.location.hash.includes("?c=");
 
 function viewFromHash(): View {
   const path = window.location.hash.split("?")[0];
@@ -36,10 +53,10 @@ function viewFromHash(): View {
   return "inbox";
 }
 
-/** Link da navegação: a aba ativa ganha a linha de destaque e a cor do texto. */
+/** Link da navegação: no celular é uma célula da barra de baixo (ícone sobre o texto); de md para cima, um link da barra de cima. */
 function navLinkClass(active: boolean): string {
-  const state = active ? "border-primary text-foreground" : "border-transparent text-muted-foreground";
-  return `${state} border-b-2 px-0.5 py-1 no-underline max-md:shrink-0 max-md:px-0.5 max-md:py-2 max-md:text-sm`;
+  const state = active ? "border-primary text-primary md:text-foreground" : "border-transparent text-muted-foreground";
+  return `${state} flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 border-t-2 text-[11px] leading-tight no-underline md:min-h-0 md:flex-row md:border-t-0 md:border-b-2 md:px-0.5 md:py-1 md:text-sm`;
 }
 
 export function App() {
@@ -66,11 +83,15 @@ export function App() {
 function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   const { status, subscribe } = useEventStream(onLoggedOut);
   const [view, setView] = useState<View>(viewFromHash);
+  const [inConversation, setInConversation] = useState(conversationOpen);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [protection, setProtection] = useState<Protection | null>(null);
 
   useEffect(() => {
-    const onHash = () => setView(viewFromHash());
+    const onHash = () => {
+      setView(viewFromHash());
+      setInConversation(conversationOpen());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -104,28 +125,17 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           loadProtection();
         }}
       />
-      <div className="flex h-full flex-col">
+      <div className={cn("flex h-full flex-col", !inConversation && "max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]")}>
         <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
           <span className="font-bold max-lg:flex-1">Secretaryfy</span>
-          <nav className="flex flex-1 gap-3.5 max-lg:order-3 max-lg:min-w-0 max-lg:basis-full max-lg:justify-between max-lg:gap-0.5 max-lg:overflow-x-auto max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden">
-            <a href="#/" className={navLinkClass(view === "inbox")}>
-              Conversations
-            </a>
-            <a href="#/appointments" className={navLinkClass(view === "appointments")}>
-              Appointments
-            </a>
-            <a href="#/connection" className={navLinkClass(view === "connection")}>
-              Connection
-            </a>
-            <a href="#/calendar" className={navLinkClass(view === "calendar")}>
-              Calendar
-            </a>
-            <a href="#/customers" className={navLinkClass(view === "customers")}>
-              Customers
-            </a>
-            <a href="#/knowledge" className={navLinkClass(view === "knowledge")}>
-              Knowledge
-            </a>
+          <nav className={cn("max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5", inConversation && "max-md:hidden")}>
+            {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (
+              <a key={hash} href={hash} className={navLinkClass(view === target)} aria-current={view === target ? "page" : undefined}>
+                <Icon className="size-5 shrink-0 md:hidden" aria-hidden />
+                <span className="max-w-full truncate md:hidden">{short}</span>
+                <span className="max-w-full truncate max-md:hidden">{label}</span>
+              </a>
+            ))}
           </nav>
           <ConnectionBadge connection={connection} />
           <Button variant="link" onClick={leave}>

@@ -164,7 +164,7 @@ test("flagNeedsAttention pausa e destaca; abrir a conversa ou reativar o assiste
 test("recordSystem grava o registro sem contar como não lida nem entrar no contexto do modelo", async () => {
   const { conversation } = await service.recordIncoming(incoming());
   events = [];
-  const note = await service.recordSystem(conversation.id, "📅 Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min)");
+  const note = await service.recordSystem(conversation.id, "Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min)");
   assert.equal(note?.origin, "system");
   assert.equal(note?.status, "received");
   assert.equal(note?.waMessageId, null);

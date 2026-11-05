@@ -3,6 +3,7 @@ import { z } from "zod";
 import { slugify } from "../modules/knowledge/import-markdown.js";
 import { toDocument } from "../modules/knowledge/render.js";
 import { KnowledgeOrderError, type KnowledgeRepository } from "../modules/knowledge/repository.js";
+import { invalidBody } from "./invalid-body.js";
 import { knowledgeRowSchema } from "../modules/knowledge/types.js";
 import { RagAlreadyIndexingError, type RagAdmin } from "../modules/rag/admin.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
@@ -27,10 +28,6 @@ const sectionFields = z.object({
 });
 const createBody = sectionFields.extend({ kind: z.enum(["treatment", "info"]) });
 const orderBody = z.object({ keys: z.array(z.string().min(1)) }).strict();
-
-function invalid(reply: FastifyReply, error: z.ZodError) {
-  return reply.code(400).send({ error: "invalid_body", message: z.prettifyError(error) });
-}
 
 function notFound(reply: FastifyReply) {
   return reply.code(404).send({ error: "not_found" });
@@ -64,7 +61,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
 
     app.post("/api/knowledge", async (req, reply) => {
       const body = createBody.safeParse(req.body);
-      if (!body.success) return invalid(reply, body.error);
+      if (!body.success) return invalidBody(reply, body.error);
       const rows = await repo.list();
       const position = Math.max(-1, ...rows.map((row) => row.position)) + 1;
       const row = knowledgeRowSchema.safeParse({
@@ -75,7 +72,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
         data: body.data.data,
         position,
       });
-      if (!row.success) return invalid(reply, row.error);
+      if (!row.success) return invalidBody(reply, row.error);
       await repo.upsert(row.data);
       return reply.code(201).send({ section: row.data });
     });
@@ -85,14 +82,14 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
       const current = await repo.get(req.params.key);
       if (!current) return notFound(reply);
       const body = sectionFields.safeParse(req.body);
-      if (!body.success) return invalid(reply, body.error);
+      if (!body.success) return invalidBody(reply, body.error);
       const row = knowledgeRowSchema.safeParse({
         ...current,
         title: body.data.title,
         tagline: body.data.tagline ?? null,
         data: body.data.data,
       });
-      if (!row.success) return invalid(reply, row.error);
+      if (!row.success) return invalidBody(reply, row.error);
       await repo.upsert(row.data);
       return { section: row.data };
     });
@@ -104,7 +101,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
 
     app.put("/api/knowledge/order", async (req, reply) => {
       const body = orderBody.safeParse(req.body);
-      if (!body.success) return invalid(reply, body.error);
+      if (!body.success) return invalidBody(reply, body.error);
       try {
         await repo.reorder(body.data.keys);
       } catch (err) {

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createSection, updateSection, type InfoRow, type KnowledgeRow, type SectionInput, type TreatmentRow } from "../../api";
 import { knowledgeKeys } from "../../queries";
-import { serverReason } from "./server-reason";
+import { reasonLines } from "./server-reason";
 import { InfoForm } from "./InfoForm";
 import { KIND_NOUN } from "./kinds";
 import { TreatmentForm } from "./TreatmentForm";
@@ -67,8 +67,10 @@ export function SectionDialog({ target, onClose }: { target: SectionTarget | nul
               <InfoForm section={target.section} formId={FORM_ID} onSubmit={(input) => save.mutate({ target, input })} />
             )}
             {save.isError && (
-              <Notice role="alert" className="whitespace-pre-line">
-                {serverReason(save.error, "Could not save the section. Please try again.")}
+              <Notice role="alert">
+                {reasonLines(save.error, "Could not save the section. Please try again.").map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
               </Notice>
             )}
             <DialogFooter className="sticky bottom-0 -mx-5 -mb-5 mt-1 border-t border-border bg-card px-5 py-3">

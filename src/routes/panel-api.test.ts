@@ -309,7 +309,7 @@ test("o operador reativa quem pediu para sair, mas não marca a saída (US3)", a
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().optedOut, false);
   const history = (await repo.listMessages(conv.id)).messages;
-  assert.ok(history.some((m) => m.origin === "system" && m.text === "✅ Messages reactivated by the operator"));
+  assert.ok(history.some((m) => m.origin === "system" && m.text === "Messages reactivated by the operator"));
 });
 
 test("limpar as conversas ao desconectar não esquece quem pediu para sair", async () => {

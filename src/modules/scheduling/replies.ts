@@ -88,22 +88,22 @@ export function createReplies({
 /** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */
 export const systemNotes = {
   booked: (start: Date, minutes: number, tz: string, service: string) =>
-    `📅 Booked by the assistant: ${formatDayTime(start, tz)} (${minutes} min) — ${service}`,
+    `Booked by the assistant: ${formatDayTime(start, tz)} (${minutes} min), ${service}`,
   bookedFromPanel: (start: Date, minutes: number, tz: string, service: string) =>
-    `📅 Booked from the panel: ${formatDayTime(start, tz)} (${minutes} min) — ${service}`,
+    `Booked from the panel: ${formatDayTime(start, tz)} (${minutes} min), ${service}`,
   rescheduled: (from: Date, to: Date, tz: string) =>
-    `📅 Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
-  cancelledByCustomer: (start: Date, tz: string) => `📅 Cancelled by the customer: ${formatDayTime(start, tz)}`,
-  cancelledInCalendar: (start: Date, tz: string) => `📅 Cancelled in the calendar: ${formatDayTime(start, tz)}`,
+    `Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
+  cancelledByCustomer: (start: Date, tz: string) => `Cancelled by the customer: ${formatDayTime(start, tz)}`,
+  cancelledInCalendar: (start: Date, tz: string) => `Cancelled in the calendar: ${formatDayTime(start, tz)}`,
   needsStaff: (urgent: boolean) =>
     urgent
-      ? "⚠️ Urgent: the customer needs the team (pain, swelling or another health problem). The assistant was paused in this conversation"
-      : "⚠️ The customer needs someone from the team (a person, a discount or special condition, a complaint or medical advice). The assistant was paused in this conversation",
-  handoff: () => "⚠️ The assistant did not understand the customer and was paused in this conversation",
-  reminderSent: (start: Date, tz: string) => `🔔 Reminder sent for ${formatDayTime(start, tz)}`,
-  reminderNotSent: (start: Date, reason: string, tz: string) => `🔔 Reminder not sent for ${formatDayTime(start, tz)}: ${reason}`,
-  confirmedByCustomer: (start: Date, tz: string) => `✅ Appointment confirmed by the customer: ${formatDayTime(start, tz)}`,
-  confirmedByOperator: (start: Date, tz: string) => `✅ Appointment confirmed by the operator: ${formatDayTime(start, tz)}`,
+      ? "Urgent: the customer needs the team (pain, swelling or another health problem). The assistant was paused in this conversation"
+      : "The customer needs someone from the team (a person, a discount or special condition, a complaint or medical advice). The assistant was paused in this conversation",
+  handoff: () => "The assistant did not understand the customer and was paused in this conversation",
+  reminderSent: (start: Date, tz: string) => `Reminder sent for ${formatDayTime(start, tz)}`,
+  reminderNotSent: (start: Date, reason: string, tz: string) => `Reminder not sent for ${formatDayTime(start, tz)}: ${reason}`,
+  confirmedByCustomer: (start: Date, tz: string) => `Appointment confirmed by the customer: ${formatDayTime(start, tz)}`,
+  confirmedByOperator: (start: Date, tz: string) => `Appointment confirmed by the operator: ${formatDayTime(start, tz)}`,
 };
 
 /** Por que o lembrete não saiu, no histórico do painel (os mesmos textos dos bloqueios da proteção, specs/004). */
