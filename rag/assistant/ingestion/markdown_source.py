@@ -19,6 +19,12 @@ def parse_sections(text):
     return tuple(Section(title, tuple(body)) for title, body in sections)
 
 
+def document_from_sections(name, version, sections):
+    """The document of a source without pages: the page and split strategies see the whole text as one page."""
+    whole = "\n".join("\n".join([section.title, *section.body]) for section in sections)
+    return KnowledgeDocument(name, version, (whole,), tuple(sections))
+
+
 class MarkdownKnowledgeSource:
     def __init__(self, path, *, name):
         self.path = Path(path)
@@ -28,8 +34,4 @@ class MarkdownKnowledgeSource:
         return hashlib.sha256(self.path.read_bytes()).hexdigest()[:16]
 
     def load(self):
-        text = self.path.read_text(encoding="utf-8")
-        sections = parse_sections(text)
-        # no pages in a Markdown file: the page and split strategies see the whole text as one page
-        whole = "\n".join("\n".join([section.title, *section.body]) for section in sections)
-        return KnowledgeDocument(self.name, self.version(), (whole,), sections)
+        return document_from_sections(self.name, self.version(), parse_sections(self.path.read_text(encoding="utf-8")))

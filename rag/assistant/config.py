@@ -10,6 +10,9 @@ load_dotenv(ROOT / ".env")
 # variable, to run another clinic (for example the Portuguese one) without touching the default: see docs/development.md.
 # The knowledge is a PDF brochure or, for any other extension, a Markdown file (one "## Title" per subject).
 SOURCE_PDF = Path(os.getenv("KNOWLEDGE_PATH") or ROOT / "data" / "source" / "DentalSafe.pdf")
+# When set, the knowledge comes from the Node server instead of the file: GET this URL with the bearer token INTERNAL_TOKEN
+KNOWLEDGE_URL = os.getenv("KNOWLEDGE_URL", "").strip()
+INTERNAL_TOKEN = os.getenv("INTERNAL_TOKEN", "").strip()  # also protects POST /reindex; empty turns that route off
 # the indexes built from the knowledge by assistant.ingest, one per strategy
 INDEX_DIR = Path(os.getenv("INDEX_DIR") or ROOT / "data" / "index")
 

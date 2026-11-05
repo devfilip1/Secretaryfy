@@ -3,24 +3,36 @@
 It serves the same search and answer as the chat and the evaluation: the experiment in the "assistant:" line of
 config/experiments.yaml. Like the chat, it refuses to start with a missing or out-of-date index.
 """
+import hmac
 import logging
 import os
 import sys
+import threading
 import time
 import urllib.request
 from typing import Annotated, Literal
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StringConstraints
 
-from assistant.config import OLLAMA_BASE_URL
-from assistant.index import CURRENT, IndexUnavailable, check_embedding_dimensions, index_state, require_index
+from assistant.config import INTERNAL_TOKEN, OLLAMA_BASE_URL
+from assistant.index import (
+    CURRENT, IndexUnavailable, built_from, check_embedding_dimensions, index_state, require_index,
+    require_index_for_http_source,
+)
+from assistant.ingestion.http_source import HttpKnowledgeSource, KnowledgeUnavailable
+from assistant.ingestion.service import rebuild_all
 from assistant.retrieval.pipeline import RagConfig, RagDeps
 from assistant.retrieval.service import RagService
-from assistant.composition import build_embeddings_provider, build_rag_service
-from assistant.settings import SettingsError, get_strategy
+from assistant.composition import (
+    build_embeddings_provider,
+    build_knowledge_source,
+    build_rag_service,
+    build_vector_store_provider,
+)
+from assistant.settings import SettingsError, get_strategy, load_settings
 
 logger = logging.getLogger("rag.server")
 
@@ -56,26 +68,75 @@ def ollama_reachable(url=OLLAMA_BASE_URL, timeout=OLLAMA_TIMEOUT_S):
         return False
 
 
-def create_app(config, *, service: RagService | None = None, deps: RagDeps | None = None):
+def _is_bearer(header, token):
+    prefix = "Bearer "
+    return bool(header) and header.startswith(prefix) and hmac.compare_digest(header[len(prefix):], token)
+
+
+def _reindex(knowledge, vector_store_provider):
+    """Rebuilds the index of every declared strategy from the knowledge now served. The caches of the process follow the new index files."""
+    document = knowledge.load()
+    counts = rebuild_all(document, load_settings().strategies, vector_store_provider=vector_store_provider)
+    return {"chunks": counts, "version": document.version}
+
+
+def create_app(config, *, service: RagService | None = None, deps: RagDeps | None = None,
+               knowledge_source=None, internal_token: str | None = None):
+    """knowledge_source and internal_token default to the ones of the process; an empty token turns POST /reindex off."""
     if service is None:
         if deps is None:
             raise ValueError("create_app needs a service or deps")
         service = RagService(config, deps)
+    token = INTERNAL_TOKEN if internal_token is None else internal_token
 
     app = FastAPI(title="Secretaryfy assistant (DentalSafe)")
+    reindex_lock = threading.Lock()
+
+    def knowledge():
+        return build_knowledge_source() if knowledge_source is None else knowledge_source
 
     @app.get("/health")
     def health():
         reachable = ollama_reachable()
-        state, reason = index_state(get_strategy(config.strategy))
+        source = knowledge()
+        kind = "http" if isinstance(source, HttpKnowledgeSource) else "file"
+        strategy = get_strategy(config.strategy)
+        try:
+            version = source.version()
+            state, reason = index_state(strategy)
+            knowledge_body = {"source": kind, "version": version}
+        except KnowledgeUnavailable:
+            # judged from the manifest alone: a knowledge server that is down does not make a built index unusable
+            state, reason = index_state(strategy, compare_source=False)
+            knowledge_body = {"source": kind, "version": None, "reachable": False}
         ready = reachable and state == CURRENT
         body = {
             "status": "ready" if ready else "unavailable",
             "experiment": config.experiment,
             "ollama": {"reachable": reachable, "url": OLLAMA_BASE_URL},
-            "index": {"strategy": config.strategy, "state": state, "reason": reason},
+            "index": {"strategy": config.strategy, "state": state, "reason": reason,
+                      "built_from": built_from(strategy.name)},
+            "knowledge": knowledge_body,
         }
         return JSONResponse(body, status_code=200 if ready else 503)
+
+    if token:
+        @app.post("/reindex")
+        def post_reindex(authorization: Annotated[str | None, Header()] = None):
+            if not _is_bearer(authorization, token):
+                raise HTTPException(401, detail="the bearer token is missing or wrong")
+            if not reindex_lock.acquire(blocking=False):
+                raise HTTPException(409, detail="a reindex is already running")
+            try:
+                provider = deps.vector_store_provider if deps is not None else build_vector_store_provider()
+                return _reindex(knowledge(), provider)
+            except KnowledgeUnavailable as error:
+                raise HTTPException(503, detail=str(error)) from error
+            except Exception as error:
+                logger.exception("reindex failed")
+                raise HTTPException(503, detail=str(error)) from error
+            finally:
+                reindex_lock.release()
 
     @app.post("/answer")
     def post_answer(body: QuestionIn):
@@ -109,10 +170,15 @@ def create_app(config, *, service: RagService | None = None, deps: RagDeps | Non
 
 
 def main():
+    warning = None
     try:
         config = RagConfig()
         strategy = get_strategy(config.strategy)
-        require_index(strategy)
+        knowledge = build_knowledge_source()
+        if isinstance(knowledge, HttpKnowledgeSource):
+            warning = require_index_for_http_source(strategy, knowledge)
+        else:
+            require_index(strategy)
         check_embedding_dimensions(strategy, build_embeddings_provider())
     except SettingsError as error:
         print(f"Invalid configuration: {len(error.problems)} problem(s)")
@@ -123,6 +189,8 @@ def main():
         print(f"Could not start: {error}")
         sys.exit(1)
 
+    if warning:
+        print(f"Warning: {warning}")
     # assistant.config has already loaded rag/.env
     host = os.getenv("RAG_HOST", DEFAULT_HOST)
     port = int(os.getenv("RAG_PORT", DEFAULT_PORT))

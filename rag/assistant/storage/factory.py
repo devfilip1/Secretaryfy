@@ -109,9 +109,16 @@ def default_knowledge_source():
     """The knowledge source of the process: the index checks its version and the ingestion reads its document."""
     global _default_knowledge_instance
     if _default_knowledge_instance is None:
-        from assistant.config import IGNORED_LINE_PREFIXES, INTRO_SECTION_SUFFIX, ROOT, SOURCE_PDF, TEXT_FIXES
+        from assistant.config import (
+            IGNORED_LINE_PREFIXES, INTERNAL_TOKEN, INTRO_SECTION_SUFFIX, KNOWLEDGE_URL, ROOT, SOURCE_PDF, TEXT_FIXES,
+        )
+        from assistant.ingestion.http_source import HttpKnowledgeSource
         from assistant.ingestion.markdown_source import MarkdownKnowledgeSource
         from assistant.ingestion.pdf_source import PdfBrochureSource
+
+        if KNOWLEDGE_URL:
+            _default_knowledge_instance = HttpKnowledgeSource(KNOWLEDGE_URL, INTERNAL_TOKEN)
+            return _default_knowledge_instance
 
         path = SOURCE_PDF.resolve()
         name = path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else path.name

@@ -69,6 +69,14 @@ def shown_index_dir(name):
         return path.as_posix()
 
 
+def rebuild_all(document: KnowledgeDocument, strategies, *, vector_store_provider: Callable[[str], VectorStore]):
+    """Rebuilds the index of every given strategy from one document; returns the chunk count of each, by name."""
+    return {
+        name: build_index(strategy, document, vector_store_provider=vector_store_provider)
+        for name, strategy in strategies.items()
+    }
+
+
 def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore], knowledge_source: KnowledgeSource):
     """python -m assistant.ingest [STRATEGY...] — with no arguments, builds the indexes of all of them."""
     names = list(sys.argv[1:] if argv is None else argv)

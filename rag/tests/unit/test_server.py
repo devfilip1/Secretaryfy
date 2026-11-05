@@ -206,7 +206,8 @@ def test_health_is_ready_with_ollama_and_a_current_index(health):
     assert body["status"] == "ready"
     assert body["experiment"] == "section_hybrid"
     assert body["ollama"]["reachable"] is True
-    assert body["index"] == {"strategy": "section", "state": "current", "reason": None}
+    assert {key: body["index"][key] for key in ("strategy", "state", "reason")} == {"strategy": "section", "state": "current", "reason": None}
+    assert "built_from" in body["index"]
 
 
 def test_health_is_unavailable_without_ollama(health):
