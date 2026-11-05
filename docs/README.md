@@ -54,4 +54,4 @@ flowchart LR
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
 
 ---
-Last updated: 2026-11-04 (fake WhatsApp: clear chat, unique ids; fake calendar restores stored appointments)
+Last updated: 2026-11-04 (first-reply greeting, ASSISTANT_NAME, human error texts)

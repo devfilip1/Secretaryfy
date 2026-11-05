@@ -23,7 +23,7 @@ const hoursText = (minutes: number) => {
 };
 
 /** Textos em português do Brasil, com o nome da clínica dado pela configuração (CLINIC_NAME). */
-export function createPortugueseReplies(clinicName: string): Replies {
+export function createPortugueseReplies(clinicName: string, assistantName?: string): Replies {
   const pt = "pt";
   const r: Replies = {
     offerDays(days: string[], tz: string, intro = "Claro! Tenho horários livres nestes dias:") {
@@ -200,6 +200,15 @@ export function createPortugueseReplies(clinicName: string): Replies {
 
     howCanIHelp() {
       return "Como posso ajudar?";
+    },
+
+    greeting(hour: number) {
+      const salutation = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+      return assistantName ? `${salutation}! Meu nome é ${assistantName}, da ${clinicName}.` : `${salutation}! Aqui é da ${clinicName}.`;
+    },
+
+    myName() {
+      return assistantName ? `Meu nome é ${assistantName}, da ${clinicName}. Como posso ajudar?` : `Aqui é da ${clinicName}. Como posso ajudar?`;
     },
   };
   return r;

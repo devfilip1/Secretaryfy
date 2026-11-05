@@ -12,7 +12,7 @@ const hoursText = (minutes: number) => {
 };
 
 /** Textos em inglês, com o nome da clínica dado pela configuração (CLINIC_NAME). */
-export function createEnglishReplies(clinicName: string): Replies {
+export function createEnglishReplies(clinicName: string, assistantName?: string): Replies {
   const r: Replies = {
     offerDays(days: string[], tz: string, intro = "Sure! These days have openings:") {
       return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you? Or tell me another date.`;
@@ -184,6 +184,15 @@ export function createEnglishReplies(clinicName: string): Replies {
 
     yesOrNo() {
       return "Please reply YES or NO.";
+    },
+
+    greeting(hour: number) {
+      const salutation = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+      return assistantName ? `${salutation}! This is ${assistantName} from ${clinicName}.` : `${salutation}! You've reached ${clinicName}.`;
+    },
+
+    myName() {
+      return assistantName ? `I'm ${assistantName} from ${clinicName}. How can I help?` : `This is ${clinicName}. How can I help?`;
     },
 
     howCanIHelp() {

@@ -17,7 +17,7 @@ import { customerRepo, inbox } from "./inbox.js";
 export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), () => bus.publish({ type: "appointments.updated" }));
 
 /** Textos aos clientes na língua e com o nome da clínica da configuração (CLINIC_LANGUAGE, CLINIC_NAME). */
-export const schedulingReplies = createReplies({ language: env.CLINIC_LANGUAGE, clinicName: env.CLINIC_NAME });
+export const schedulingReplies = createReplies({ language: env.CLINIC_LANGUAGE, clinicName: env.CLINIC_NAME, assistantName: env.ASSISTANT_NAME });
 
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES

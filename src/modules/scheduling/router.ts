@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger } from "fastify";
+import { DateTime } from "luxon";
 import type { ConnectionStore } from "../google/connection.js";
 import type { InboxService } from "../inbox/service.js";
 import type { ConversationTurn } from "../rag/client.js";
@@ -12,6 +13,12 @@ import { replies as defaultReplies, systemNotes, type Replies } from "./replies.
 import type { RulesStore } from "./rules.js";
 import { detectService } from "./services.js";
 import type { SchedulingStore } from "./sessions.js";
+
+/** "Qual seu nome?", "como você se chama?": o cliente quer saber quem atende (normalizado, sem acento) */
+const ASKS_MY_NAME = new RegExp(
+  "(?:qual (?:e )?(?:o )?seu nome|como (?:voce|vc) (?:se )?chama|com quem (?:eu )?(?:to|estou) falando|quem (?:e voce|esta falando)|" +
+    "what(?:s| is)? your name|who am i (?:talking|speaking|chatting) (?:to|with))",
+);
 
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
 const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
@@ -72,9 +79,19 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       reminded?.reminderSentAt && (await inbox.customerMessagesSince(conversationId, reminded.reminderSentAt)) <= 1,
     );
 
+    // A primeira resposta da conversa abre com a saudação pela hora do dia, como uma secretária (o histórico não tem resposta nossa)
+    const firstReply = !history.some((m) => m.role === "assistant");
+    const greet = (reply: Reply): Reply =>
+      firstReply
+        ? { ...reply, text: `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)}\n\n${reply.text}`, split: true }
+        : reply;
+
+    const asked = text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z' ]/g, " ").replace(/\s+/g, " ").trim();
+    if (!session && ASKS_MY_NAME.test(asked.replace(/'/g, ""))) return { text: replies.myName() };
+
     /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
     async function fromBrochure(): Promise<Reply> {
-      const reply: Reply = { text: await answerQuestion(text, log, message.phone, history), split: true };
+      const reply: Reply = greet({ text: await answerQuestion(text, log, message.phone, history), split: true });
       if (known || conversation!.nameAskedAt) return reply;
       await inbox.markNameAsked(conversationId, at);
       return { ...reply, followUp: replies.askNameFollowUp() };
@@ -139,6 +156,6 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     const out = result.handoff ? result.reply : await humanize(result.reply, text, log);
-    return { text: out, ignorePause: result.handoff };
+    return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };
   };
 }

@@ -101,6 +101,10 @@ With `HUMANIZE_REPLIES=1` the model may reword a scheduling reply, but only if e
 On its first reply to a patient with no known name, the assistant adds a request for the name, only once per conversation (`name_asked_at`). The next message alone can be read as the name.
 - **Where:** `fromBrochure` and `awaitingName` in [router.ts](../src/modules/scheduling/router.ts)
 
+### BR-NAM-07 · The first reply opens with a greeting, and the assistant can say its name
+The first reply the assistant sends in a conversation (flow or brochure, not a handoff) starts with a greeting for the time of day in the clinic time zone ("Boa tarde! Meu nome é Ana, da Sorriso Pleno."), as its own message. The name comes from `ASSISTANT_NAME`; without it the greeting only names the clinic. "Qual seu nome?" / "What's your name?" is answered by the router with the same name, without the model, and a question is never taken as the patient's name.
+- **Where:** `greet` and `ASKS_MY_NAME` in [router.ts](../src/modules/scheduling/router.ts), `greeting` and `myName` in the replies files
+
 ### BR-NAM-02 · The WhatsApp profile name is never the patient's name
 The known name is the name said in the chat (`conversations.customer_name`), or else the registry name. The profile name is only a label in the panel.
 - **Where:** `knownName` in [inbox/service.ts](../src/modules/inbox/service.ts)

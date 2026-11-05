@@ -34,6 +34,8 @@ function setup({
   reminded = null,
   messagesSinceReminder = 1,
   humanize,
+  firstMessage = false,
+  text = MESSAGE.text!,
 }: {
   intent?: Interpretation["intent"];
   session?: SchedulingSessionRow | null;
@@ -50,6 +52,10 @@ function setup({
   reminded?: AppointmentRow | null;
   messagesSinceReminder?: number;
   humanize?: (reply: string, customerText: string) => Promise<string>;
+  /** A conversa ainda não tem resposta nossa */
+  firstMessage?: boolean;
+  /** O que o cliente escreveu */
+  text?: string;
 }) {
   const inputs: InterpretInput[] = [];
   const handled: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }[] = [];
@@ -101,11 +107,14 @@ function setup({
         notes.push(text);
         return null as never;
       },
-      recentHistory: async () => [
-        { role: "user", content: "hi" },
-        { role: "assistant", content: "Hello!" },
-        { role: "user", content: MESSAGE.text! },
-      ],
+      recentHistory: async () =>
+        firstMessage
+          ? [{ role: "user", content: text }]
+          : [
+              { role: "user", content: "hi" },
+              { role: "assistant", content: "Hello!" },
+              { role: "user", content: text },
+            ],
     },
     connection: { getForUse: async () => ({ refreshToken: "t", calendarId: "primary", timeZone: "America/Bahia", status: "connected" }) },
     rules: { get: async () => DEFAULT_RULES },
@@ -116,7 +125,7 @@ function setup({
     },
     humanize,
   });
-  return { reply: () => reply({ conversationId: "c1", message: MESSAGE }, log), inputs, handled, asked, histories, savedNames, askedAt, confirmed, notes };
+  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, savedNames, askedAt, confirmed, notes };
 }
 
 test("sem etapa, dúvida vai para o folheto", async () => {
@@ -315,4 +324,29 @@ test("o cliente já mandou outras mensagens depois do lembrete: um yes solto nã
   await r.reply();
   assert.equal(r.inputs[0].awaitingReminder, false);
   assert.deepEqual(r.confirmed, []);
+});
+
+test("a primeira resposta da conversa abre com a saudação pela hora; as seguintes não", async () => {
+  const first = setup({ intent: "book", firstMessage: true });
+  const out = await first.reply();
+  assert.match(out!.text, /^Good (morning|afternoon|evening)! You've reached DentalSafe[.]\n\ndo agendamento$/);
+  assert.equal(out!.split, true);
+  const brochure = setup({ intent: "question", firstMessage: true });
+  assert.match((await brochure.reply())!.text, /^Good (morning|afternoon|evening)![^]*\n\ndo folheto$/);
+  assert.equal((await setup({ intent: "book" }).reply())!.text, "do agendamento");
+});
+
+test("o handoff não leva saudação, mesmo na primeira resposta", async () => {
+  const r = setup({ intent: "unclear", session: SESSION, firstMessage: true });
+  const out = await r.reply();
+  assert.equal(out!.text, "handoff");
+  assert.equal(out!.ignorePause, true);
+});
+
+test("'qual seu nome?' é respondido com o nome de quem atende, sem passar pelo modelo", async () => {
+  for (const text of ["Qual seu nome?", "como você se chama?", "What's your name?"]) {
+    const r = setup({ intent: "give_name", name: "Qual Seu Nome", firstMessage: true, text });
+    assert.equal((await r.reply())!.text, "This is DentalSafe. How can I help?", text);
+    assert.equal(r.inputs.length, 0);
+  }
 });

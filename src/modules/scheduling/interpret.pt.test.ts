@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
-import { createInterpreter, type InterpretInput } from "./interpret.js";
+import { cleanName, createInterpreter, type InterpretInput } from "./interpret.js";
 
 // Regras sem modelo: o Ollama não é chamado, então um falso que lança basta.
 const noModel = { chat: async () => Promise.reject(new Error("não deveria chamar o modelo")) };
@@ -88,4 +88,9 @@ test("o cliente escolhe o horário por frase: o das 9, às 10h; e pede mais ou o
   assert.equal((await ask("pode ser às 10h")).option, 2);
   assert.equal((await ask("quero ver mais")).intent, "more");
   assert.equal((await ask("quero outro dia")).intent, "other_day");
+});
+
+test("pergunta não é nome: 'Qual seu nome?' e 'como você se chama' não viram nome", () => {
+  for (const text of ["Qual seu nome?", "Como você se chama", "Queria falar com o Dr."]) assert.equal(cleanName(text), null, text);
+  assert.equal(cleanName("Maria Souza"), "Maria Souza");
 });

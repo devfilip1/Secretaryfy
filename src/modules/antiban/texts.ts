@@ -11,8 +11,8 @@ export type FixedTexts = {
 const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
   en: {
     unavailable: [
-      "Sorry, our virtual assistant is unavailable right now. Please try again in a few minutes.",
-      "Our assistant is having trouble at the moment. Please send your message again shortly.",
+      "Sorry, I'm having a little trouble on my end. Could you write to me again in a few minutes?",
+      "I ran into a problem just now. Could you send your message again shortly?",
       "Apologies, I can't answer right now. Please try again in a little while.",
     ],
     optOutConfirmation: [
@@ -24,9 +24,9 @@ const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
   },
   pt: {
     unavailable: [
-      "Desculpe, nosso assistente virtual está indisponível no momento. Tente novamente em alguns minutos.",
-      "Nosso assistente está com dificuldades agora. Por favor, envie sua mensagem novamente em instantes.",
-      "Desculpe, não consigo responder agora. Tente novamente daqui a pouco.",
+      "Desculpe, estou com um probleminha por aqui. Pode me escrever de novo daqui a alguns minutos?",
+      "Tive uma dificuldade agora. Pode me mandar a mensagem de novo em instantes?",
+      "Desculpe, não consegui responder agora. Tente de novo daqui a pouco, por favor.",
     ],
     optOutConfirmation: [
       "Pronto — você não receberá mais mensagens nossas por aqui. Se mudar de ideia, responda VOLTAR.",

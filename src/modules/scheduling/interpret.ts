@@ -95,6 +95,7 @@ const NOT_NAMES = new Set(
     "hi hello hey why what how who when where which no yes ok okay sure thanks thank bye please help price prices cost " +
     "much is are the a an you your my me i it this that do does can could would want need book appointment " +
     "today tomorrow monday tuesday wednesday thursday friday saturday sunday morning afternoon evening " +
+    "qual quais quem como onde quando quanto porque pq seu sua teu tua voce vc nome chama tenho queria gostaria saber falar fala doutor doutora dr dra dentista name called " +
     "teeth tooth dental not know oi ola sim nao obrigado obrigada valeu tchau quero marcar agendar consulta preciso horario amanha segunda terca quarta quinta sexta sabado domingo por favor quanto custa"
   )
     .split(" ")

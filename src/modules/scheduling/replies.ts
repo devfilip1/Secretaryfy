@@ -43,11 +43,23 @@ export interface Replies {
   noMoreOpeningsToday(): string;
   yesOrNo(): string;
   howCanIHelp(): string;
+  /** Primeira mensagem da conversa: saudação pela hora do dia (0 a 23, no fuso da clínica) e quem fala */
+  greeting(hour: number): string;
+  /** O cliente perguntou o nome de quem atende */
+  myName(): string;
 }
 
 /** Os textos na língua e com o nome da clínica dados (CLINIC_LANGUAGE, CLINIC_NAME). */
-export function createReplies({ language, clinicName }: { language: "en" | "pt"; clinicName: string }): Replies {
-  return language === "pt" ? createPortugueseReplies(clinicName) : createEnglishReplies(clinicName);
+export function createReplies({
+  language,
+  clinicName,
+  assistantName,
+}: {
+  language: "en" | "pt";
+  clinicName: string;
+  assistantName?: string;
+}): Replies {
+  return language === "pt" ? createPortugueseReplies(clinicName, assistantName) : createEnglishReplies(clinicName, assistantName);
 }
 
 /** Os textos em inglês da DentalSafe: o padrão de quem não passa as configurações. */
