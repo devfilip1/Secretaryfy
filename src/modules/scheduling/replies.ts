@@ -15,9 +15,10 @@ export interface Replies {
   tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string): string;
   noOpenings(): string;
   askName(): string;
-  chooseService(): string;
+  /** `name`: com o nome do cliente, a pergunta o chama pelo primeiro nome */
+  chooseService(name?: string | null): string;
   confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string): string;
-  booked(start: Date, tz: string): string;
+  booked(start: Date, tz: string, name?: string | null): string;
   slotTaken(date: string, slots: Date[], tz: string): string;
   alreadyBooked(start: Date, tz: string): string;
   myAppointment(start: Date, tz: string): string;
@@ -31,7 +32,7 @@ export interface Replies {
   stopped(): string;
   askNameFollowUp(random?: () => number): string;
   nameReceived(name: string, random?: () => number): string;
-  goodbye(random?: () => number): string;
+  goodbye(random?: () => number, name?: string | null): string;
   unclear(repeat: string): string;
   handoff(): string;
   calendarUnavailable(): string;
@@ -48,6 +49,9 @@ export interface Replies {
   /** O cliente perguntou o nome de quem atende */
   myName(): string;
 }
+
+/** O primeiro nome, para chamar o cliente como uma pessoa chamaria. */
+export const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || null;
 
 /** Os textos na língua e com o nome da clínica dados (CLINIC_LANGUAGE, CLINIC_NAME). */
 export function createReplies({

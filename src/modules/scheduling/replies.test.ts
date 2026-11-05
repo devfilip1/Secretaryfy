@@ -23,6 +23,7 @@ test("confirmação mostra dia, hora, duração, nome e serviço; booked só com
   );
   assert.match(replies.confirmBooking(start, 60, "Maria", "Assessment", tz), /🦷 General assessment/);
   assert.equal(replies.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
+  assert.equal(replies.booked(start, tz, "Maria Souza"), "You're booked, Maria! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
   assert.match(replies.tooLateToChange(1440), /less than 24 hours/);
   assert.match(replies.tooLateToChange(90), /less than 90 minutes/);
 });

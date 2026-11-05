@@ -2,7 +2,7 @@ import { fixedTextsFor } from "../antiban/texts.js";
 import { DateTime } from "luxon";
 import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import type { Replies } from "./replies.js";
+import { firstName, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
@@ -60,9 +60,10 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
-    chooseService() {
+    chooseService(name?: string | null) {
+      const who = firstName(name);
       const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Não tenho certeza — avaliação geral" : serviceLabel(s.name, "pt")));
-      return `Para qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
+      return `${who ? `${who}, para` : "Para"} qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
     },
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
@@ -75,8 +76,9 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       ].join("\n");
     },
 
-    booked(start: Date, tz: string) {
-      return `Tudo certo, seu horário está marcado! 📅 ${formatWhen(start, tz, pt)}. Até lá, na ${clinicName}.`;
+    booked(start: Date, tz: string, name?: string | null) {
+      const who = firstName(name);
+      return `Tudo certo${who ? `, ${who}` : ""}, seu horário está marcado! 📅 ${formatWhen(start, tz, pt)}. Até lá, na ${clinicName}.`;
     },
 
     slotTaken(date: string, slots: Date[], tz: string) {
@@ -141,10 +143,11 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */
-    goodbye(random: () => number = Math.random) {
+    goodbye(random: () => number = Math.random, name?: string | null) {
+      const who = firstName(name);
       const options = [
-        "De nada! Tenha um ótimo dia 😊",
-        "Sempre que precisar! Cuide-se 😊",
+        `De nada${who ? `, ${who}` : ""}! Tenha um ótimo dia 😊`,
+        `Sempre que precisar${who ? `, ${who}` : ""}! Cuide-se 😊`,
         `Foi um prazer! Até breve na ${clinicName}.`,
         "Que bom que pude ajudar! Tenha um bom dia.",
       ];

@@ -126,7 +126,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     // Despedida: sem agendamento em andamento, só se despede; no meio de um, encerra o agendamento
     if (interpretation.intent === "goodbye") {
-      if (!session) return { text: replies.goodbye() };
+      if (!session) return { text: replies.goodbye(undefined, known) };
       interpretation = { ...interpretation, intent: "stop" as const };
     }
 

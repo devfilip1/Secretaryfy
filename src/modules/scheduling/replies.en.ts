@@ -1,7 +1,7 @@
 import { fixedTextsFor } from "../antiban/texts.js";
 import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import type { Replies } from "./replies.js";
+import { firstName, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
@@ -48,9 +48,10 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
-    chooseService() {
+    chooseService(name?: string | null) {
+      const who = firstName(name);
       const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
-      return `Which service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
+      return `${who ? `${who}, which` : "Which"} service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
@@ -63,8 +64,9 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       ].join("\n");
     },
 
-    booked(start: Date, tz: string) {
-      return `You're booked! 📅 ${formatWhen(start, tz)}. See you at ${clinicName}.`;
+    booked(start: Date, tz: string, name?: string | null) {
+      const who = firstName(name);
+      return `You're booked${who ? `, ${who}` : ""}! 📅 ${formatWhen(start, tz)}. See you at ${clinicName}.`;
     },
 
     slotTaken(date: string, slots: Date[], tz: string) {
@@ -129,10 +131,11 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */
-    goodbye(random: () => number = Math.random) {
+    goodbye(random: () => number = Math.random, name?: string | null) {
+      const who = firstName(name);
       const options = [
-        "You're welcome! Have a great day 😊",
-        "Anytime! Take care 😊",
+        `You're welcome${who ? `, ${who}` : ""}! Have a great day 😊`,
+        `Anytime${who ? `, ${who}` : ""}! Take care 😊`,
         `My pleasure! See you soon at ${clinicName}.`,
         "Glad I could help! Have a nice day.",
       ];

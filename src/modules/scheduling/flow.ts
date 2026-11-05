@@ -433,7 +433,7 @@ class Run {
     if (this.carry.service) return this.confirmBooking(start, name);
     const options = SERVICES.map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
     await this.save({ step: "choose_service", options, selectedStart: start, customerName: name });
-    return { reply: this.replies.chooseService() };
+    return { reply: this.replies.chooseService(name) };
   }
 
   private async serviceChosen(service: string): Promise<FlowResult> {
@@ -475,7 +475,7 @@ class Run {
         throw new CalendarUnavailable("agenda desconectada durante a marcação");
       case "booked":
         await this.store.clearSession(this.conversation.id);
-        return { reply: this.replies.booked(start, this.tz) };
+        return { reply: this.replies.booked(start, this.tz, s.customerName ?? this.knownName) };
     }
   }
 

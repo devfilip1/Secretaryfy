@@ -193,7 +193,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   );
 
   const done = await say(conv, I("yes"));
-  assert.equal(done.reply, "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
+  assert.equal(done.reply, "You're booked, Maria! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
   assert.equal(fake.calls.createEvent, 1);
   const [event] = [...fake.events.values()];
   // specs/005: "<nome> — <serviço>"
@@ -251,7 +251,7 @@ test("dois clientes confirmando o mesmo horário ao mesmo tempo: só um fica com
     await say(c, I("choose", { option: 2 }));
   }
   const results = await Promise.all([say(a, I("yes")), say(b, I("yes"))]);
-  assert.equal(results.filter((r) => r.reply.startsWith("You're booked!")).length, 1);
+  assert.equal(results.filter((r) => r.reply.startsWith("You're booked")).length, 1);
   assert.equal(results.filter((r) => r.reply.startsWith("Sorry, that time was just taken")).length, 1);
   assert.equal(fake.events.size, 1);
   assert.equal((await allAppointments()).length, 1);
@@ -496,7 +496,7 @@ test("sem tratamento na conversa: lista de serviços antes do resumo; o número 
   mentioned = null;
   const conv = await conversation();
   const list = await pickSlot(conv);
-  assert.match(list.reply, /^Which service is this appointment for\?/);
+  assert.match(list.reply, /^Maria, which service is this appointment for\?/);
   assert.equal((await sessionOf(conv))?.step, "choose_service");
   assert.equal((await sessionOf(conv))?.options.length, 9);
 
@@ -519,7 +519,7 @@ test("sem nome e sem serviço: nome, depois serviço, depois resumo", async () =
   mentioned = null;
   const conv = await conversation("5571999999999", null);
   assert.match((await pickSlot(conv)).reply, /What name should I put/);
-  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /^Which service/);
+  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /^Ana, which service/);
   assert.match((await say(conv, I("choose_service", { service: "Dental Veneers" }))).reply, /👤 Ana\n🦷 Dental Veneers/);
 });
 
@@ -602,7 +602,7 @@ test("falha ao gravar o cliente não desfaz a marcação", async () => {
   failUpsert = true;
   const conv = await conversation("5571999999999", "Maria");
   const done = await book(conv);
-  assert.match(done.reply, /^You're booked!/);
+  assert.match(done.reply, /^You're booked, /);
   const [appt] = await allAppointments();
   assert.equal(appt.status, "booked");
   assert.equal(appt.customerId, null);

@@ -98,3 +98,11 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
   assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
   assert.match(r.closedDay("2026-10-24", ["2026-10-26"], tz), /^Não atendemos no sábado\./);
 });
+
+test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
+  const r = createReplies({ language: "pt", clinicName: "Sorriso Pleno" });
+  assert.match(r.booked(start, tz, "Paulo Lima"), /^Tudo certo, Paulo, seu horário está marcado!/);
+  assert.match(r.booked(start, tz), /^Tudo certo, seu horário está marcado!/);
+  assert.match(r.chooseService("Paulo Lima"), /^Paulo, para qual serviço é este agendamento\?/);
+  assert.match(r.goodbye(() => 0, "Paulo Lima"), /^De nada, Paulo!/);
+});
