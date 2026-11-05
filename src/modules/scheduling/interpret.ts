@@ -105,6 +105,8 @@ const I_AM = /^(?:(?:hi|hello|hey)[,!.]?\s+)?(?:i'm|i am|im|it's|its|this is|sou
 
 /** O nome escrito pelo cliente, limpo e com iniciais maiúsculas; null se não parecer um nome (contracts/interpreter.md). */
 export function cleanName(raw: string | null | undefined): string | null {
+  // Uma pergunta nunca é um nome, seja qual for a escrita
+  if (raw?.includes("?")) return null;
   const text = (raw ?? "").replace(/^[^\p{L}]+|[^\p{L}.]+$/gu, "").replace(/\.$/, "").replace(/\s+/g, " ").trim();
   // NAME aceita até 4 palavras
   if (!text || text.length > MAX_NAME_CHARS || !NAME.test(text)) return null;

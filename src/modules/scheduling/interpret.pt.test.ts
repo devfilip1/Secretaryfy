@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
-import { createInterpreter, type InterpretInput } from "./interpret.js";
+import { cleanName, createInterpreter, type InterpretInput } from "./interpret.js";
 
 // Regras sem modelo: o Ollama não é chamado, então um falso que lança basta.
 const noModel = { chat: async () => Promise.reject(new Error("não deveria chamar o modelo")) };
@@ -96,4 +96,13 @@ test("saudação e 'qual seu nome?' vêm do modelo como intenções; pergunta nu
   // O modelo se confunde com a palavra "nome" e devolve o nome: a interrogação derruba
   const confused = await asking({ intent: "give_name", name: "Qual Seu Nome" }).interpret(input("Qual seu nome?"));
   assert.equal(confused.intent, "unclear");
+});
+
+test("pergunta nunca é nome, nem logo depois do pedido de nome", async () => {
+  assert.equal(cleanName("voces aceitam cartão?"), null);
+  assert.equal(cleanName("Qual seu nome?"), null);
+  assert.equal(cleanName("Maria Souza"), "Maria Souza");
+  // Logo depois do pedido, a regra do "nome sozinho" não pega: a frase vai ao modelo, que a vê como pergunta
+  const r = await asking({ intent: "question" }).interpret(input("voces aceitam cartão?", { awaitingName: true }));
+  assert.equal(r.intent, "question");
 });
