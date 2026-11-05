@@ -152,8 +152,8 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       "mensagem interpretada",
     );
 
-    // Instruções, prompt, troca de papel: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
-    if (interpretation.intent === "manipulation") return { text: replies.stayOnTopic() };
+    // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
+    if (interpretation.intent === "manipulation" || interpretation.intent === "off_topic") return { text: replies.stayOnTopic() };
 
     // Xingamento: resposta breve e educada, sem pedido de nome nem oferta
     if (interpretation.intent === "rude") return { text: replies.calmDown() };

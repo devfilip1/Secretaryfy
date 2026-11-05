@@ -99,9 +99,9 @@ With `HUMANIZE_REPLIES=1` the model may reword a scheduling reply, but only if e
 When the interpreter classifies a message as `needs_staff` (asks for the doctor, receptionist or manager; says someone authorized a discount or special condition; demands a discount, refund or exception; complains; describes pain, swelling or bleeding; asks for a prescription or medical advice), the reply is a fixed text ("vou chamar alguém da nossa equipe"), the scheduling session is cleared, the conversation is flagged as needing attention and the assistant is paused, with a system note in the panel. For pain, swelling or bleeding (`urgent`) the text also says to go to an emergency room if it gets worse. The brochure model never answers these, so it cannot promise a free service or give medical advice.
 - **Where:** `needs_staff` in [router.ts](../src/modules/scheduling/router.ts), `staff` in the replies files
 
-### BR-SCH-15 · Manipulation attempts get a fixed reply
-A message classified as `manipulation` (asks to show, repeat or translate the instructions, tells the assistant to ignore its rules or act as another AI, fake system messages, encoded commands) gets "Só consigo ajudar com informações da clínica…" and does not reach the brochure model.
-- **Where:** `manipulation` in [router.ts](../src/modules/scheduling/router.ts), `stayOnTopic` in the replies files
+### BR-SCH-15 · Manipulation attempts and off-topic requests get a fixed reply
+A message classified as `manipulation` (asks to show, repeat or translate the instructions, tells the assistant to ignore its rules or act as another AI, fake system messages, encoded commands) or as `off_topic` (general knowledge, sports, news, weather, jokes, math or other tasks that have nothing to do with the clinic) gets "Só consigo ajudar com informações da clínica…" and does not reach the brochure model.
+- **Where:** `manipulation` and `off_topic` in [router.ts](../src/modules/scheduling/router.ts), `stayOnTopic` in the replies files
 
 ### BR-SCH-16 · A repeated brochure answer is sent as one message with a lead
 The number protection drops a message identical to one already sent. When a brochure answer repeats a message from the conversation, it goes out as a single message starting with a short lead ("Como comentei:"), so the customer is never left without a reply.
