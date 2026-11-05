@@ -369,7 +369,7 @@ test("o handoff não leva saudação, mesmo na primeira resposta", async () => {
 test("a resposta igual a uma que já demos ganha uma abertura, para não ser descartada como repetida", async () => {
   const same = setup({ intent: "book", assistantSaid: "do agendamento" });
   const out = await same.reply();
-  assert.match(out!.text, /^(Sure, here it is again:|No problem, here you go:|Of course, once more:)\n\ndo agendamento$/);
+  assert.match(out!.text, /^(As I mentioned:|Just to recap:|Here it is again:)\n\ndo agendamento$/);
   const other = setup({ intent: "book", assistantSaid: "outra coisa" });
   assert.equal((await other.reply())!.text, "do agendamento");
 });
@@ -412,7 +412,7 @@ test("urgência de saúde: o texto manda procurar pronto atendimento se piorar",
 test("resposta do folheto igual a uma que já demos vai numa mensagem só, com abertura (senão a proteção a descarta)", async () => {
   const r = setup({ intent: "question", assistantSaid: "do folheto" });
   const out = await r.reply();
-  assert.match(out!.text, /^(Sure, here it is again:|No problem, here you go:|Of course, once more:)/);
+  assert.match(out!.text, /^(As I mentioned:|Just to recap:|Here it is again:)/);
   assert.ok(out!.text.endsWith("do folheto"));
   assert.notEqual(out!.split, true);
 });

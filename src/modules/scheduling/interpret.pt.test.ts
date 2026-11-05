@@ -88,6 +88,9 @@ test("na lista de dias, o dia da semana citado vira a opção oferecida; fora da
   const outside = await asking({ intent: "choose", weekday: "sunday" }).interpret(input("e domingo?", { step: "choose_day", options: dayOptions }));
   assert.equal(outside.option, null);
   assert.equal(outside.date, "2026-10-25");
+  // O modelo marca a opção 1 junto do sábado ("fim de semana?"): o dia citado vence
+  const weekend = await asking({ intent: "choose", option: 1, weekday: "saturday" }).interpret(input("vcs abrem no fim de semana?", { step: "choose_day", options: dayOptions }));
+  assert.deepEqual([weekend.option, weekend.date], [null, "2026-10-24"]);
 });
 
 test("saudação e 'qual seu nome?' vêm do modelo como intenções; pergunta nunca vira nome", async () => {

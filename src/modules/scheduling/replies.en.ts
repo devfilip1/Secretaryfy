@@ -196,7 +196,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Sure, here it is again:", "No problem, here you go:", "Of course, once more:"];
+      const options = ["As I mentioned:", "Just to recap:", "Here it is again:"];
       return options[Math.floor(random() * options.length)];
     },
 

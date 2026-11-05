@@ -212,7 +212,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Claro, de novo:", "Sem problema, olha aqui:", "Pode ser, veja de novo:"];
+      const options = ["Como comentei:", "Só reforçando:", "Repetindo para você:"];
       return options[Math.floor(random() * options.length)];
     },
 

@@ -74,6 +74,8 @@ const ATTENDING = new Set(["i ll be there", "ill be there", "i will be there", "
 const MORE = new Set(["more", "more options", "others", "other times", "more times", "show more", "anything else", "mais", "mais horarios", "outros horarios"]);
 const OTHER_DAY = new Set(["other day", "another day", "different day", "other date", "another date", "a different day", "outro dia", "outra data", "outro dia por favor", "outra data por favor"]);
 const CHOOSING: (SchedulingStep | null)[] = ["choose_day", "choose_slot"];
+/** Intenções que só existem dentro de uma etapa do agendamento (responder a uma lista oferecida) */
+const STEP_ONLY: Intent[] = ["choose", "more", "other_day", "choose_service"];
 const CONFIRMING: (SchedulingStep | null)[] = ["confirm_booking", "confirm_cancel", "confirm_reschedule", "offer_reschedule"];
 /** Agradecimento ou despedida sem mais nada ("right, thank you so much, bye"): uma destas palavras... */
 const CLOSING_CORE = new Set(["thank", "thanks", "thx", "ty", "bye", "byee", "by", "goodbye", "cya", "cheers", "appreciate", "obrigado", "obrigada", "brigado", "brigada", "valeu", "tchau"]);
@@ -237,7 +239,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     "",
     "Intents:",
     '- book: wants to make an appointment ("I want to book", "can I schedule a visit?")',
-    '- availability: asks which days or times are free, or whether the clinic is open on a given day, without asking to book yet ("what times do you have on Friday?", "are you open on Sundays?")',
+    '- availability: asks which days or times are free, or whether the clinic is open on a given day, without asking to book yet ("what times do you have on Friday?", "are you open on Sundays?", "abrem no fim de semana?" has weekday saturday)',
     '- cancel: wants to cancel their appointment',
     '- reschedule: wants to change the date or time of their appointment',
     '- my_appointment: asks when their appointment is',
@@ -257,7 +259,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     '- question: any question about the clinic, treatments, prices, location or hours',
     "- unclear: anything else, or when you are not sure",
     "",
-    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
+    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. The weekend ("fim de semana") is "saturday"; asking about it is never choosing an offered option. "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
     ...(awaitingName ? ["", `The assistant has just asked the customer's name. If the message contains their name, set "name" exactly as written; otherwise leave it null.`] : []),
     ...(awaitingReminder
       ? ["", "The assistant reminded the customer of their appointment and asked them to reply YES to confirm. A confirmation is \"yes\"; a refusal is \"no\"."]
@@ -279,11 +281,13 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   if (weekday) {
     const offeredDays = options.filter((o): o is Extract<SessionOption, { kind: "day" }> => o.kind === "day");
     const same = offeredDays.filter((o) => DateTime.fromISO(o.date, { zone: timeZone }).weekday === weekday);
-    if (["choose", "other_day"].includes(parsed.data.intent) && option === null && same.length === 1) option = same[0].n;
+    // O dia citado vale mais que a opção que o modelo marcou junto ("fim de semana?" na lista de dias não é a opção 1)
+    if (["choose", "other_day"].includes(parsed.data.intent) && same.length === 1) option = same[0].n;
     else if (findDatesInText(text, { now, timeZone }).length === 0) {
       // O próximo dia com esse nome, contando hoje; a data que o modelo calculou erra o dia da semana
       date = today.plus({ days: (weekday - today.weekday + 7) % 7 }).toISODate();
       fromWeekday = true;
+      option = null;
     }
   }
   // "choose" só existe com opções na tela: sem elas, um dia citado é um pedido de agendamento (alguns modelos erram isso)
@@ -318,8 +322,10 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   if (intent === "give_name" && !cleaned) return result("unclear", { source: "model" });
   // O serviço tem de ser do catálogo: o nome devolvido pelo modelo passa pelas mesmas palavras da conversa
   const service = intent === "choose_service" ? detectService([parsed.data.service ?? ""]) : null;
-  // Logo depois do pedido, o nome escrito vale mais que uma intenção que não serve ("pode me chamar de Bia" lido como serviço)
-  if (askedName && cleaned && (intent === "unclear" || (intent === "choose_service" && !service))) {
+  // Logo depois do pedido, o nome escrito vale mais que uma intenção que não serve: sem etapa, escolher opção ou serviço não existe
+  // ("pode me chamar de Bia" lido como serviço ou como outro dia)
+  const outOfPlace = intent === "unclear" || (step === null && STEP_ONLY.includes(intent)) || (intent === "choose_service" && !service);
+  if (askedName && cleaned && outOfPlace) {
     return result("give_name", { name: cleaned, source: "model" });
   }
   if (intent === "choose_service" && !service) return result("unclear", { source: "model" });
