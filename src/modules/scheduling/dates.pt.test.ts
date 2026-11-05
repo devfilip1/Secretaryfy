@@ -47,3 +47,9 @@ test("datas citadas no meio da frase em português", () => {
   assert.deepEqual(findDatesInText("tem horário no sábado de manhã?", { now, timeZone }), ["2026-10-24"]);
   assert.deepEqual(findDatesInText("depois de amanhã às 14h", { now, timeZone }), ["2026-10-22"]);
 });
+
+test("dia da semana no plural vale como no singular: 'aos sábados', 'on Saturdays'", () => {
+  assert.deepEqual(findDatesInText("vocês atendem aos sábados?", { now, timeZone }), ["2026-10-24"]);
+  assert.deepEqual(findDatesInText("do you open on Saturdays?", { now, timeZone }), ["2026-10-24"]);
+  assert.equal(parseSimpleDate("sábados", { now, timeZone }), "2026-10-24");
+});

@@ -46,6 +46,8 @@ export interface Replies {
   howCanIHelp(): string;
   /** Primeira mensagem da conversa: saudação pela hora do dia (0 a 23, no fuso da clínica) e quem fala */
   greeting(hour: number): string;
+  /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
+  again(random?: () => number): string;
   /** O cliente perguntou o nome de quem atende */
   myName(): string;
 }

@@ -210,6 +210,11 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       return assistantName ? `${salutation}! Meu nome é ${assistantName}, da ${clinicName}.` : `${salutation}! Aqui é da ${clinicName}.`;
     },
 
+    again(random: () => number = Math.random) {
+      const options = ["Claro, de novo:", "Sem problema, olha aqui:", "Pode ser, veja de novo:"];
+      return options[Math.floor(random() * options.length)];
+    },
+
     myName() {
       return assistantName ? `Meu nome é ${assistantName}, da ${clinicName}. Como posso ajudar?` : `Aqui é da ${clinicName}. Como posso ajudar?`;
     },

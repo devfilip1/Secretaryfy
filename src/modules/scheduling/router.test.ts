@@ -35,6 +35,7 @@ function setup({
   messagesSinceReminder = 1,
   humanize,
   firstMessage = false,
+  assistantSaid,
   text = MESSAGE.text!,
 }: {
   intent?: Interpretation["intent"];
@@ -54,6 +55,8 @@ function setup({
   humanize?: (reply: string, customerText: string) => Promise<string>;
   /** A conversa ainda não tem resposta nossa */
   firstMessage?: boolean;
+  /** Texto que o assistente já mandou nesta conversa */
+  assistantSaid?: string;
   /** O que o cliente escreveu */
   text?: string;
 }) {
@@ -112,7 +115,7 @@ function setup({
           ? [{ role: "user", content: text }]
           : [
               { role: "user", content: "hi" },
-              { role: "assistant", content: "Hello!" },
+              { role: "assistant", content: assistantSaid ?? "Hello!" },
               { role: "user", content: text },
             ],
     },
@@ -349,4 +352,26 @@ test("'qual seu nome?' é respondido com o nome de quem atende, sem passar pelo 
     assert.equal((await r.reply())!.text, "This is DentalSafe. How can I help?", text);
     assert.equal(r.inputs.length, 0);
   }
+});
+
+test("só uma saudação: responde com a nossa saudação e pede o nome, sem chamar o folheto nem o modelo", async () => {
+  for (const text of ["oi", "Oi, boa noite!", "bom dia tudo bem?", "hello"]) {
+    const r = setup({ intent: "question", firstMessage: true, text, customerName: null });
+    const out = await r.reply();
+    assert.match(out!.text, /^Good (morning|afternoon|evening)! You've reached DentalSafe[.] How can I help you[?]$/, text);
+    assert.ok(out!.followUp, "pede o nome");
+    assert.equal(r.asked.length, 0);
+    assert.equal(r.inputs.length, 0);
+  }
+  // Depois da primeira resposta, só pergunta como ajudar
+  const later = setup({ intent: "question", text: "oi", customerName: "Maria" });
+  assert.deepEqual(await later.reply(), { text: "How can I help you?" });
+});
+
+test("a resposta igual a uma que já demos ganha uma abertura, para não ser descartada como repetida", async () => {
+  const same = setup({ intent: "book", assistantSaid: "do agendamento" });
+  const out = await same.reply();
+  assert.match(out!.text, /^(Sure, here it is again:|No problem, here you go:|Of course, once more:)\n\ndo agendamento$/);
+  const other = setup({ intent: "book", assistantSaid: "outra coisa" });
+  assert.equal((await other.reply())!.text, "do agendamento");
 });

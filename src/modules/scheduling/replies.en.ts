@@ -194,6 +194,11 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       return assistantName ? `${salutation}! This is ${assistantName} from ${clinicName}.` : `${salutation}! You've reached ${clinicName}.`;
     },
 
+    again(random: () => number = Math.random) {
+      const options = ["Sure, here it is again:", "No problem, here you go:", "Of course, once more:"];
+      return options[Math.floor(random() * options.length)];
+    },
+
     myName() {
       return assistantName ? `I'm ${assistantName} from ${clinicName}. How can I help?` : `This is ${clinicName}. How can I help?`;
     },

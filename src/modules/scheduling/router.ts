@@ -20,6 +20,10 @@ const ASKS_MY_NAME = new RegExp(
     "what(?:s| is)? your name|who am i (?:talking|speaking|chatting) (?:to|with))",
 );
 
+/** Só uma saudação ("oi", "bom dia", "oi boa noite, tudo bem?"): a resposta é a nossa saudação, sem passar pelo folheto (normalizado) */
+const GREETING_ONLY =
+  /^(?:(?:oi+|ola|opa|e ai|hello|hi|hey|bom dia|boa tarde|boa noite|good morning|good afternoon|good evening)(?: |$))+(?:tudo bem|td bem|tudo bom|how are you)?$/;
+
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
 const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
 
@@ -89,12 +93,21 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const asked = text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z' ]/g, " ").replace(/\s+/g, " ").trim();
     if (!session && ASKS_MY_NAME.test(asked.replace(/'/g, ""))) return { text: replies.myName() };
 
-    /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
-    async function fromBrochure(): Promise<Reply> {
-      const reply: Reply = greet({ text: await answerQuestion(text, log, message.phone, history), split: true });
+    /** Pede o nome uma única vez, junto da primeira resposta de quem ainda não disse (FR-001, FR-002, FR-005). */
+    async function askNameOnce(reply: Reply): Promise<Reply> {
       if (known || conversation!.nameAskedAt) return reply;
       await inbox.markNameAsked(conversationId, at);
       return { ...reply, followUp: replies.askNameFollowUp() };
+    }
+
+    if (!session && GREETING_ONLY.test(asked)) {
+      const hello = firstReply ? `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)} ${replies.howCanIHelp()}` : replies.howCanIHelp();
+      return askNameOnce({ text: hello });
+    }
+
+    /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
+    async function fromBrochure(): Promise<Reply> {
+      return askNameOnce(greet({ text: await answerQuestion(text, log, message.phone, history), split: true }));
     }
 
     const started = Date.now();
@@ -155,7 +168,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const mentionedService = detectService([...history.filter((m) => m.role === "user").map((m) => m.content), text]);
     const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
-    const out = result.handoff ? result.reply : await humanize(result.reply, text, log);
+    let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
+    // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura
+    if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out)) out = `${replies.again()}\n\n${out}`;
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };
   };
 }
