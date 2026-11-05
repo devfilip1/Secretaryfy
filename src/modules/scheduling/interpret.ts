@@ -242,7 +242,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     "",
     "Intents:",
     '- book: wants to make an appointment ("I want to book", "can I schedule a visit?")',
-    '- availability: asks which days or times are free without asking to book yet ("what times do you have on Friday?")',
+    '- availability: asks which days or times are free, or whether the clinic is open on a given day, without asking to book yet ("what times do you have on Friday?", "are you open on Sundays?")',
     '- cancel: wants to cancel their appointment',
     '- reschedule: wants to change the date or time of their appointment',
     '- my_appointment: asks when their appointment is',
@@ -280,15 +280,17 @@ function validate(raw: unknown, { text, options, window, now, timeZone, awaiting
   if (weekday) {
     const offeredDays = options.filter((o): o is Extract<SessionOption, { kind: "day" }> => o.kind === "day");
     const same = offeredDays.filter((o) => DateTime.fromISO(o.date, { zone: timeZone }).weekday === weekday);
-    if (parsed.data.intent === "choose" && option === null && same.length === 1) option = same[0].n;
-    else if (!date) {
-      // O próximo dia com esse nome, contando hoje
+    if (["choose", "other_day"].includes(parsed.data.intent) && option === null && same.length === 1) option = same[0].n;
+    else if (findDatesInText(text, { now, timeZone }).length === 0) {
+      // O próximo dia com esse nome, contando hoje; a data que o modelo calculou erra o dia da semana
       date = today.plus({ days: (weekday - today.weekday + 7) % 7 }).toISODate();
       fromWeekday = true;
     }
   }
   // "choose" só existe com opções na tela: sem elas, um dia citado é um pedido de agendamento (alguns modelos erram isso)
-  const intent: Intent = parsed.data.intent === "choose" && options.length === 0 ? (date ? "book" : "unclear") : parsed.data.intent;
+  let intent: Intent = parsed.data.intent === "choose" && options.length === 0 ? (date ? "book" : "unclear") : parsed.data.intent;
+  // Na lista de dias, citar um dia ("e domingo?") é escolher esse dia, mesmo que o modelo tenha visto aí um "outro dia"
+  if (intent === "other_day" && (option !== null || fromWeekday)) intent = "choose";
 
   // Uma data simples citada na frase vale mais que a calculada pelo modelo, que erra dias da semana
   const cited = findDatesInText(text, { now, timeZone });

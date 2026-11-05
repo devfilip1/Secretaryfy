@@ -24,11 +24,12 @@ type Step = InterpretInput["step"];
 interface Case {
   step: Step;
   text: string;
-  intent: Interpretation["intent"];
+  /** Mais de uma intenção vale quando o fluxo trata todas do mesmo jeito (um dia citado na lista de dias) */
+  intent: Interpretation["intent"] | Interpretation["intent"][];
   option?: number;
   date?: string;
 }
-const c = (step: Step, text: string, intent: Interpretation["intent"], extra: { option?: number; date?: string } = {}): Case => ({ step, text, intent, ...extra });
+const c = (step: Step, text: string, intent: Case["intent"], extra: { option?: number; date?: string } = {}): Case => ({ step, text, intent, ...extra });
 
 const cases: Case[] = [
   c(null, "oi", "greeting"),
@@ -50,7 +51,7 @@ const cases: Case[] = [
   c("choose_day", "segunda", "choose", { date: "2026-10-26" }),
   c("choose_day", "o primeiro", "choose", { option: 1 }),
   c("choose_day", "o último", "choose", { option: 4 }),
-  c("choose_day", "e domingo?", "choose", { date: "2026-10-25" }),
+  c("choose_day", "e domingo?", ["choose", "availability"], { date: "2026-10-25" }),
   c("choose_day", "prefiro outro dia", "other_day"),
   c("choose_slot", "o das 9", "choose", { option: 1 }),
   c("choose_slot", "as 10 ta bom", "choose", { option: 2 }),
@@ -80,9 +81,9 @@ for (const k of cases) {
     text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.step === "ask_name",
   });
   latencies.push(Date.now() - started);
-  const right = got.intent === k.intent && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date);
+  const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date);
   if (right) ok++;
-  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} (${got.source})${right ? "" : `   esperado ${k.intent} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
+  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);
