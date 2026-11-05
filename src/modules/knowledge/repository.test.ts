@@ -41,7 +41,7 @@ test("list is empty before any import", async () => {
 test("replaceAll stores the rows and list gives them back in position order", async () => {
   const rows = parseBrochure(BROCHURE);
   await repo.replaceAll(rows);
-  assert.deepEqual(toSections(await repo.list()), toSections(rows));
+  assert.deepEqual(toSections(await repo.list(), "pt"), toSections(rows, "pt"));
   assert.deepEqual((await repo.list()).map((row) => row.key), rows.map((row) => row.key));
 });
 
@@ -50,7 +50,7 @@ test("replaceAll twice keeps only the second content (idempotent import)", async
   const second = parseBrochure("## Só esta\nLinha\n");
   await repo.replaceAll(second);
   await repo.replaceAll(second);
-  assert.deepEqual(toSections(await repo.list()), toSections(second));
+  assert.deepEqual(toSections(await repo.list(), "pt"), toSections(second, "pt"));
 });
 
 test("get returns the row with that key, or null", async () => {

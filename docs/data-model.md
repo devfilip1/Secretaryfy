@@ -121,7 +121,7 @@ Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = S
 Send counts for the limits are read from `messages` (index `messages_outgoing_sent_at_idx`), not kept in a separate table.
 
 ### knowledge_sections
-The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable slug, unique; `kind` is `treatment` or `info` (checked); `title` is the heading without `## `; `tagline` is the part after ` — ` (treatments only); `data` is JSON: for a treatment `{ideal?, howItWorks?, facts, result?, recovery?}` with labelled values, for an info section `{lines}`; `position` is the display order. Validated with zod ([types.ts](../src/modules/knowledge/types.ts)). Filled from a Markdown brochure by `scripts/import-knowledge.ts`, which replaces all rows in one transaction; read by `GET /internal/knowledge` ([render.ts](../src/modules/knowledge/render.ts)).
+The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable slug, unique; `kind` is `treatment` or `info` (checked); `title` is the heading without `## `; `tagline` is the part after ` — ` (treatments only); `data` is JSON: for a treatment `{ideal?, howItWorks?, facts, result?, recovery?}` with labelled values (a fact may add `assessment?: boolean`, BR-KNO-01), for an info section `{lines}`; `position` is the display order. Validated with zod ([types.ts](../src/modules/knowledge/types.ts)). Filled from a Markdown brochure by `scripts/import-knowledge.ts`, which replaces all rows in one transaction; read by `GET /internal/knowledge` ([render.ts](../src/modules/knowledge/render.ts)).
 
 ## Lifecycle and deletion
 

@@ -6,11 +6,14 @@ import { KnowledgeOrderError, type KnowledgeRepository } from "../modules/knowle
 import { knowledgeRowSchema } from "../modules/knowledge/types.js";
 import { RagAlreadyIndexingError, type RagAdmin } from "../modules/rag/admin.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
+import type { Language } from "../modules/scheduling/dates.js";
 
 interface Deps {
   repo: Pick<KnowledgeRepository, "list" | "get" | "upsert" | "remove" | "reorder">;
   rag: Pick<RagAdmin, "status" | "reindex">;
   clinicName: string;
+  /** Língua da clínica: a versão do conteúdo (e o status) muda com ela quando há fatos com `assessment` */
+  language: Language;
 }
 
 /** Chaves que o painel não dá a uma seção: "order" é a rota da ordem (PUT /api/knowledge/order). */
@@ -34,7 +37,7 @@ function notFound(reply: FastifyReply) {
 }
 
 /** Rotas do painel para o conhecimento da clínica e a publicação no RAG (docs/integrations.md). */
-export function panelKnowledgeRoutes({ repo, rag, clinicName }: Deps) {
+export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) {
   /** Primeira chave livre a partir do título: "sobre-nos", "sobre-nos-2", "sobre-nos-3"… */
   async function freeKey(title: string): Promise<string> {
     const base = slugify(title);
@@ -46,7 +49,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName }: Deps) {
 
   /** Versão dos dados atuais contra a que o RAG tem indexada. */
   async function status() {
-    const version = toDocument(clinicName, await repo.list()).version;
+    const version = toDocument(clinicName, await repo.list(), language).version;
     try {
       const { indexedVersion } = await rag.status();
       return { version, indexedVersion, state: indexedVersion === version ? "upToDate" : "unpublished" };
@@ -117,7 +120,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName }: Deps) {
     app.post("/api/knowledge/publish", async (req, reply) => {
       try {
         const { version: indexedVersion } = await rag.reindex();
-        const version = toDocument(clinicName, await repo.list()).version;
+        const version = toDocument(clinicName, await repo.list(), language).version;
         return { version, indexedVersion, state: indexedVersion === version ? "upToDate" : "unpublished" };
       } catch (err) {
         if (err instanceof RagAlreadyIndexingError) return reply.code(409).send({ error: "already indexing" });

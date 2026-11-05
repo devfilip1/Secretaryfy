@@ -1,11 +1,14 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { toDocument } from "../modules/knowledge/render.js";
+import type { Language } from "../modules/scheduling/dates.js";
 import type { KnowledgeRepository } from "../modules/knowledge/repository.js";
 
 interface Deps {
   repo: Pick<KnowledgeRepository, "list">;
   clinicName: string;
+  /** Língua da clínica: os avisos dos fatos com `assessment` saem nela */
+  language: Language;
   /** Token do endpoint (INTERNAL_TOKEN); vazio = a rota não existe */
   token: string;
 }
@@ -22,12 +25,12 @@ function authorized(header: string | undefined, token: string): boolean {
  * GET /internal/knowledge: o conhecimento da clínica para o serviço RAG (docs/integrations.md).
  * Fica fora do login do painel; protegido só pelo token do cabeçalho Authorization.
  */
-export function knowledgeInternalRoutes({ repo, clinicName, token }: Deps) {
+export function knowledgeInternalRoutes({ repo, clinicName, language, token }: Deps) {
   return async function plugin(app: FastifyInstance): Promise<void> {
     if (!token) return;
     app.get("/internal/knowledge", async (req, reply) => {
       if (!authorized(req.headers.authorization, token)) return reply.code(401).send({ error: "unauthorized" });
-      return toDocument(clinicName, await repo.list());
+      return toDocument(clinicName, await repo.list(), language);
     });
   };
 }

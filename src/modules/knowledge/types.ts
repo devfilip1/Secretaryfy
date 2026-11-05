@@ -4,11 +4,15 @@ import { z } from "zod";
 export const labelledValueSchema = z.object({ label: z.string().min(1), value: z.string().min(1) });
 export type LabelledValue = z.infer<typeof labelledValueSchema>;
 
+/** Um fato da linha de dados ("Preço: R$ 40 a R$ 85"). `assessment`: o valor é uma faixa e o valor final sai na avaliação; o aviso é escrito pelo render, na língua da clínica. */
+export const factSchema = labelledValueSchema.extend({ assessment: z.boolean().optional() });
+export type Fact = z.infer<typeof factSchema>;
+
 /** Dados de um tratamento. `ideal.title` é a linha sem os dois pontos finais; `facts` vêm na linha com " | " entre eles. */
 export const treatmentDataSchema = z.object({
   ideal: z.object({ title: z.string().min(1), items: z.array(z.string().min(1)).min(1) }).optional(),
   howItWorks: labelledValueSchema.optional(),
-  facts: z.array(labelledValueSchema).min(1),
+  facts: z.array(factSchema).min(1),
   result: labelledValueSchema.optional(),
   recovery: labelledValueSchema.optional(),
 });

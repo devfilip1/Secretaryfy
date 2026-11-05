@@ -3,6 +3,8 @@ import { test } from "node:test";
 import Fastify, { type FastifyInstance } from "fastify";
 import { parseBrochure } from "../modules/knowledge/import-markdown.js";
 import { toDocument, toSections } from "../modules/knowledge/render.js";
+import { knowledgeRowSchema } from "../modules/knowledge/types.js";
+import type { Language } from "../modules/scheduling/dates.js";
 import { knowledgeInternalRoutes } from "./knowledge-internal.js";
 
 const TOKEN = "t".repeat(32);
@@ -11,9 +13,9 @@ const rows = parseBrochure(
   "## Limpeza Dental — O primeiro passo\nO que você ganha:\n- Boca limpa\nComo funciona: Ultrassom.\nDuração: 30 min   |   Preço: R$ 40\nResultado: Imediato\n\n## Sobre nós\nLinha um\n",
 );
 
-async function appWith(token: string): Promise<FastifyInstance> {
+async function appWith(token: string, language: Language = "pt", sections = rows): Promise<FastifyInstance> {
   const app = Fastify();
-  await app.register(knowledgeInternalRoutes({ repo: { list: async () => rows }, clinicName: CLINIC, token }));
+  await app.register(knowledgeInternalRoutes({ repo: { list: async () => sections }, clinicName: CLINIC, language, token }));
   await app.ready();
   return app;
 }
@@ -37,9 +39,9 @@ test("200 with the contract: name, version and sections", async () => {
   const res = await app.inject({ method: "GET", url: "/internal/knowledge", headers: { authorization: `Bearer ${TOKEN}` } });
   assert.equal(res.statusCode, 200);
   const body = res.json();
-  assert.deepEqual(body, toDocument(CLINIC, rows));
+  assert.deepEqual(body, toDocument(CLINIC, rows, "pt"));
   assert.equal(body.name, CLINIC);
-  assert.deepEqual(body.sections, toSections(rows));
+  assert.deepEqual(body.sections, toSections(rows, "pt"));
   assert.match(body.version, /^[0-9a-f]{64}$/);
 });
 
@@ -47,4 +49,22 @@ test("without a configured token the route does not exist", async () => {
   const app = await appWith("");
   const res = await app.inject({ method: "GET", url: "/internal/knowledge", headers: { authorization: "Bearer " } });
   assert.equal(res.statusCode, 404);
+});
+
+test("a fact flagged assessment carries the note in the clinic language, and the version follows it", async () => {
+  const flagged = [
+    knowledgeRowSchema.parse({
+      key: "limpeza-dental",
+      kind: "treatment",
+      title: "Limpeza Dental",
+      tagline: null,
+      data: { facts: [{ label: "Price", value: "$40-$85", assessment: true }] },
+      position: 0,
+    }),
+  ];
+  const app = await appWith(TOKEN, "en", flagged);
+  const res = await app.inject({ method: "GET", url: "/internal/knowledge", headers: { authorization: `Bearer ${TOKEN}` } });
+  assert.deepEqual(res.json().sections[0].body, ["Price: $40-$85 (final value set at the assessment)"]);
+  assert.equal(res.json().version, toDocument(CLINIC, flagged, "en").version);
+  assert.notEqual(res.json().version, toDocument(CLINIC, flagged, "pt").version);
 });

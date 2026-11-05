@@ -92,7 +92,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 
 ### Knowledge — [panel-knowledge.ts](../src/routes/panel-knowledge.ts)
 
-The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`.
+The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). A fact may carry `assessment: true` (BR-KNO-01: its line reaches the RAG with a note in the clinic language). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`.
 
 | Route | Body | Answer |
 |---|---|---|
@@ -110,7 +110,7 @@ The brochure sections the assistant answers from ([knowledge](data-model.md#know
 
 | Route | Auth | Purpose |
 |---|---|---|
-| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
+| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. The bodies are rendered in `CLINIC_LANGUAGE` (the assessment notes, BR-KNO-01). 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
 
 ## RAG service
 

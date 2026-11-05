@@ -227,6 +227,12 @@ Assistant messages still in `sending` when the server stopped are marked `blocke
 
 Every message the gate refuses is stored with status `blocked` and the reason, and shown in the panel.
 
+## Knowledge
+
+### BR-KNO-01 · A fact marked as an assessment says the final value is set at the assessment
+A treatment fact flagged `assessment: true` (a price range, for instance) reaches the RAG with a short note in the clinic language, written after the fact inside the same line: "Preço: R$ 40 a R$ 85 (valor final definido na avaliação)" in Portuguese, "Price: $40-$85 (final value set at the assessment)" in English. The note is code, not prompt, so the assistant always says the final value depends on the assessment. A fact without the flag renders as before. The version of the brochure changes when the flag or the clinic language changes, so the next publish picks them up.
+- **Where:** [render.ts](../src/modules/knowledge/render.ts), the notes in [texts.ts](../src/modules/knowledge/texts.ts), the flag in [types.ts](../src/modules/knowledge/types.ts)
+
 ## Panel access
 
 ### BR-PNL-01 · One shared password

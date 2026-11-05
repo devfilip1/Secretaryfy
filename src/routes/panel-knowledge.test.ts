@@ -28,7 +28,7 @@ const rag = {
   async reindex() {
     if (rag.down) throw new RagUnavailableError("rag unavailable");
     if (rag.busy) throw new RagAlreadyIndexingError();
-    const version = toDocument(CLINIC, await repo.list()).version;
+    const version = toDocument(CLINIC, await repo.list(), "pt").version;
     rag.indexedVersion = version;
     return { chunks: { lex: 3 }, version };
   },
@@ -47,7 +47,7 @@ beforeEach(async () => {
   rag.down = false;
   rag.busy = false;
   app = Fastify();
-  await app.register(panelKnowledgeRoutes({ repo, rag, clinicName: CLINIC }));
+  await app.register(panelKnowledgeRoutes({ repo, rag, clinicName: CLINIC, language: "pt" }));
   await app.ready();
 });
 
@@ -134,7 +134,7 @@ test("PUT /api/knowledge/order with unknown, missing or malformed keys is 400 an
 test("GET /api/knowledge/status: unpublished before a publish, with the RAG's version", async () => {
   const res = await app.inject({ url: "/api/knowledge/status" });
   assert.equal(res.statusCode, 200);
-  const version = toDocument(CLINIC, await repo.list()).version;
+  const version = toDocument(CLINIC, await repo.list(), "pt").version;
   assert.deepEqual(res.json(), { version, indexedVersion: null, state: "unpublished" });
 });
 
@@ -149,7 +149,7 @@ test("GET /api/knowledge/status: unavailable when the RAG does not answer", asyn
 test("POST /api/knowledge/publish reindexes and answers upToDate with the new version", async () => {
   const res = await app.inject({ method: "POST", url: "/api/knowledge/publish" });
   assert.equal(res.statusCode, 200);
-  const version = toDocument(CLINIC, await repo.list()).version;
+  const version = toDocument(CLINIC, await repo.list(), "pt").version;
   assert.deepEqual(res.json(), { version, indexedVersion: version, state: "upToDate" });
   assert.deepEqual((await app.inject({ url: "/api/knowledge/status" })).json().state, "upToDate");
 });
@@ -172,4 +172,23 @@ test("POST /api/knowledge/publish: 502 when the RAG is unavailable", async () =>
   const res = await app.inject({ method: "POST", url: "/api/knowledge/publish" });
   assert.equal(res.statusCode, 502);
   assert.equal(res.json().error, "rag_unavailable");
+});
+
+test("a fact flagged assessment changes the version, which follows the clinic language", async () => {
+  const flagged = {
+    title: "Limpeza Dental",
+    tagline: "O primeiro passo",
+    data: { ...treatmentData, facts: [{ label: "Preço", value: "R$ 50", assessment: true }] },
+  };
+  assert.equal((await app.inject({ method: "PUT", url: "/api/knowledge/limpeza-dental", payload: flagged })).statusCode, 200);
+  const rows = await repo.list();
+  const status = (await app.inject({ url: "/api/knowledge/status" })).json();
+  assert.equal(status.state, "unpublished");
+  assert.equal(status.version, toDocument(CLINIC, rows, "pt").version);
+  assert.notEqual(status.version, toDocument(CLINIC, rows, "en").version);
+
+  const english = Fastify();
+  await english.register(panelKnowledgeRoutes({ repo, rag, clinicName: CLINIC, language: "en" }));
+  await english.ready();
+  assert.equal((await english.inject({ url: "/api/knowledge/status" })).json().version, toDocument(CLINIC, rows, "en").version);
 });
