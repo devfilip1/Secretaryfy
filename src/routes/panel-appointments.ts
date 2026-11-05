@@ -13,7 +13,7 @@ import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
-import { SERVICES } from "../modules/scheduling/services.js";
+import { panelServices, SERVICES } from "../modules/scheduling/services.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
 
 interface Deps {
@@ -163,6 +163,9 @@ export function panelAppointmentsRoutes({
     });
 
     // --- Marcar pelo painel (US3) ---
+
+    // Lista de serviços do painel: a mesma do assistente, com o rótulo em inglês
+    app.get("/api/services", async () => ({ services: panelServices() }));
 
     app.get("/api/booking/days", async (_req, reply) => {
       const conn = await usableCalendar(reply);

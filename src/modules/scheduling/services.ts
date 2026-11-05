@@ -99,3 +99,8 @@ export function serviceLabel(service: string, language: Language = "en"): string
   if (language === "pt") return found?.labelPt ?? service;
   return service === ASSESSMENT ? "General assessment" : service;
 }
+
+/** Os serviços para a lista do painel: nome e rótulo em inglês, na ordem de SERVICES. */
+export function panelServices(): { name: string; label: string }[] {
+  return SERVICES.map((s) => ({ name: s.name, label: serviceLabel(s.name) }));
+}

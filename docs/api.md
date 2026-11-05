@@ -62,6 +62,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 |---|---|
 | `GET /api/appointments` | Booked appointments grouped `today`, `tomorrow`, `week` (next 7 days) in the calendar's time zone. Each has name, service, phone, origin, notes, `conversationId` and `reminder: {label, reason, sentAt}` ([labels](business-rules.md#reminder-states)) |
 | `POST /api/appointments/:id/confirm` | Confirms by the operator; idempotent |
+| `GET /api/services` | `{services: [{name, label}]}`: the services a customer can book, in the assistant's order. `label` is the panel name ("General assessment" for Assessment). Source: [services.ts](../src/modules/scheduling/services.ts) |
 | `GET /api/booking/days` | Days with free times |
 | `GET /api/booking/slots?date=YYYY-MM-DD` | Free times on that day |
 | `GET /api/booking/lookup?phone=` | Normalized phone, name (registry, else said in the chat), `hasConversation` and `futureAppointment`; 422 `invalid_phone` |

@@ -1,25 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ApiError, bookingDays, bookingSlots, createAppointment, lookupPhone, type Appointment } from "../api";
-
-/** Os serviços do assistente (src/modules/scheduling/services.ts), na mesma ordem. */
-const SERVICES = [
-  "Dental Cleaning",
-  "Teeth Whitening",
-  "Dental Filling",
-  "Root Canal Treatment",
-  "Dental Implants",
-  "Braces and Orthodontic Treatment",
-  "Tooth Extraction",
-  "Dental Veneers",
-  "Assessment",
-];
-const serviceLabel = (s: string) => (s === "Assessment" ? "General assessment" : s);
+import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
 
 /** Marcação pelo painel para quem ligou (specs/006 US3): só horários livres, calculados como o assistente calcula. */
 export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointment) => void; onCancel: () => void }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [service, setService] = useState(SERVICES[0]);
+  const [services, setServices] = useState<{ name: string; label: string }[] | null>(null);
+  const [service, setService] = useState("");
   const [timeZone, setTimeZone] = useState<string | undefined>();
   const [days, setDays] = useState<string[] | null>(null);
   const [day, setDay] = useState<string | null>(null);
@@ -45,6 +32,15 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     if (err instanceof ApiError && err.error === "calendar_disconnected") setDisconnected(true);
     else setError("Could not reach Google Calendar. Please try again.");
   }
+
+  useEffect(() => {
+    listServices()
+      .then((r) => {
+        setServices(r.services);
+        setService(r.services[0]?.name ?? "");
+      })
+      .catch(() => setError("Could not load the services. Close the form and try again."));
+  }, []);
 
   useEffect(() => {
     bookingDays()
@@ -113,7 +109,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     );
   }
 
-  const canBook = Boolean(phone.trim() && name.trim() && start && !existing && !busy);
+  const canBook = Boolean(services && service && phone.trim() && name.trim() && start && !existing && !busy);
 
   return (
     <form className="new-appointment" onSubmit={submit}>
@@ -139,9 +135,10 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
         <label className="field">
           Service
           <select value={service} onChange={(e) => setService(e.target.value)}>
-            {SERVICES.map((s) => (
-              <option key={s} value={s}>
-                {serviceLabel(s)}
+            {services === null && <option value="">Loading services…</option>}
+            {services?.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.label}
               </option>
             ))}
           </select>

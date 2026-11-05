@@ -31,7 +31,7 @@ cd rag && .\run.ps1 test                             # RAG unit tests
 - Google Calendar is the source of truth: call `syncAppointment` before acting on a stored appointment.
 - Single process only: calendar lock, send queue, SSE bus and reminder timer are in memory.
 - Customer notes must never reach the assistant (interpreter, RAG history, known name).
-- The service list exists twice: `scheduling/services.ts` and `web/src/components/NewAppointment.tsx`. Change both.
+- The service list lives only in `scheduling/services.ts`. The panel reads it from `GET /api/services` (`web/src/components/NewAppointment.tsx` keeps no copy), so change it there only.
 - Patient-facing text follows `CLINIC_LANGUAGE` (en/pt); operator/panel text is English; code comments, logs and specs are Portuguese.
 - Modules take dependencies as `createX(deps)`; tests inject PGlite (`src/test/db.ts`), the fake calendar and a clock. Tests must not import `src/routes/{inbox,calendar,scheduling}.ts`.
 - Tests are `*.test.ts` next to the code and excluded from `tsc`.

@@ -10,6 +10,7 @@ import { createInboxRepository, type InboxRepository } from "../modules/inbox/re
 import { createInboxService, type InboxService } from "../modules/inbox/service.js";
 import { createBooking } from "../modules/scheduling/booking.js";
 import { DEFAULT_RULES } from "../modules/scheduling/rules.js";
+import { SERVICES } from "../modules/scheduling/services.js";
 import { createSchedulingStore, withAppointmentEvents, type SchedulingStore } from "../modules/scheduling/sessions.js";
 import { createTestDb } from "../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../test/fake-calendar.js";
@@ -212,6 +213,16 @@ test("GET /api/booking/lookup: telefone normalizado, nome conhecido e horário f
   assert.equal(body.futureAppointment.startsAt, at("2026-10-22T10:00").toISOString());
 
   assert.equal((await app.inject({ url: "/api/booking/lookup?phone=12" })).statusCode, 422);
+});
+
+test("GET /api/services: os serviços na ordem do assistente, com a avaliação geral em inglês", async () => {
+  const { services } = (await app.inject({ url: "/api/services" })).json();
+  assert.deepEqual(
+    services.map((s: { name: string }) => s.name),
+    SERVICES.map((s) => s.name),
+  );
+  assert.equal(services.at(-1).label, "General assessment");
+  assert.equal(services[0].label, "Dental Cleaning");
 });
 
 // --- US4: confirmação pelo operador ---

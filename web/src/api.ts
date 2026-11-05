@@ -226,3 +226,6 @@ export const lookupPhone = (phone: string) =>
 /** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. */
 export const createAppointment = (body: { phone: string; name: string; service: string; start: string }) =>
   request<{ appointment: Appointment }>("POST", "/api/appointments", body);
+
+/** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome para o painel. */
+export const listServices = () => request<{ services: { name: string; label: string }[] }>("GET", "/api/services");
