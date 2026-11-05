@@ -1,6 +1,6 @@
 # 0012 · The Node server toward many clinics: one clinic context first, the tenant key later
 
-**Status:** Proposed (step 1 accepted and done) · **Date:** 2026-11-05
+**Status:** Proposed (steps 1 and 3 accepted and done) · **Date:** 2026-11-05
 
 ## Context
 [ADR 0010](0010-multi-clinic-and-knowledge-table.md) leaves the Node server open: it is the hard part of serving many clinics. An audit of `src/` (2026-11-05) found:
@@ -16,7 +16,7 @@ Move in small steps that each keep behavior and tests, so that the choice betwee
 
 1. **One clinic context (done).** `ClinicContext` (name, assistant name, language, kind) is built once in the composition (`routes/scheduling.ts`, from the env) and injected into the interpreter, the replies, the humanizer and the fixed texts. Modules have no clinic defaults; tests use `src/test/clinic.ts`.
 2. **The clinic is a file shared with the RAG.** The Node server reads the same `config/clinics/<slug>.yaml` as the RAG service, so name, language and kind exist once and can no longer disagree. The env keeps only the slug. Needs a YAML parser dependency (owner's OK).
-3. **Integrations as dependencies.** Evolution (URL, instance, key, webhook) and the Google client become `createX(deps)` like the rest, instead of import-time env reads.
+3. **Integrations as dependencies (done).** Evolution (URL, instance, key, webhook) and the Google client become `createX(deps)` like the rest, instead of import-time env reads.
 4. **The service catalog belongs to the clinic,** with a stable key stored in `appointments.service` instead of the English name (needs a migration of existing rows).
 5. **Tenant key.** A `clinics` table, `clinic_id` on every table, the `id = 1` tables keyed by clinic, phone uniqueness by `(clinic_id, phone)`. Repositories take the clinic in `createX({ db, clinicId })`, one table at a time, each with a PGlite test.
 6. **In-memory state keyed by clinic** (lock, bus with a clinic filter, gate, breaker, reminder timer, instance manager), and the webhook routes the Evolution instance to its clinic with a token per clinic.
