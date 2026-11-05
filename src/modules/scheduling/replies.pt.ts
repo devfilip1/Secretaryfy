@@ -1,9 +1,14 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { formatDay, formatDayTime, formatTime, weekdayName } from "./dates.js";
+import { DateTime } from "luxon";
+import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 import type { Replies } from "./replies.js";
 
-const numbered = (lines: string[]) => lines.map((line, i) => `${i + 1}. ${line}`).join("\n");
+const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
+
+/** "no sábado", "na sexta-feira": o artigo muda com o gênero do dia da semana. */
+const weekdayIn = (date: string, tz: string) =>
+  `${DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na"} ${weekdayName(date, tz, "pt")}`;
 
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutos`;
@@ -15,28 +20,28 @@ const hoursText = (minutes: number) => {
 export function createPortugueseReplies(clinicName: string): Replies {
   const pt = "pt";
   const r: Replies = {
-    offerDays(days: string[], tz: string, intro = "Claro! Estes dias têm horários livres:") {
-      return `${intro}\n${numbered(days.map((d) => formatDay(d, tz, pt)))}\nResponda com o número do dia, ou me diga outra data.`;
+    offerDays(days: string[], tz: string, intro = "Claro! Tenho horários livres nestes dias:") {
+      return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz, pt)))}\nQual deles fica melhor para você? Se preferir outra data, é só me dizer.`;
     },
 
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
-      const tail = hasMore ? 'Digite "mais" para ver outras opções ou "outro dia" para outra data.' : 'Digite "outro dia" para outra data.';
-      return `Horários disponíveis em ${formatDay(date, tz, pt)}:\n${numbered(slots.map((s) => formatTime(s, tz, pt)))}\nResponda com o número do horário. ${tail}`;
+      const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
+      return `Em ${formatDayLong(date, tz, pt)} tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
     closedDay(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `Neste dia (${weekdayName(date, tz, pt)}) a clínica não atende. Os dias mais próximos com horários livres são:`);
+      return r.offerDays(closest, tz, `Não atendemos ${weekdayIn(date, tz)}. Os dias mais próximos com horários livres são:`);
     },
 
     dayFull(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `Desculpe, não há horários em ${formatDay(date, tz, pt)}. Os dias mais próximos com horários livres são:`);
+      return r.offerDays(closest, tz, `Desculpe, não há mais horários em ${formatDayLong(date, tz, pt)}. Os dias mais próximos com horários livres são:`);
     },
 
     tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string) {
       return r.offerDays(
         closest,
         tz,
-        `Só consigo marcar até ${maxDaysAhead} dias à frente, até ${formatDay(lastDate, tz, pt)}. Estes são os dias mais próximos:`,
+        `Só consigo marcar até ${maxDaysAhead} dias à frente, até ${formatDayLong(lastDate, tz, pt)}. Estes são os dias mais próximos:`,
       );
     },
 
@@ -51,13 +56,13 @@ export function createPortugueseReplies(clinicName: string): Replies {
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService() {
       const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Não tenho certeza — avaliação geral" : serviceLabel(s.name, "pt")));
-      return `Para qual serviço é este agendamento?\n${numbered(lines)}\nResponda com o número ou o nome do serviço.`;
+      return `Para qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
     },
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
       return [
         "Por favor, confirme seu agendamento:",
-        `📅 ${formatDayTime(start, tz, pt)} (${slotMinutes} min)`,
+        `📅 ${formatWhen(start, tz, pt)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service, "pt")}`,
         "Responda SIM para confirmar, NÃO para escolher outro horário, ou me diga outro serviço.",
@@ -65,20 +70,20 @@ export function createPortugueseReplies(clinicName: string): Replies {
     },
 
     booked(start: Date, tz: string) {
-      return `Tudo certo, seu horário está marcado! 📅 ${formatDayTime(start, tz, pt)}. Até lá, na ${clinicName}.`;
+      return `Tudo certo, seu horário está marcado! 📅 ${formatWhen(start, tz, pt)}. Até lá, na ${clinicName}.`;
     },
 
     slotTaken(date: string, slots: Date[], tz: string) {
-      const list = numbered(slots.map((s) => formatTime(s, tz, pt)));
-      return `Desculpe, esse horário acabou de ser ocupado. Os horários mais próximos em ${formatDay(date, tz, pt)} são:\n${list}\nResponda com o número do horário, ou digite "outro dia".`;
+      const list = bullets(slots.map((s) => formatTime(s, tz, pt)));
+      return `Desculpe, esse horário acabou de ser ocupado. Os horários mais próximos em ${formatDayLong(date, tz, pt)} são:\n${list}\nQual prefere? Se preferir outro dia, é só pedir.`;
     },
 
     alreadyBooked(start: Date, tz: string) {
-      return `Você já tem um agendamento em ${formatDayTime(start, tz, pt)}. Quer remarcá-lo? (SIM/NÃO)`;
+      return `Você já tem um agendamento em ${formatWhen(start, tz, pt)}. Quer remarcá-lo? (SIM/NÃO)`;
     },
 
     myAppointment(start: Date, tz: string) {
-      return `Seu agendamento é em ${formatDayTime(start, tz, pt)}.`;
+      return `Seu agendamento é em ${formatWhen(start, tz, pt)}.`;
     },
 
     noAppointment() {
@@ -86,23 +91,23 @@ export function createPortugueseReplies(clinicName: string): Replies {
     },
 
     confirmCancel(start: Date, tz: string) {
-      return `Cancelar seu agendamento de ${formatDayTime(start, tz, pt)}? (SIM/NÃO)`;
+      return `Cancelar seu agendamento de ${formatWhen(start, tz, pt)}? (SIM/NÃO)`;
     },
 
     cancelled(start: Date, tz: string) {
-      return `Seu agendamento de ${formatDayTime(start, tz, pt)} foi cancelado.`;
+      return `Seu agendamento de ${formatWhen(start, tz, pt)} foi cancelado.`;
     },
 
     keptAppointment(start: Date, tz: string) {
-      return `Tudo bem, seu agendamento de ${formatDayTime(start, tz, pt)} continua como está.`;
+      return `Tudo bem, seu agendamento de ${formatWhen(start, tz, pt)} continua como está.`;
     },
 
     confirmReschedule(from: Date, to: Date, tz: string) {
-      return `Mudar seu agendamento de ${formatDayTime(from, tz, pt)} para ${formatDayTime(to, tz, pt)}? (SIM/NÃO)`;
+      return `Mudar seu agendamento de ${formatWhen(from, tz, pt)} para ${formatWhen(to, tz, pt)}? (SIM/NÃO)`;
     },
 
     rescheduled(start: Date, tz: string) {
-      return `Pronto! Seu agendamento agora é em ${formatDayTime(start, tz, pt)}.`;
+      return `Pronto! Seu agendamento agora é em ${formatWhen(start, tz, pt)}.`;
     },
 
     tooLateToChange(cancelNoticeMinutes: number) {
@@ -161,7 +166,7 @@ export function createPortugueseReplies(clinicName: string): Replies {
      * O agendador escolhe com gate.pickVariant.
      */
     reminder(start: Date, service: string, name: string | null, tz: string): string[] {
-      const when = formatDayTime(start, tz, pt);
+      const when = formatWhen(start, tz, pt);
       const label = serviceLabel(service, "pt");
       return [
         `Oi${name ? ` ${name}` : ""}! Lembrete do seu agendamento na ${clinicName} em ${when} (${label}). Responda SIM para confirmar.`,
@@ -172,7 +177,7 @@ export function createPortugueseReplies(clinicName: string): Replies {
 
     /** O cliente respondeu SIM ao lembrete. */
     reminderConfirmed(start: Date, name: string | null, tz: string) {
-      return `Obrigado${name ? `, ${name}` : ""}! Seu agendamento em ${formatDayTime(start, tz, pt)} está confirmado. Até lá, na ${clinicName}.`;
+      return `Obrigado${name ? `, ${name}` : ""}! Seu agendamento em ${formatWhen(start, tz, pt)} está confirmado. Até lá, na ${clinicName}.`;
     },
 
     daysIntro() {

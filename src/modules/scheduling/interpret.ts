@@ -66,6 +66,16 @@ const NO = new Set(["no", "n", "nope", "not", "nao", "não", "no thanks", "no th
 const ATTENDING = new Set(["i ll be there", "ill be there", "i will be there", "see you", "see you there", "see you then", "yes i ll be there", "yes confirmed", "confirmed thanks", "yes thanks"]);
 const MORE = new Set(["more", "more options", "others", "other times", "more times", "show more", "anything else", "mais", "mais horarios", "outros horarios"]);
 const OTHER_DAY = new Set(["other day", "another day", "different day", "other date", "another date", "a different day", "outro dia", "outra data", "outro dia por favor", "outra data por favor"]);
+/** Dia da semana citado (normalizado, sem "-feira"): o mesmo dia da lista oferecida (ISO 1 = segunda). */
+const WEEKDAYS: Record<string, number> = {
+  segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6, domingo: 7,
+  monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7,
+};
+const WANTS_MORE = /\b(?:mais|more)\b/;
+const WANTS_OTHER_DAY = /\b(?:outro|outra|another|other|different)\b/;
+const FIRST = /\b(?:primeiro|primeira|first)\b/;
+const LAST = /\b(?:ultimo|ultima|last)\b/;
+const THIS_ONE = /^(?:(?:quero|pode ser|vou de|fico com|i ll take|i want|i ll go with) )?(?:esse|essa|este|esta|isso|this one|that one)(?: dia| horario| mesmo)?$/;
 const CHOOSING: (SchedulingStep | null)[] = ["choose_day", "choose_slot"];
 const CONFIRMING: (SchedulingStep | null)[] = ["confirm_booking", "confirm_cancel", "confirm_reschedule", "offer_reschedule"];
 /** Agradecimento ou despedida sem mais nada ("right, thank you so much, bye"): uma destas palavras... */
@@ -124,6 +134,30 @@ const result = (intent: Intent, extra: Partial<Interpretation> = {}): Interpreta
   ...extra,
 });
 
+/**
+ * O cliente escolhe por frase, como falaria com uma secretária ("quero sexta", "dia 10", "o primeiro", "esse", "o das 9"),
+ * e a lista oferecida vira o número da opção. Só vale se a frase aponta para uma única opção.
+ */
+function pickOffered(t: string, options: SessionOption[], timeZone: string): number | null {
+  if (options.length === 0) return null;
+  if (THIS_ONE.test(t)) return options.length === 1 ? options[0].n : null;
+  if (FIRST.test(t)) return options[0].n;
+  if (LAST.test(t)) return options[options.length - 1].n;
+  const days = options.filter((o): o is Extract<SessionOption, { kind: "day" }> => o.kind === "day");
+  if (days.length === 0) return null;
+  const weekday = t.split(" ").map((w) => WEEKDAYS[w]).find(Boolean);
+  if (weekday) {
+    const same = days.filter((o) => DateTime.fromISO(o.date, { zone: timeZone }).weekday === weekday);
+    return same.length === 1 ? same[0].n : null;
+  }
+  const dayOfMonth = /\b(?:dia )?(\d{1,2})(?: de [a-z]+)?$/.exec(t)?.[1];
+  if (dayOfMonth) {
+    const same = days.filter((o) => DateTime.fromISO(o.date, { zone: timeZone }).day === Number(dayOfMonth));
+    return same.length === 1 ? same[0].n : null;
+  }
+  return null;
+}
+
 /** Regras sem modelo (contracts/interpreter.md §1). null = deixar para o modelo. */
 function byRules({ text, step, options, now, timeZone, window, awaitingName, awaitingReminder }: InterpretInput): Interpretation | null {
   const t = normalize(text);
@@ -133,10 +167,16 @@ function byRules({ text, step, options, now, timeZone, window, awaitingName, awa
     const n = Number(t);
     return options.some((o) => o.n === n) ? result("choose", { option: n }) : result("unclear");
   }
-  if (step === "choose_slot" && MORE.has(t)) return result("more");
+  if (step === "choose_slot" && (MORE.has(t) || (t.length <= 40 && WANTS_MORE.test(t) && !/\d/.test(t)))) return result("more");
+  if (CHOOSING.includes(step) && t.length <= 40 && WANTS_OTHER_DAY.test(t) && !/\d/.test(t)) return result("other_day");
+  if (CHOOSING.includes(step)) {
+    const picked = pickOffered(t, options, timeZone);
+    if (picked !== null) return result("choose", { option: picked });
+  }
   if (step === "choose_slot") {
     // "the 10 am one", "2:30 pm": o horário citado, se estiver entre os oferecidos
-    const minutes = parseTimeOfDay(text);
+    const spoken = /\bdas? (\d{1,2})(?: ?h|:(\d{2}))?\b/.exec(t);
+    const minutes = parseTimeOfDay(text) ?? (spoken ? Number(spoken[1]) * 60 + Number(spoken[2] ?? 0) : null);
     const match = minutes === null ? undefined : options.find((o) => o.kind === "slot" && minutesOfDay(new Date(o.start), timeZone) === minutes);
     if (match) return result("choose", { option: match.n });
   }

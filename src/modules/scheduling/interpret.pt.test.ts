@@ -60,3 +60,32 @@ test("tratamento citado em pt vira escolha de serviço", async () => {
 function pick(i: { intent: string; name: string | null; service?: string | null }): [string, string | null | undefined] {
   return [i.intent, i.name ?? i.service];
 }
+
+const dayOptions: SessionOption[] = [
+  { n: 1, kind: "day", date: "2026-10-21" },
+  { n: 2, kind: "day", date: "2026-10-22" },
+  { n: 3, kind: "day", date: "2026-10-23" },
+  { n: 4, kind: "day", date: "2026-10-26" },
+];
+
+test("o cliente escolhe o dia por frase, sem número: dia da semana, dia do mês, primeiro, último", async () => {
+  const pickDay = async (text: string) => (await interpreter.interpret(input(text, { step: "choose_day", options: dayOptions }))).option;
+  assert.equal(await pickDay("quero sexta"), 3);
+  assert.equal(await pickDay("pode ser na quinta-feira"), 2);
+  assert.equal(await pickDay("segunda"), 4);
+  assert.equal(await pickDay("quero o dia 26"), 4);
+  assert.equal(await pickDay("o primeiro"), 1);
+  assert.equal(await pickDay("o último"), 4);
+});
+
+test("o cliente escolhe o horário por frase: o das 9, às 10h; e pede mais ou outro dia falando", async () => {
+  const hours: SessionOption[] = [
+    { n: 1, kind: "slot", start: "2026-10-21T12:00:00.000Z" },
+    { n: 2, kind: "slot", start: "2026-10-21T13:00:00.000Z" },
+  ];
+  const ask = (text: string) => interpreter.interpret(input(text, { step: "choose_slot", options: hours }));
+  assert.equal((await ask("o das 9")).option, 1);
+  assert.equal((await ask("pode ser às 10h")).option, 2);
+  assert.equal((await ask("quero ver mais")).intent, "more");
+  assert.equal((await ask("quero outro dia")).intent, "other_day");
+});

@@ -280,7 +280,7 @@ const REMINDED = {
 test("lembrete enviado + YES: confirma, registra e agradece pelo nome, sem abrir fluxo", async () => {
   const r = setup({ intent: "yes", reminded: REMINDED });
   assert.deepEqual(await r.reply(), {
-    text: "Thank you, Maria! Your appointment on Wed, Oct 21 at 10:00 AM is confirmed. See you at DentalSafe.",
+    text: "Thank you, Maria! Your appointment on Wednesday, October 21 at 10:00 AM is confirmed. See you at DentalSafe.",
   });
   assert.equal(r.inputs[0].awaitingReminder, true);
   assert.deepEqual(r.confirmed, ["a1"]);

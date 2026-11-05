@@ -180,6 +180,7 @@
       const data = await res.json();
       let added = false;
       for (const m of data.messages) {
+        if (m.n <= state.since) continue;
         state.messages.push(m);
         state.since = Math.max(state.since, m.n);
         added = true;
@@ -227,7 +228,6 @@
       if (!res.ok) { showError(body.error || "Request failed (" + res.status + ")"); return; }
       hideError();
       $("text").value = "";
-      poll();
     } catch (err) {
       showError("Could not reach the fake Evolution server.");
     }

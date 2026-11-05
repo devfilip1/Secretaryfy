@@ -1,9 +1,9 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { formatDay, formatDayTime, formatTime, weekdayName } from "./dates.js";
+import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 import type { Replies } from "./replies.js";
 
-const numbered = (lines: string[]) => lines.map((line, i) => `${i + 1}. ${line}`).join("\n");
+const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutes`;
@@ -15,12 +15,12 @@ const hoursText = (minutes: number) => {
 export function createEnglishReplies(clinicName: string): Replies {
   const r: Replies = {
     offerDays(days: string[], tz: string, intro = "Sure! These days have openings:") {
-      return `${intro}\n${numbered(days.map((d) => formatDay(d, tz)))}\nReply with the number of the day, or tell me another date.`;
+      return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you? Or tell me another date.`;
     },
 
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
-      const tail = hasMore ? 'Say "more" for more options or "other day" for another date.' : 'Say "other day" for another date.';
-      return `Available times on ${formatDay(date, tz)}:\n${numbered(slots.map((s) => formatTime(s, tz)))}\nReply with the number of the time. ${tail}`;
+      const tail = hasMore ? "I can show more times or another day if you like." : "I can also check another day if you like.";
+      return `On ${formatDayLong(date, tz)} I have these times:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
     },
 
     closedDay(date: string, closest: string[], tz: string) {
@@ -28,14 +28,14 @@ export function createEnglishReplies(clinicName: string): Replies {
     },
 
     dayFull(date: string, closest: string[], tz: string) {
-      return r.offerDays(closest, tz, `Sorry, there are no openings on ${formatDay(date, tz)}. The closest days with openings are:`);
+      return r.offerDays(closest, tz, `Sorry, there are no openings on ${formatDayLong(date, tz)}. The closest days with openings are:`);
     },
 
     tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string) {
       return r.offerDays(
         closest,
         tz,
-        `I can only book up to ${maxDaysAhead} days ahead, until ${formatDay(lastDate, tz)}. Here are the closest days:`,
+        `I can only book up to ${maxDaysAhead} days ahead, until ${formatDayLong(lastDate, tz)}. Here are the closest days:`,
       );
     },
 
@@ -50,13 +50,13 @@ export function createEnglishReplies(clinicName: string): Replies {
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService() {
       const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
-      return `Which service is this appointment for?\n${numbered(lines)}\nReply with the number or the name of the service.`;
+      return `Which service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 
     confirmBooking(start: Date, slotMinutes: number, name: string, service: string, tz: string) {
       return [
         "Please confirm your appointment:",
-        `📅 ${formatDayTime(start, tz)} (${slotMinutes} min)`,
+        `📅 ${formatWhen(start, tz)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service)}`,
         "Reply YES to confirm, NO to choose another time, or tell me another service.",
@@ -64,20 +64,20 @@ export function createEnglishReplies(clinicName: string): Replies {
     },
 
     booked(start: Date, tz: string) {
-      return `You're booked! 📅 ${formatDayTime(start, tz)}. See you at ${clinicName}.`;
+      return `You're booked! 📅 ${formatWhen(start, tz)}. See you at ${clinicName}.`;
     },
 
     slotTaken(date: string, slots: Date[], tz: string) {
-      const list = numbered(slots.map((s) => formatTime(s, tz)));
-      return `Sorry, that time was just taken. The closest available times on ${formatDay(date, tz)} are:\n${list}\nReply with the number of the time, or say "other day".`;
+      const list = bullets(slots.map((s) => formatTime(s, tz)));
+      return `Sorry, that time was just taken. The closest available times on ${formatDayLong(date, tz)} are:\n${list}\nWhich one would you like? I can also check another day.`;
     },
 
     alreadyBooked(start: Date, tz: string) {
-      return `You already have an appointment on ${formatDayTime(start, tz)}. Would you like to reschedule it? (YES/NO)`;
+      return `You already have an appointment on ${formatWhen(start, tz)}. Would you like to reschedule it? (YES/NO)`;
     },
 
     myAppointment(start: Date, tz: string) {
-      return `Your appointment is on ${formatDayTime(start, tz)}.`;
+      return `Your appointment is on ${formatWhen(start, tz)}.`;
     },
 
     noAppointment() {
@@ -85,23 +85,23 @@ export function createEnglishReplies(clinicName: string): Replies {
     },
 
     confirmCancel(start: Date, tz: string) {
-      return `Cancel your appointment on ${formatDayTime(start, tz)}? (YES/NO)`;
+      return `Cancel your appointment on ${formatWhen(start, tz)}? (YES/NO)`;
     },
 
     cancelled(start: Date, tz: string) {
-      return `Your appointment on ${formatDayTime(start, tz)} was cancelled.`;
+      return `Your appointment on ${formatWhen(start, tz)} was cancelled.`;
     },
 
     keptAppointment(start: Date, tz: string) {
-      return `Okay, your appointment on ${formatDayTime(start, tz)} stays as it is.`;
+      return `Okay, your appointment on ${formatWhen(start, tz)} stays as it is.`;
     },
 
     confirmReschedule(from: Date, to: Date, tz: string) {
-      return `Move your appointment from ${formatDayTime(from, tz)} to ${formatDayTime(to, tz)}? (YES/NO)`;
+      return `Move your appointment from ${formatWhen(from, tz)} to ${formatWhen(to, tz)}? (YES/NO)`;
     },
 
     rescheduled(start: Date, tz: string) {
-      return `Done! Your appointment is now on ${formatDayTime(start, tz)}.`;
+      return `Done! Your appointment is now on ${formatWhen(start, tz)}.`;
     },
 
     tooLateToChange(cancelNoticeMinutes: number) {
@@ -160,7 +160,7 @@ export function createEnglishReplies(clinicName: string): Replies {
      * enviado à conversa. O agendador escolhe com gate.pickVariant.
      */
     reminder(start: Date, service: string, name: string | null, tz: string): string[] {
-      const when = formatDayTime(start, tz);
+      const when = formatWhen(start, tz);
       const label = serviceLabel(service);
       return [
         `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinicName} on ${when} (${label}). Please reply YES to confirm.`,
@@ -171,7 +171,7 @@ export function createEnglishReplies(clinicName: string): Replies {
 
     /** O cliente respondeu YES ao lembrete. */
     reminderConfirmed(start: Date, name: string | null, tz: string) {
-      return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatDayTime(start, tz)} is confirmed. See you at ${clinicName}.`;
+      return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatWhen(start, tz)} is confirmed. See you at ${clinicName}.`;
     },
 
     daysIntro() {

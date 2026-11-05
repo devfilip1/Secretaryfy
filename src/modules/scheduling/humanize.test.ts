@@ -20,17 +20,28 @@ test("aceita a reescrita fiel de uma lista de horários, em inglês e português
 });
 
 test("recusa horário trocado", () => {
-  const rewrite = en.replace("1. 10:00 AM", "1. 10:15 AM");
+  const rewrite = en.replace("• 10:00 AM", "• 10:15 AM");
   assert.notEqual(rewrite, en);
   assert.equal(guardRewrite(en, rewrite), false);
   assert.equal(guardRewrite(en, faithful(en).replace(/\d+:\d+/, "11:45")), false);
 });
 
 test("recusa linha numerada descartada", () => {
-  const rewrite = en
+  const numbered = 'Available times:\n1. 9:00 AM\n2. 10:00 AM\nReply with the number of the time.';
+  const rewrite = numbered
     .split("\n")
     .filter((line) => !line.startsWith("1. "))
     .join("\n");
+  assert.equal(guardRewrite(numbered, rewrite), false);
+  assert.equal(guardRewrite(numbered, faithful(numbered)), true);
+});
+
+test("recusa linha com bolinha (•) descartada", () => {
+  const rewrite = en
+    .split("\n")
+    .filter((line) => !line.startsWith("• 10:00 AM"))
+    .join("\n");
+  assert.notEqual(rewrite, en);
   assert.equal(guardRewrite(en, rewrite), false);
 });
 
@@ -39,9 +50,10 @@ test("recusa número inventado", () => {
 });
 
 test("recusa quando some a palavra entre aspas", () => {
-  const rewrite = en.replace('"more"', "more");
-  assert.notEqual(rewrite, en);
-  assert.equal(guardRewrite(en, rewrite), false);
+  const original = `${en} Say "more" for more times.`;
+  const rewrite = original.replace('"more"', "more");
+  assert.notEqual(rewrite, original);
+  assert.equal(guardRewrite(original, rewrite), false);
 });
 
 test("recusa markdown", () => {

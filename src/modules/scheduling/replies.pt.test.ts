@@ -63,16 +63,16 @@ test("texto em pt usa a linguagem da clínica, sem o nome padrão quando a clín
     const texts = Array.isArray(out) ? out : [out];
     for (const text of texts) assert.doesNotMatch(text, /DentalSafe/, name);
   }
-  assert.equal(pt.booked(start, tz), "Tudo certo, seu horário está marcado! 📅 qua., 21 de out. às 10:00. Até lá, na Clínica Sorriso.");
+  assert.equal(pt.booked(start, tz), "Tudo certo, seu horário está marcado! 📅 quarta-feira, 21 de outubro às 10:00. Até lá, na Clínica Sorriso.");
 });
 
-test("listas numeradas em pt mantêm 1. 2. e as linhas de horário", () => {
+test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horário", () => {
   const days = pt.offerDays(["2026-10-21", "2026-10-22"], tz);
-  assert.match(days, /\n1\. qua\., 21 de out\.\n2\. qui\., 22 de out\.\n/);
+  assert.match(days, /\n• quarta-feira, 21 de outubro\n• quinta-feira, 22 de outubro\n/);
   const times = pt.offerSlots("2026-10-21", slots, tz, false);
-  assert.match(times, /\n1\. 09:00\n2\. 10:00\n/);
-  assert.match(pt.chooseService(), /\n1\. Limpeza Dental\n/);
-  assert.match(pt.chooseService(), /\n9\. Não tenho certeza — avaliação geral\n/);
+  assert.match(times, /\n• 09:00\n• 10:00\n/);
+  assert.match(pt.chooseService(), /\n• Limpeza Dental\n/);
+  assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
 });
 
 test("confirmação pede SIM, e o lembrete também", () => {
@@ -83,7 +83,7 @@ test("confirmação pede SIM, e o lembrete também", () => {
 
 test("clínica em inglês continua com o nome configurado", () => {
   const en = createReplies({ language: "en", clinicName: "Smile Clinic" });
-  assert.equal(en.booked(start, tz), "You're booked! 📅 Wed, Oct 21 at 10:00 AM. See you at Smile Clinic.");
+  assert.equal(en.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at Smile Clinic.");
 });
 
 test("horas de antecedência em pt", () => {

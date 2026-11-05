@@ -184,3 +184,14 @@ export function formatDayTime(at: Date, timeZone: string, language: Language = "
 function toZoned(at: Date | string, timeZone: string): DateTime {
   return typeof at === "string" ? DateTime.fromISO(at, { zone: timeZone }) : DateTime.fromJSDate(at, { zone: timeZone });
 }
+
+/** Dia por extenso, como uma pessoa escreve: "quinta-feira, 5 de novembro" / "Thursday, November 5". */
+export function formatDayLong(at: Date | string, timeZone: string, language: Language = "en"): string {
+  const dt = toZoned(at, timeZone);
+  return language === "pt" ? dt.setLocale("pt-BR").toFormat("cccc, d 'de' LLLL") : dt.setLocale("en-US").toFormat("cccc, LLLL d");
+}
+
+/** Dia por extenso e hora: "sexta-feira, 6 de novembro às 11:00". */
+export function formatWhen(at: Date, timeZone: string, language: Language = "en"): string {
+  return `${formatDayLong(at, timeZone, language)}${language === "pt" ? " às " : " at "}${formatTime(at, timeZone, language)}`;
+}

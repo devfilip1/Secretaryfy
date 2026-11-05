@@ -40,7 +40,7 @@ sequenceDiagram
   H->>O: interpret (only if rules can't)
   O-->>H: {"intent":"book","date":"2026-10-27",…}
   H->>F: flow.handle(interpretation, session)
-  F-->>H: reply text (numbered times for Tuesday)
+  F-->>H: reply text (times for Tuesday)
   H->>G: sendAssistant(reply)
   G->>G: rules: opted_out, paused, outside_window, daily, loop, unanswered, duplicate
   G->>E: mark as read (after 2–8 s), then send with "typing…"
@@ -150,7 +150,7 @@ The Evolution API then echoes the sent message back through the webhook; the uni
 
 ### Optional humanizer (HUMANIZE_REPLIES=1)
 
-Only the text of a scheduling flow reply (not brochure answers, handoffs, reminders or the interpreter-unavailable text) can pass through [humanize.ts](../src/modules/scheduling/humanize.ts). The model rewords it as a warm message, and `guardRewrite` accepts the rewrite only if every numbered line, 📅 👤 🦷 line, number, time, quoted word and YES/NO/SIM/NÃO of the original survives unchanged, with no new numbers, no markdown and no growth beyond about 1.6x. Any refusal, error or timeout sends the fixed text.
+Only the text of a scheduling flow reply (not brochure answers, handoffs, reminders or the interpreter-unavailable text) can pass through [humanize.ts](../src/modules/scheduling/humanize.ts). The model rewords it as a warm message, and `guardRewrite` accepts the rewrite only if every numbered or bullet line, 📅 👤 🦷 line, number, time, quoted word and YES/NO/SIM/NÃO of the original survives unchanged, with no new numbers, no markdown and no growth beyond about 1.6x. Any refusal, error or timeout sends the fixed text.
 
 ## See also
 

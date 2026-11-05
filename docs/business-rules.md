@@ -45,8 +45,8 @@ A time is offered only if it falls within that weekday's opening hours, on a ste
 - **Where:** `slotsForDay`, `bookingWindow` in [availability.ts](../src/modules/scheduling/availability.ts)
 - **Validation of the rules:** at least one open day; start before end; length 15–240 min in multiples of 5; each open day at least one appointment long. `rulesSchema` in [rules.ts](../src/modules/scheduling/rules.ts)
 
-### BR-SCH-02 · Options are numbered, at most 6 per message
-Days and times are offered as numbered lists of up to 6; "more" shows the next page.
+### BR-SCH-02 · Options are bullets, at most 6 per message
+Days (written in full, e.g. "quinta-feira, 5 de novembro") and times are offered as bullet lists of up to 6; asking for more shows the next page. The customer picks in free text ("quero sexta", "dia 10", "o primeiro", "o das 9", "quero ver mais"); the code maps the phrase to the offered option, and a bare number still works. A phrase that points to more than one option goes to the model or is asked again.
 - **Where:** `PAGE` in [flow.ts](../src/modules/scheduling/flow.ts)
 
 ### BR-SCH-03 · Nothing is booked without "yes"

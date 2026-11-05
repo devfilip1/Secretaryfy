@@ -19,7 +19,7 @@ const OUTPUT = z.object({ message: z.string() });
 const LANGUAGE_NAMES = { en: "English", pt: "Brazilian Portuguese" } as const;
 
 /** Linhas que têm de sair exatamente como foram escritas: itens numerados e as de 📅 👤 🦷. */
-const FIXED_LINE = /^(?:\d+\. .+|📅.*|👤.*|🦷.*)$/u;
+const FIXED_LINE = /^(?:\d+\. .+|• .+|📅.*|👤.*|🦷.*)$/u;
 const KEY_WORD = /(?<![\p{L}\p{N}])(?:YES|NO|SIM|NÃO|NAO)(?![\p{L}\p{N}])/giu;
 const NUMBER = /\d+(?::\d+)?/g;
 const QUOTED = /"[^"]*"/g;
