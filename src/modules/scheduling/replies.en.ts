@@ -200,6 +200,16 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       return options[Math.floor(random() * options.length)];
     },
 
+    staff(urgent: boolean) {
+      return urgent
+        ? "I'm so sorry. I'm letting the team know right now so they can talk to you as soon as possible. If the pain or swelling gets worse, please go to an emergency room."
+        : "Understood. I'll get someone from our team to talk to you here. They'll reach out as soon as possible.";
+    },
+
+    stayOnTopic() {
+      return "I can only help with information about the clinic, treatments and appointments. How can I help?";
+    },
+
     myName() {
       return assistantName ? `I'm ${assistantName} from ${clinicName}. How can I help?` : `This is ${clinicName}. How can I help?`;
     },

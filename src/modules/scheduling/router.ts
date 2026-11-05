@@ -4,7 +4,7 @@ import type { ConnectionStore } from "../google/connection.js";
 import type { InboxService } from "../inbox/service.js";
 import type { ConversationTurn } from "../rag/client.js";
 import type { IncomingMessage } from "../whatsapp/evolution.js";
-import type { Reply } from "../whatsapp/handle-message.js";
+import { splitReply, type Reply } from "../whatsapp/handle-message.js";
 import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
 import type { Intent, Interpreter } from "./interpret.js";
@@ -20,10 +20,10 @@ const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_
 interface Deps {
   interpreter: Interpreter;
   flow: SchedulingFlow;
-  store: Pick<SchedulingStore, "getSession" | "findReminderAwaiting" | "confirm">;
+  store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
     InboxService,
-    "getConversation" | "recentHistory" | "knownName" | "setCustomerName" | "markNameAsked" | "customerMessagesSince" | "recordSystem"
+    "getConversation" | "flagNeedsAttention" | "recentHistory" | "knownName" | "setCustomerName" | "markNameAsked" | "customerMessagesSince" | "recordSystem"
   >;
   connection: Pick<ConnectionStore, "getForUse">;
   rules: Pick<RulesStore, "get">;
@@ -89,7 +89,13 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
     async function fromBrochure(): Promise<Reply> {
-      return askNameOnce(greet({ text: await answerQuestion(text, log, message.phone, history), split: true }));
+      const answer = await answerQuestion(text, log, message.phone, history);
+      // A proteção descarta uma mensagem igual a uma já enviada: a resposta repetida vai numa mensagem só, com uma abertura
+      const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
+      if (splitReply(answer).some((part) => said.includes(part))) {
+        return askNameOnce({ text: `${replies.again()}\n${splitReply(answer).join("\n")}` });
+      }
+      return askNameOnce(greet({ text: answer, split: true }));
     }
 
     const started = Date.now();
@@ -118,6 +124,18 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       { phone: message.phone, intent: interpretation.intent, source: interpretation.source, step: session?.step ?? null, latency_ms: Date.now() - started },
       "mensagem interpretada",
     );
+
+    // Instruções, prompt, troca de papel: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
+    if (interpretation.intent === "manipulation") return { text: replies.stayOnTopic() };
+
+    // O que só a equipe pode decidir (pessoa, desconto, queixa, saúde): nada de resposta do modelo, só o aviso e a pausa
+    if (interpretation.intent === "needs_staff") {
+      const urgent = interpretation.urgent === true;
+      await store.clearSession(conversationId);
+      await inbox.flagNeedsAttention(conversationId);
+      await inbox.recordSystem(conversationId, systemNotes.needsStaff(urgent));
+      return { text: replies.staff(urgent), ignorePause: true };
+    }
 
     // Quem atende e a saudação: o modelo reconhece a intenção, o texto é nosso
     if (interpretation.intent === "who_are_you") return { text: replies.myName() };

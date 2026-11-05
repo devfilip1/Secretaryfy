@@ -216,6 +216,16 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       return options[Math.floor(random() * options.length)];
     },
 
+    staff(urgent: boolean) {
+      return urgent
+        ? "Sinto muito por isso. Já estou avisando a equipe para falar com você o quanto antes. Se a dor ou o inchaço piorar, procure um pronto atendimento."
+        : "Entendi. Vou chamar alguém da nossa equipe para falar com você por aqui. Assim que possível, entram em contato.";
+    },
+
+    stayOnTopic() {
+      return "Só consigo ajudar com informações da clínica, tratamentos e agendamentos. Como posso ajudar?";
+    },
+
     myName() {
       return assistantName ? `Meu nome é ${assistantName}, da ${clinicName}. Como posso ajudar?` : `Aqui é da ${clinicName}. Como posso ajudar?`;
     },

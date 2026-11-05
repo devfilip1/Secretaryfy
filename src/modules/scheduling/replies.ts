@@ -48,6 +48,10 @@ export interface Replies {
   greeting(hour: number): string;
   /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
   again(random?: () => number): string;
+  /** O cliente precisa de alguém da equipe (a conversa é pausada); `urgent`: dor, inchaço ou outra urgência de saúde */
+  staff(urgent: boolean): string;
+  /** Tentativa de mudar o comportamento ou de extrair as instruções: nada é respondido, volta ao assunto da clínica */
+  stayOnTopic(): string;
   /** O cliente perguntou o nome de quem atende */
   myName(): string;
 }
@@ -81,6 +85,10 @@ export const systemNotes = {
     `📅 Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
   cancelledByCustomer: (start: Date, tz: string) => `📅 Cancelled by the customer: ${formatDayTime(start, tz)}`,
   cancelledInCalendar: (start: Date, tz: string) => `📅 Cancelled in the calendar: ${formatDayTime(start, tz)}`,
+  needsStaff: (urgent: boolean) =>
+    urgent
+      ? "⚠️ Urgent: the customer needs the team (pain, swelling or another health problem). The assistant was paused in this conversation"
+      : "⚠️ The customer needs someone from the team (a person, a discount or special condition, a complaint or medical advice). The assistant was paused in this conversation",
   handoff: () => "⚠️ The assistant did not understand the customer and was paused in this conversation",
   reminderSent: (start: Date, tz: string) => `🔔 Reminder sent for ${formatDayTime(start, tz)}`,
   reminderNotSent: (start: Date, reason: string, tz: string) => `🔔 Reminder not sent for ${formatDayTime(start, tz)}: ${reason}`,
