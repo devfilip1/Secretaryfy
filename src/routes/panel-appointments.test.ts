@@ -140,7 +140,7 @@ test("POST /api/appointments com conversa no telefone: registro no histórico", 
   const conv = await conversation();
   await book(VALID);
   const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.deepEqual(notes, ["📅 Booked from the panel: Thu, Oct 22 at 10:00 AM (60 min) — Dental Cleaning"]);
+  assert.deepEqual(notes, ["Booked from the panel: Thu, Oct 22 at 10:00 AM (60 min), Dental Cleaning"]);
 });
 
 test("POST /api/appointments: um horário futuro por telefone, como o assistente", async () => {
@@ -240,7 +240,7 @@ test("POST /api/appointments/:id/confirm: confirma, o lembrete pendente deixa de
 
   await app.inject({ method: "POST", url: `/api/appointments/${appointment.id}/confirm` });
   const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.equal(notes.filter((t) => t?.startsWith("✅ Appointment confirmed by the operator")).length, 1);
+  assert.equal(notes.filter((t) => t?.startsWith("Appointment confirmed by the operator")).length, 1);
 });
 
 test("confirmar horário inexistente, passado ou cancelado: 404", async () => {

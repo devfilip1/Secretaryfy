@@ -43,6 +43,7 @@ beforeEach(async () => {
       inboxRepo: repo,
       store: withAppointmentEvents(rawStore, () => publish({ type: "appointments.updated" })),
       calendar: fake.gateway,
+      connection: { getForUse: async () => null },
       publish,
       log: { warn: () => {} },
       now: () => NOW,
@@ -80,6 +81,11 @@ async function maria() {
 
 const patch = (id: string, payload: unknown) => app.inject({ method: "PATCH", url: `/api/customers/${id}`, payload: payload as object });
 const titles = () => [...fake.events.values()].map((e) => e.summary).sort();
+
+test("GET /api/customers traz o fuso da clínica (o de reserva, sem agenda conectada)", async () => {
+  const json = (await app.inject({ url: "/api/customers" })).json();
+  assert.equal(json.timeZone, "America/Sao_Paulo");
+});
 
 test("GET /api/customers traz id, nome, telefone, anotações, conversa e agendamentos", async () => {
   const customer = await maria();

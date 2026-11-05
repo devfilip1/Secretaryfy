@@ -36,7 +36,8 @@ export const formatDay = (iso: string) => dateFmt.format(new Date(iso));
 /** Data curta (M/D/YY) do instante. */
 export const formatDate = (iso: string) => shortDateFmt.format(new Date(iso));
 
-/** Formatadores de dia e hora no fuso da clínica (agenda e agendamento). */
+/** Formatadores de dia e hora no fuso da clínica (agenda, agendamento e clientes). */
+export type ClinicFormats = ReturnType<typeof clinicFormats>;
 export function clinicFormats(timeZone: string | undefined) {
   return {
     day: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }),

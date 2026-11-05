@@ -3,8 +3,8 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import type { AppointmentRow } from "../db/schema.js";
 import type { CustomerRepository } from "../modules/customers/repository.js";
-import type { ConnectionStore } from "../modules/google/connection.js";
-import { CalendarUnavailable, FALLBACK_TIME_ZONE, type CalendarGateway } from "../modules/google/gateway.js";
+import { clinicTimeZone, type ConnectionStore } from "../modules/google/connection.js";
+import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gateway.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
@@ -60,9 +60,7 @@ export function panelAppointmentsRoutes({
   now: clock = () => new Date(),
 }: Deps) {
   /** Fuso da agenda conectada; sem agenda, o de reserva. */
-  async function timeZoneOf() {
-    return (await connection.getForUse())?.timeZone ?? FALLBACK_TIME_ZONE;
-  }
+  const timeZoneOf = () => clinicTimeZone(connection);
 
   function present(appt: AppointmentRow | UpcomingAppointment, extra: { now: Date; timeZone: string; conversationId: string | null }) {
     const { now, timeZone, conversationId } = extra;

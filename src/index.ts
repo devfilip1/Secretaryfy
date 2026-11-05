@@ -97,6 +97,7 @@ await app.register(
     inboxRepo,
     store: schedulingStore,
     calendar: googleCalendar,
+    connection: connectionStore,
     publish: bus.publish,
     log: app.log,
   }),

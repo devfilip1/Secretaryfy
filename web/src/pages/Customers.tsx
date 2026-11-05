@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, StickyNote } from "lucide-react";
 import { deleteCustomer, listCustomers, updateCustomer, type Customer, type CustomerAppointment } from "../api";
-import { formatDate, formatDateTime, formatPhone } from "../format";
+import { clinicFormats, formatDate, formatPhone, type ClinicFormats } from "../format";
 import { useInboxEvents } from "../useEvents";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +23,15 @@ function nextAppointment(c: Customer): CustomerAppointment | null {
   return future.at(-1) ?? null; // a lista vem dos mais recentes para os mais antigos
 }
 
-function appointmentLabel(a: CustomerAppointment) {
-  return `${formatDateTime(a.startsAt)}${a.service ? ` · ${a.service}` : ""}`;
+function appointmentLabel(a: CustomerAppointment, formats: ClinicFormats) {
+  const when = new Date(a.startsAt);
+  return `${formats.day.format(when)}, ${formats.time.format(when)}${a.service ? ` · ${a.service}` : ""}`;
 }
 
 /** Cadastro de clientes: quem já confirmou um horário (specs/005), com edição e anotações (specs/006). */
 export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[] | null>(null);
+  const [timeZone, setTimeZone] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function CustomersPage() {
     listCustomers()
       .then((r) => {
         setCustomers(r.customers);
+        setTimeZone(r.timeZone);
         setError(null);
       })
       .catch(() => setError("Could not load the customers."));
@@ -48,6 +51,8 @@ export function CustomersPage() {
   useInboxEvents((event) => {
     if (event.type === "customers.updated" || event.type === "reconnected") load();
   });
+
+  const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,7 +128,7 @@ export function CustomersPage() {
                     >
                       <span className="truncate font-semibold">{c.name}</span>
                       <span className="tabular-nums max-md:col-start-1">{formatPhone(c.phone)}</span>
-                      <Muted className="max-md:col-start-1">{next ? `Next: ${appointmentLabel(next)}` : "No upcoming appointment"}</Muted>
+                      <Muted className="max-md:col-start-1">{next ? `Next: ${appointmentLabel(next, formats)}` : "No upcoming appointment"}</Muted>
                       {expanded ? (
                         <ChevronDown className="size-4 text-muted-foreground max-md:col-start-2 max-md:row-start-1" aria-hidden="true" />
                       ) : (
@@ -137,7 +142,7 @@ export function CustomersPage() {
                       )}
                     </button>
                     {expanded && (
-                      <CustomerDetail customer={c} onSaved={replace} onDelete={() => remove(c)} deleting={deleting === c.id} />
+                      <CustomerDetail customer={c} formats={formats} onSaved={replace} onDelete={() => remove(c)} deleting={deleting === c.id} />
                     )}
                   </li>
                 );
@@ -153,11 +158,13 @@ export function CustomersPage() {
 /** Ficha aberta: nome editável, anotações, conversa e exclusão (specs/006 US2). */
 function CustomerDetail({
   customer: c,
+  formats,
   onSaved,
   onDelete,
   deleting,
 }: {
   customer: Customer;
+  formats: ClinicFormats;
   onSaved: (c: Customer) => void;
   onDelete: () => void;
   deleting: boolean;
@@ -285,7 +292,7 @@ function CustomerDetail({
         <ul className="list-disc pl-5 leading-relaxed">
           {c.appointments.map((a) => (
             <li key={a.startsAt + a.status} className={cn(a.status === "cancelled" && "text-muted-foreground line-through")}>
-              {appointmentLabel(a)}
+              {appointmentLabel(a, formats)}
               {a.status === "cancelled" && (
                 <Badge variant="secondary" className="ml-2 font-normal text-muted-foreground">
                   cancelled

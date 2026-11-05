@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { CustomerRepository, CustomerWithAppointments } from "../modules/customers/repository.js";
+import { clinicTimeZone, type ConnectionStore } from "../modules/google/connection.js";
 import type { CalendarGateway } from "../modules/google/gateway.js";
 import type { Publish } from "../modules/inbox/events.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
@@ -15,6 +16,7 @@ interface Deps {
   /** Horários futuros do cliente, para acompanhar a troca de nome (specs/006 R6) */
   store: Pick<SchedulingStore, "futureBookedByPhone" | "setCustomerName">;
   calendar: Pick<CalendarGateway, "renameEvent">;
+  connection: Pick<ConnectionStore, "getForUse">;
   publish: Publish;
   log?: { warn: (obj: object, msg: string) => void };
   now?: () => Date;
@@ -46,7 +48,7 @@ function present(row: CustomerWithAppointments, conversationId: string | null) {
 export type CustomerJson = ReturnType<typeof present>;
 
 /** Aba Customers do painel: o cadastro feito pelo assistente (specs/005), para consultar, editar (specs/006) e excluir. */
-export function panelCustomersRoutes({ customers, inbox, inboxRepo, store, calendar, publish, log = console, now = () => new Date() }: Deps) {
+export function panelCustomersRoutes({ customers, inbox, inboxRepo, store, calendar, connection, publish, log = console, now = () => new Date() }: Deps) {
   async function presentAll() {
     const rows = await customers.list();
     const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
@@ -73,7 +75,7 @@ export function panelCustomersRoutes({ customers, inbox, inboxRepo, store, calen
   }
 
   return async function (app: FastifyInstance) {
-    app.get("/api/customers", async () => ({ customers: await presentAll() }));
+    app.get("/api/customers", async () => ({ timeZone: await clinicTimeZone(connection), customers: await presentAll() }));
 
     app.patch("/api/customers/:id", async (req, reply) => {
       const params = idParams.safeParse(req.params);
