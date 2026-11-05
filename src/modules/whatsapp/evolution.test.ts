@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { markMessagesRead, parseEvolutionEvent, sendWhatsAppText } from "./evolution.js";
+import { createEvolutionClient, parseEvolutionEvent } from "./evolution.js";
+
+const { sendWhatsAppText, markMessagesRead } = createEvolutionClient({
+  apiUrl: "http://evo",
+  instance: "secretaryfy",
+  apiKey: "key",
+});
 
 function upsert(overrides: { key?: object; message?: object; event?: string; pushName?: string } = {}) {
   return {
@@ -125,14 +131,14 @@ function captureFetch(response: unknown = { key: { id: "OUT1" } }) {
 test("sendText leva o tempo de digitação e desliga a prévia de link", async () => {
   const f = captureFetch();
   assert.deepEqual(await sendWhatsAppText("5511999999999", "Oi", { delayMs: 4200, fetch: f.fetch }), { waId: "OUT1" });
-  assert.match(f.calls[0].url, /\/message\/sendText\//);
+  assert.equal(f.calls[0].url, "http://evo/message/sendText/secretaryfy");
   assert.deepEqual(f.calls[0].body, { number: "5511999999999", text: "Oi", delay: 4200, linkPreview: false });
 });
 
 test("markMessageAsRead leva as mensagens do cliente", async () => {
   const f = captureFetch({});
   await markMessagesRead("5511999999999", ["A", "B"], { fetch: f.fetch });
-  assert.match(f.calls[0].url, /\/chat\/markMessageAsRead\//);
+  assert.equal(f.calls[0].url, "http://evo/chat/markMessageAsRead/secretaryfy");
   assert.deepEqual(f.calls[0].body, {
     readMessages: [
       { remoteJid: "5511999999999@s.whatsapp.net", fromMe: false, id: "A" },

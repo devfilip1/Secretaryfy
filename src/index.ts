@@ -2,17 +2,15 @@ import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { sql } from "./db/client.js";
-import { buildConnectUrl, exchangeCode, isGoogleConfigured, revoke } from "./modules/google/oauth.js";
 import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
-import { instance } from "./modules/whatsapp/instance.js";
-import { connectionStore, googleCalendar, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
+import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
 import { booking, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
 import { googleOAuthRoutes } from "./routes/google-oauth.js";
 import { healthRoutes } from "./routes/health.js";
-import { antibanRepo, customerRepo, gate, inbox, inboxRepo, useProtectionLogger } from "./routes/inbox.js";
+import { antibanRepo, customerRepo, gate, inbox, inboxRepo, instance, useProtectionLogger } from "./routes/inbox.js";
 import { panelApiRoutes } from "./routes/panel-api.js";
 import { panelAppointmentsRoutes } from "./routes/panel-appointments.js";
 import { panelCalendarRoutes } from "./routes/panel-calendar.js";
@@ -47,7 +45,7 @@ for (const message of await antibanRepo.blockOrphanSending()) {
 await app.register(cookie);
 registerPanelAuth(app, { password: env.OPERATOR_PASSWORD, publicUrl: env.PUBLIC_URL });
 if (!env.OPERATOR_PASSWORD) app.log.warn("painel desativado: defina OPERATOR_PASSWORD");
-if (!isGoogleConfigured()) {
+if (!googleOAuth.isConfigured()) {
   app.log.warn("Google Agenda indisponível: GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não são credenciais reais (docs/development.md, Google Calendar setup)");
 }
 
@@ -65,7 +63,7 @@ await app.register(
   googleOAuthRoutes({
     connection: connectionStore,
     panelUrl: env.PANEL_URL ?? env.PUBLIC_URL,
-    exchangeCode: fakeMode ? exchangeOffline : exchangeCode,
+    exchangeCode: fakeMode ? exchangeOffline : googleOAuth.exchangeCode,
     listCalendars: listCalendarsFor,
   }),
 );
@@ -111,10 +109,10 @@ await app.register(
     connection: connectionStore,
     calendar: googleCalendar,
     rules: rulesStore,
-    buildConnectUrl,
-    googleConfigured: isGoogleConfigured,
+    buildConnectUrl: googleOAuth.buildConnectUrl,
+    googleConfigured: googleOAuth.isConfigured,
     // Modo fake: o token da conexão falsa não existe no Google, então não há o que revogar
-    revoke: fakeMode ? async () => {} : revoke,
+    revoke: fakeMode ? async () => {} : googleOAuth.revoke,
     fakeMode,
   }),
 );

@@ -9,9 +9,8 @@ import { createDebouncer } from "../modules/antiban/debounce.js";
 import { matchCommand } from "../modules/antiban/opt-out.js";
 import { parseEvolutionEvent, type IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/handle-message.js";
-import { instance } from "../modules/whatsapp/instance.js";
 import { connectionStore, rulesStore } from "./calendar.js";
-import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
+import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo, instance } from "./inbox.js";
 import { clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
 import { fixedTextsFor } from "../modules/antiban/texts.js";
 

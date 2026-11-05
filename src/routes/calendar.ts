@@ -6,6 +6,7 @@ import { createGoogleCalendar } from "../modules/google/calendar.js";
 import { createConnectionStore } from "../modules/google/connection.js";
 import { createFakeCalendar } from "../modules/google/fake-calendar.js";
 import { prepareFakeCalendar } from "../modules/google/fake-mode.js";
+import { createGoogleOAuth } from "../modules/google/oauth.js";
 import { bus } from "../modules/inbox/events.js";
 import { createRulesStore } from "../modules/scheduling/rules.js";
 
@@ -14,7 +15,15 @@ export const connectionStore = createConnectionStore({ db, publish: bus.publish 
 
 /** Modo CALENDAR_MODE=fake: agenda em memória. Nesse modo, googleCalendar é o gateway falso (o nome é mantido nos chamadores). */
 const fakeCalendar = env.CALENDAR_MODE === "fake" ? createFakeCalendar() : null;
-export const googleCalendar = fakeCalendar ? fakeCalendar.gateway : createGoogleCalendar({ connection: connectionStore });
+/** Credenciais do Google e o endereço de volta do OAuth, lidos do ambiente só aqui. */
+export const googleOAuth = createGoogleOAuth({
+  clientId: env.GOOGLE_CLIENT_ID,
+  clientSecret: env.GOOGLE_CLIENT_SECRET,
+  redirectUri: `${env.PUBLIC_URL}/auth/google/callback`,
+});
+export const googleCalendar = fakeCalendar
+  ? fakeCalendar.gateway
+  : createGoogleCalendar({ connection: connectionStore, authClientFor: googleOAuth.authClientFor });
 export const rulesStore = createRulesStore(db);
 
 /** Modo fake: deixa a conexão conectada com a agenda falsa (idempotente). Chamado pelo index.ts depois que o banco está pronto. */
@@ -51,5 +60,6 @@ export function listCalendarsFor(refreshToken: string) {
       getForUse: async () => ({ refreshToken, calendarId: "primary", timeZone: "UTC", status: "connected" }),
       markNeedsReauth: async () => {},
     },
+    authClientFor: googleOAuth.authClientFor,
   }).listCalendars();
 }

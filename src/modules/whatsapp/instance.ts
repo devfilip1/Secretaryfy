@@ -1,6 +1,5 @@
-import { env as appEnv } from "../../config/env.js";
 import { bus, type ConnectionJson, type Publish } from "../inbox/events.js";
-import type { ConnectionEvent, QrCodeEvent } from "./evolution.js";
+import type { ConnectionEvent, EvolutionConfig, QrCodeEvent } from "./evolution.js";
 
 /** A Evolution API respondeu com erro ou não respondeu. */
 export class EvolutionError extends Error {
@@ -34,15 +33,14 @@ const POLL_MS = 10_000;
 interface Options {
   fetch?: typeof fetch;
   publish?: Publish;
-  env?: Pick<
-    typeof appEnv,
-    "EVOLUTION_API_URL" | "EVOLUTION_API_KEY" | "EVOLUTION_INSTANCE" | "EVOLUTION_WEBHOOK_TOKEN" | "PUBLIC_URL" | "WEBHOOK_BASE_URL"
-  >;
+  evolution: EvolutionConfig;
+  /** Endereço de onde a Evolution API chama o webhook (sem o caminho) e o token que ela devolve */
+  webhook: { baseUrl: string; token: string };
   setInterval?: typeof setInterval;
   clearInterval?: typeof clearInterval;
   /** Pedidos de QR code permitidos por janela (specs/004 FR-029) */
-  qrAttempts?: number;
-  qrWindowMs?: number;
+  qrAttempts: number;
+  qrWindowMs: number;
   now?: () => Date;
 }
 
@@ -50,13 +48,14 @@ interface Options {
 export function createInstanceManager({
   fetch: doFetch = fetch,
   publish = bus.publish,
-  env = appEnv,
+  evolution,
+  webhook,
   setInterval: every = setInterval,
   clearInterval: stopEvery = clearInterval,
-  qrAttempts = appEnv.ANTIBAN_QR_ATTEMPTS,
-  qrWindowMs = appEnv.ANTIBAN_QR_WINDOW_MS,
+  qrAttempts,
+  qrWindowMs,
   now = () => new Date(),
-}: Options = {}) {
+}: Options) {
   const state: ConnectionJson = { state: "close", number: null, qr: null };
   // Horários dos últimos pedidos de QR code; cada tentativa nova é um sinal a mais para o WhatsApp
   const qrRequests: number[] = [];
@@ -69,9 +68,9 @@ export function createInstanceManager({
   async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
     let res: Response;
     try {
-      res = await doFetch(`${env.EVOLUTION_API_URL}${path}`, {
+      res = await doFetch(`${evolution.apiUrl}${path}`, {
         method,
-        headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
+        headers: { "Content-Type": "application/json", apikey: evolution.apiKey },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(10_000),
       });
@@ -93,7 +92,7 @@ export function createInstanceManager({
     if (changed) publish({ type: "connection.updated", ...state });
   }
 
-  const instance = encodeURIComponent(env.EVOLUTION_INSTANCE);
+  const instance = encodeURIComponent(evolution.instance);
 
   async function requestQr(): Promise<ConnectionJson> {
     try {
@@ -102,7 +101,7 @@ export function createInstanceManager({
     } catch (err) {
       if (!(err instanceof EvolutionError && err.status === 404)) throw err;
       await call("POST", "/instance/create", {
-        instanceName: env.EVOLUTION_INSTANCE,
+        instanceName: evolution.instance,
         integration: "WHATSAPP-BAILEYS",
         qrcode: true,
       });
@@ -110,7 +109,7 @@ export function createInstanceManager({
     await call("POST", `/webhook/set/${instance}`, {
       webhook: {
         enabled: true,
-        url: `${env.WEBHOOK_BASE_URL ?? env.PUBLIC_URL}/webhooks/evolution?token=${encodeURIComponent(env.EVOLUTION_WEBHOOK_TOKEN)}`,
+        url: `${webhook.baseUrl}/webhooks/evolution?token=${encodeURIComponent(webhook.token)}`,
         byEvents: false,
         base64: false,
         events: WEBHOOK_EVENTS,
@@ -194,5 +193,3 @@ export function createInstanceManager({
 }
 
 export type InstanceManager = ReturnType<typeof createInstanceManager>;
-
-export const instance = createInstanceManager();
