@@ -465,7 +465,7 @@ test("mensagens do debounce desde a nossa resposta saem do histórico e contam p
   assert.deepEqual(r.inputs[0].history.map((m) => m.content), ["hi", "Hello!"]);
 });
 
-test("o folheto não recebe a nossa saudação do histórico, que faria repeti-la", async () => {
+test("o folheto vê a nossa saudação só como \"Bom dia!\", sem o nome, para não repeti-la nem cumprimentar de novo", async () => {
   const r = setup({
     intent: "question",
     history: [
@@ -474,5 +474,5 @@ test("o folheto não recebe a nossa saudação do histórico, que faria repeti-l
     ],
   });
   await r.reply();
-  assert.deepEqual(r.histories[0], [{ role: "user", content: "hi" }]);
+  assert.deepEqual(r.histories[0], [{ role: "user", content: "hi" }, { role: "assistant", content: replies.salutation(10) }]);
 });

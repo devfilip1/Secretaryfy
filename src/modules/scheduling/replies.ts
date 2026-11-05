@@ -47,6 +47,8 @@ export interface Replies {
   howCanIHelp(): string;
   /** Primeira mensagem da conversa: saudação pela hora do dia (0 a 23, no fuso da clínica) e quem fala */
   greeting(hour: number): string;
+  /** Só a saudação pela hora do dia ("Boa noite!"), sem quem fala: é o que o folheto vê da nossa saudação */
+  salutation(hour: number): string;
   /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
   again(random?: () => number): string;
   /** O cliente precisa de alguém da equipe (a conversa é pausada); `urgent`: dor, inchaço ou outra urgência de saúde */

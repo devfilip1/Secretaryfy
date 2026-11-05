@@ -204,9 +204,12 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
       return "Como posso ajudar?";
     },
 
+    salutation(hour: number) {
+      return `${{ morning: "Bom dia", afternoon: "Boa tarde", evening: "Boa noite" }[dayPeriod(hour)]}!`;
+    },
+
     greeting(hour: number) {
-      const salutation = { morning: "Bom dia", afternoon: "Boa tarde", evening: "Boa noite" }[dayPeriod(hour)];
-      return assistantName ? `${salutation}! Meu nome é ${assistantName}, da ${clinicName}.` : `${salutation}! Aqui é da ${clinicName}.`;
+      return assistantName ? `${r.salutation(hour)} Meu nome é ${assistantName}, da ${clinicName}.` : `${r.salutation(hour)} Aqui é da ${clinicName}.`;
     },
 
     again(random: () => number = Math.random) {

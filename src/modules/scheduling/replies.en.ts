@@ -192,9 +192,12 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
       return "Could you tell me yes or no?";
     },
 
+    salutation(hour: number) {
+      return `${{ morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" }[dayPeriod(hour)]}!`;
+    },
+
     greeting(hour: number) {
-      const salutation = { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" }[dayPeriod(hour)];
-      return assistantName ? `${salutation}! This is ${assistantName} from ${clinicName}.` : `${salutation}! You've reached ${clinicName}.`;
+      return assistantName ? `${r.salutation(hour)} This is ${assistantName} from ${clinicName}.` : `${r.salutation(hour)} You've reached ${clinicName}.`;
     },
 
     again(random: () => number = Math.random) {

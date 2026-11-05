@@ -82,14 +82,26 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     // A primeira resposta da conversa abre com a saudação pela hora do dia, como uma secretária (o histórico não tem resposta nossa)
     const firstReply = !history.some((m) => m.role === "assistant");
-    const salutation = replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour);
+    const hour = DateTime.fromJSDate(at, { zone: timeZone }).hour;
+    const opening = replies.greeting(hour);
     const greet = (reply: Reply): Reply =>
       firstReply
-        ? { ...reply, text: `${salutation}\n\n${reply.text}`, split: true }
+        ? { ...reply, text: `${opening}\n\n${reply.text}`, split: true }
         : reply;
 
-    /** Nossa saudação no histórico faz o folheto repeti-la ("Meu nome é Ana…"): ela não vai para o RAG. */
-    const isGreeting = (content: string) => [6, 12, 18].some((hour) => content.startsWith(replies.greeting(hour)));
+    /**
+     * O folheto vê a nossa saudação só como "Boa noite!": com o nome ele a repete ("Meu nome é Ana…"), e sem nenhuma ele
+     * acha que a conversa começa agora e cumprimenta de novo ("Oi!"). Na primeira resposta ela ainda não está no histórico.
+     */
+    const shortHello = (h: number) => ({ role: "assistant" as const, content: replies.salutation(h) });
+    const greetingHour = (content: string) => [6, 12, 18].find((h) => content.startsWith(replies.greeting(h)));
+    const ragHistory = [
+      ...history.map((m) => {
+        const h = m.role === "assistant" ? greetingHour(m.content) : undefined;
+        return h === undefined ? m : shortHello(h);
+      }),
+      ...(firstReply ? [shortHello(hour)] : []),
+    ];
 
     /** Pede o nome no folheto ou na saudação, se ainda não foi pedido o máximo de vezes (FR-001, FR-002, FR-005). */
     async function askName(reply: Reply): Promise<Reply> {
@@ -105,7 +117,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     /** Resposta do folheto; só numa conversa calma o pedido de nome vai junto (FR-001, FR-002, FR-005). */
     async function fromBrochure(calm: boolean): Promise<Reply> {
-      const answer = await answerQuestion(text, log, message.phone, history.filter((m) => m.role === "user" || !isGreeting(m.content)));
+      const answer = await answerQuestion(text, log, message.phone, ragHistory);
       // A proteção descarta uma mensagem igual a uma já enviada: a resposta repetida vai numa mensagem só, com uma abertura
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
       const repeated = splitReply(answer).some((part) => said.includes(part));
@@ -158,7 +170,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // Quem atende e a saudação: o modelo reconhece a intenção, o texto é nosso
     if (interpretation.intent === "who_are_you") return { text: replies.myName() };
     if (interpretation.intent === "greeting") {
-      const hello = firstReply ? `${salutation} ${replies.howCanIHelp()}` : replies.howCanIHelp();
+      const hello = firstReply ? `${opening} ${replies.howCanIHelp()}` : replies.howCanIHelp();
       return askName({ text: hello });
     }
 
