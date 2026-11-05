@@ -1,7 +1,7 @@
 import { fixedTextsFor } from "../antiban/texts.js";
 import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import { firstName, type Replies } from "./replies.js";
+import { dayPeriod, firstName, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
@@ -60,7 +60,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
         `📅 ${formatWhen(start, tz)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service)}`,
-        "Shall I book it? If you'd prefer another time or service, just tell me.",
+        "Shall I confirm? If anything is wrong, like the name, the time or the service, just tell me.",
       ].join("\n");
     },
 
@@ -191,7 +191,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     },
 
     greeting(hour: number) {
-      const salutation = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+      const salutation = { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" }[dayPeriod(hour)];
       return assistantName ? `${salutation}! This is ${assistantName} from ${clinicName}.` : `${salutation}! You've reached ${clinicName}.`;
     },
 
@@ -216,6 +216,10 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
 
     howCanIHelp() {
       return "How can I help you?";
+    },
+
+    calmDown() {
+      return "I understand your frustration. I'm here to help with clinic information and appointments whenever you're ready.";
     },
   };
   return r;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
-import { createInterpreter, type InterpretInput } from "./interpret.js";
+import { createInterpreter, nameInText, type InterpretInput } from "./interpret.js";
 import { createOllamaClient, InterpreterUnavailable, type ChatMessage } from "./ollama.js";
 
 type Body = { model: string; format: object; options: { temperature: number }; stream: boolean; messages: ChatMessage[] };
@@ -55,9 +55,6 @@ test("regras resolvem números, sim/não e datas simples sem chamar o modelo", a
   });
   assert.deepEqual(await interpreter.interpret(input({ text: "Friday", step: "choose_day", options: days })), {
     intent: "choose", option: null, date: "2026-10-23", name: null, source: "rule",
-  });
-  assert.deepEqual(await interpreter.interpret(input({ text: "Maria Souza", step: "ask_name" })), {
-    intent: "give_name", option: null, date: null, name: "Maria Souza", source: "rule",
   });
   assert.equal(bodies.length, 0);
 });
@@ -182,7 +179,7 @@ test("agradecimento ou despedida vira goodbye sem o modelo; com pergunta junto, 
   assert.equal(bodies.length, 1);
 });
 
-test("nome: 'my name is' em qualquer momento; logo depois do pedido, 'I'm X' ou só o nome", async () => {
+test("nome: 'my name is' e 'call me' valem em qualquer momento, sem o modelo", async () => {
   const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: null });
   const name = async (text: string, awaitingName = false) => {
     const r = await interpreter.interpret(input({ text, awaitingName }));
@@ -191,10 +188,6 @@ test("nome: 'my name is' em qualquer momento; logo depois do pedido, 'I'm X' ou 
 
   assert.equal(await name("My name is maria souza"), "Maria Souza");
   assert.equal(await name("call me Bia!"), "Bia");
-  assert.equal(await name("I'm Maria", true), "Maria");
-  assert.equal(await name("it's maria", true), "Maria");
-  assert.equal(await name("maria", true), "Maria");
-  assert.equal(await name("Maria Clara Souza", true), "Maria Clara Souza");
   assert.equal(bodies.length, 0);
 });
 
@@ -212,7 +205,7 @@ test("nome: o que não é nome vai para o modelo e não vira nome", async () => 
 
 test("nome junto de outra intenção vem do modelo só logo depois do pedido", async () => {
   const { interpreter, bodies } = fakeOllama({ intent: "question", option: null, date: null, name: "maria" });
-  const after = await interpreter.interpret(input({ text: "I'm Maria, how much is whitening?", awaitingName: true }));
+  const after = await interpreter.interpret(input({ text: "I'm Maria, how much is whitening", awaitingName: true }));
   assert.equal(after.intent, "question");
   assert.equal(after.name, "Maria");
   assert.match(bodies[0].messages[0].content, /has just asked the customer's name/);
@@ -224,7 +217,7 @@ test("nome junto de outra intenção vem do modelo só logo depois do pedido", a
 
 test("give_name do modelo sem um nome válido vira unclear", async () => {
   const { interpreter } = fakeOllama({ intent: "give_name", option: null, date: null, name: "why" });
-  assert.equal((await interpreter.interpret(input({ text: "why do you ask", awaitingName: true }))).intent, "unclear");
+  assert.equal((await interpreter.interpret(input({ text: "why do you ask?", awaitingName: true }))).intent, "unclear");
 });
 
 // --- specs/005, US2: serviço ---
@@ -276,4 +269,42 @@ test("sem lembrete, um yes solto não vira sim pelas regras; com lembrete, o pro
   const cancel = await interpreter.interpret(input({ text: "cancel my appointment please", awaitingReminder: true }));
   assert.equal(cancel.intent, "cancel");
   assert.match(bodies[1].messages[0].content, /reminded the customer of their appointment and asked them to reply YES/);
+});
+
+// --- nome: escrito na mensagem e nunca tirado de uma pergunta ---
+
+test("etapa ask_name e logo depois do pedido: o modelo diz o nome, escrito como na mensagem", async () => {
+  const cases: [string, string, Partial<InterpretInput>][] = [
+    ["Maria Souza", "Maria Souza", { step: "ask_name" }],
+    ["I'm Maria", "Maria", { awaitingName: true }],
+    ["it's maria", "Maria", { awaitingName: true }],
+    ["maria", "Maria", { awaitingName: true }],
+    ["Maria Clara Souza", "Maria Clara Souza", { awaitingName: true }],
+  ];
+  for (const [text, name, overrides] of cases) {
+    const { interpreter } = fakeOllama({ intent: "give_name", option: null, date: null, name });
+    const r = await interpreter.interpret(input({ text, ...overrides }));
+    assert.deepEqual([r.intent, r.name], ["give_name", name], text);
+  }
+});
+
+test("nome do modelo que não está na mensagem, ou sai de uma pergunta, não vale", async () => {
+  const pergunta = fakeOllama({ intent: "give_name", option: null, date: null, name: "Voces" }).interpreter;
+  const r1 = await pergunta.interpret(input({ text: "voces aceitam cartão?" }));
+  assert.notEqual(r1.intent, "give_name");
+  assert.equal(r1.name, null);
+
+  const inventado = fakeOllama({ intent: "give_name", option: null, date: null, name: "Dor De Dente" }).interpreter;
+  assert.equal((await inventado.interpret(input({ text: "Carla", awaitingName: true }))).name, null);
+});
+
+test("logo depois do pedido, uma pergunta com o nome na primeira linha ainda traz o nome", async () => {
+  const { interpreter } = fakeOllama({ intent: "question", option: null, date: null, name: "carla" });
+  const r = await interpreter.interpret(input({ text: "carla\\nquanto custa a limpeza", awaitingName: true }));
+  assert.equal(r.name, "Carla");
+});
+
+test("nameInText ignora acento e caixa e exige todas as palavras do nome", () => {
+  assert.equal(nameInText("José", "jose aqui"), true);
+  assert.equal(nameInText("José Silva", "José"), false);
 });

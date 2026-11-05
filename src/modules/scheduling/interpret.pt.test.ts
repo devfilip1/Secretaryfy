@@ -49,7 +49,7 @@ test("agradecimento e despedida em pt", async () => {
 test("meu nome é, me chamo e sou o/a dizem o nome", async () => {
   assert.deepEqual(pick(await interpreter.interpret(input("Meu nome é Maria"))), ["give_name", "Maria"]);
   assert.deepEqual(pick(await interpreter.interpret(input("me chamo João"))), ["give_name", "João"]);
-  assert.deepEqual(pick(await interpreter.interpret(input("sou a Ana", { step: "ask_name" }))), ["give_name", "Ana"]);
+  assert.deepEqual(pick(await asking({ intent: "give_name", name: "Ana" }).interpret(input("sou a Ana", { step: "ask_name" }))), ["give_name", "Ana"]);
 });
 
 test("tratamento citado em pt vira escolha de serviço", async () => {
@@ -96,6 +96,14 @@ test("saudação e 'qual seu nome?' vêm do modelo como intenções; pergunta nu
   // O modelo se confunde com a palavra "nome" e devolve o nome: a interrogação derruba
   const confused = await asking({ intent: "give_name", name: "Qual Seu Nome" }).interpret(input("Qual seu nome?"));
   assert.equal(confused.intent, "unclear");
+});
+
+test("logo depois do pedido, o nome escrito vale mesmo quando o modelo erra a intenção", async () => {
+  const r = await asking({ intent: "choose_service", name: "Bia", service: null }).interpret(input("pode me chamar de Bia", { awaitingName: true }));
+  assert.deepEqual(pick(r), ["give_name", "Bia"]);
+  // Sem o pedido, não vira nome
+  const other = await asking({ intent: "unclear", name: "Bia" }).interpret(input("pode me chamar de Bia"));
+  assert.equal(other.intent, "unclear");
 });
 
 test("pergunta nunca é nome, nem logo depois do pedido de nome", async () => {

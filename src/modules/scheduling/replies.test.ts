@@ -19,7 +19,7 @@ test("confirmação mostra dia, hora, duração, nome e serviço; booked só com
   const start = new Date("2026-10-21T13:00:00Z");
   assert.equal(
     replies.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz),
-    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I book it? If you'd prefer another time or service, just tell me.",
+    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I confirm? If anything is wrong, like the name, the time or the service, just tell me.",
   );
   assert.match(replies.confirmBooking(start, 60, "Maria", "Assessment", tz), /🦷 General assessment/);
   assert.equal(replies.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");

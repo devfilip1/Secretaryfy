@@ -2,7 +2,7 @@ import { fixedTextsFor } from "../antiban/texts.js";
 import { DateTime } from "luxon";
 import { formatDayLong, formatTime, formatWhen, weekdayName } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
-import { firstName, type Replies } from "./replies.js";
+import { dayPeriod, firstName, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
@@ -72,7 +72,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
         `📅 ${formatWhen(start, tz, pt)} (${slotMinutes} min)`,
         `👤 ${name}`,
         `🦷 ${serviceLabel(service, "pt")}`,
-        "Posso confirmar? Se preferir outro horário ou outro serviço, é só me dizer.",
+        "Posso confirmar? Se algo estiver errado, como o nome, o horário ou o serviço, é só me dizer.",
       ].join("\n");
     },
 
@@ -207,7 +207,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
     },
 
     greeting(hour: number) {
-      const salutation = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+      const salutation = { morning: "Bom dia", afternoon: "Boa tarde", evening: "Boa noite" }[dayPeriod(hour)];
       return assistantName ? `${salutation}! Meu nome é ${assistantName}, da ${clinicName}.` : `${salutation}! Aqui é da ${clinicName}.`;
     },
 
@@ -228,6 +228,10 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
 
     myName() {
       return assistantName ? `Meu nome é ${assistantName}, da ${clinicName}. Como posso ajudar?` : `Aqui é da ${clinicName}. Como posso ajudar?`;
+    },
+
+    calmDown() {
+      return "Entendo sua frustração. Estou aqui para ajudar com informações da clínica e agendamentos, quando quiser.";
     },
   };
   return r;

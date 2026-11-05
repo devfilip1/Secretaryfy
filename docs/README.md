@@ -54,4 +54,4 @@ flowchart LR
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
 
 ---
-Last updated: 2026-11-04 (needs_staff handoff, manipulation gate, repeated brochure answers)
+Last updated: 2026-11-05 (name only from the model and written in the message, second name request, rude intent, greeting kept out of RAG history)

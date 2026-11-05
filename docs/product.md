@@ -23,7 +23,7 @@ There is one operator account and no per-user permissions.
   - Answers questions from the clinic's brochure, in up to 3 short messages, like someone typing. Says it doesn't know instead of inventing. See [RAG service](integrations.md#rag-service).
   - Books an appointment: offers days, then times (bullet options the customer answers in their own words), asks for the name and the service, shows a summary and books only after "yes". Rules: [scheduling](business-rules.md#scheduling).
   - Shows, reschedules and cancels the patient's upcoming appointment.
-  - Asks the patient's name once and remembers it ([names and customers](business-rules.md#names-and-customer-registry)).
+  - Asks the patient's name at a calm moment (at most twice) and remembers it ([names and customers](business-rules.md#names-and-customer-registry)).
   - Sends a reminder 24 h before; YES confirms, NO leads to rescheduling ([reminders](business-rules.md#reminders)).
   - Hands over to staff after 2 messages it can't understand.
   - Stops writing to anyone who says "stop" ([opt-out](business-rules.md#br-ab-05--opt-out-and-opt-in)).

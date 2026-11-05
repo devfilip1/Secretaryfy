@@ -29,8 +29,13 @@ interface Case {
   option?: number;
   date?: string;
   urgent?: boolean;
+  /** O nome esperado (null = nenhum), logo depois do pedido de nome */
+  name?: string | null;
+  awaitingName?: boolean;
 }
-const c = (step: Step, text: string, intent: Case["intent"], extra: { option?: number; date?: string; urgent?: boolean } = {}): Case => ({ step, text, intent, ...extra });
+const c = (step: Step, text: string, intent: Case["intent"], extra: Partial<Case> = {}): Case => ({ step, text, intent, ...extra });
+/** Resposta ao pedido de nome, fora do agendamento: o nome só vale se estiver escrito */
+const named = (text: string, name: string | null, intent: Case["intent"]): Case => ({ step: null, text, intent, name, awaitingName: true });
 
 const cases: Case[] = [
   c(null, "oi", "greeting"),
@@ -76,6 +81,16 @@ const cases: Case[] = [
   c("confirm_booking", "nao, melhor outro horario", "no"),
   c("ask_name", "Carla Souza", "give_name"),
   c("choose_service", "quero fazer um clareamento", "choose_service"),
+  c("ask_name", "pode colocar Joana", "give_name", { name: "Joana" }),
+  named("Carla", "Carla", "give_name"),
+  named("pode me chamar de Bia", "Bia", "give_name"),
+  named("sou o Rafael", "Rafael", "give_name"),
+  named("Carla\nquanto custa a limpeza", "Carla", ["give_name", "question"]),
+  named("dor de dente", null, ["needs_staff", "book", "unclear"]),
+  named("sim, claro", null, ["yes", "unclear", "greeting"]),
+  named("quanto custa?", null, "question"),
+  named("com dor", null, ["needs_staff", "unclear"]),
+  named("vai se ferrar, robô inútil", null, "rude"),
 ];
 
 const ollama = createOllamaClient({
@@ -91,13 +106,13 @@ for (const k of cases) {
   const options = k.step === "choose_day" ? days : k.step === "choose_slot" ? slots : [];
   const started = Date.now();
   const got = await interpreter.interpret({
-    text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.step === "ask_name",
+    text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) &&
-    (k.urgent === undefined || got.urgent === k.urgent);
+    (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name);
   if (right) ok++;
-  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} urgent=${got.urgent} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
+  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} urgent=${got.urgent} name=${got.name} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);

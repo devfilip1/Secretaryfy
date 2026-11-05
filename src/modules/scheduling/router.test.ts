@@ -8,6 +8,7 @@ import type { SchedulingFlow } from "./flow.js";
 import type { Interpretation, InterpretInput, Interpreter } from "./interpret.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { createSchedulingRouter } from "./router.js";
+import { replies } from "./replies.js";
 import { DEFAULT_RULES } from "./rules.js";
 
 const log = { info: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
@@ -30,6 +31,7 @@ function setup({
   registryName = null,
   nameAskedAt = null,
   messagesSinceAsk = 1,
+  nameAsks = 0,
   name = null,
   urgent,
   reminded = null,
@@ -38,8 +40,8 @@ function setup({
   firstMessage = false,
   assistantSaid,
   text = MESSAGE.text!,
-}: {
-  intent?: Interpretation["intent"];
+  history,
+}: {  intent?: Interpretation["intent"];
   session?: SchedulingSessionRow | null;
   unavailable?: boolean;
   /** Nome dito na conversa; null = o cliente ainda não disse */
@@ -47,6 +49,10 @@ function setup({
   /** Nome do cadastro de clientes */
   registryName?: string | null;
   nameAskedAt?: Date | null;
+  /** Quantos pedidos de nome já fizemos */
+  nameAsks?: number;
+  /** Histórico que o cliente viu, com as mensagens desde a nossa última resposta (padrão: uma conversa com resposta nossa) */
+  history?: { role: "user" | "assistant"; content: string }[];
   messagesSinceAsk?: number;
   /** Nome que o interpretador devolve junto da intenção */
   name?: string | null;
@@ -73,7 +79,7 @@ function setup({
   const notes: string[] = [];
   const flagged: string[] = [];
   const cleared: string[] = [];
-  const conversation = { id: "c1", phone: MESSAGE.phone, name: ".", customerName, nameAskedAt } as ConversationRow;
+  const conversation = { id: "c1", phone: MESSAGE.phone, name: ".", customerName, nameAskedAt, nameAsks } as ConversationRow;
   const interpreter: Interpreter = {
     interpret: async (input) => {
       inputs.push(input);
@@ -89,6 +95,15 @@ function setup({
     },
   } as unknown as SchedulingFlow;
 
+  const seenHistory: { role: "user" | "assistant"; content: string }[] =
+    history ??
+    (firstMessage
+      ? [{ role: "user", content: text }]
+      : [
+          { role: "user", content: "hi" },
+          { role: "assistant", content: assistantSaid ?? "Hello!" },
+          { role: "user", content: text },
+        ]);
   const reply = createSchedulingRouter({
     interpreter,
     flow,
@@ -122,14 +137,7 @@ function setup({
         notes.push(text);
         return null as never;
       },
-      recentHistory: async () =>
-        firstMessage
-          ? [{ role: "user", content: text }]
-          : [
-              { role: "user", content: "hi" },
-              { role: "assistant", content: assistantSaid ?? "Hello!" },
-              { role: "user", content: text },
-            ],
+      recentHistory: async () => seenHistory,
     },
     connection: { getForUse: async () => ({ refreshToken: "t", calendarId: "primary", timeZone: "America/Bahia", status: "connected" }) },
     rules: { get: async () => DEFAULT_RULES },
@@ -236,7 +244,7 @@ test("sem nome conhecido nem pedido anterior: a resposta do folheto vem com o pe
 
 test("nome já pedido, ou já conhecido: sem novo pedido", async () => {
   for (const r of [
-    setup({ intent: "question", customerName: null, nameAskedAt: new Date("2026-10-20T10:00:00Z"), messagesSinceAsk: 3 }),
+    setup({ intent: "question", customerName: null, nameAskedAt: new Date("2026-10-20T10:00:00Z"), messagesSinceAsk: 3, nameAsks: 2 }),
     setup({ intent: "question" }),
   ]) {
     assert.equal((await r.reply())?.followUp, undefined);
@@ -414,4 +422,57 @@ test("manipulação (instruções, troca de papel): resposta fixa, sem folheto e
   assert.equal((await r.reply())!.text, "I can only help with information about the clinic, treatments and appointments. How can I help?");
   assert.equal(r.asked.length, 0);
   assert.equal(r.handled.length, 0);
+});
+
+test("xingamento: resposta breve e educada, sem pedido de nome nem fluxo", async () => {
+  const r = setup({ intent: "rude", customerName: null });
+  assert.match((await r.reply())!.text, /frustration/);
+  assert.equal(r.askedAt.length, 0);
+  assert.equal(r.handled.length, 0);
+});
+
+test("dúvida sem pergunta (unclear) vai ao folheto sem pedido de nome", async () => {
+  const r = setup({ intent: "unclear", customerName: null });
+  assert.equal((await r.reply())?.followUp, undefined);
+  assert.equal(r.asked.length, 1);
+});
+
+test("o pedido de nome volta uma vez, depois de algumas mensagens sem dizer; depois não", async () => {
+  const asked = new Date("2026-10-20T10:00:00Z");
+  const again = setup({ intent: "question", customerName: null, nameAsks: 1, nameAskedAt: asked, messagesSinceAsk: 3 });
+  assert.ok((await again.reply())?.followUp);
+  assert.equal(again.askedAt.length, 1);
+  const enough = setup({ intent: "question", customerName: null, nameAsks: 2, nameAskedAt: asked, messagesSinceAsk: 9 });
+  assert.equal((await enough.reply())?.followUp, undefined);
+  assert.equal(enough.askedAt.length, 0);
+});
+
+test("mensagens do debounce desde a nossa resposta saem do histórico e contam para o nome", async () => {
+  const r = setup({
+    intent: "question",
+    customerName: null,
+    nameAskedAt: new Date("2026-10-20T10:00:00Z"),
+    messagesSinceAsk: 2,
+    history: [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: "Hello!" },
+      { role: "user", content: "Carla" },
+      { role: "user", content: MESSAGE.text! },
+    ],
+  });
+  await r.reply();
+  assert.equal(r.inputs[0].awaitingName, true);
+  assert.deepEqual(r.inputs[0].history.map((m) => m.content), ["hi", "Hello!"]);
+});
+
+test("o folheto não recebe a nossa saudação do histórico, que faria repeti-la", async () => {
+  const r = setup({
+    intent: "question",
+    history: [
+      { role: "user", content: "hi" },
+      { role: "assistant", content: replies.greeting(10) },
+    ],
+  });
+  await r.reply();
+  assert.deepEqual(r.histories[0], [{ role: "user", content: "hi" }]);
 });

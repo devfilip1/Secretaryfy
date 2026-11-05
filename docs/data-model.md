@@ -58,7 +58,8 @@ One per phone number.
 |---|---|
 | `name` | WhatsApp profile name. Only a label; never the patient's name ([BR-NAM-02](business-rules.md#br-nam-02--the-whatsapp-profile-name-is-never-the-patients-name)) |
 | `customer_name` | Name the patient said in the chat |
-| `name_asked_at` | When the assistant asked for the name; it never asks twice |
+| `name_asked_at` | When the assistant last asked for the name |
+| `name_asks` | How many times it asked; at most 2 ([BR-NAM-01](business-rules.md#br-nam-01--the-assistant-asks-for-the-name-at-a-calm-moment-at-most-twice)) |
 | `assistant_paused` | The assistant stays silent here until the operator resumes |
 | `needs_attention` | Flagged for staff (hand-off, loop, limit) |
 | `unread_count`, `last_message_*` | Panel list |

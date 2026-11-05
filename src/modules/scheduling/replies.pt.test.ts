@@ -111,3 +111,8 @@ test("nameReceived usa só o primeiro nome", () => {
   const r = createReplies({ language: "pt", clinicName: "Sorriso Pleno" });
   assert.match(r.nameReceived("Carla Souza", () => 0), /^Prazer, Carla! /);
 });
+
+test("a saudação segue o período do dia, e de madrugada ainda é noite", () => {
+  const r = createReplies({ language: "pt", clinicName: "Sorriso Pleno" });
+  assert.deepEqual([1, 8, 14, 20].map((h) => r.greeting(h).split("!")[0]), ["Boa noite", "Bom dia", "Boa tarde", "Boa noite"]);
+});

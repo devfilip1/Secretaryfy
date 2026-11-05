@@ -189,7 +189,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   const confirm = await say(conv, I("choose", { option: 2 }));
   assert.equal(
     confirm.reply,
-    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I book it? If you'd prefer another time or service, just tell me.",
+    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I confirm? If anything is wrong, like the name, the time or the service, just tell me.",
   );
 
   const done = await say(conv, I("yes"));

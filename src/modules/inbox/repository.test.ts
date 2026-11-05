@@ -150,11 +150,12 @@ test("nome dito pelo cliente: gravado à parte do nome do perfil e substituído 
   assert.equal(again.name, "Perfil");
 });
 
-test("pedido de nome fica registrado uma vez só", async () => {
+test("pedido de nome conta cada pedido e guarda o último", async () => {
   const c = await conversation();
   await repo.markNameAsked(c.id, at(1));
   await repo.markNameAsked(c.id, at(9));
-  assert.deepEqual((await repo.findConversation(c.id))?.nameAskedAt, at(1));
+  const row = await repo.findConversation(c.id);
+  assert.deepEqual([row?.nameAskedAt, row?.nameAsks], [at(9), 2]);
 });
 
 test("mensagens do cliente depois de um instante", async () => {
@@ -180,7 +181,7 @@ test("cadastro excluído: a conversa do número esquece o nome e o pedido de nom
   await repo.setCustomerName(c.id, "Maria");
   await repo.markNameAsked(c.id, at(1));
   const row = await repo.forgetCustomerName(c.phone);
-  assert.deepEqual([row?.customerName, row?.nameAskedAt], [null, null]);
+  assert.deepEqual([row?.customerName, row?.nameAskedAt, row?.nameAsks], [null, null, 0]);
   assert.equal(await repo.forgetCustomerName("5511000000000"), null);
 });
 

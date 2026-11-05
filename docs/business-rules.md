@@ -108,9 +108,16 @@ The number protection drops a message identical to one already sent. When a broc
 
 ## Names and customer registry
 
-### BR-NAM-01 · The assistant asks for the name once
-On its first reply to a patient with no known name, the assistant adds a request for the name, only once per conversation (`name_asked_at`). The next message alone can be read as the name.
-- **Where:** `fromBrochure` and `awaitingName` in [router.ts](../src/modules/scheduling/router.ts)
+### BR-NAM-01 · The assistant asks for the name at a calm moment, at most twice
+To a patient with no known name, the assistant adds a request for the name to a greeting or a brochure answer, never after an insult, a complaint, a handoff or a message it did not understand. If the patient keeps going without saying it, it asks once more after 3 messages, and then never again (`name_asks`, `name_asked_at`). Only the interpreter model decides that a message holds a name, with the hint that the assistant just asked; the code keeps the name only if every word of it is written in the patient's messages (accent- and case-insensitive) and the message has no question mark. Messages grouped by the debounce are read together, so "Carla" followed by a question still gives the name. The booking summary shows the name and invites the patient to correct it.
+- **Where:** `askName`, `justAsked` and `fromBrochure` in [router.ts](../src/modules/scheduling/router.ts), `nameInText` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts)
+
+### BR-NAM-08 · An insult gets a short, polite reply
+A message classified as `rude` (insults the assistant or the clinic and asks nothing) gets "Entendo sua frustração…", with no brochure answer, no offer and no name request.
+- **Where:** `rude` in [router.ts](../src/modules/scheduling/router.ts), `calmDown` in the replies files
+
+### BR-NAM-09 · Our greeting does not reach the brochure model
+The greeting messages are left out of the history sent to the RAG service, so it does not repeat "Meu nome é Ana…" in its answers. The greeting follows the time of day, and before 5 a.m. it is still "Boa noite".
 
 ### BR-NAM-07 · The first reply opens with a greeting, and the assistant can say its name
 The first reply the assistant sends in a conversation (flow or brochure, not a handoff) starts with a greeting for the time of day in the clinic time zone ("Boa tarde! Meu nome é Ana, da Sorriso Pleno."), as its own message. The name comes from `ASSISTANT_NAME`; without it the greeting only names the clinic. The interpreter model recognises two intents for this, in any wording: `who_are_you` ("Qual seu nome?", "com quem falo?") is answered with the same name, and `greeting` (only a greeting: "oi", "bom dia, tudo bem?") gets our greeting plus "how can I help" and the name request once, without the brochure. The text is ours; the model only classifies. A question mark never makes a message the patient's name. A flow reply identical to one already sent in the conversation gets a short lead ("Claro, de novo:") so the repeated-text protection does not silently drop it.

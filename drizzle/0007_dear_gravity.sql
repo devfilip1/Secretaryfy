@@ -1,0 +1,1 @@
+ALTER TABLE "conversations" ADD COLUMN "name_asks" integer DEFAULT 0 NOT NULL;

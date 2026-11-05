@@ -54,10 +54,16 @@ export interface Replies {
   stayOnTopic(): string;
   /** O cliente perguntou o nome de quem atende */
   myName(): string;
+  /** O cliente xingou: resposta breve e educada, sem pedido de nome nem oferta. */
+  calmDown(): string;
 }
 
 /** O primeiro nome, para chamar o cliente como uma pessoa chamaria. */
 export const firstName = (name: string | null | undefined) => name?.trim().split(/\s+/)[0] || null;
+
+/** Período do dia para a saudação: de madrugada ainda é noite ("Boa noite" à 1h, não "Bom dia"). */
+export const dayPeriod = (hour: number): "morning" | "afternoon" | "evening" =>
+  hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 18 ? "afternoon" : "evening";
 
 /** Os textos na língua e com o nome da clínica dados (CLINIC_LANGUAGE, CLINIC_NAME). */
 export function createReplies({

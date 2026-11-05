@@ -45,8 +45,10 @@ export const conversations = pgTable(
     needsAttention: boolean("needs_attention").notNull().default(false),
     // Nome que o cliente disse na conversa; `name` é o do perfil do WhatsApp (specs/005, research.md R1)
     customerName: text("customer_name"),
-    // Quando o assistente pediu o nome fora do agendamento; impede pedir de novo (specs/005 FR-005)
+    // Quando o assistente pediu o nome pela última vez
     nameAskedAt: timestamp("name_asked_at", { withTimezone: true }),
+    // Quantas vezes o assistente pediu o nome (no máximo NAME_ASKS_MAX, specs/005 FR-005)
+    nameAsks: integer("name_asks").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("conversations_last_message_at_idx").on(t.lastMessageAt.desc())],

@@ -16,6 +16,9 @@ import type { SchedulingStore } from "./sessions.js";
 
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
 const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
+/** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
+const NAME_ASKS_MAX = 2;
+const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
   interpreter: Interpreter;
@@ -55,47 +58,59 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const timeZone = conn?.timeZone ?? "UTC";
     const window = bookingWindow({ rules: await rules.get(), now: at, timeZone });
 
-    // O histórico já inclui a mensagem atual, que vai separada para o modelo
+    // O debounce junta em `text` todas as mensagens do cliente desde a nossa última resposta: elas saem do histórico
     const history = await inbox.recentHistory(conversationId);
-    const last = history.at(-1);
-    if (last?.role === "user" && last.content === text) history.pop();
+    let pending = 0;
+    while (history.at(-1)?.role === "user") {
+      history.pop();
+      pending++;
+    }
+    /** Nada nosso depois de `since`: as mensagens do cliente desde então são só as desta vez. */
+    const justAsked = async (since: Date | null) => since !== null && (await inbox.customerMessagesSince(conversationId, since)) <= Math.max(1, pending);
 
     // Nome do cliente (specs/005, research.md R1 a R3): quem está no cadastro já é conhecido numa conversa nova
     let known = await inbox.knownName(conversation);
     if (known && !conversation.customerName) await inbox.setCustomerName(conversationId, known);
-    // Só a primeira mensagem depois do pedido pode ser o nome sozinho (a atual já está gravada)
-    const awaitingName =
-      !known && conversation.nameAskedAt !== null && (await inbox.customerMessagesSince(conversationId, conversation.nameAskedAt)) <= 1;
+    // Só as mensagens desta vez depois do pedido podem ser o nome sozinho
+    const awaitingName = !known && (await justAsked(conversation.nameAskedAt));
 
     // Resposta ao lembrete (specs/006 R5): sem agendamento em andamento, o lembrete saiu e o cliente mal respondeu desde então
     const reminded = session ? null : await store.findReminderAwaiting(conversation.phone, at);
     const awaitingReminder = Boolean(
-      reminded?.reminderSentAt && (await inbox.customerMessagesSince(conversationId, reminded.reminderSentAt)) <= 1,
+      reminded?.reminderSentAt && (await justAsked(reminded.reminderSentAt)),
     );
 
     // A primeira resposta da conversa abre com a saudação pela hora do dia, como uma secretária (o histórico não tem resposta nossa)
     const firstReply = !history.some((m) => m.role === "assistant");
+    const salutation = replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour);
     const greet = (reply: Reply): Reply =>
       firstReply
-        ? { ...reply, text: `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)}\n\n${reply.text}`, split: true }
+        ? { ...reply, text: `${salutation}\n\n${reply.text}`, split: true }
         : reply;
 
-    /** Pede o nome uma única vez, junto da primeira resposta de quem ainda não disse (FR-001, FR-002, FR-005). */
-    async function askNameOnce(reply: Reply): Promise<Reply> {
-      if (known || conversation!.nameAskedAt) return reply;
+    /** Nossa saudação no histórico faz o folheto repeti-la ("Meu nome é Ana…"): ela não vai para o RAG. */
+    const isGreeting = (content: string) => [6, 12, 18].some((hour) => content.startsWith(replies.greeting(hour)));
+
+    /** Pede o nome no folheto ou na saudação, se ainda não foi pedido o máximo de vezes (FR-001, FR-002, FR-005). */
+    async function askName(reply: Reply): Promise<Reply> {
+      if (known) return reply;
+      const { nameAsks, nameAskedAt } = conversation!;
+      const firstAsk = nameAsks === 0;
+      const askAgain =
+        nameAsks < NAME_ASKS_MAX && nameAskedAt !== null && (await inbox.customerMessagesSince(conversationId, nameAskedAt)) >= ASK_AGAIN_AFTER;
+      if (!firstAsk && !askAgain) return reply;
       await inbox.markNameAsked(conversationId, at);
       return { ...reply, followUp: replies.askNameFollowUp() };
     }
 
-    /** Resposta do folheto; para quem ainda não disse o nome, o pedido vai junto, uma única vez (FR-001, FR-002, FR-005). */
-    async function fromBrochure(): Promise<Reply> {
-      const answer = await answerQuestion(text, log, message.phone, history);
+    /** Resposta do folheto; só numa conversa calma o pedido de nome vai junto (FR-001, FR-002, FR-005). */
+    async function fromBrochure(calm: boolean): Promise<Reply> {
+      const answer = await answerQuestion(text, log, message.phone, history.filter((m) => m.role === "user" || !isGreeting(m.content)));
       // A proteção descarta uma mensagem igual a uma já enviada: a resposta repetida vai numa mensagem só, com uma abertura
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
-      if (splitReply(answer).some((part) => said.includes(part))) {
-        return askNameOnce({ text: `${replies.again()}\n${splitReply(answer).join("\n")}` });
-      }
-      return askNameOnce(greet({ text: answer, split: true }));
+      const repeated = splitReply(answer).some((part) => said.includes(part));
+      const reply = repeated ? { text: `${replies.again()}\n${splitReply(answer).join("\n")}` } : greet({ text: answer, split: true });
+      return calm ? askName(reply) : reply;
     }
 
     const started = Date.now();
@@ -117,7 +132,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       log.error({ phone: message.phone, err: err.message }, "interpretador indisponível");
       // Sem fluxo em andamento, a mensagem segue para o folheto como na feature 001
       if (session) return { text: replies.interpreterUnavailable() };
-      return fromBrochure();
+      return fromBrochure(false);
     }
 
     log.info(
@@ -127,6 +142,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     // Instruções, prompt, troca de papel: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
     if (interpretation.intent === "manipulation") return { text: replies.stayOnTopic() };
+
+    // Xingamento: resposta breve e educada, sem pedido de nome nem oferta
+    if (interpretation.intent === "rude") return { text: replies.calmDown() };
 
     // O que só a equipe pode decidir (pessoa, desconto, queixa, saúde): nada de resposta do modelo, só o aviso e a pausa
     if (interpretation.intent === "needs_staff") {
@@ -140,8 +158,8 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // Quem atende e a saudação: o modelo reconhece a intenção, o texto é nosso
     if (interpretation.intent === "who_are_you") return { text: replies.myName() };
     if (interpretation.intent === "greeting") {
-      const hello = firstReply ? `${replies.greeting(DateTime.fromJSDate(at, { zone: timeZone }).hour)} ${replies.howCanIHelp()}` : replies.howCanIHelp();
-      return askNameOnce({ text: hello });
+      const hello = firstReply ? `${salutation} ${replies.howCanIHelp()}` : replies.howCanIHelp();
+      return askName({ text: hello });
     }
 
     // Despedida: sem agendamento em andamento, só se despede; no meio de um, encerra o agendamento
@@ -169,7 +187,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     }
 
     const scheduling = session ? interpretation.intent !== "question" : STARTERS.includes(interpretation.intent);
-    if (!scheduling) return fromBrochure();
+    if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
     // O tratamento citado por último pelo cliente vira o serviço do agendamento (specs/005 FR-010)
     const mentionedService = detectService([...history.filter((m) => m.role === "user").map((m) => m.content), text]);
