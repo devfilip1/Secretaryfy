@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
-import { ASSESSMENT, SERVICES, detectService, serviceByNumber, serviceLabel } from "./services.js";
+import { ASSESSMENT } from "./catalog.js";
+import { testCatalog } from "../../test/catalog.js";
+
+const { detect: detectService, byNumber: serviceByNumber, label: serviceLabel, list } = testCatalog;
 
 test("o tratamento citado na conversa vira o serviço; vale o citado por último", () => {
   assert.equal(detectService(["Do you offer a clean procedure?", "how much does cost it?"]), "Dental Cleaning");
@@ -38,6 +41,6 @@ test("o catálogo cobre todos os tratamentos do folheto", { skip: !existsSync(CH
   const titles = (JSON.parse(readFileSync(CHUNKS, "utf8")) as { content: string }[])
     .map((c) => c.content.split("\n")[0].split(" — ")[0].trim())
     .filter((t) => !notTreatments.has(t));
-  const names = SERVICES.map((s) => s.name);
+  const names = list().map((s) => s.name);
   for (const title of new Set(titles)) assert.ok(names.includes(title), `${title} não está no catálogo`);
 });

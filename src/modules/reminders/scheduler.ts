@@ -7,7 +7,7 @@ import type { InboxRepository } from "../inbox/repository.js";
 import type { InboxService } from "../inbox/service.js";
 import { syncAppointment } from "../scheduling/booking.js";
 import { reminderReasonText, systemNotes, type Replies } from "../scheduling/replies.js";
-import { ASSESSMENT } from "../scheduling/services.js";
+import { ASSESSMENT } from "../scheduling/catalog.js";
 import type { SchedulingStore } from "../scheduling/sessions.js";
 
 const MINUTE = 60_000;

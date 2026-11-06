@@ -7,6 +7,7 @@ import { createSchedulingFlow } from "../modules/scheduling/flow.js";
 import { createHumanizer } from "../modules/scheduling/humanize.js";
 import { createOllamaClient } from "../modules/scheduling/ollama.js";
 import { createSchedulingStore, withAppointmentEvents } from "../modules/scheduling/sessions.js";
+import { createStaticCatalog } from "../modules/scheduling/catalog.js";
 import { createReplies } from "../modules/scheduling/replies.js";
 import { connectionStore, googleCalendar, rulesStore } from "./calendar.js";
 import { customerRepo, inbox } from "./inbox.js";
@@ -20,8 +21,11 @@ export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), 
 /** Identidade da clínica, montada aqui uma vez a partir da configuração e passada aos módulos (ADR 0010). */
 export const clinic = buildClinicContext(env);
 
+/** Os tratamentos que o cliente pode marcar: uma instância só, passada a quem usa a lista (catalog.ts). */
+export const catalog = createStaticCatalog();
+
 /** Textos aos clientes na língua e com o nome da clínica (clinic). */
-export const schedulingReplies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName });
+export const schedulingReplies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName, catalog });
 
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES
@@ -41,6 +45,7 @@ const deps = {
   customers: customerRepo,
   reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
   replies: schedulingReplies,
+  catalog,
 };
 
 // Agendamento pelo WhatsApp (specs/003): o Ollama interpreta, a máquina de estados decide

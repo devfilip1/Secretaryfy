@@ -4,7 +4,7 @@ import type { SchedulingStep, SessionOption } from "../../db/schema.js";
 import type { ClinicContext } from "../clinic/context.js";
 import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay } from "./dates.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
-import { detectService, serviceByNumber } from "./services.js";
+import type { ServiceCatalog } from "./catalog.js";
 
 /** Intenções que o agendamento entende (contracts/interpreter.md). */
 export const INTENTS = [
@@ -129,7 +129,7 @@ const result = (intent: Intent, extra: Partial<Interpretation> = {}): Interpreta
 });
 
 /** Regras sem modelo (contracts/interpreter.md §1). null = deixar para o modelo. */
-function byRules({ text, step, options, now, timeZone, window, awaitingReminder }: InterpretInput): Interpretation | null {
+function byRules({ text, step, options, now, timeZone, window, awaitingReminder }: InterpretInput, catalog: ServiceCatalog): Interpretation | null {
   const t = normalize(text);
   if (!t) return result("unclear");
 
@@ -156,11 +156,11 @@ function byRules({ text, step, options, now, timeZone, window, awaitingReminder 
   }
   // Serviço (specs/005): pelo número ou pelo nome na lista; no resumo, citar outro tratamento troca o serviço
   if (step === "choose_service" && /^\d{1,2}$/.test(t)) {
-    const service = serviceByNumber(Number(t));
+    const service = catalog.byNumber(Number(t));
     return service ? result("choose_service", { service }) : result("unclear");
   }
   if (step === "choose_service" || step === "confirm_booking") {
-    const service = detectService([text]);
+    const service = catalog.detect([text]);
     if (service) return result("choose_service", { service });
   }
   if (step === null || CHOOSING.includes(step)) {
@@ -271,7 +271,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
 }
 
 /** Valida a saída do modelo contra a etapa e a janela de datas (contracts/interpreter.md §3). */
-function validate(raw: unknown, { text, step, options, window, now, timeZone, awaitingName }: InterpretInput): Interpretation {
+function validate(raw: unknown, { text, step, options, window, now, timeZone, awaitingName }: InterpretInput, catalog: ServiceCatalog): Interpretation {
   const askedName = awaitingName || step === "ask_name";
   const parsed = modelOutput.safeParse(raw);
   if (!parsed.success) return result("unclear", { source: "model" });
@@ -324,7 +324,7 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   if (cleaned && (!nameInText(cleaned, text) || text.includes("?"))) cleaned = null;
   if (intent === "give_name" && !cleaned) return result("unclear", { source: "model" });
   // O serviço tem de ser do catálogo: o nome devolvido pelo modelo passa pelas mesmas palavras da conversa
-  const service = intent === "choose_service" ? detectService([parsed.data.service ?? ""]) : null;
+  const service = intent === "choose_service" ? catalog.detect([parsed.data.service ?? ""]) : null;
   // Logo depois do pedido, o nome escrito vale mais que uma intenção que não serve: sem etapa, escolher opção ou serviço não existe
   // ("pode me chamar de Bia" lido como serviço ou como outro dia)
   // A mensagem que é só o nome ("Juliana") é dar o nome, mesmo que o modelo a tenha lido como pergunta
@@ -346,11 +346,19 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   };
 }
 
-export function createInterpreter({ ollama, clinic }: { ollama: Pick<OllamaClient, "chat">; clinic: Pick<ClinicContext, "name" | "kind"> }) {
+export function createInterpreter({
+  ollama,
+  clinic,
+  catalog,
+}: {
+  ollama: Pick<OllamaClient, "chat">;
+  clinic: Pick<ClinicContext, "name" | "kind">;
+  catalog: ServiceCatalog;
+}) {
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
-      const ruled = byRules(input);
+      const ruled = byRules(input, catalog);
       if (ruled) return ruled;
 
       const raw = await ollama.chat({
@@ -361,7 +369,7 @@ export function createInterpreter({ ollama, clinic }: { ollama: Pick<OllamaClien
           { role: "user", content: input.text },
         ],
       });
-      return validate(raw, input);
+      return validate(raw, input, catalog);
     },
   };
 }

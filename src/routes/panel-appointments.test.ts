@@ -10,7 +10,7 @@ import { createInboxRepository, type InboxRepository } from "../modules/inbox/re
 import { createInboxService, type InboxService } from "../modules/inbox/service.js";
 import { createBooking } from "../modules/scheduling/booking.js";
 import { DEFAULT_RULES } from "../modules/scheduling/rules.js";
-import { SERVICES } from "../modules/scheduling/services.js";
+import { testCatalog } from "../test/catalog.js";
 import { createSchedulingStore, withAppointmentEvents, type SchedulingStore } from "../modules/scheduling/sessions.js";
 import { createTestDb } from "../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../test/fake-calendar.js";
@@ -69,6 +69,7 @@ beforeEach(async () => {
       inboxRepo: repo,
       booking: createBooking(deps),
       reminderLeadMinutes: 1440,
+      catalog: testCatalog,
     }),
   );
 });
@@ -219,7 +220,7 @@ test("GET /api/services: os serviços na ordem do assistente, com a avaliação 
   const { services } = (await app.inject({ url: "/api/services" })).json();
   assert.deepEqual(
     services.map((s: { name: string }) => s.name),
-    SERVICES.map((s) => s.name),
+    testCatalog.list().map((s) => s.name),
   );
   assert.equal(services.at(-1).label, "General assessment");
   assert.equal(services[0].label, "Dental Cleaning");

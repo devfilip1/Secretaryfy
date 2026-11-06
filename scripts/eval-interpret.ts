@@ -2,6 +2,7 @@
 // Uso: npx tsx --env-file=.env scripts/eval-interpret.ts
 import type { SessionOption } from "../src/db/schema.js";
 import { buildClinicContext } from "../src/modules/clinic/context.js";
+import { createStaticCatalog } from "../src/modules/scheduling/catalog.js";
 import { createInterpreter, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
@@ -121,7 +122,8 @@ const clinic = buildClinicContext({
   ASSISTANT_NAME: process.env.ASSISTANT_NAME,
   CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
 });
-const interpreter = createInterpreter({ ollama, clinic });
+const catalog = createStaticCatalog();
+const interpreter = createInterpreter({ ollama, clinic, catalog });
 
 let ok = 0;
 const latencies: number[] = [];

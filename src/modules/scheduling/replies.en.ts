@@ -1,7 +1,7 @@
 import { fixedTextsFor } from "../antiban/texts.js";
 import { Info } from "luxon";
 import { formatDayLong, formatTime, formatWhen } from "./dates.js";
-import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
+import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
@@ -13,7 +13,15 @@ const hoursText = (minutes: number) => {
 };
 
 /** Textos em inglês, com o nome da clínica dado pela configuração (CLINIC_NAME). */
-export function createEnglishReplies(clinicName: string, assistantName?: string): Replies {
+export function createEnglishReplies({
+  clinicName,
+  assistantName,
+  catalog,
+}: {
+  clinicName: string;
+  assistantName?: string;
+  catalog: ServiceCatalog;
+}): Replies {
   const r: Replies = {
     offerDays(days: string[], tz: string, intro = "Sure! These days have openings:") {
       return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you? Or tell me another date.`;
@@ -52,7 +60,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = SERVICES.map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.name));
       return `${who ? `${who}, which` : "Which"} service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 
@@ -61,7 +69,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
         "Just to confirm:",
         `📅 ${formatWhen(start, tz)} (${slotMinutes} min)`,
         `👤 ${name}`,
-        `🦷 ${serviceLabel(service)}`,
+        `🦷 ${catalog.label(service)}`,
         "Shall I confirm? If anything is wrong, like the name, the time or the service, just tell me.",
       ].join("\n");
     },
@@ -167,7 +175,7 @@ export function createEnglishReplies(clinicName: string, assistantName?: string)
      */
     reminder(start: Date, service: string, name: string | null, tz: string): string[] {
       const when = formatWhen(start, tz);
-      const label = serviceLabel(service);
+      const label = catalog.label(service);
       return [
         `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinicName} on ${when} (${label}). Can you confirm?`,
         `Hello${name ? ` ${name}` : ""}, your ${label} appointment at ${clinicName} is on ${when}. Can you confirm you'll be there?`,

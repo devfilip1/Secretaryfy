@@ -11,7 +11,7 @@ import { parseEvolutionEvent, type IncomingMessage } from "../modules/whatsapp/e
 import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/handle-message.js";
 import { connectionStore, rulesStore } from "./calendar.js";
 import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo, instance } from "./inbox.js";
-import { clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
+import { catalog, clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
 import { fixedTextsFor } from "../modules/antiban/texts.js";
 
 // Textos fixos na língua da clínica
@@ -21,9 +21,11 @@ const texts = fixedTextsFor(clinic.language);
 const reply = createSchedulingRouter({
   interpreter: createInterpreter({
     clinic,
+    catalog,
     ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
   }),
   flow: schedulingFlow,
+  catalog,
   replies: schedulingReplies,
   humanize,
   store: schedulingStore,

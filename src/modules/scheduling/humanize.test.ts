@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHumanizer, guardRewrite } from "./humanize.js";
 import { InterpreterUnavailable, type ChatMessage } from "./ollama.js";
+import { testCatalog } from "../../test/catalog.js";
 import { createReplies } from "./replies.js";
 
 const SLOTS = [new Date("2026-10-21T13:00:00Z"), new Date("2026-10-21T13:30:00Z"), new Date("2026-10-21T14:00:00Z")];
 const TZ = "America/Bahia";
 
-const en = createReplies({ language: "en", clinicName: "DentalSafe" }).offerSlots("2026-10-21", SLOTS, TZ, true);
-const pt = createReplies({ language: "pt", clinicName: "DentalSafe" }).offerSlots("2026-10-21", SLOTS, TZ, true);
+const en = createReplies({ language: "en", clinicName: "DentalSafe", catalog: testCatalog }).offerSlots("2026-10-21", SLOTS, TZ, true);
+const pt = createReplies({ language: "pt", clinicName: "DentalSafe", catalog: testCatalog }).offerSlots("2026-10-21", SLOTS, TZ, true);
 
 /** Reescrita fiel: acrescenta uma frase e mantém o resto (listas, números e aspas) como estão. */
 const faithful = (original: string) => `Oi! ${original}`;
@@ -88,7 +89,7 @@ test("humanize: cai no original quando o modelo lança erro", async () => {
 
 test("humanize: cai no original quando o modelo devolve null ou fora do formato", async () => {
   for (const raw of [null, { other: 1 }]) {
-    const humanizer = createHumanizer({ ollama: { chat: async () => raw }, language: "en", clinicName: "DentalSafe" });
+    const humanizer = createHumanizer({ ollama: { chat: async () => raw }, language: "en", clinicName: "DentalSafe", catalog: testCatalog });
     assert.equal(await humanizer.humanize(en, "hi"), en);
   }
 });
@@ -104,7 +105,7 @@ test("humanize: cai no original quando a reescrita falha na guarda", async () =>
 
 test("humanize: devolve a reescrita quando passa na guarda", async () => {
   const rewrite = faithful(en);
-  const humanizer = createHumanizer({ ollama: { chat: async () => ({ message: rewrite }) }, language: "en", clinicName: "DentalSafe" });
+  const humanizer = createHumanizer({ ollama: { chat: async () => ({ message: rewrite }) }, language: "en", clinicName: "DentalSafe", catalog: testCatalog });
   assert.equal(await humanizer.humanize(en, "hi"), rewrite);
 });
 

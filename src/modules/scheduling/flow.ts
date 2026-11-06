@@ -9,7 +9,7 @@ import { availableDays, bookingWindow, isSlotAvailable, slotsForDay } from "./av
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { Interpretation } from "./interpret.js";
 import { systemNotes, type Replies } from "./replies.js";
-import { ASSESSMENT, SERVICES } from "./services.js";
+import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
 import type { SchedulingStore, SessionDraft } from "./sessions.js";
@@ -39,6 +39,8 @@ interface Deps {
   reminderLeadMinutes?: number;
   /** Textos na língua da clínica (replies.ts, createReplies) */
   replies: Replies;
+  /** Os tratamentos que o cliente pode marcar (catalog.ts): a lista da escolha */
+  catalog: ServiceCatalog;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
@@ -53,6 +55,7 @@ export function createSchedulingFlow({
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
   replies,
+  catalog,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
   const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });
@@ -84,6 +87,7 @@ export function createSchedulingFlow({
         booking,
         reminderLeadMinutes,
         replies,
+        catalog,
         conversation,
         session,
         knownName,
@@ -114,6 +118,7 @@ class Run {
   private readonly booking: Booking;
   private readonly reminderLeadMinutes: number;
   private readonly replies: Replies;
+  private readonly catalog: ServiceCatalog;
   private readonly conversation: ConversationRow;
   private readonly session: SchedulingSessionRow | null;
   private readonly knownName: string | null;
@@ -132,6 +137,7 @@ class Run {
     booking: Booking;
     reminderLeadMinutes: number;
     replies: Replies;
+    catalog: ServiceCatalog;
     conversation: ConversationRow;
     session: SchedulingSessionRow | null;
     knownName: string | null;
@@ -147,6 +153,7 @@ class Run {
     this.booking = v.booking;
     this.reminderLeadMinutes = v.reminderLeadMinutes;
     this.replies = v.replies;
+    this.catalog = v.catalog;
     this.conversation = v.conversation;
     this.session = v.session;
     this.knownName = v.knownName;
@@ -433,7 +440,7 @@ class Run {
   /** Com nome e horário: pergunta o serviço se ele ainda não veio da conversa, senão mostra o resumo (FR-011). */
   private async toSummary(start: Date, name: string): Promise<FlowResult> {
     if (this.carry.service) return this.confirmBooking(start, name);
-    const options = SERVICES.map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
+    const options = this.catalog.list().map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
     await this.save({ step: "choose_service", options, selectedStart: start, customerName: name });
     return { reply: this.replies.chooseService(name) };
   }

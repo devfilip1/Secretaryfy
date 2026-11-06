@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { FastifyBaseLogger } from "fastify";
 import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../../db/schema.js";
 import type { IncomingMessage } from "../whatsapp/evolution.js";
+import { testCatalog } from "../../test/catalog.js";
 import { testReplies as replies, testTexts } from "../../test/clinic.js";
 import type { SchedulingFlow } from "./flow.js";
 import type { Interpretation, InterpretInput, Interpreter } from "./interpret.js";
@@ -107,6 +108,7 @@ function setup({
     interpreter,
     flow,
     replies,
+    catalog: testCatalog,
     store: {
       getSession: async () => session,
       clearSession: async (id) => {

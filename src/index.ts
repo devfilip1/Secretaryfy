@@ -6,7 +6,7 @@ import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
-import { booking, clinic, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
+import { booking, catalog, clinic, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { createKnowledgeRepository } from "./modules/knowledge/repository.js";
 import { knowledgeInternalRoutes } from "./routes/knowledge-internal.js";
 import { createRagAdmin } from "./modules/rag/admin.js";
@@ -112,6 +112,7 @@ await app.register(
     connection: connectionStore,
     rules: rulesStore,
     booking,
+    catalog,
     reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
   }),
 );

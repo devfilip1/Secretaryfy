@@ -1,13 +1,41 @@
 import type { Language } from "./dates.js";
 
 /**
+ * O nome da avaliação geral, sempre presente na lista (specs/005, research.md R4). Fica em inglês como no folheto: é o
+ * valor guardado no banco.
+ */
+export const ASSESSMENT = "Assessment";
+
+export interface Service {
+  name: string;
+  labelPt: string;
+  words: string[];
+  wordsPt: string[];
+}
+
+/**
+ * Catálogo dos tratamentos que o cliente pode marcar, injetado nos módulos (ADR 0012, passo 4: a versão do banco terá a
+ * mesma forma). Os métodos são síncronos de propósito: a versão do banco guarda um retrato em memória.
+ */
+export interface ServiceCatalog {
+  /** Os serviços na ordem da lista numerada, com a avaliação geral no fim */
+  list(): Service[];
+  /** O serviço pelo número da lista (1 a 9), ou null */
+  byNumber(n: number): string | null;
+  /** Como o serviço aparece para o cliente, na língua da clínica */
+  label(name: string, language?: Language): string;
+  /** O serviço citado por último nos textos (em ordem cronológica), ou null se nenhum (FR-010) */
+  detect(texts: string[]): string | null;
+  /** Os serviços para a lista do painel: nome e rótulo em inglês, na ordem da lista */
+  panelList(): { name: string; label: string }[];
+}
+
+/**
  * Serviços que o cliente pode marcar: os tratamentos do folheto, com o nome em inglês como lá (é o valor guardado no
  * banco), o nome em português para a conversa em pt e a avaliação geral (specs/005, research.md R4). A ordem é a da
  * lista numerada.
  */
-export const ASSESSMENT = "Assessment";
-
-export const SERVICES: { name: string; labelPt: string; words: string[]; wordsPt: string[] }[] = [
+const SERVICES: Service[] = [
   {
     name: "Dental Cleaning",
     labelPt: "Limpeza Dental",
@@ -75,7 +103,7 @@ function lastMention(text: string, words: string[]): number {
 }
 
 /** O serviço citado por último nos textos (em ordem cronológica), ou null se nenhum (FR-010). */
-export function detectService(texts: string[]): string | null {
+function detect(texts: string[]): string | null {
   for (const raw of [...texts].reverse()) {
     const text = normalize(raw);
     let best: { name: string; at: number } | null = null;
@@ -88,19 +116,20 @@ export function detectService(texts: string[]): string | null {
   return null;
 }
 
-/** O serviço pelo número da lista (1 a 9). */
-export function serviceByNumber(n: number): string | null {
-  return SERVICES[n - 1]?.name ?? null;
-}
-
 /** Como o serviço aparece para o cliente, na língua da clínica. */
-export function serviceLabel(service: string, language: Language = "en"): string {
+function label(service: string, language: Language = "en"): string {
   const found = SERVICES.find((s) => s.name === service);
   if (language === "pt") return found?.labelPt ?? service;
   return service === ASSESSMENT ? "General assessment" : service;
 }
 
-/** Os serviços para a lista do painel: nome e rótulo em inglês, na ordem de SERVICES. */
-export function panelServices(): { name: string; label: string }[] {
-  return SERVICES.map((s) => ({ name: s.name, label: serviceLabel(s.name) }));
+/** O catálogo estático: a lista do folheto, sem leitura de banco. */
+export function createStaticCatalog(): ServiceCatalog {
+  return {
+    list: () => [...SERVICES],
+    byNumber: (n) => SERVICES[n - 1]?.name ?? null,
+    label,
+    detect,
+    panelList: () => SERVICES.map((s) => ({ name: s.name, label: label(s.name) })),
+  };
 }

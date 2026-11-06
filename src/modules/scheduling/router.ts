@@ -11,7 +11,7 @@ import type { Intent, Interpreter } from "./interpret.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
-import { detectService } from "./services.js";
+import type { ServiceCatalog } from "./catalog.js";
 import type { SchedulingStore } from "./sessions.js";
 
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
@@ -38,12 +38,14 @@ interface Deps {
   now?: () => Date;
   /** Textos na língua da clínica (replies.ts, createReplies) */
   replies: Replies;
+  /** Os tratamentos que o cliente pode marcar (catalog.ts): o citado no histórico */
+  catalog: ServiceCatalog;
   /** Reescrita opcional da resposta do fluxo (humanize.ts); só o texto do fluxo passa por ela */
   humanize?: (reply: string, customerText: string, log: FastifyBaseLogger) => Promise<string>;
 }
 
 /** Decide se a mensagem vai para o agendamento ou para o folheto, e devolve o texto da resposta. */
-export function createSchedulingRouter({ interpreter, flow, store, inbox, connection, rules, answerQuestion, now = () => new Date(), replies, humanize = async (reply) => reply }: Deps) {
+export function createSchedulingRouter({ interpreter, flow, store, inbox, connection, rules, answerQuestion, now = () => new Date(), replies, catalog, humanize = async (reply) => reply }: Deps) {
   return async function reply(
     { conversationId, message }: { conversationId: string; message: IncomingMessage },
     log: FastifyBaseLogger,
@@ -202,7 +204,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
     // O tratamento citado por último pelo cliente vira o serviço do agendamento (specs/005 FR-010)
-    const mentionedService = detectService([...history.filter((m) => m.role === "user").map((m) => m.content), text]);
+    const mentionedService = catalog.detect([...history.filter((m) => m.role === "user").map((m) => m.content), text]);
     const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, text, log);

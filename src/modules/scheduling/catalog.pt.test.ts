@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ASSESSMENT, detectService, serviceByNumber, serviceLabel } from "./services.js";
+import { ASSESSMENT } from "./catalog.js";
+import { testCatalog } from "../../test/catalog.js";
+
+const { detect: detectService, byNumber: serviceByNumber, label: serviceLabel } = testCatalog;
 
 test("reconhece os tratamentos pelas palavras em português", () => {
   assert.equal(detectService(["quero marcar uma limpeza"]), "Dental Cleaning");

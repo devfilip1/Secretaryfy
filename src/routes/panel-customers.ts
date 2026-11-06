@@ -6,7 +6,7 @@ import type { CalendarGateway } from "../modules/google/gateway.js";
 import type { Publish } from "../modules/inbox/events.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
-import { ASSESSMENT } from "../modules/scheduling/services.js";
+import { ASSESSMENT } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore } from "../modules/scheduling/sessions.js";
 
 interface Deps {

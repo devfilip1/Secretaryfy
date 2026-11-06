@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { appointments, customers, messages, type ConversationRow } from "../../db/schema.js";
 import { createTestDb } from "../../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../../test/fake-calendar.js";
+import { testCatalog } from "../../test/catalog.js";
 import { testReplies } from "../../test/clinic.js";
 import type { ActiveConnection } from "../google/connection.js";
 import { createCustomerRepository, type CustomerRepository } from "../customers/repository.js";
@@ -72,6 +73,7 @@ beforeEach(async () => {
     log: { error: () => {} },
     now: () => now,
     replies: testReplies,
+    catalog: testCatalog,
   });
 });
 

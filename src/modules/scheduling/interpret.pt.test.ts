@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
+import { testCatalog } from "../../test/catalog.js";
 import { cleanName, createInterpreter, type InterpretInput } from "./interpret.js";
 
 // Regras sem modelo: o Ollama não é chamado, então um falso que lança basta.
 const noModel = { chat: async () => Promise.reject(new Error("não deveria chamar o modelo")) };
 const clinic = { name: "Clínica Sorriso", kind: "dental clinic" };
-const interpreter = createInterpreter({ ollama: noModel, clinic });
+const interpreter = createInterpreter({ ollama: noModel, clinic, catalog: testCatalog });
 
 const now = new Date("2026-10-20T18:00:00Z");
 const timeZone = "America/Bahia";
@@ -71,7 +72,7 @@ const dayOptions: SessionOption[] = [
 
 /** Interpretador com um modelo que devolve sempre a saída dada (o que o qwen devolveria para a frase). */
 const asking = (raw: object) =>
-  createInterpreter({ clinic, ollama: { chat: async () => ({ option: null, date: null, weekday: null, name: null, ...raw }) } as never });
+  createInterpreter({ clinic, catalog: testCatalog, ollama: { chat: async () => ({ option: null, date: null, weekday: null, name: null, ...raw }) } as never });
 
 test("o modelo devolve o dia da semana pelo nome em inglês e o código faz a conta do calendário", async () => {
   // Terça, 20/10/2026: o próximo sábado é 24/10; 'domingo' em plural, abreviado ou com erro de digitação é problema do modelo, não de lista de palavras

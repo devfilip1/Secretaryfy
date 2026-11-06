@@ -13,7 +13,7 @@ import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
-import { panelServices, SERVICES } from "../modules/scheduling/services.js";
+import type { ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
 
 interface Deps {
@@ -26,23 +26,14 @@ interface Deps {
   rules: Pick<RulesStore, "get">;
   booking: Pick<Booking, "bookSlot" | "currentAppointment">;
   reminderLeadMinutes: number;
+  /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
+  catalog: ServiceCatalog;
   now?: () => Date;
 }
 
 const idParams = z.object({ id: z.uuid() });
 const slotsQuery = z.object({ date: z.iso.date() });
 const lookupQuery = z.object({ phone: z.string() });
-const SERVICE_NAMES = SERVICES.map((s) => s.name);
-const bookBody = z.object({
-  phone: z.string().transform((v, ctx) => {
-    const phone = normalizePhone(v);
-    if (!phone) ctx.addIssue({ code: "custom", message: "enter a phone number with area code" });
-    return phone ?? "";
-  }),
-  name: z.string().trim().min(1, "enter the customer's name").max(120),
-  service: z.string().refine((v) => SERVICE_NAMES.includes(v), "choose one of the clinic's services"),
-  start: z.iso.datetime({ offset: true }),
-});
 
 type Group = "today" | "tomorrow" | "week";
 
@@ -57,6 +48,7 @@ export function panelAppointmentsRoutes({
   rules: rulesStore,
   booking,
   reminderLeadMinutes,
+  catalog,
   now: clock = () => new Date(),
 }: Deps) {
   /** Fuso da agenda conectada; sem agenda, o de reserva. */
@@ -129,6 +121,18 @@ export function panelAppointmentsRoutes({
     }
   }
 
+  // Serviço da marcação: tem de estar no catálogo, consultado a cada pedido
+  const bookBody = z.object({
+    phone: z.string().transform((v, ctx) => {
+      const phone = normalizePhone(v);
+      if (!phone) ctx.addIssue({ code: "custom", message: "enter a phone number with area code" });
+      return phone ?? "";
+    }),
+    name: z.string().trim().min(1, "enter the customer's name").max(120),
+    service: z.string().refine((v) => catalog.list().some((s) => s.name === v), "choose one of the clinic's services"),
+    start: z.iso.datetime({ offset: true }),
+  });
+
   return async function (app: FastifyInstance) {
     // --- Aba Appointments (US1) ---
 
@@ -163,7 +167,7 @@ export function panelAppointmentsRoutes({
     // --- Marcar pelo painel (US3) ---
 
     // Lista de serviços do painel: a mesma do assistente, com o rótulo em inglês
-    app.get("/api/services", async () => ({ services: panelServices() }));
+    app.get("/api/services", async () => ({ services: catalog.panelList() }));
 
     app.get("/api/booking/days", async (_req, reply) => {
       const conn = await usableCalendar(reply);
