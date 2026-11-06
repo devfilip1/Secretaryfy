@@ -148,7 +148,7 @@ The Evolution API then echoes the sent message back through the webhook; the uni
 - `npx tsx --env-file=.env scripts/simulate-customer.ts "I'd like to book an appointment"`: posts a message to the webhook as if it came from your own number; the reply arrives in your WhatsApp "You" chat.
 - Manual end-to-end scripts: [specs/003 quickstart](../specs/003-google-calendar-scheduling/quickstart.md), [specs/004 quickstart](../specs/004-whatsapp-anti-ban/quickstart.md), [specs/006 quickstart](../specs/006-panel-appointments-reminders/quickstart.md).
 
-### Optional humanizer (HUMANIZE_REPLIES=1)
+### Humanizer (HUMANIZE_REPLIES, on by default)
 
 The interpreter model returns a weekday as an English name (`weekday`) instead of a date, in any form the customer wrote ("sábados", "sab"), and the code does the calendar arithmetic; it also classifies `greeting` and `who_are_you`. `scripts/eval-interpret.ts` measures this with the real model.
 

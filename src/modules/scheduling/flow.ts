@@ -200,7 +200,7 @@ class Run {
         break;
       case "choose_slot":
         if (i.intent === "choose" && i.option !== null) return this.selectSlot(this.slotOption(i.option));
-        if (i.intent === "choose" && i.date) return this.offerDay(i.date);
+        if (i.intent === "choose" && i.date) return this.sameDayAsOptions(i.date) ? this.timeNotOffered() : this.offerDay(i.date);
         if (i.intent === "more") return this.moreSlots();
         if (i.intent === "other_day") return this.offerDays();
         break;
@@ -370,6 +370,17 @@ class Run {
     const reply =
       kind === "taken" ? this.replies.slotTaken(date, page, this.tz) : this.replies.offerSlots(date, page, this.tz, slots.length > PAGE);
     return { reply };
+  }
+
+  /** O cliente nomeou o dia que já está na tela: o que ele quer é um horário, e ele não está entre as opções. */
+  private sameDayAsOptions(date: string): boolean {
+    const slots = this.optionSlots(this.session!.options);
+    return slots.length > 0 && this.isoDate(slots[0]) === date;
+  }
+
+  private async timeNotOffered(): Promise<FlowResult> {
+    const slots = this.optionSlots(this.session!.options);
+    return { reply: this.replies.slotNotOffered(this.isoDate(slots[0]), slots, this.tz) };
   }
 
   private async moreSlots(): Promise<FlowResult> {

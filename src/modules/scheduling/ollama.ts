@@ -32,7 +32,8 @@ export function createOllamaClient({
   return {
     model,
     /** Devolve o JSON gerado pelo modelo, ainda sem validar, ou null se o conteúdo não for JSON. */
-    async chat({ messages, format }: { messages: ChatMessage[]; format: object }): Promise<unknown> {
+    /** `temperature` 0 (padrão) para interpretar; o humanizador usa mais, senão o modelo só copia o texto. */
+    async chat({ messages, format, temperature = 0 }: { messages: ChatMessage[]; format: object; temperature?: number }): Promise<unknown> {
       let res: Response;
       try {
         res = await doFetch(new URL("/api/chat", url), {
@@ -46,7 +47,7 @@ export function createOllamaClient({
             ...(desligaPensamento ? { think: false } : {}),
             // Mantém o modelo carregado entre as mensagens (SC-008)
             keep_alive: "30m",
-            options: { temperature: 0 },
+            options: { temperature },
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });

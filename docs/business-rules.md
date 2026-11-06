@@ -93,7 +93,7 @@ A booking made by staff runs the same checks as the assistant (rules, free times
 
 ### BR-SCH-13 · Replies may be reworded, facts may not
 
-With `HUMANIZE_REPLIES=1` the model may reword a scheduling reply, but only if every time, date, number, name, list line and quoted option survives unchanged (see [message-pipeline](message-pipeline.md#optional-humanizer-humanize_replies1)). Otherwise the fixed text is sent. Handoffs are never reworded.
+With `HUMANIZE_REPLIES` on (the default) the model may reword a scheduling reply, but only if every time, date, number, name, list line and quoted option survives unchanged (see [message-pipeline](message-pipeline.md#optional-humanizer-humanize_replies1)). Otherwise the fixed text is sent. Handoffs are never reworded.
 
 ### BR-SCH-14 · What only the team can decide never gets a model answer
 When the interpreter classifies a message as `needs_staff` (asks for the doctor, receptionist or manager; says someone authorized a discount or special condition; demands a discount, refund or exception; complains; describes pain, swelling or bleeding; asks for a prescription or medical advice), the reply is a fixed text ("vou chamar alguém da nossa equipe"), the scheduling session is cleared, the conversation is flagged as needing attention and the assistant is paused, with a system note in the panel. For pain, swelling or bleeding (`urgent`) the text also says to go to an emergency room if it gets worse. The brochure model never answers these, so it cannot promise a free service or give medical advice.

@@ -25,6 +25,12 @@ export function createEnglishReplies({ clinic, catalog }: { clinic: Pick<ClinicC
       return `On ${formatDayLong(date, tz)} I have these times:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
     },
 
+    slotNotOffered(date: string, slots: Date[], tz: string) {
+      return `Unfortunately we do not have that time! Would another one work for you on ${formatDayLong(date, tz)}?
+${bullets(slots.map((s) => formatTime(s, tz)))}
+I can also check another day if you like.`;
+    },
+
     closedDay(closedWeekdays: number[], closest: string[], tz: string) {
       const names = closedWeekdays.map((d) => `${Info.weekdays("long", { locale: "en-US" })[d - 1]}s`);
       return r.offerDays(closest, tz, `We're closed on ${joinList(names, "and")}. The closest days with openings are:`);
@@ -202,7 +208,7 @@ export function createEnglishReplies({ clinic, catalog }: { clinic: Pick<ClinicC
     },
 
     again(random: () => number = Math.random) {
-      const options = ["As I mentioned:", "Just to recap:", "Here it is again:"];
+      const options = ["Of course!", "Happy to!", "Sure thing!"];
       return options[Math.floor(random() * options.length)];
     },
 

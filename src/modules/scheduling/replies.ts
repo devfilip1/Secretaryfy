@@ -51,6 +51,8 @@ export interface Replies {
   greeting(hour: number): string;
   /** Só a saudação pela hora do dia ("Boa noite!"), sem quem fala: é o que o folheto vê da nossa saudação */
   salutation(hour: number): string;
+  /** O cliente pediu um horário que não está na lista do dia: avisa com gentileza e oferece os que existem */
+  slotNotOffered(date: string, slots: Date[], tz: string): string;
   /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
   again(random?: () => number): string;
   /** O cliente precisa de alguém da equipe (a conversa é pausada); `urgent`: dor, inchaço ou outra urgência de saúde */

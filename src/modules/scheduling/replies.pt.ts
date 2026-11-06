@@ -32,6 +32,12 @@ export function createPortugueseReplies({ clinic, catalog }: { clinic: Pick<Clin
       return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
+    slotNotOffered(date: string, slots: Date[], tz: string) {
+      return `Infelizmente não temos esse horário! Teria outro que funcione para você ${onDay(date, tz)}?
+${bullets(slots.map((s) => formatTime(s, tz, pt)))}
+Se preferir outro dia, é só pedir.`;
+    },
+
     closedDay(closedWeekdays: number[], closest: string[], tz: string) {
       // "sábado e domingo", "segunda": sem o "-feira", como se fala
       const names = closedWeekdays.map((d) => weekdayNames("pt")[d - 1]);
@@ -214,7 +220,7 @@ export function createPortugueseReplies({ clinic, catalog }: { clinic: Pick<Clin
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Como comentei:", "Só reforçando:", "Repetindo para você:"];
+      const options = ["Claro!", "Com prazer!", "Pois não!"];
       return options[Math.floor(random() * options.length)];
     },
 

@@ -15,6 +15,10 @@ const FORMAT = {
   required: ["message"],
 } as const;
 
+/** Com temperatura 0 o modelo devolve o texto igual; a guarda cuida dos fatos, então há espaço para variar o tom. */
+const HUMANIZE_TEMPERATURE = 0.7;
+const MAX_ATTEMPTS = 2;
+
 const OUTPUT = z.object({ message: z.string() });
 
 const LANGUAGE_NAMES = { en: "English", pt: "Brazilian Portuguese" } as const;
@@ -71,6 +75,9 @@ function systemPrompt(language: "en" | "pt", clinicName: string): string {
     `You are the receptionist of ${clinicName}. Rewrite the message to sound like a warm, natural WhatsApp message from a human, in ${LANGUAGE_NAMES[language]}.`,
     "The customer's last message is only there for tone. Do not answer it.",
     "You MUST change the wording of the sentences that are not protected lines: casual, friendly, like a real person typing on WhatsApp. Never return the message unchanged.",
+    "Be sweet and kind in every message, like a caring receptionist who is happy to help. Never curt, cold or bossy.",
+    "When the original says something is not available, not possible or not understood, say it softly (for example start with \"unfortunately\" or an apology) and invite the customer to pick another option from the same original. Never scold, never blame.",
+    "Never start with stiff openers such as \"as I said\", \"repeating\" or \"just reinforcing\". If the message repeats something already said, simply say it again in a fresh, friendly way.",
     "Keep the message about as short as the original.",
     "Keep EVERY number, time, date and name exactly as written.",
     "Keep numbered list lines, and lines starting with 📅 👤 🦷, exactly as written, each on its own line.",
@@ -93,17 +100,26 @@ export function createHumanizer({ ollama, language, clinic }: { ollama: Pick<Oll
         return reply;
       };
       try {
-        const raw = await ollama.chat({
-          format: FORMAT,
-          messages: [
-            { role: "system", content: systemPrompt(language, clinic.name) },
-            { role: "user", content: `Customer said: ${customerText}\n\nMessage to rewrite: ${reply}` },
-          ],
-        });
-        const parsed = OUTPUT.safeParse(raw);
-        if (!parsed.success) return fallback("resposta fora do formato");
-        if (!guardRewrite(reply, parsed.data.message)) return fallback("reescrita alterou fatos");
-        return parsed.data.message.trim();
+        let rewrite: string | null = null;
+        // O modelo às vezes devolve o texto igual: uma segunda tentativa costuma variar o tom
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+          const raw = await ollama.chat({
+            format: FORMAT,
+            temperature: HUMANIZE_TEMPERATURE,
+            messages: [
+              { role: "system", content: systemPrompt(language, clinic.name) },
+              { role: "user", content: `Customer said: ${customerText}
+
+Message to rewrite: ${reply}` },
+            ],
+          });
+          const parsed = OUTPUT.safeParse(raw);
+          if (!parsed.success) return fallback("resposta fora do formato");
+          if (!guardRewrite(reply, parsed.data.message)) return fallback("reescrita alterou fatos");
+          rewrite = parsed.data.message.trim();
+          if (rewrite !== reply.trim()) break;
+        }
+        return rewrite ?? reply;
       } catch (err) {
         return fallback((err as Error).message);
       }

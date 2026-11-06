@@ -46,7 +46,7 @@ const envSchema = z.object({
   AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
   // Reescreve as respostas do agendamento para soarem humanas (opt-in, uma chamada extra ao modelo; humanize.ts)
-  HUMANIZE_REPLIES: z.stringbool().default(false),
+  HUMANIZE_REPLIES: z.stringbool().default(true),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
   PANEL_URL: z.url().optional(),
   // Token do endpoint interno GET /internal/knowledge (o RAG lê a brochura por ele); vazio = endpoint desligado
