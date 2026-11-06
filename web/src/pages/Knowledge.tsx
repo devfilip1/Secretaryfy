@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { knowledgeListQuery } from "../queries";
+import { ClinicSettingsPanel } from "../components/knowledge/ClinicSettingsPanel";
 import { KnowledgeHelp } from "../components/knowledge/KnowledgeHelp";
 import { PublishBar } from "../components/knowledge/PublishBar";
 import { SectionDialog, targetFor, type SectionTarget } from "../components/knowledge/SectionDialog";
@@ -30,8 +31,8 @@ export function KnowledgePage() {
           <Tabs defaultValue="sections" className="mt-5">
             <TabsList>
               <TabsTrigger value="sections">Sections</TabsTrigger>
-              <TabsTrigger value="help">Help</TabsTrigger>
-            </TabsList>
+              <TabsTrigger value="clinic">Clinic</TabsTrigger>
+              <TabsTrigger value="help">Help</TabsTrigger>            </TabsList>
             <TabsContent value="sections" className="grid gap-5 pt-4">
               <PublishBar />
               {hasSections && <AddSectionButtons onAdd={setTarget} />}
@@ -41,6 +42,9 @@ export function KnowledgePage() {
                 <SectionList sections={sections} onEdit={(section) => setTarget(targetFor(section))} onAdd={setTarget} />
               )}
               {list.data && <SectionDialog target={target} labels={list.data.labels} hours={list.data.hours} onClose={() => setTarget(null)} />}
+            </TabsContent>
+            <TabsContent value="clinic" className="pt-4">
+              <ClinicSettingsPanel />
             </TabsContent>
             <TabsContent value="help" className="pt-4">
               <KnowledgeHelp />

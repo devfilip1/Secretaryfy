@@ -278,3 +278,22 @@ export const updateSection = (key: string, input: SectionInput) =>
 export const deleteSection = (key: string) => request<void>("DELETE", `/api/knowledge/${encodeURIComponent(key)}`);
 export const knowledgeStatus = () => request<KnowledgeStatus>("GET", "/api/knowledge/status");
 export const publishKnowledge = () => request<KnowledgeStatus>("POST", "/api/knowledge/publish", {});
+
+// --- Dados da clínica (GET/PUT /api/clinic-settings) ---
+
+export interface ClinicSettings {
+  name: string;
+  assistantName: string | null;
+  kind: string;
+  language: "pt" | "en";
+  restartRequired: boolean;
+}
+/** assistantName vazio quer dizer nenhum nome. */
+export interface ClinicSettingsInput {
+  name: string;
+  assistantName: string;
+  kind: string;
+}
+export const getClinicSettings = () => request<ClinicSettings>("GET", "/api/clinic-settings");
+export const saveClinicSettings = (input: ClinicSettingsInput) =>
+  request<ClinicSettings>("PUT", "/api/clinic-settings", input);

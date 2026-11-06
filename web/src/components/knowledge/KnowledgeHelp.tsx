@@ -83,8 +83,19 @@ const HELP_BLOCKS: HelpBlock[] = [
     ],
   },
   {
-    title: "Booking",
+    title: "Clinic name and assistant",
     paragraphs: [
+      "Save on the Clinic tab sends these three fields to the server. The assistant uses a new name from the next message.",
+    ],
+    list: [
+      "Clinic name: the name patients hear, for example: Sorriso Pleno.",
+      "Assistant name: the name the assistant uses when it introduces itself, for example: Ana. Leave it empty for no name.",
+      "Type of clinic: how the assistant describes the clinic to the model, in the clinic's language, for example: clínica odontológica.",
+      "The language is set when the server starts, so the panel only shows it.",
+    ],
+  },
+  {
+    title: "Booking",    paragraphs: [
       "Each treatment has the switch Patients can book this treatment, on by default. When it is on, the assistant offers the treatment in the booking list. Turn it off for treatments that are only information: the assistant can still explain it, but does not offer it for booking. Treatments that are off show Not bookable in the list.",
     ],
   },
