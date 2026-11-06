@@ -896,3 +896,9 @@ def test_small_talk_is_checked_against_the_customer_question_not_the_rewritten_o
 
     assert result.answer == "You're welcome!"
     assert result.grounding == "small_talk"
+
+
+def test_clean_answer_drops_the_emoji_left_by_the_greeting_but_keeps_a_currency_symbol():
+    history = [{"role": "assistant", "content": "Hello!"}]
+    assert clean_answer("Hi! 😊\n\nThe price is $40.", history) == "The price is $40."
+    assert clean_answer("Hello! $40 is the price.", history) == "$40 is the price."

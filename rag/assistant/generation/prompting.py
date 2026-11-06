@@ -1,3 +1,4 @@
+import unicodedata
 from langchain_core.prompts import ChatPromptTemplate
 
 from assistant.clinic.profile import ClinicProfile
@@ -50,13 +51,27 @@ def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=Non
     })
 
 
+def _is_mark(char):
+    category = unicodedata.category(char)
+    return category[0] in "ZPC" or category in ("So", "Sk", "Sm")
+
+
+def _without_leading_marks(text):
+    """What is left of the greeting often starts with an emoji or a stray mark ("Oi! 😊 O preço..."): drop them, but keep
+    currency symbols, which belong to the answer."""
+    start = 0
+    while start < len(text) and _is_mark(text[start]):
+        start += 1
+    return text[start:]
+
+
 def clean_answer(text, clinic: ClinicProfile, history=None):
     """The answer without the separators and notes about itself that the model sometimes adds at the end and, in an
     ongoing conversation, without the greeting at the start."""
     match = clinic.afterthought.search(text)
     text = (text[:match.start()] if match else text).strip()
     if any(turn.get("role") == "assistant" for turn in history or []):
-        rest = clinic.greeting.sub("", text, count=1)
+        rest = _without_leading_marks(clinic.greeting.sub("", text, count=1))
         if rest:
             text = rest[0].upper() + rest[1:]
     if not text.strip():
