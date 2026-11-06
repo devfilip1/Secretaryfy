@@ -1,5 +1,6 @@
 import { FACTS_SEPARATOR } from "./render.js";
-import { knowledgeRowSchema, type KnowledgeRow, type LabelledValue, type TreatmentData } from "./types.js";
+import { FIELD_LABELS } from "./texts.js";
+import { knowledgeRowSchema, type ClinicData, type KnowledgeRow, type LabelledValue, type TreatmentData } from "./types.js";
 
 const SECTION_PREFIX = "## ";
 /** Um tratamento tem uma linha de duração; sem ela a seção é uma informação. */
@@ -81,6 +82,51 @@ function parseTreatmentBody(lines: string[]): TreatmentData | null {
   };
 }
 
+/** Uma linha que parece telefone: só algarismos e sinais de pontuação, com pelo menos 6 algarismos. Sem palavras. */
+function looksLikePhone(line: string | undefined): boolean {
+  return line !== undefined && /^[\d\s()+.-]+$/.test(line) && (line.match(/\d/g)?.length ?? 0) >= 6;
+}
+
+/** Partes da seção da clínica: a abertura, o endereço, o contato e as linhas do horário que as regras passam a ter. */
+interface ClinicParse {
+  data: ClinicData;
+  droppedHours: string[];
+}
+
+/**
+ * A seção que tem os três títulos da clínica (na língua da clínica, ou na outra) vira `clinic`. Antes do endereço é a
+ * abertura; as linhas do horário saem (o horário é das regras); depois do contato vêm telefone, e-mail e fechamento.
+ * Devolve null quando não bate: a seção então fica como informação.
+ */
+function parseClinicBody(lines: string[]): ClinicParse | null {
+  for (const labels of [FIELD_LABELS.pt, FIELD_LABELS.en]) {
+    const addressAt = lines.indexOf(labels.address);
+    const hoursAt = lines.indexOf(labels.hours);
+    const contactAt = lines.indexOf(labels.contact);
+    if (addressAt < 0 || hoursAt <= addressAt || contactAt <= hoursAt) continue;
+
+    const address = lines.slice(addressAt + 1, hoursAt);
+    const rest = lines.slice(contactAt + 1);
+    const phone = looksLikePhone(rest[0]) ? rest[0] : undefined;
+    const emailAt = phone ? 1 : 0;
+    const email = rest[emailAt]?.includes("@") ? rest[emailAt] : undefined;
+    const closing = rest.slice(emailAt + (email ? 1 : 0));
+    if (address.length === 0 || closing.some((line) => line.includes("@"))) return null;
+
+    return {
+      data: {
+        intro: lines.slice(0, addressAt),
+        address,
+        ...(phone ? { phone } : {}),
+        ...(email ? { email } : {}),
+        closing,
+      },
+      droppedHours: lines.slice(hoursAt + 1, contactAt),
+    };
+  }
+  return null;
+}
+
 export function slugify(text: string): string {
   const slug = text
     .normalize("NFD")
@@ -102,7 +148,7 @@ function infoRow(section: RawSection, position: number): KnowledgeRow {
   };
 }
 
-function toRow(section: RawSection, position: number): KnowledgeRow {
+function treatmentOrInfoRow(section: RawSection, position: number): KnowledgeRow {
   const isTreatment = section.lines.some((line) => DURATION_PREFIXES.some((prefix) => line.startsWith(prefix)));
   if (!isTreatment) return infoRow(section, position);
 
@@ -129,8 +175,22 @@ function withUniqueKeys(rows: KnowledgeRow[]): KnowledgeRow[] {
   });
 }
 
-/** Converte a brochura em Markdown nas linhas de knowledge_sections. Seção que não se lê com certeza vira informação. */
+/**
+ * Converte a brochura em Markdown nas linhas de knowledge_sections. Seção que não se lê com certeza vira informação.
+ * `droppedHours`: as linhas de horário da seção da clínica que não foram guardadas (o horário vem das regras de atendimento).
+ */
+export function importBrochure(markdown: string): { rows: KnowledgeRow[]; droppedHours: string[] } {
+  const droppedHours: string[] = [];
+  const rows = splitSections(markdown).map((section, position) => {
+    const clinic = parseClinicBody(section.lines);
+    if (!clinic) return treatmentOrInfoRow(section, position);
+    droppedHours.push(...clinic.droppedHours);
+    return { key: slugify(section.heading), kind: "clinic", title: section.heading, tagline: null, data: clinic.data, position } as KnowledgeRow;
+  });
+  return { rows: withUniqueKeys(rows).map((row) => knowledgeRowSchema.parse(row)), droppedHours };
+}
+
+/** Converte a brochura em linhas de knowledge_sections (ver importBrochure). */
 export function parseBrochure(markdown: string): KnowledgeRow[] {
-  const rows = splitSections(markdown).map((section, position) => toRow(section, position));
-  return withUniqueKeys(rows).map((row) => knowledgeRowSchema.parse(row));
+  return importBrochure(markdown).rows;
 }

@@ -70,6 +70,19 @@ const HELP_BLOCKS: HelpBlock[] = [
     ],
   },
   {
+    title: "Clinic details",
+    paragraphs: [
+      "The clinic block holds the address, phone and email the assistant gives when patients ask where to come and how to reach you. There is one clinic block, created from the brochure when the knowledge is imported. You can edit it here.",
+      "The opening hours are not written here. They come from the booking rules in the Calendar page, so they are written once and stay in step with the bookings. Change them there.",
+    ],
+    list: [
+      "Intro: the opening lines, one per row. Optional.",
+      "Address: one line per row, for example: Avenida Atlântica, 125, Sala 204. At least one line is needed.",
+      "Phone and email: optional.",
+      "Closing text: the last lines the assistant says, such as a call to book. Optional.",
+    ],
+  },
+  {
     title: "Tips",
     list: [
       "Do not invent information. The assistant can only repeat what you write here.",

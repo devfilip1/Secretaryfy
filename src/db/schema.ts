@@ -224,7 +224,7 @@ export const knowledgeSections = pgTable(
     position: integer("position").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("knowledge_sections_kind_check", sql`${t.kind} in ('treatment', 'info')`)],
+  (t) => [check("knowledge_sections_kind_check", sql`${t.kind} in ('treatment', 'info', 'clinic')`)],
 );
 
 /** Quem pediu para não receber mensagens. Fica pelo telefone, e não pela conversa, para sobreviver à limpeza ao desconectar. */

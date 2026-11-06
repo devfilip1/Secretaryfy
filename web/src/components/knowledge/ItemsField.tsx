@@ -1,42 +1,41 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useFieldArray, useFormContext } from "react-hook-form";
-import type { TreatmentFormValues } from "./form-values";
+import { get, useFieldArray, useFormContext } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-const ITEMS = "ideal.items" as const;
+type ItemErrors = { message?: string; root?: { message?: string } };
 
-/** Lista de linhas (a "Ideal para"): Enter numa linha abre outra logo abaixo, com o foco nela. */
-export function ItemsField() {
-  const { control, register, setFocus, formState } = useFormContext<TreatmentFormValues>();
-  const { fields, insert, remove, append } = useFieldArray({ control, name: ITEMS });
+/** Lista de linhas ("Ideal para", "Endereço"): `name` é o campo da lista. Enter numa linha abre outra logo abaixo, com o foco nela. */
+export function ItemsField({ name, label, description }: { name: string; label: string; description: string }) {
+  const { control, register, setFocus, formState } = useFormContext();
+  const { fields, insert, remove, append } = useFieldArray({ control, name });
   // Índice da linha que deve ganhar o foco depois que o React desenhar a nova linha
   const focusIndex = useRef<number | null>(null);
 
   useEffect(() => {
     if (focusIndex.current === null) return;
-    setFocus(`${ITEMS}.${focusIndex.current}.text`);
+    setFocus(`${name}.${focusIndex.current}.text`);
     focusIndex.current = null;
-  }, [fields.length, setFocus]);
+  }, [fields.length, name, setFocus]);
 
-  const listError = formState.errors.ideal?.items;
+  const listError = get(formState.errors, name) as ItemErrors | undefined;
   const listMessage = listError?.root?.message ?? listError?.message;
 
   return (
     <div className="grid gap-3">
       <Field data-invalid={listMessage ? true : undefined}>
-        <FieldLabel>Items</FieldLabel>
-        <FieldDescription>One short line each, for example: Hálito mais fresco. Press Enter for a new line.</FieldDescription>
+        <FieldLabel>{label}</FieldLabel>
+        <FieldDescription>{description}</FieldDescription>
       </Field>
       <ul className="grid gap-2">
         {fields.map((field, index) => (
           <li key={field.id} className="flex items-center gap-2">
             <Input
               aria-label={`Item ${index + 1}`}
-              aria-invalid={formState.errors.ideal?.items?.[index]?.text ? true : undefined}
-              {...register(`${ITEMS}.${index}.text`)}
+              aria-invalid={get(formState.errors, `${name}.${index}.text`) ? true : undefined}
+              {...register(`${name}.${index}.text`)}
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
                 event.preventDefault();

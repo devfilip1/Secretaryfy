@@ -17,7 +17,7 @@ import { Title } from "../Title";
 
 const NEW_TARGETS: SectionTarget[] = [{ kind: "treatment" }, { kind: "info" }];
 
-/** Os botões de criar: um por tipo de seção. */
+/** Os botões de criar: um por tipo de seção. A clínica não entra aqui: a seção nasce da importação. */
 export function AddSectionButtons({ onAdd }: { onAdd: (target: SectionTarget) => void }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -52,59 +52,75 @@ export function SectionList({
   });
 
   if (!sections) return <SkeletonRows />;
-  if (sections.length === 0) {
-    return (
-      <div className="grid justify-items-start gap-4 py-6">
-        <Muted as="p">No sections yet. Start with a treatment, or add a few info lines such as the address and hours.</Muted>
-        <AddSectionButtons onAdd={onAdd} />
-      </div>
-    );
-  }
+  const hasClinic = sections.some((section) => section.kind === "clinic");
 
   return (
-    <TooltipProvider>
-      <ul className="divide-y divide-border border-y border-border">
-        {sections.map((section) => (
-          <li key={section.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3">
-            <div className="min-w-0 flex-1 basis-56">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold break-words text-balance">{section.title}</span>
-                <Badge variant="secondary">{KIND_LABEL[section.kind]}</Badge>
-              </div>
-              {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button variant="secondary" size="sm" onClick={() => onEdit(section)}>
-                <Pencil />
-                Edit
-              </Button>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="destructive-ghost"
-                    size="icon-sm"
-                    aria-label={`Delete ${section.title}`}
-                    onClick={() => setPendingDelete(section)}
-                  >
-                    <Trash2 />
+    <div className="grid gap-5">
+      {!hasClinic && <ClinicHint onAdd={onAdd} />}
+      {sections.length === 0 ? (
+        <div className="grid justify-items-start gap-4 py-6">
+          <Muted as="p">No sections yet. Start with a treatment, or add a few info lines such as the address and hours.</Muted>
+          <AddSectionButtons onAdd={onAdd} />
+        </div>
+      ) : (
+        <TooltipProvider>
+          <ul className="divide-y divide-border border-y border-border">
+            {sections.map((section) => (
+              <li key={section.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3">
+                <div className="min-w-0 flex-1 basis-56">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold break-words text-balance">{section.title}</span>
+                    <Badge variant="secondary">{KIND_LABEL[section.kind]}</Badge>
+                  </div>
+                  {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button variant="secondary" size="sm" onClick={() => onEdit(section)}>
+                    <Pencil />
+                    Edit
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete</TooltipContent>
-              </Tooltip>
-            </div>
-          </li>
-        ))}
-      </ul>
-      {pendingDelete && (
-        <DeleteDialog
-          section={pendingDelete}
-          busy={remove.isPending}
-          error={remove.isError ? remove.error : null}
-          onCancel={() => setPendingDelete(null)}
-          onConfirm={() => remove.mutate(pendingDelete.key)}
-        />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="destructive-ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${section.title}`}
+                        onClick={() => setPendingDelete(section)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {pendingDelete && (
+            <DeleteDialog
+              section={pendingDelete}
+              busy={remove.isPending}
+              error={remove.isError ? remove.error : null}
+              onCancel={() => setPendingDelete(null)}
+              onConfirm={() => remove.mutate(pendingDelete.key)}
+            />
+          )}
+        </TooltipProvider>
       )}
-    </TooltipProvider>
+    </div>
+  );
+}
+
+/** Aviso sem clínica: o assistente não tem endereço nem contato até a seção existir. */
+function ClinicHint({ onAdd }: { onAdd: (target: SectionTarget) => void }) {
+  return (
+    <Notice tone="plain" layout="box">
+      <Muted>No clinic details yet. The assistant needs the address and contact to say where to come.</Muted>
+      <Button variant="secondary" size="sm" onClick={() => onAdd({ kind: "clinic" })}>
+        <Plus />
+        Add clinic details
+      </Button>
+    </Notice>
   );
 }
 

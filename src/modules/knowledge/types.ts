@@ -22,8 +22,23 @@ export type TreatmentData = z.infer<typeof treatmentDataSchema>;
 export const infoDataSchema = z.object({ lines: z.array(z.string().min(1)) });
 export type InfoData = z.infer<typeof infoDataSchema>;
 
-export type KnowledgeData = TreatmentData | InfoData;
-export type KnowledgeKind = "treatment" | "info";
+/**
+ * Seção da clínica: endereço, contato e textos. O horário não está aqui: sai das regras de atendimento (BR-KNO-02).
+ * `intro` vem antes do endereço e `closing` depois do contato.
+ */
+export const clinicDataSchema = z.object({
+  intro: z.array(z.string().min(1)),
+  address: z.array(z.string().min(1)).min(1),
+  phone: z.string().min(1).optional(),
+  email: z.string().min(1).optional(),
+  closing: z.array(z.string().min(1)),
+});
+export type ClinicData = z.infer<typeof clinicDataSchema>;
+
+export type KnowledgeData = TreatmentData | InfoData | ClinicData;
+/** Tipos de seção; o painel e as rotas aceitam estes */
+export const KNOWLEDGE_KINDS = ["treatment", "info", "clinic"] as const;
+export type KnowledgeKind = (typeof KNOWLEDGE_KINDS)[number];
 
 const keySchema = z.string().min(1);
 const positionSchema = z.number().int().nonnegative();
@@ -44,6 +59,14 @@ export const knowledgeRowSchema = z.discriminatedUnion("kind", [
     title: z.string().min(1),
     tagline: z.null(),
     data: infoDataSchema,
+    position: positionSchema,
+  }),
+  z.object({
+    key: keySchema,
+    kind: z.literal("clinic"),
+    title: z.string().min(1),
+    tagline: z.null(),
+    data: clinicDataSchema,
     position: positionSchema,
   }),
 ]);

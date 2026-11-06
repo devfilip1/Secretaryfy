@@ -3,9 +3,13 @@ import type { FastifyInstance } from "fastify";
 import { toDocument } from "../modules/knowledge/render.js";
 import type { Language } from "../modules/scheduling/dates.js";
 import type { KnowledgeRepository } from "../modules/knowledge/repository.js";
+import { hoursLines } from "../modules/knowledge/hours.js";
+import type { WeeklyHours } from "../db/schema.js";
 
 interface Deps {
   repo: Pick<KnowledgeRepository, "list">;
+  /** Regras de atendimento: o horário da seção da clínica sai delas (BR-KNO-02) */
+  rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
   clinicName: string;
   /** Língua da clínica: os avisos dos fatos com `assessment` saem nela */
   language: Language;
@@ -25,12 +29,13 @@ function authorized(header: string | undefined, token: string): boolean {
  * GET /internal/knowledge: o conhecimento da clínica para o serviço RAG (docs/integrations.md).
  * Fica fora do login do painel; protegido só pelo token do cabeçalho Authorization.
  */
-export function knowledgeInternalRoutes({ repo, clinicName, language, token }: Deps) {
+export function knowledgeInternalRoutes({ repo, rules, clinicName, language, token }: Deps) {
   return async function plugin(app: FastifyInstance): Promise<void> {
     if (!token) return;
     app.get("/internal/knowledge", async (req, reply) => {
       if (!authorized(req.headers.authorization, token)) return reply.code(401).send({ error: "unauthorized" });
-      return toDocument(clinicName, await repo.list(), language);
+      const { weeklyHours } = await rules.get();
+      return toDocument(clinicName, await repo.list(), language, hoursLines(weeklyHours, language));
     });
   };
 }

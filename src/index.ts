@@ -67,7 +67,7 @@ const knowledge = createKnowledgeRepository(db);
 await app.register(healthRoutes);
 // Fora do login do painel: protegido só pelo INTERNAL_TOKEN (sem ele, a rota não existe)
 await app.register(
-  knowledgeInternalRoutes({ repo: knowledge, clinicName: clinic.name, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
+  knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinicName: clinic.name, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
 );
 await app.register(
   googleOAuthRoutes({
@@ -139,6 +139,7 @@ await app.register(
   panelKnowledgeRoutes({
     repo: knowledge,
     rag: createRagAdmin({ url: env.RAG_SERVICE_URL, token: env.INTERNAL_TOKEN ?? "" }),
+    rules: rulesStore,
     clinicName: clinic.name,
     language: clinic.language,
   }),

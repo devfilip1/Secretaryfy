@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { KnowledgeLabels, TreatmentRow } from "../../api";
+import type { ClinicRow, KnowledgeLabels, TreatmentRow } from "../../api";
 import {
+  clinicDefaults,
+  clinicFormSchema,
   factIssues,
+  toClinicInput,
   infoDefaults,
   infoFormSchema,
   toInfoInput,
@@ -19,6 +22,9 @@ const LABELS: KnowledgeLabels = {
   price: "Preço",
   result: "Resultado",
   recovery: "Recuperação",
+  address: "ENDEREÇO",
+  hours: "HORÁRIO",
+  contact: "CONTATO",
 };
 
 const LIMPEZA: TreatmentRow = {
@@ -68,6 +74,50 @@ function values(overrides: Partial<TreatmentFormValues> = {}): TreatmentFormValu
   };
   return { ...complete, ...overrides };
 }
+
+const CLINICA: ClinicRow = {
+  key: "clinica",
+  kind: "clinic",
+  title: "Sorriso Pleno - Clinic information",
+  tagline: null,
+  position: 2,
+  data: {
+    intro: ["Transforme seu sorriso com segurança e rapidez"],
+    address: ["Avenida Atlântica, 125", "Sala 204"],
+    phone: "(21) 3000-0000",
+    email: "contato@clinica.example",
+    closing: ["Agende pelo WhatsApp"],
+  },
+};
+
+describe("clínica: volta do servidor para os valores e de volta (round trip)", () => {
+  it("salva sem editar e recebe o mesmo dado", () => {
+    const back = toClinicInput(clinicDefaults(CLINICA));
+    assert.equal(back.title, CLINICA.title);
+    assert.equal(back.tagline, null);
+    assert.deepEqual(JSON.parse(JSON.stringify(back.data)), CLINICA.data);
+  });
+
+  it("telefone e e-mail vazios saem do dado salvo, e linhas vazias de endereço somem", () => {
+    const row: ClinicRow = { ...CLINICA, data: { intro: [], address: ["Avenida Atlântica, 125"], closing: [] } };
+    const defaults = clinicDefaults(row);
+    defaults.address.push({ text: "  " });
+    assert.deepEqual(JSON.parse(JSON.stringify(toClinicInput(defaults).data)), {
+      intro: [],
+      address: ["Avenida Atlântica, 125"],
+      closing: [],
+    });
+  });
+
+  it("clínica nova abre com uma linha de endereço e exige pelo menos um endereço", () => {
+    const defaults = clinicDefaults();
+    assert.deepEqual(defaults.address, [{ text: "" }]);
+    const empty = clinicFormSchema.safeParse({ ...defaults, title: "Clínica" });
+    assert.equal(empty.success, false);
+    const filled = clinicFormSchema.safeParse({ ...defaults, title: "Clínica", address: [{ text: "Rua A, 10" }] });
+    assert.equal(filled.success, true);
+  });
+});
 
 describe("texto de linhas (informações)", () => {
   it("separa linhas, tira espaços e descarta linhas vazias", () => {

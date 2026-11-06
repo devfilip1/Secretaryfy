@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { infoDataSchema, treatmentDataSchema, type Fact, type LabelledValue } from "@server/modules/knowledge/types";
-import type { InfoRow, KnowledgeLabels, SectionInput, TreatmentRow } from "../../api";
+import { clinicDataSchema, infoDataSchema, treatmentDataSchema, type Fact, type LabelledValue } from "@server/modules/knowledge/types";
+import type { ClinicRow, InfoRow, KnowledgeLabels, SectionInput, TreatmentRow } from "../../api";
 
 // Valores dos formulários: texto como o operador digita. Aqui ficam o schema do formulário,
 // a conversão para a forma do servidor e o caminho de volta (seção existente -> valores).
@@ -36,6 +36,18 @@ export interface TreatmentFormValues {
   result: LabelledFormValue;
   recovery: LabelledFormValue;
 }
+
+/** Dados da clínica como o formulário os guarda: texto por linha. Os horários não entram aqui (vêm da Agenda). */
+export interface ClinicFormValues {
+  title: string;
+  intro: string;
+  address: ItemFormValue[];
+  phone: string;
+  email: string;
+  closing: string;
+}
+
+export type ClinicData = z.infer<typeof clinicDataSchema>;
 
 export interface InfoFormValues {
   title: string;
@@ -178,6 +190,53 @@ export function treatmentDefaults(labels: KnowledgeLabels, section?: TreatmentRo
     extras: facts.filter((fact) => fact !== duration && fact !== price).map(toFactValue),
     result: toBlock(data?.result, labels.result),
     recovery: toBlock(data?.recovery, labels.recovery),
+  };
+}
+
+export const clinicFormSchema = z
+  .object({
+    title: requiredText,
+    intro: z.string(),
+    address: z.array(z.object({ text: z.string() })),
+    phone: z.string(),
+    email: z.string(),
+    closing: z.string(),
+  })
+  .superRefine((values, ctx) => {
+    const checked = clinicDataSchema.safeParse(toClinicData(values));
+    if (!checked.success) reportServerIssues(checked.error, ctx);
+  });
+
+/** Texto opcional: vazio vira undefined, e o campo não vai para o dado salvo. */
+function optionalText(text: string): string | undefined {
+  return text.trim() || undefined;
+}
+
+export function toClinicData(values: ClinicFormValues): ClinicData {
+  return {
+    intro: splitLines(values.intro),
+    address: values.address.map((item) => item.text.trim()).filter((text) => text !== ""),
+    phone: optionalText(values.phone),
+    email: optionalText(values.email),
+    closing: splitLines(values.closing),
+  };
+}
+
+export function toClinicInput(values: ClinicFormValues): SectionInput {
+  return { title: values.title.trim(), tagline: null, data: toClinicData(values) };
+}
+
+/** Seção da clínica -> valores. Sem endereço, o formulário abre com uma linha vazia para preencher. */
+export function clinicDefaults(section?: ClinicRow): ClinicFormValues {
+  const data = section?.data;
+  const address = (data?.address ?? []).map((text) => ({ text }));
+  return {
+    title: section?.title ?? "",
+    intro: data?.intro.join("\n") ?? "",
+    address: address.length > 0 ? address : [{ text: "" }],
+    phone: data?.phone ?? "",
+    email: data?.email ?? "",
+    closing: data?.closing.join("\n") ?? "",
   };
 }
 

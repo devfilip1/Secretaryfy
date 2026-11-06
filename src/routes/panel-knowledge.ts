@@ -5,14 +5,18 @@ import { toDocument } from "../modules/knowledge/render.js";
 import { KnowledgeOrderError, type KnowledgeRepository } from "../modules/knowledge/repository.js";
 import { ASSESSMENT_NOTE, FIELD_LABELS } from "../modules/knowledge/texts.js";
 import { invalidBody } from "./invalid-body.js";
-import { knowledgeRowSchema } from "../modules/knowledge/types.js";
+import { KNOWLEDGE_KINDS, knowledgeRowSchema } from "../modules/knowledge/types.js";
 import { RagAlreadyIndexingError, type RagAdmin } from "../modules/rag/admin.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
 import type { Language } from "../modules/scheduling/dates.js";
+import type { WeeklyHours } from "../db/schema.js";
+import { hoursLines } from "../modules/knowledge/hours.js";
 
 interface Deps {
   repo: Pick<KnowledgeRepository, "list" | "get" | "upsert" | "remove" | "reorder">;
   rag: Pick<RagAdmin, "status" | "reindex">;
+  /** Regras de atendimento: o horário da seção da clínica sai delas (BR-KNO-02) */
+  rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
   clinicName: string;
   /** Língua da clínica: a versão do conteúdo (e o status) muda com ela quando há fatos com `assessment` */
   language: Language;
@@ -27,7 +31,7 @@ const sectionFields = z.object({
   tagline: z.string().trim().min(1).max(200).nullable().optional(),
   data: z.unknown(),
 });
-const createBody = sectionFields.extend({ kind: z.enum(["treatment", "info"]) });
+const createBody = sectionFields.extend({ kind: z.enum(KNOWLEDGE_KINDS) });
 const orderBody = z.object({ keys: z.array(z.string().min(1)) }).strict();
 
 function notFound(reply: FastifyReply) {
@@ -35,7 +39,7 @@ function notFound(reply: FastifyReply) {
 }
 
 /** Rotas do painel para o conhecimento da clínica e a publicação no RAG (docs/integrations.md). */
-export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) {
+export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language }: Deps) {
   /** Primeira chave livre a partir do título: "sobre-nos", "sobre-nos-2", "sobre-nos-3"… */
   async function freeKey(title: string): Promise<string> {
     const base = slugify(title);
@@ -45,9 +49,15 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
     }
   }
 
+  /** Documento de agora: as seções e o horário das regras (o horário não é guardado nas seções). */
+  async function document() {
+    const { weeklyHours } = await rules.get();
+    return toDocument(clinicName, await repo.list(), language, hoursLines(weeklyHours, language));
+  }
+
   /** Versão dos dados atuais contra a que o RAG tem indexada. */
   async function status() {
-    const version = toDocument(clinicName, await repo.list(), language).version;
+    const version = (await document()).version;
     try {
       const { indexedVersion } = await rag.status();
       return { version, indexedVersion, state: indexedVersion === version ? "upToDate" : "unpublished" };
@@ -58,7 +68,11 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
   }
 
   return async function (app: FastifyInstance) {
-    app.get("/api/knowledge", async () => ({ sections: await repo.list(), labels: { ...FIELD_LABELS[language], assessment: ASSESSMENT_NOTE[language] } }));
+    app.get("/api/knowledge", async () => ({
+      sections: await repo.list(),
+      labels: { ...FIELD_LABELS[language], assessment: ASSESSMENT_NOTE[language] },
+      hours: hoursLines((await rules.get()).weeklyHours, language),
+    }));
 
     app.post("/api/knowledge", async (req, reply) => {
       const body = createBody.safeParse(req.body);
@@ -118,7 +132,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
     app.post("/api/knowledge/publish", async (req, reply) => {
       try {
         const { version: indexedVersion } = await rag.reindex();
-        const version = toDocument(clinicName, await repo.list(), language).version;
+        const version = (await document()).version;
         return { version, indexedVersion, state: indexedVersion === version ? "upToDate" : "unpublished" };
       } catch (err) {
         if (err instanceof RagAlreadyIndexingError) return reply.code(409).send({ error: "already indexing" });

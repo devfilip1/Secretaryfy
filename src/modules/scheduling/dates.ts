@@ -1,7 +1,12 @@
-import { DateTime } from "luxon";
+import { DateTime, Info } from "luxon";
 
 /** Língua das mensagens ao cliente (CLINIC_LANGUAGE). Os formatos mudam; a leitura aceita as duas línguas. */
 export type Language = "en" | "pt";
+
+/** Nomes dos dias da semana, de segunda a domingo, na língua da clínica; em português sem o "-feira" ("segunda", "sábado"). */
+export function weekdayNames(language: Language): string[] {
+  return Info.weekdays("long", { locale: language === "pt" ? "pt-BR" : "en-US" }).map((name) => name.replace(/-feira$/, ""));
+}
 
 /** Datas simples que o cliente escreve, resolvidas sem o modelo (contracts/interpreter.md §1). */
 

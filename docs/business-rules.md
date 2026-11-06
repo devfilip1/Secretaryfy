@@ -233,6 +233,10 @@ Every message the gate refuses is stored with status `blocked` and the reason, a
 A treatment fact flagged `assessment: true` (a price range, for instance) reaches the RAG with a short note in the clinic language, written after the fact inside the same line: "Preço: R$ 40 a R$ 85 (valor final definido na avaliação)" in Portuguese, "Price: $40-$85 (final value set at the assessment)" in English. The note is code, not prompt, so the assistant always says the final value depends on the assessment. A fact without the flag renders as before. The version of the brochure changes when the flag or the clinic language changes, so the next publish picks them up.
 - **Where:** [render.ts](../src/modules/knowledge/render.ts), the notes in [texts.ts](../src/modules/knowledge/texts.ts), the flag in [types.ts](../src/modules/knowledge/types.ts)
 
+### BR-KNO-02 · The opening hours come from the scheduling rules
+The clinic section (intro, address, contact and closing text) is stored with no hours. Its HORÁRIO lines are generated from the weekly hours of the Calendar page: consecutive open days with the same hours become one line ("Segunda a sexta: 9h às 18h"), closed days say "Fechado" ("Closed" in English). So the assistant reads the same hours the bookings use, and a change on the Calendar page makes the brochure `unpublished` until the next publish. An import from Markdown drops the hours lines of the brochure and prints them, so the owner can check them against the rules.
+- **Where:** [hours.ts](../src/modules/knowledge/hours.ts), the texts in [texts.ts](../src/modules/knowledge/texts.ts), [render.ts](../src/modules/knowledge/render.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), the rules in [rules.ts](../src/modules/scheduling/rules.ts)
+
 ## Panel access
 
 ### BR-PNL-01 · One shared password

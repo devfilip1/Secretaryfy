@@ -237,6 +237,7 @@ export const listServices = () => request<{ services: { name: string; label: str
 export type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
 export type TreatmentRow = Extract<KnowledgeRow, { kind: "treatment" }>;
 export type InfoRow = Extract<KnowledgeRow, { kind: "info" }>;
+export type ClinicRow = Extract<KnowledgeRow, { kind: "clinic" }>;
 
 /** Campos de uma seção como o painel envia (a chave e a posição o servidor define). */
 export interface SectionInput {
@@ -260,9 +261,17 @@ export interface KnowledgeLabels {
   result: string;
   recovery: string;
   assessment: string;
+  address: string;
+  hours: string;
+  contact: string;
 }
-export const listKnowledge = () => request<{ sections: KnowledgeRow[]; labels: KnowledgeLabels }>("GET", "/api/knowledge");
-export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
+/** `hours` são os horários da página Agenda, em linhas: não ficam na seção. */
+export interface KnowledgeList {
+  sections: KnowledgeRow[];
+  labels: KnowledgeLabels;
+  hours: string[];
+}
+export const listKnowledge = () => request<KnowledgeList>("GET", "/api/knowledge");export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
   request<{ section: KnowledgeRow }>("POST", "/api/knowledge", input);
 export const updateSection = (key: string, input: SectionInput) =>
   request<{ section: KnowledgeRow }>("PUT", `/api/knowledge/${encodeURIComponent(key)}`, input);

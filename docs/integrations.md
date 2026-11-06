@@ -43,7 +43,7 @@ Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/
 
 ## Knowledge endpoint
 
-The Node server serves the clinic's brochure at `GET /internal/knowledge`, authenticated by `INTERNAL_TOKEN` (bearer token, see [api.md](api.md#internal-routes)). The brochure lives in the `knowledge_sections` table ([data-model.md](data-model.md#knowledge_sections)); load it once from a Markdown file with `npx tsx --env-file=.env scripts/import-knowledge.ts <file.md>`, which replaces the whole table. The RAG reads this endpoint when `KNOWLEDGE_URL` is set: the Node side is ready, but `rag/` still reads its file (`KNOWLEDGE_PATH`) and does not call the endpoint yet, so the two are not connected until the RAG side changes.
+The Node server serves the clinic's brochure at `GET /internal/knowledge`, authenticated by `INTERNAL_TOKEN` (bearer token, see [api.md](api.md#internal-routes)). The brochure lives in the `knowledge_sections` table ([data-model.md](data-model.md#knowledge_sections)); the clinic section's HORÁRIO lines are not stored: they are generated from the scheduling rules on every read (BR-KNO-02). Load the brochure once from a Markdown file with `npx tsx --env-file=.env scripts/import-knowledge.ts <file.md>`, which replaces the whole table. The RAG reads this endpoint when `KNOWLEDGE_URL` is set: the Node side is ready, but `rag/` still reads its file (`KNOWLEDGE_PATH`) and does not call the endpoint yet, so the two are not connected until the RAG side changes.
 
 ### Publishing the knowledge
 

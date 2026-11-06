@@ -4,6 +4,10 @@ import { createTestDb } from "../../test/db.js";
 import { parseBrochure } from "./import-markdown.js";
 import { createKnowledgeRepository, KnowledgeOrderError, type KnowledgeRepository } from "./repository.js";
 import { toSections } from "./render.js";
+import { hoursLines } from "./hours.js";
+import { CLINIC_HOURS } from "../../test/hours.js";
+
+const HOURS_PT = hoursLines(CLINIC_HOURS, "pt");
 import type { KnowledgeRow } from "./types.js";
 
 const BROCHURE = "## Limpeza Dental — O primeiro passo\nComo funciona: Ultrassom.\nDuração: 30 min   |   Preço: R$ 40\nResultado: Imediato\n\n## Sobre nós\nLinha um\n";
@@ -41,7 +45,7 @@ test("list is empty before any import", async () => {
 test("replaceAll stores the rows and list gives them back in position order", async () => {
   const rows = parseBrochure(BROCHURE);
   await repo.replaceAll(rows);
-  assert.deepEqual(toSections(await repo.list(), "pt"), toSections(rows, "pt"));
+  assert.deepEqual(toSections(await repo.list(), "pt", HOURS_PT), toSections(rows, "pt", HOURS_PT));
   assert.deepEqual((await repo.list()).map((row) => row.key), rows.map((row) => row.key));
 });
 
@@ -50,7 +54,7 @@ test("replaceAll twice keeps only the second content (idempotent import)", async
   const second = parseBrochure("## Só esta\nLinha\n");
   await repo.replaceAll(second);
   await repo.replaceAll(second);
-  assert.deepEqual(toSections(await repo.list(), "pt"), toSections(second, "pt"));
+  assert.deepEqual(toSections(await repo.list(), "pt", HOURS_PT), toSections(second, "pt", HOURS_PT));
 });
 
 test("get returns the row with that key, or null", async () => {

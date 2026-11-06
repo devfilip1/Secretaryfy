@@ -1,12 +1,12 @@
 import { useId, type ReactNode } from "react";
 import { useFormContext } from "react-hook-form";
-import type { InfoRow, SectionInput, TreatmentRow } from "../../api";
+import type { KnowledgeRow, SectionInput } from "../../api";
 import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 /** Formulário de uma seção: `formId` liga o botão Salvar do rodapé do diálogo ao <form>. */
-export interface SectionFormProps<Row extends TreatmentRow | InfoRow> {
+export interface SectionFormProps<Row extends KnowledgeRow> {
   section?: Row;
   formId: string;
   onSubmit: (input: SectionInput) => void;

@@ -42,7 +42,11 @@ export function TreatmentForm({
           </FormSection>
 
           <FormSection title="Who it is for">
-            <ItemsField />
+            <ItemsField
+              name="ideal.items"
+              label="Items"
+              description="One short line each, for example: Hálito mais fresco. Press Enter for a new line."
+            />
           </FormSection>
 
           <FormSection title="How it works">

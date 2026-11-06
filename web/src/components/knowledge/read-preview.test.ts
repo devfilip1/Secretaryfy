@@ -1,8 +1,37 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { readLine } from "./read-preview";
+import { clinicReadLines, readLine } from "./read-preview";
 
 const NOTE = "(valor final definido na avaliação)";
+
+describe("clinicReadLines", () => {
+  const HEADINGS = { address: "ENDEREÇO", hours: "HORÁRIO", contact: "CONTATO" };
+
+  it("lê as linhas na ordem da brochura, com o cabeçalho de cada bloco", () => {
+    const lines = clinicReadLines(
+      { intro: ["Transforme seu sorriso"], address: ["Avenida Atlântica, 125"], phone: "(21) 3000-0000", closing: ["Agende já"] },
+      HEADINGS,
+      ["Segunda a sexta: 9h às 18h"],
+    );
+    assert.deepEqual(lines, [
+      "Transforme seu sorriso",
+      "ENDEREÇO",
+      "Avenida Atlântica, 125",
+      "HORÁRIO",
+      "Segunda a sexta: 9h às 18h",
+      "CONTATO",
+      "(21) 3000-0000",
+      "Agende já",
+    ]);
+  });
+
+  it("deixa de fora o cabeçalho de um bloco sem linhas", () => {
+    assert.deepEqual(clinicReadLines({ intro: [], address: ["Avenida Atlântica, 125"], closing: [] }, HEADINGS, []), [
+      "ENDEREÇO",
+      "Avenida Atlântica, 125",
+    ]);
+  });
+});
 
 describe("readLine", () => {
   it("adds the assessment note when the price is a range", () => {

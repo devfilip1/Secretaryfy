@@ -1,6 +1,6 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { DateTime, Info } from "luxon";
-import { formatDayLong, formatTime, formatWhen } from "./dates.js";
+import { DateTime } from "luxon";
+import { formatDayLong, formatTime, formatWhen, weekdayNames } from "./dates.js";
 import { ASSESSMENT, SERVICES, serviceLabel } from "./services.js";
 import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
 
@@ -33,7 +33,7 @@ export function createPortugueseReplies(clinicName: string, assistantName?: stri
 
     closedDay(closedWeekdays: number[], closest: string[], tz: string) {
       // "sábado e domingo", "segunda": sem o "-feira", como se fala
-      const names = closedWeekdays.map((d) => Info.weekdays("long", { locale: "pt-BR" })[d - 1].replace(/-feira$/, ""));
+      const names = closedWeekdays.map((d) => weekdayNames("pt")[d - 1]);
       return r.offerDays(closest, tz, `Não atendemos ${joinList(names, "e")}. Os dias mais próximos com horários livres são:`);
     },
 

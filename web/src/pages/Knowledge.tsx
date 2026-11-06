@@ -40,7 +40,7 @@ export function KnowledgePage() {
               ) : (
                 <SectionList sections={sections} onEdit={(section) => setTarget(targetFor(section))} onAdd={setTarget} />
               )}
-              {list.data && <SectionDialog target={target} labels={list.data.labels} onClose={() => setTarget(null)} />}
+              {list.data && <SectionDialog target={target} labels={list.data.labels} hours={list.data.hours} onClose={() => setTarget(null)} />}
             </TabsContent>
             <TabsContent value="help" className="pt-4">
               <KnowledgeHelp />

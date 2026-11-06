@@ -96,21 +96,21 @@ The brochure sections the assistant answers from ([knowledge](data-model.md#know
 
 | Route | Body | Answer |
 |---|---|---|
-| `GET /api/knowledge` | — | `{sections}` in position order |
-| `POST /api/knowledge` | `{kind: "treatment" \| "info", title, tagline?, data}` | `201 {section}`. The key is a slug of the title, with `-2`, `-3`… when taken (`order` is never used). Appended at the end |
+| `GET /api/knowledge` | — | `{sections, labels, hours}`: the sections in position order; `labels` are the field labels in the clinic language (with `address`, `hours`, `contact` for the clinic section); `hours` is the list of opening-hours lines generated from the scheduling rules (BR-KNO-02), which the form previews |
+| `POST /api/knowledge` | `{kind: "treatment" \| "info" \| "clinic", title, tagline?, data}`. A clinic takes `data: {intro: string[], address: string[] (min 1), phone?, email?, closing: string[]}`, with no hours | `201 {section}`. The key is a slug of the title, with `-2`, `-3`… when taken (`order` is never used). Appended at the end |
 | `PUT /api/knowledge/:key` | `{title, tagline?, data}` | `200 {section}`. Key, kind and position stay |
 | `DELETE /api/knowledge/:key` | — | `204` |
 | `PUT /api/knowledge/order` | `{keys: string[]}` | `204`. Must list every section exactly once; otherwise `400 {error: "invalid_order", message}` |
 | `GET /api/knowledge/status` | — | `{version, indexedVersion, state}`; `state` is `upToDate`, `unpublished` or `unavailable` (RAG unreachable) |
 | `POST /api/knowledge/publish` | — | Asks the RAG to reindex. `200 {version, indexedVersion, state}`; `409 {error: "already indexing"}`; `502 {error: "rag_unavailable"}` |
 
-`version` is the hash of the current sections (`toDocument` in [render.ts](../src/modules/knowledge/render.ts)); `indexedVersion` is the version the RAG's index was built from (`knowledge.version` of its `/health`, while `index.state` is `current`; `null` otherwise). Nothing is sent to the RAG until the publish.
+`version` is the hash of the current sections, with the opening-hours lines of the rules inside the clinic section, so a change in the Calendar page makes the status `unpublished` (`toDocument` in [render.ts](../src/modules/knowledge/render.ts)); `indexedVersion` is the version the RAG's index was built from (`knowledge.version` of its `/health`, while `index.state` is `current`; `null` otherwise). Nothing is sent to the RAG until the publish.
 
 ## Internal routes
 
 | Route | Auth | Purpose |
 |---|---|---|
-| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. The bodies are rendered in `CLINIC_LANGUAGE` (the assessment notes, BR-KNO-01). 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
+| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. The bodies are rendered in `CLINIC_LANGUAGE` (the assessment notes, BR-KNO-01; the HORÁRIO lines of the clinic section come from the scheduling rules, BR-KNO-02). 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
 
 ## RAG service
 

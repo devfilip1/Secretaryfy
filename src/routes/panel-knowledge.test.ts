@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import Fastify, { type FastifyInstance } from "fastify";
+import type { WeeklyHours } from "../db/schema.js";
+import { hoursLines } from "../modules/knowledge/hours.js";
 import { parseBrochure } from "../modules/knowledge/import-markdown.js";
 import { toDocument } from "../modules/knowledge/render.js";
 import { createKnowledgeRepository, type KnowledgeRepository } from "../modules/knowledge/repository.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
 import { RagAlreadyIndexingError } from "../modules/rag/admin.js";
 import { createTestDb } from "../test/db.js";
+import { CLINIC_HOURS } from "../test/hours.js";
 import { panelKnowledgeRoutes } from "./panel-knowledge.js";
 
 const CLINIC = "Sorriso Pleno";
@@ -28,11 +31,24 @@ const rag = {
   async reindex() {
     if (rag.down) throw new RagUnavailableError("rag unavailable");
     if (rag.busy) throw new RagAlreadyIndexingError();
-    const version = toDocument(CLINIC, await repo.list(), "pt").version;
+    const version = await versionOf("pt");
     rag.indexedVersion = version;
     return { chunks: { lex: 3 }, version };
   },
 };
+
+/** Regras de atendimento falsas: o horário mudado aqui muda o documento publicado. */
+const rules = {
+  weeklyHours: CLINIC_HOURS as WeeklyHours,
+  async get() {
+    return { weeklyHours: rules.weeklyHours };
+  },
+};
+
+/** Versão do documento como o servidor a calcula (seções + horário das regras). */
+async function versionOf(language: "pt" | "en"): Promise<string> {
+  return toDocument(CLINIC, await repo.list(), language, hoursLines(rules.weeklyHours, language)).version;
+}
 
 before(async () => {
   testDb = await createTestDb();
@@ -46,8 +62,9 @@ beforeEach(async () => {
   rag.indexedVersion = null;
   rag.down = false;
   rag.busy = false;
+  rules.weeklyHours = CLINIC_HOURS;
   app = Fastify();
-  await app.register(panelKnowledgeRoutes({ repo, rag, clinicName: CLINIC, language: "pt" }));
+  await app.register(panelKnowledgeRoutes({ repo, rag, rules, clinicName: CLINIC, language: "pt" }));
   await app.ready();
 });
 
@@ -58,12 +75,25 @@ const treatmentData = {
   result: { label: "Resultado", value: "Imediato" },
 };
 const infoSection = { kind: "info", title: "Horários", tagline: null, data: { lines: ["Seg a sex"] } };
+const clinicSection = {
+  kind: "clinic",
+  title: "Clínica",
+  data: { intro: ["Bem-vinda"], address: ["Rua A, 1"], phone: "(21) 5555-0148", closing: [] },
+};
 
-test("GET /api/knowledge brings the field labels in the clinic language", async () => {
+test("GET /api/knowledge brings the field labels in the clinic language, the three clinic headings included", async () => {
   const json = (await app.inject({ url: "/api/knowledge" })).json();
   assert.equal(json.labels.howItWorks, "Como funciona");
   assert.equal(json.labels.price, "Preço");
   assert.equal(json.labels.assessment, "(valor final definido na avaliação)");
+  assert.deepEqual([json.labels.address, json.labels.hours, json.labels.contact], ["ENDEREÇO", "HORÁRIO", "CONTATO"]);
+});
+
+test("GET /api/knowledge brings the hours lines of the current rules, which is what the form previews", async () => {
+  const json = (await app.inject({ url: "/api/knowledge" })).json();
+  assert.deepEqual(json.hours, hoursLines(CLINIC_HOURS, "pt"));
+  rules.weeklyHours = { "1": { start: "08:00", end: "12:00" } };
+  assert.deepEqual((await app.inject({ url: "/api/knowledge" })).json().hours, ["Segunda: 8h às 12h", "Terça a domingo: Fechado"]);
 });
 
 test("GET /api/knowledge lists the sections in position order", async () => {
@@ -83,6 +113,21 @@ test("POST creates a section at the end, with a key from the title and a suffix 
 test("POST never gives a section the key order, which the reorder route owns", async () => {
   const res = await app.inject({ method: "POST", url: "/api/knowledge", payload: { ...infoSection, title: "Order" } });
   assert.equal(res.json().section.key, "order-2");
+});
+
+test("POST accepts the clinic kind: address, phone and intro, with no hours in the data", async () => {
+  const res = await app.inject({ method: "POST", url: "/api/knowledge", payload: clinicSection });
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.json().section.kind, "clinic");
+  assert.equal(res.json().section.key, "clinica");
+  assert.deepEqual(res.json().section.data, { intro: ["Bem-vinda"], address: ["Rua A, 1"], phone: "(21) 5555-0148", closing: [] });
+});
+
+test("POST validates the clinic kind: an empty address is 400", async () => {
+  const res = await app.inject({ method: "POST", url: "/api/knowledge", payload: { ...clinicSection, data: { intro: [], address: [], closing: [] } } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.json().error, "invalid_body");
+  assert.equal((await repo.list()).length, 2);
 });
 
 test("POST with data that does not match the kind is 400 with a message", async () => {
@@ -142,8 +187,7 @@ test("PUT /api/knowledge/order with unknown, missing or malformed keys is 400 an
 test("GET /api/knowledge/status: unpublished before a publish, with the RAG's version", async () => {
   const res = await app.inject({ url: "/api/knowledge/status" });
   assert.equal(res.statusCode, 200);
-  const version = toDocument(CLINIC, await repo.list(), "pt").version;
-  assert.deepEqual(res.json(), { version, indexedVersion: null, state: "unpublished" });
+  assert.deepEqual(res.json(), { version: await versionOf("pt"), indexedVersion: null, state: "unpublished" });
 });
 
 test("GET /api/knowledge/status: unavailable when the RAG does not answer", async () => {
@@ -157,7 +201,7 @@ test("GET /api/knowledge/status: unavailable when the RAG does not answer", asyn
 test("POST /api/knowledge/publish reindexes and answers upToDate with the new version", async () => {
   const res = await app.inject({ method: "POST", url: "/api/knowledge/publish" });
   assert.equal(res.statusCode, 200);
-  const version = toDocument(CLINIC, await repo.list(), "pt").version;
+  const version = await versionOf("pt");
   assert.deepEqual(res.json(), { version, indexedVersion: version, state: "upToDate" });
   assert.deepEqual((await app.inject({ url: "/api/knowledge/status" })).json().state, "upToDate");
 });
@@ -166,6 +210,16 @@ test("an edit after a publish makes the status unpublished again", async () => {
   await app.inject({ method: "POST", url: "/api/knowledge/publish" });
   await app.inject({ method: "PUT", url: "/api/knowledge/sobre-nos", payload: { title: "Sobre a clínica", tagline: null, data: { lines: ["Linha"] } } });
   assert.equal((await app.inject({ url: "/api/knowledge/status" })).json().state, "unpublished");
+});
+
+test("a change of the hours in the rules makes the status unpublished, with no edit to the sections", async () => {
+  await app.inject({ method: "POST", url: "/api/knowledge", payload: clinicSection });
+  await app.inject({ method: "POST", url: "/api/knowledge/publish" });
+  assert.equal((await app.inject({ url: "/api/knowledge/status" })).json().state, "upToDate");
+  rules.weeklyHours = { ...CLINIC_HOURS, "6": { start: "09:00", end: "12:00" } };
+  const status = (await app.inject({ url: "/api/knowledge/status" })).json();
+  assert.equal(status.state, "unpublished");
+  assert.equal(status.version, await versionOf("pt"));
 });
 
 test("POST /api/knowledge/publish: 409 while the RAG is already indexing", async () => {
@@ -189,14 +243,13 @@ test("a fact flagged assessment changes the version, which follows the clinic la
     data: { ...treatmentData, facts: [{ label: "Preço", value: "R$ 50", assessment: true }] },
   };
   assert.equal((await app.inject({ method: "PUT", url: "/api/knowledge/limpeza-dental", payload: flagged })).statusCode, 200);
-  const rows = await repo.list();
   const status = (await app.inject({ url: "/api/knowledge/status" })).json();
   assert.equal(status.state, "unpublished");
-  assert.equal(status.version, toDocument(CLINIC, rows, "pt").version);
-  assert.notEqual(status.version, toDocument(CLINIC, rows, "en").version);
+  assert.equal(status.version, await versionOf("pt"));
+  assert.notEqual(status.version, await versionOf("en"));
 
   const english = Fastify();
-  await english.register(panelKnowledgeRoutes({ repo, rag, clinicName: CLINIC, language: "en" }));
+  await english.register(panelKnowledgeRoutes({ repo, rag, rules, clinicName: CLINIC, language: "en" }));
   await english.ready();
-  assert.equal((await english.inject({ url: "/api/knowledge/status" })).json().version, toDocument(CLINIC, rows, "en").version);
+  assert.equal((await english.inject({ url: "/api/knowledge/status" })).json().version, await versionOf("en"));
 });
