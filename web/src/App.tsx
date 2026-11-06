@@ -120,21 +120,23 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
         }}
       />
       <div className="flex h-full flex-col max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
-        <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
-          <span className="font-bold max-lg:flex-1">Secretaryfy</span>
-          <nav className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5">
-            {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (
-              <a key={hash} href={hash} className={navLinkClass(view === target)} aria-current={view === target ? "page" : undefined}>
-                <Icon className="size-5 shrink-0 md:hidden" aria-hidden />
-                <span className="max-w-full truncate md:hidden">{short}</span>
-                <span className="max-w-full truncate max-md:hidden">{label}</span>
-              </a>
-            ))}
-          </nav>
-          <ConnectionBadge connection={connection} />
-          <Button variant="link" onClick={leave}>
-            Sign out
-          </Button>
+        <header className="border-b border-border bg-card">
+          <div className="mx-auto flex w-full max-w-5xl items-center gap-4.5 px-4 py-2.5 md:px-6 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
+            <span className="font-bold max-lg:flex-1">Secretaryfy</span>
+            <nav className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5">
+              {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (
+                <a key={hash} href={hash} className={navLinkClass(view === target)} aria-current={view === target ? "page" : undefined}>
+                  <Icon className="size-5 shrink-0 md:hidden" aria-hidden />
+                  <span className="max-w-full truncate md:hidden">{short}</span>
+                  <span className="max-w-full truncate max-md:hidden">{label}</span>
+                </a>
+              ))}
+            </nav>
+            <ConnectionBadge connection={connection} />
+            <Button variant="link" onClick={leave}>
+              Sign out
+            </Button>
+          </div>
         </header>
         {status === "reconnecting" && <div className="bg-warn p-1 text-center text-sm text-warn-foreground">Reconnecting to the server…</div>}
         <ProtectionBanner protection={protection} />
