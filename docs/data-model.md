@@ -45,7 +45,7 @@ erDiagram
   }
 ```
 
-Single-row and standalone tables: `calendar_connection`, `scheduling_rules`, `protection_state` (one row each, enforced by a `check (id = 1)`), `contact_preferences` and `connected_numbers` (keyed by phone/number, no foreign keys).
+Single-row and standalone tables: `calendar_connection`, `scheduling_rules`, `clinic_settings`, `protection_state` (one row each, enforced by a `check (id = 1)`), `contact_preferences` and `connected_numbers` (keyed by phone/number, no foreign keys).
 
 The **phone number** (digits with country code, as WhatsApp sends it, e.g. `5571999999999`) is the real key across tables. `customers`, `appointments`, `contact_preferences` deliberately have no foreign key to `conversations`, so they survive deleting conversations or disconnecting the number ([ADR 0006](decisions/0006-appointment-belongs-to-phone.md)).
 
@@ -112,6 +112,9 @@ The clinic's Google account and selected calendar: email, scopes, `refresh_token
 
 ### scheduling_rules
 Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = Sunday; a missing day is closed), `slot_minutes`, `min_notice_minutes`, `max_days_ahead`, `cancel_notice_minutes`. Created with the defaults on first read ([rules.ts](../src/modules/scheduling/rules.ts)).
+
+### clinic_settings
+The clinic's identity as the panel edits it: `name`, `assistant_name` (nullable: no name, the greeting only names the clinic) and `kind` (the interpreter prompt's "dental clinic"), with `updated_at`. One row (`check (id = 1)`). The first start inserts it from `CLINIC_NAME`, `ASSISTANT_NAME` and `CLINIC_KIND` when there is no row; after that the row wins ([settings-repository.ts](../src/modules/clinic/settings-repository.ts), ADR 0012 step 2). The language is not here: it stays in `CLINIC_LANGUAGE`.
 
 ### Anti-ban tables
 - `contact_preferences`: `phone`, `opted_out_at`. Opt-out by phone, survives disconnection.

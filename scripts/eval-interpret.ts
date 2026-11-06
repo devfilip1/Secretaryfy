@@ -1,7 +1,7 @@
 // Mede só o interpretador com o modelo real (Ollama): frases naturais, sem listas de palavras no código (specs/003, R12).
 // Uso: npx tsx --env-file=.env scripts/eval-interpret.ts
 import type { SessionOption } from "../src/db/schema.js";
-import { buildClinicContext } from "../src/modules/clinic/context.js";
+import { createClinicContext } from "../src/modules/clinic/context.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createInterpreter, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
@@ -120,11 +120,11 @@ const ollama = createOllamaClient({
   timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
 });
 // A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
-const clinic = buildClinicContext({
-  CLINIC_NAME: process.env.CLINIC_NAME || "DentalSafe",
-  CLINIC_LANGUAGE: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
-  ASSISTANT_NAME: process.env.ASSISTANT_NAME,
-  CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
+const clinic = createClinicContext({
+  name: process.env.CLINIC_NAME || "DentalSafe",
+  language: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
+  assistantName: process.env.ASSISTANT_NAME,
+  kind: process.env.CLINIC_KIND || "dental clinic",
 });
 // A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
 // Com o idioma da clínica em português, o catálogo é o da Sorriso Pleno (títulos em português), como no painel

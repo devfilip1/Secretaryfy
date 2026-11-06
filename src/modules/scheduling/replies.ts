@@ -1,4 +1,5 @@
 import { formatDayTime } from "./dates.js";
+import type { ClinicContext } from "../clinic/context.js";
 import type { ServiceCatalog } from "./catalog.js";
 import { createEnglishReplies } from "./replies.en.js";
 import { createPortugueseReplies } from "./replies.pt.js";
@@ -73,21 +74,19 @@ export const joinList = (items: string[], and: string) =>
 export const dayPeriod = (hour: number): "morning" | "afternoon" | "evening" =>
   hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 18 ? "afternoon" : "evening";
 
-/** Os textos na língua, com o nome da clínica e a lista de tratamentos dados (CLINIC_LANGUAGE, CLINIC_NAME, catalog.ts). */
+/** Os textos na língua, com o nome da clínica lido a cada texto (o painel pode trocá-lo) e a lista de tratamentos (catalog.ts). */
 export function createReplies({
   language,
-  clinicName,
-  assistantName,
+  clinic,
   catalog,
 }: {
   language: "en" | "pt";
-  clinicName: string;
-  assistantName?: string;
+  clinic: Pick<ClinicContext, "name" | "assistantName">;
   catalog: ServiceCatalog;
 }): Replies {
   return language === "pt"
-    ? createPortugueseReplies({ clinicName, assistantName, catalog })
-    : createEnglishReplies({ clinicName, assistantName, catalog });
+    ? createPortugueseReplies({ clinic, catalog })
+    : createEnglishReplies({ clinic, catalog });
 }
 
 /** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */

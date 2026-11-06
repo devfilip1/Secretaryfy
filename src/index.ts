@@ -6,7 +6,7 @@ import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
-import { booking, catalog, clinic, knowledge, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
+import { booking, catalog, clinic, clinicSettings, knowledge, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { knowledgeInternalRoutes } from "./routes/knowledge-internal.js";
 import { createRagAdmin } from "./modules/rag/admin.js";
 import { panelKnowledgeRoutes } from "./routes/panel-knowledge.js";
@@ -17,6 +17,7 @@ import { antibanRepo, customerRepo, gate, inbox, inboxRepo, instance, useProtect
 import { panelApiRoutes } from "./routes/panel-api.js";
 import { panelAppointmentsRoutes } from "./routes/panel-appointments.js";
 import { panelCalendarRoutes } from "./routes/panel-calendar.js";
+import { panelClinicRoutes } from "./routes/panel-clinic.js";
 import { panelCustomersRoutes } from "./routes/panel-customers.js";
 import { panelEventsRoutes } from "./routes/panel-events.js";
 import { panelProtectionRoutes } from "./routes/panel-protection.js";
@@ -61,13 +62,18 @@ if (fakeMode) {
   }
 }
 
+// A identidade da clínica vem do banco; na primeira vez, semeia do env (ADR 0012, passo 2)
+const storedClinic = await clinicSettings.get();
+if (storedClinic) clinic.update(storedClinic);
+else await clinicSettings.save(clinic);
+
 // Os tratamentos que se podem marcar vêm da tabela de conhecimento: o retrato em memória começa aqui (ADR 0014)
 await catalog.refresh();
 
 await app.register(healthRoutes);
 // Fora do login do painel: protegido só pelo INTERNAL_TOKEN (sem ele, a rota não existe)
 await app.register(
-  knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinicName: clinic.name, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
+  knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinic, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
 );
 await app.register(
   googleOAuthRoutes({
@@ -142,11 +148,12 @@ await app.register(
     repo: knowledge,
     rag: createRagAdmin({ url: env.RAG_SERVICE_URL, token: env.INTERNAL_TOKEN ?? "" }),
     rules: rulesStore,
-    clinicName: clinic.name,
+    clinic,
     language: clinic.language,
     onChange: () => catalog.refresh(),
   }),
 );
+await app.register(panelClinicRoutes({ clinic, repo: clinicSettings }));
 await app.register(panelStaticRoutes);
 
 // Lembrete pelo WhatsApp antes de cada horário (specs/006 US4)

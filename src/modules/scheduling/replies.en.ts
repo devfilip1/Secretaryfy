@@ -1,6 +1,7 @@
 import { fixedTextsFor } from "../antiban/texts.js";
 import { Info } from "luxon";
 import { formatDayLong, formatTime, formatWhen } from "./dates.js";
+import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
 
@@ -13,15 +14,7 @@ const hoursText = (minutes: number) => {
 };
 
 /** Textos em inglês, com o nome da clínica dado pela configuração (CLINIC_NAME). */
-export function createEnglishReplies({
-  clinicName,
-  assistantName,
-  catalog,
-}: {
-  clinicName: string;
-  assistantName?: string;
-  catalog: ServiceCatalog;
-}): Replies {
+export function createEnglishReplies({ clinic, catalog }: { clinic: Pick<ClinicContext, "name" | "assistantName">; catalog: ServiceCatalog }): Replies {
   const r: Replies = {
     offerDays(days: string[], tz: string, intro = "Sure! These days have openings:") {
       return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you? Or tell me another date.`;
@@ -76,7 +69,7 @@ export function createEnglishReplies({
 
     booked(start: Date, tz: string, name?: string | null) {
       const who = firstName(name);
-      return `You're booked${who ? `, ${who}` : ""}! 📅 ${formatWhen(start, tz)}. See you at ${clinicName}.`;
+      return `You're booked${who ? `, ${who}` : ""}! 📅 ${formatWhen(start, tz)}. See you at ${clinic.name}.`;
     },
 
     slotTaken(date: string, slots: Date[], tz: string) {
@@ -147,7 +140,7 @@ export function createEnglishReplies({
       const options = [
         `You're welcome${who ? `, ${who}` : ""}! Have a great day 😊`,
         `Anytime${who ? `, ${who}` : ""}! Take care 😊`,
-        `My pleasure! See you soon at ${clinicName}.`,
+        `My pleasure! See you soon at ${clinic.name}.`,
         "Glad I could help! Have a nice day.",
       ];
       return options[Math.floor(random() * options.length)];
@@ -177,15 +170,15 @@ export function createEnglishReplies({
       const when = formatWhen(start, tz);
       const label = catalog.label(service);
       return [
-        `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinicName} on ${when} (${label}). Can you confirm?`,
-        `Hello${name ? ` ${name}` : ""}, your ${label} appointment at ${clinicName} is on ${when}. Can you confirm you'll be there?`,
-        `Hi${name ? ` ${name}` : ""}, this is ${clinicName} reminding you of your appointment on ${when} for ${label}. Can you confirm? Or tell me if you need to reschedule.`,
+        `Hi${name ? ` ${name}` : ""}! Just a reminder of your appointment at ${clinic.name} on ${when} (${label}). Can you confirm?`,
+        `Hello${name ? ` ${name}` : ""}, your ${label} appointment at ${clinic.name} is on ${when}. Can you confirm you'll be there?`,
+        `Hi${name ? ` ${name}` : ""}, this is ${clinic.name} reminding you of your appointment on ${when} for ${label}. Can you confirm? Or tell me if you need to reschedule.`,
       ];
     },
 
     /** O cliente respondeu YES ao lembrete. */
     reminderConfirmed(start: Date, name: string | null, tz: string) {
-      return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatWhen(start, tz)} is confirmed. See you at ${clinicName}.`;
+      return `Thank you${name ? `, ${name}` : ""}! Your appointment on ${formatWhen(start, tz)} is confirmed. See you at ${clinic.name}.`;
     },
 
     daysIntro() {
@@ -205,7 +198,7 @@ export function createEnglishReplies({
     },
 
     greeting(hour: number) {
-      return assistantName ? `${r.salutation(hour)} This is ${assistantName} from ${clinicName}.` : `${r.salutation(hour)} You've reached ${clinicName}.`;
+      return clinic.assistantName ? `${r.salutation(hour)} This is ${clinic.assistantName} from ${clinic.name}.` : `${r.salutation(hour)} You've reached ${clinic.name}.`;
     },
 
     again(random: () => number = Math.random) {
@@ -224,7 +217,7 @@ export function createEnglishReplies({
     },
 
     myName() {
-      return assistantName ? `I'm ${assistantName} from ${clinicName}. How can I help?` : `This is ${clinicName}. How can I help?`;
+      return clinic.assistantName ? `I'm ${clinic.assistantName} from ${clinic.name}. How can I help?` : `This is ${clinic.name}. How can I help?`;
     },
 
     howCanIHelp() {

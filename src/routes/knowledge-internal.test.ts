@@ -8,6 +8,7 @@ import { toDocument, toSections } from "../modules/knowledge/render.js";
 import { knowledgeRowSchema } from "../modules/knowledge/types.js";
 import type { Language } from "../modules/scheduling/dates.js";
 import { CLINIC_HOURS } from "../test/hours.js";
+import { createClinicContext } from "../modules/clinic/context.js";
 import { knowledgeInternalRoutes } from "./knowledge-internal.js";
 
 const TOKEN = "t".repeat(32);
@@ -24,11 +25,26 @@ async function appWith(
 ): Promise<FastifyInstance> {
   const app = Fastify();
   await app.register(
-    knowledgeInternalRoutes({ repo: { list: async () => sections }, rules: { get: async () => ({ weeklyHours }) }, clinicName: CLINIC, language, token }),
+    knowledgeInternalRoutes({ repo: { list: async () => sections }, rules: { get: async () => ({ weeklyHours }) }, clinic: { name: CLINIC }, language, token }),
   );
   await app.ready();
   return app;
 }
+
+test("the name is read when the request comes: renaming the clinic changes the version", async () => {
+  const clinic = createClinicContext({ name: CLINIC, kind: "dental clinic", language: "pt" });
+  const app = Fastify();
+  await app.register(
+    knowledgeInternalRoutes({ repo: { list: async () => rows }, rules: { get: async () => ({ weeklyHours: CLINIC_HOURS }) }, clinic, language: "pt", token: TOKEN }),
+  );
+  await app.ready();
+  const fetchDocument = async () => (await app.inject({ method: "GET", url: "/internal/knowledge", headers: { authorization: `Bearer ${TOKEN}` } })).json();
+  const before = await fetchDocument();
+  clinic.update({ name: "Outra Clínica" });
+  const after = await fetchDocument();
+  assert.equal(after.name, "Outra Clínica");
+  assert.notEqual(after.version, before.version);
+});
 
 test("401 without the Authorization header", async () => {
   const app = await appWith(TOKEN);

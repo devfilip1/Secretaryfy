@@ -1,5 +1,6 @@
 import { env } from "../config/env.js";
-import { buildClinicContext } from "../modules/clinic/context.js";
+import { createClinicContext } from "../modules/clinic/context.js";
+import { createClinicSettingsRepository } from "../modules/clinic/settings-repository.js";
 import { db } from "../db/client.js";
 import { bus } from "../modules/inbox/events.js";
 import { createBooking } from "../modules/scheduling/booking.js";
@@ -19,8 +20,11 @@ import { customerRepo, inbox } from "./inbox.js";
  */
 export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), () => bus.publish({ type: "appointments.updated" }));
 
-/** Identidade da clínica, montada aqui uma vez a partir da configuração e passada aos módulos (ADR 0010). */
-export const clinic = buildClinicContext(env);
+/** Identidade da clínica (ADR 0012, passo 2): semeada do env no boot, e a linha do banco vence (index.ts). */
+export const clinic = createClinicContext({ name: env.CLINIC_NAME, assistantName: env.ASSISTANT_NAME, kind: env.CLINIC_KIND, language: env.CLINIC_LANGUAGE });
+
+/** A identidade que o painel edita (a tabela clinic_settings). */
+export const clinicSettings = createClinicSettingsRepository(db);
 
 /** Conhecimento da clínica (a tabela que o painel edita): de onde vêm os tratamentos que se podem marcar. */
 export const knowledge = createKnowledgeRepository(db);
@@ -28,15 +32,15 @@ export const knowledge = createKnowledgeRepository(db);
 /** Os tratamentos que o cliente pode marcar, lidos da tabela (ADR 0014): index.ts relê no boot e a cada mudança no painel. */
 export const catalog = createKnowledgeCatalog({ repo: knowledge });
 
-/** Textos aos clientes na língua e com o nome da clínica (clinic). */
-export const schedulingReplies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName, catalog });
+/** Textos aos clientes na língua; o nome e o da atendente são lidos da clínica a cada texto. */
+export const schedulingReplies = createReplies({ language: clinic.language, clinic, catalog });
 
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES
   ? createHumanizer({
       ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
       language: clinic.language,
-      clinicName: clinic.name,
+      clinic,
     }).humanize
   : undefined;
 

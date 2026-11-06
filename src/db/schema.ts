@@ -253,6 +253,19 @@ export const protectionState = pgTable(
   (t) => [check("protection_state_single_row", sql`${t.id} = 1`)],
 );
 
+/** Identidade da clínica que o painel edita: nome, nome da atendente e tipo. Uma linha só (ADR 0012, passo 2). */
+export const clinicSettings = pgTable(
+  "clinic_settings",
+  {
+    id: smallint("id").primaryKey().default(1),
+    name: text("name").notNull(),
+    assistantName: text("assistant_name"),
+    kind: text("kind").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("clinic_settings_single_row", sql`${t.id} = 1`)],
+);
+
 export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;
 export type ConnectedNumberRow = typeof connectedNumbers.$inferSelect;
 export type ProtectionStateRow = typeof protectionState.$inferSelect;

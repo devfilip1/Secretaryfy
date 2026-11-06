@@ -17,7 +17,8 @@ interface Deps {
   rag: Pick<RagAdmin, "status" | "reindex">;
   /** Regras de atendimento: o horário da seção da clínica sai delas (BR-KNO-02) */
   rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
-  clinicName: string;
+  /** Lido a cada pedido: trocar o nome muda a versão do documento (e o status "não publicado") */
+  clinic: { name: string };
   /** Língua da clínica: a versão do conteúdo (e o status) muda com ela quando há fatos com `assessment` */
   language: Language;
   /** Depois de cada criação, troca, remoção ou ordem: o catálogo de tratamentos que se podem marcar relê a tabela (ADR 0014) */
@@ -41,7 +42,7 @@ function notFound(reply: FastifyReply) {
 }
 
 /** Rotas do painel para o conhecimento da clínica e a publicação no RAG (docs/integrations.md). */
-export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language, onChange }: Deps) {
+export function panelKnowledgeRoutes({ repo, rag, rules, clinic, language, onChange }: Deps) {
   /** Primeira chave livre a partir do título: "sobre-nos", "sobre-nos-2", "sobre-nos-3"… */
   async function freeKey(title: string): Promise<string> {
     const base = slugify(title);
@@ -54,7 +55,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language, o
   /** Documento de agora: as seções e o horário das regras (o horário não é guardado nas seções). */
   async function document() {
     const { weeklyHours } = await rules.get();
-    return toDocument(clinicName, await repo.list(), language, hoursLines(weeklyHours, language));
+    return toDocument(clinic.name, await repo.list(), language, hoursLines(weeklyHours, language));
   }
 
   /** Versão dos dados atuais contra a que o RAG tem indexada. */

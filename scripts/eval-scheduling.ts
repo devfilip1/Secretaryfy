@@ -14,7 +14,7 @@ import { slotsForDay } from "../src/modules/scheduling/availability.js";
 import { createSchedulingFlow } from "../src/modules/scheduling/flow.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createReplies } from "../src/modules/scheduling/replies.js";
-import { buildClinicContext } from "../src/modules/clinic/context.js";
+import { createClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../src/modules/scheduling/router.js";
@@ -57,15 +57,15 @@ const ollama = createOllamaClient({
   timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
 });
 // A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
-const clinic = buildClinicContext({
-  CLINIC_NAME: process.env.CLINIC_NAME || "DentalSafe",
-  CLINIC_LANGUAGE: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
-  ASSISTANT_NAME: process.env.ASSISTANT_NAME,
-  CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
+const clinic = createClinicContext({
+  name: process.env.CLINIC_NAME || "DentalSafe",
+  language: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
+  assistantName: process.env.ASSISTANT_NAME,
+  kind: process.env.CLINIC_KIND || "dental clinic",
 });
 // A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
 const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
-const replies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName, catalog });
+const replies = createReplies({ language: clinic.language, clinic, catalog });
 const interpreter = createInterpreter({ ollama, clinic, catalog });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
 const rules = DEFAULT_RULES;

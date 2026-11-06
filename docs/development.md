@@ -68,7 +68,7 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `REMINDER_OUTSIDE_WINDOW` | no | `1` (default): the reminder also goes to patients silent for more than 24 h (ADR 0013); `0`: only inside the 24 h window |
 | `ANTIBAN_*` | no | About 30 anti-ban limits; the ones most likely to change: `ANTIBAN_CONVERSATIONS_PER_DAY` (150), `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` (8 / 200), `ANTIBAN_ALLOWED_LINK_DOMAINS` (empty), `ANTIBAN_WARMUP_DAYS` (14; 0 turns it off) |
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |
-| `CLINIC_LANGUAGE`, `CLINIC_NAME`, `ASSISTANT_NAME` | no | Language of the messages to patients: `en` (default) or `pt`; the panel stays English. Clinic name in those messages (`DentalSafe`). `ASSISTANT_NAME` (empty by default) is the name the assistant gives itself in the first greeting and when asked "what is your name?" |
+| `CLINIC_LANGUAGE`, `CLINIC_NAME`, `ASSISTANT_NAME` | no | Language of the messages to patients: `en` (default) or `pt`; the panel stays English; changing it needs a restart. `CLINIC_NAME` (`DentalSafe`) and `ASSISTANT_NAME` (empty by default: the greeting names only the clinic) seed the clinic settings on the first start only; after that the database wins and the panel changes them without a restart (`clinic_settings`) |
 | `CLINIC_KIND` | no | What the clinic is, in English, for the scheduling interpreter prompt: `dental clinic` (default), or e.g. `physiotherapy clinic`. |
 | `PORT`, `LOG_LEVEL` | no | 3000, `info` |
 

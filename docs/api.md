@@ -106,6 +106,13 @@ The brochure sections the assistant answers from ([knowledge](data-model.md#know
 
 `version` is the hash of the current sections, with the opening-hours lines of the rules inside the clinic section, so a change in the Calendar page makes the status `unpublished` (`toDocument` in [render.ts](../src/modules/knowledge/render.ts)); `indexedVersion` is the version the RAG's index was built from (`knowledge.version` of its `/health`, while `index.state` is `current`; `null` otherwise). Nothing is sent to the RAG until the publish.
 
+### Clinic identity (`panel-clinic.ts`)
+
+| Route | Body | Response |
+|---|---|---|
+| `GET /api/clinic-settings` | — | `{name, assistantName, kind, language, restartRequired}`. `assistantName` is `null` when there is none; `restartRequired` is `false` here (see below) |
+| `PUT /api/clinic-settings` | `{name}` (1–120), `{assistantName}` (0–60, empty means none), `{kind}` (1–80) | `200` in the GET shape; `400 {error: "invalid_body", fields}` otherwise. Saved to `clinic_settings` and applied at once, with no restart. The `language` is read from `CLINIC_LANGUAGE` at boot: changing it needs a restart |
+
 ## Internal routes
 
 | Route | Auth | Purpose |

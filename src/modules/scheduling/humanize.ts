@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import { z } from "zod";
+import type { ClinicContext } from "../clinic/context.js";
 import type { OllamaClient } from "./ollama.js";
 
 /**
@@ -82,8 +83,7 @@ function systemPrompt(language: "en" | "pt", clinicName: string): string {
   ].join("\n");
 }
 
-export function createHumanizer({ ollama, language, clinicName }: { ollama: Pick<OllamaClient, "chat">; language: "en" | "pt"; clinicName: string }) {
-  const system = systemPrompt(language, clinicName);
+export function createHumanizer({ ollama, language, clinic }: { ollama: Pick<OllamaClient, "chat">; language: "en" | "pt"; clinic: Pick<ClinicContext, "name"> }) {
 
   return {
     /** Devolve a reescrita se passar na guarda; senão, ou em qualquer erro, o texto original. Nunca lança. */
@@ -96,7 +96,7 @@ export function createHumanizer({ ollama, language, clinicName }: { ollama: Pick
         const raw = await ollama.chat({
           format: FORMAT,
           messages: [
-            { role: "system", content: system },
+            { role: "system", content: systemPrompt(language, clinic.name) },
             { role: "user", content: `Customer said: ${customerText}\n\nMessage to rewrite: ${reply}` },
           ],
         });
