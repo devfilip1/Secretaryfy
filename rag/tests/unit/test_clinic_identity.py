@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from assistant import config
-from assistant.clinic.identity import ClinicIdentity, HttpClinicIdentity, IdentityClinicProfile
+from assistant.clinic.identity import ClinicIdentity, HttpClinicIdentity, IdentityClinicProfile, Treatment, example_treatment, extra_rules
 from assistant.clinic.yaml_source import YamlClinicProfile
 from assistant.config import CLINIC_PATH, LANGUAGES_DIR
 from assistant.generation.prompting import build_prompt
@@ -161,10 +161,20 @@ def test_the_factory_uses_the_node_identity_only_when_clinic_url_is_set(monkeypa
 
 
 def test_other_names_of_a_treatment_become_query_synonyms_and_change_the_version():
-    identity = ClinicIdentity("Clínica Nova", "clínica", YAML.language, treatments=(("Clareamento Dental", ("Branqueamento", "tirar manchas")),))
+    identity = ClinicIdentity("Clínica Nova", "clínica", YAML.language, treatments=(Treatment("Clareamento Dental", ("Branqueamento", "tirar manchas")),))
     profile = IdentityClinicProfile(YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR), FakeIdentity(identity))
     synonyms = profile.load().lexicon.synonyms
     assert synonyms["branqueamento"][:2] == ("clareamento", "dental")
     assert synonyms["manchas"] == ("clareamento", "dental")
     plain = IdentityClinicProfile(YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR), FakeIdentity(ClinicIdentity("A", "b", YAML.language)))
     assert profile.version() != plain.version()
+
+
+def test_example_treatment_and_extra_rules_come_from_the_treatments():
+    treatments = (Treatment("Limpeza Dental"), Treatment("Aparelho", extra_labels=("Custo inicial", "Mensalidade")), Treatment("Siso {x}", extra_labels=("a",)))
+    assert example_treatment(treatments) == "limpeza dental"
+    rule = extra_rules(treatments)
+    assert rule.startswith("5. ") and 'Aparelho: "Custo inicial", "Mensalidade".' in rule and "{" not in rule
+    assert extra_rules((Treatment("Limpeza Dental"),)) is None
+    profile = IdentityClinicProfile(YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR), FakeIdentity(ClinicIdentity("A", "b", YAML.language, treatments)))
+    assert '"Mensalidade"' in profile.load().system_prompt and "limpeza dental" in profile.load().system_prompt

@@ -32,7 +32,13 @@ test("200 with name, kind and language read from the live clinic context", async
   const { app } = await appWith(TOKEN);
   const res = await get(app, `Bearer ${TOKEN}`);
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { ...IDENTITY, treatments: [{ title: "Clareamento Dental", otherNames: ["branqueamento", "clarear"] }] });
+  assert.deepEqual(res.json(), {
+      ...IDENTITY,
+      treatments: [
+        { title: "Clareamento Dental", otherNames: ["branqueamento", "clarear"], extraLabels: [] },
+        { title: "Limpeza", otherNames: [], extraLabels: [] },
+      ],
+    });
 });
 
 test("a rename in the clinic context shows on the next request, without a restart", async () => {

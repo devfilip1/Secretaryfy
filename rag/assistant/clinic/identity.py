@@ -28,12 +28,20 @@ Fetch = Callable[[str, str], tuple[int, str]]
 
 
 @dataclass(frozen=True)
+class Treatment:
+    """A treatment as the Node server lists it: its title, the other names patients use, the labels of extra values."""
+
+    title: str
+    other_names: tuple[str, ...] = ()
+    extra_labels: tuple[str, ...] = ()  # values besides price and duration ("Mensalidade", "Siso")
+
+
+@dataclass(frozen=True)
 class ClinicIdentity:
     name: str
     kind: str
     language: str
-    # (title, other names patients use) of the treatments that have any: they become query synonyms
-    treatments: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    treatments: tuple[Treatment, ...] = ()
 
 
 class IdentitySource(Protocol):
@@ -58,17 +66,23 @@ def _parse(text: str) -> ClinicIdentity:
     return ClinicIdentity(name=name, kind=kind, language=language, treatments=_parse_treatments(payload.get("treatments")))
 
 
-def _parse_treatments(value) -> tuple[tuple[str, tuple[str, ...]], ...]:
+def _parse_treatments(value) -> tuple[Treatment, ...]:
     if value is None:
         return ()
+
+    def strings(item, field):
+        names = item.get(field, [])
+        return isinstance(names, list) and all(isinstance(n, str) for n in names)
+
     ok = isinstance(value, list) and all(
-        isinstance(item, dict) and isinstance(item.get("title"), str)
-        and isinstance(item.get("otherNames"), list) and all(isinstance(n, str) for n in item["otherNames"])
+        isinstance(item, dict) and isinstance(item.get("title"), str) and strings(item, "otherNames") and strings(item, "extraLabels")
         for item in value
     )
     if not ok:
-        raise ValueError("treatments must be a list of {title, otherNames}")
-    return tuple((item["title"], tuple(item["otherNames"])) for item in value)
+        raise ValueError("treatments must be a list of {title, otherNames, extraLabels}")
+    return tuple(
+        Treatment(item["title"], tuple(item.get("otherNames", ())), tuple(item.get("extraLabels", ()))) for item in value
+    )
 
 
 def _words(text: str) -> list[str]:
@@ -78,12 +92,40 @@ def _words(text: str) -> list[str]:
 def treatment_synonyms(treatments) -> dict[str, tuple[str, ...]]:
     """Each word of an other name -> the words of the treatment title, as the brochure writes them."""
     merged: dict[str, list[str]] = {}
-    for title, names in treatments:
-        target = _words(title)
-        for name in names:
+    for treatment in treatments:
+        target = _words(treatment.title)
+        for name in treatment.other_names:
             for word in _words(name):
                 merged.setdefault(word, []).extend(item for item in target if item not in merged.get(word, []))
     return {word: tuple(items) for word, items in merged.items()}
+
+
+def _plain_text(text: str) -> str | None:
+    """The text for a prompt: braces are placeholders there, so a text with braces is not used."""
+    text = " ".join(text.split())
+    return text if text and not any(brace in text for brace in BRACES) else None
+
+
+def example_treatment(treatments) -> str | None:
+    """Rule 3 of the prompt calls a treatment by its plain name: the first treatment of the brochure."""
+    return next((name.lower() for name in (_plain_text(t.title) for t in treatments) if name), None)
+
+
+def extra_rules(treatments) -> str | None:
+    """Rule 5: treatments with more than one price or duration, each value with its own name."""
+    parts = []
+    for treatment in treatments:
+        title = _plain_text(treatment.title)
+        labels = [label for label in map(_plain_text, treatment.extra_labels) if label]
+        if title and labels:
+            parts.append(f"{title}: " + ", ".join(f'"{label}"' for label in labels) + ".")
+    if not parts:
+        return None
+    return (
+        "5. Some treatments have more than one price or duration, each with its own name: "
+        + " ".join(parts)
+        + " Give the one the customer asked about; if the question is general, give all of them, each with its name."
+    )
 
 
 class HttpClinicIdentity:
@@ -140,7 +182,9 @@ class IdentityClinicProfile:
         identity = self._identity.current()
         if identity is None:
             return self._profile.load()
-        profile = self._profile.load_as(identity.name, identity.kind)
+        profile = self._profile.load_as(
+            identity.name, identity.kind, example_treatment(identity.treatments), extra_rules(identity.treatments)
+        )
         if identity.language != profile.language and not self._warned_language:
             self._warned_language = True
             logger.warning(
