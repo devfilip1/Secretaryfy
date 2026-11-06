@@ -124,7 +124,7 @@ def extra_rules(treatments) -> str | None:
     return (
         "5. Some treatments have more than one price or duration, each with its own name: "
         + " ".join(parts)
-        + " Give the one the customer asked about; if the question is general, give all of them, each with its name."
+        + " If the customer names one of them, give that one. If the customer asks about the price or the duration of the treatment without naming one, you must give ALL of them, each with its name, and never only one."
     )
 
 

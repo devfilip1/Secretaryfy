@@ -117,10 +117,13 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     /** Resposta do folheto; só numa conversa calma o pedido de nome vai junto (FR-001, FR-002, FR-005). */
     async function fromBrochure(calm: boolean): Promise<Reply> {
       const answer = await answerQuestion(text, log, message.phone, ragHistory);
-      // A proteção descarta uma mensagem igual a uma já enviada: a resposta repetida vai numa mensagem só, com uma abertura
+      // A proteção descarta uma mensagem igual a uma já enviada: as partes repetidas ficam de fora (o cliente já as leu);
+      // só quando a resposta inteira é repetida ela vai numa mensagem só, com uma abertura
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
-      const repeated = splitReply(answer).some((part) => said.includes(part));
-      const reply = repeated ? { text: `${replies.again()}\n${splitReply(answer).join("\n")}` } : greet({ text: answer, split: true });
+      const parts = splitReply(answer);
+      const fresh = parts.filter((part) => !said.includes(part));
+      const reply =
+        fresh.length === 0 ? { text: `${replies.again()}\n${parts.join("\n")}` } : greet({ text: fresh.join("\n\n"), split: true });
       return calm ? askName(reply) : reply;
     }
 

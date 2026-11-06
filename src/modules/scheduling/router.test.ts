@@ -38,6 +38,7 @@ function setup({
   humanize,
   firstMessage = false,
   assistantSaid,
+  brochureAnswer,
   text = MESSAGE.text!,
   history,
   service = null,
@@ -71,6 +72,8 @@ function setup({
   firstMessage?: boolean;
   /** Texto que o assistente já mandou nesta conversa */
   assistantSaid?: string;
+  /** O que o RAG responde; o padrão é "do folheto" */
+  brochureAnswer?: string;
   /** O que o cliente escreveu */
   text?: string;
 }) {
@@ -155,7 +158,7 @@ function setup({
     answerQuestion: async (q, _log, _phone, history) => {
       histories.push(history);
       asked.push(q);
-      return "do folheto";
+      return brochureAnswer ?? "do folheto";
     },
     humanize,
   });
@@ -537,4 +540,10 @@ test("fora de um agendamento (dúvida), o interpretador não é consultado; dent
   const inFlow = setup({ intent: "choose", session: SESSION, mentioned: "Dental Cleaning" });
   await inFlow.reply();
   assert.equal(inFlow.mentionCalls.length, 1);
+});
+
+test("só uma parte da resposta do folheto é repetida: a parte repetida fica de fora, sem abertura", async () => {
+  const r = setup({ intent: "question", assistantSaid: "Convite final.", brochureAnswer: "Custa R$ 10.\n\nConvite final." });
+  const out = await r.reply();
+  assert.equal(out!.text, "Custa R$ 10.");
 });
