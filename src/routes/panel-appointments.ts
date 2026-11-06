@@ -13,7 +13,7 @@ import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
-import type { ServiceCatalog } from "../modules/scheduling/catalog.js";
+import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
 
 interface Deps {
@@ -66,7 +66,8 @@ export function panelAppointmentsRoutes({
       endsAt: appt.endsAt.toISOString(),
       group,
       customerName: "registeredName" in appt && appt.registeredName ? appt.registeredName : appt.customerName,
-      service: appt.service,
+      // O título do tratamento; sem serviço guardado é avaliação geral, como no fluxo
+      service: catalog.label(appt.service ?? ASSESSMENT),
       phone: appt.phone,
       customerId: appt.customerId,
       notes: "notes" in appt ? appt.notes : null,

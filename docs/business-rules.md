@@ -77,12 +77,12 @@ A scheduling session expires 30 min after the last message. When the patient ret
 On the second consecutive reply the assistant can't understand inside a booking, it tells the patient someone will help, pauses itself in that conversation and flags it **Needs attention**.
 - **Where:** `MAX_MISUNDERSTOOD` and `misunderstood()` in [flow.ts](../src/modules/scheduling/flow.ts)
 
-### BR-SCH-10 · The service is the last treatment mentioned
-The appointment's service is the treatment the patient mentioned last in the conversation. If none, the assistant lists the 8 brochure treatments plus "Not sure — general assessment" (`Assessment`). The patient can change it at the summary.
-- **Where:** `SERVICES`, `detectService` in [services.ts](../src/modules/scheduling/services.ts)
+### BR-SCH-10 · The services are the clinic's treatments, plus the assessment
+The services a patient can book are the treatments of the knowledge table that are not marked `bookable: false`, in the table's order, plus "General assessment" (`Assessment`), always last. The assistant picks one of them from the list, by its label: the treatment the patient talks about (the model reads the conversation) or the number of the list shown. A treatment that is not in the list is never the service. The patient can change it at the summary. The stored service is the treatment's key (see BR-SCH-11).
+- **Where:** `createKnowledgeCatalog` in [catalog.ts](../src/modules/scheduling/catalog.ts); `formatFor` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts); [ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)
 
 ### BR-SCH-11 · What the calendar event looks like
-Title `"<name> — <service>"` (e.g. "Maria Souza — Dental Cleaning"); the description holds the WhatsApp number and "Marcado pelo Secretaryfy." (or "Marcado pelo Secretaryfy (painel)." for panel bookings). Every booking, cancellation and reschedule is also written as a 📅 system note in the conversation history.
+Title `"<name> — <service>"` (e.g. "Maria Souza — Dental Cleaning"; the service is the stored name: a treatment's key, such as `limpeza-dental`, or `Assessment`, see BR-SCH-10); the description holds the WhatsApp number and "Marcado pelo Secretaryfy." (or "Marcado pelo Secretaryfy (painel)." for panel bookings). Every booking, cancellation and reschedule is also written as a 📅 system note in the conversation history.
 - **Where:** `bookSlot` in [booking.ts](../src/modules/scheduling/booking.ts); `systemNotes` in [replies.ts](../src/modules/scheduling/replies.ts)
 
 ### BR-SCH-12 · Panel bookings use the same engine and send nothing
@@ -247,5 +247,5 @@ The panel is off unless `OPERATOR_PASSWORD` (12+ characters) is set. A login cre
 
 - `package.json` still describes the project as an assistant "for sending emails"; no email feature exists.
 - `ANTHROPIC_API_KEY` is required by [env.ts](../src/config/env.ts), but no code calls the Claude API.
-- The service catalog exists twice: `SERVICES` in [services.ts](../src/modules/scheduling/services.ts) and a hard-coded copy in [NewAppointment.tsx](../web/src/components/NewAppointment.tsx). Changing one without the other makes the panel offer a service the API rejects, or hide one the assistant books.
+- The service catalog is the knowledge table ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)): the panel reads it from `GET /api/services` and keeps no copy. A treatment's key is what appointments store, so renaming a key does not rename the bookings made before.
 - The comment on `DELETE /api/conversations` in [panel-api.ts](../src/routes/panel-api.ts) says it deletes "appointments in progress". It deletes scheduling sessions (dialogues in progress), not appointments, which survive since feature 006.

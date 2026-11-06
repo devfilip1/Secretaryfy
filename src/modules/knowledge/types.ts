@@ -10,6 +10,8 @@ export type Fact = z.infer<typeof factSchema>;
 
 /** Dados de um tratamento. `ideal.title` é a linha sem os dois pontos finais; `facts` vêm na linha com " | " entre eles. */
 export const treatmentDataSchema = z.object({
+  /** `false`: só informação, o cliente não marca por aqui (ADR 0014). Ausente = pode marcar. */
+  bookable: z.boolean().optional(),
   ideal: z.object({ title: z.string().min(1), items: z.array(z.string().min(1)).min(1) }).optional(),
   howItWorks: labelledValueSchema.optional(),
   facts: z.array(factSchema).min(1),
@@ -71,6 +73,9 @@ export const knowledgeRowSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type KnowledgeRow = z.infer<typeof knowledgeRowSchema>;
+
+/** Um tratamento que o cliente pode marcar pelo WhatsApp (ADR 0014): tratamento sem `bookable: false`. */
+export const isBookable = (row: KnowledgeRow): boolean => row.kind === "treatment" && row.data.bookable !== false;
 
 /** Seção como o RAG a lê: título e linhas (ver docs/integrations.md). */
 export interface KnowledgeSection {

@@ -20,6 +20,8 @@ interface Deps {
   clinicName: string;
   /** Língua da clínica: a versão do conteúdo (e o status) muda com ela quando há fatos com `assessment` */
   language: Language;
+  /** Depois de cada criação, troca, remoção ou ordem: o catálogo de tratamentos que se podem marcar relê a tabela (ADR 0014) */
+  onChange?: () => Promise<void>;
 }
 
 /** Chaves que o painel não dá a uma seção: "order" é a rota da ordem (PUT /api/knowledge/order). */
@@ -39,7 +41,7 @@ function notFound(reply: FastifyReply) {
 }
 
 /** Rotas do painel para o conhecimento da clínica e a publicação no RAG (docs/integrations.md). */
-export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language }: Deps) {
+export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language, onChange }: Deps) {
   /** Primeira chave livre a partir do título: "sobre-nos", "sobre-nos-2", "sobre-nos-3"… */
   async function freeKey(title: string): Promise<string> {
     const base = slugify(title);
@@ -89,6 +91,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language }:
       });
       if (!row.success) return invalidBody(reply, row.error);
       await repo.upsert(row.data);
+      await onChange?.();
       return reply.code(201).send({ section: row.data });
     });
 
@@ -106,11 +109,13 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language }:
       });
       if (!row.success) return invalidBody(reply, row.error);
       await repo.upsert(row.data);
+      await onChange?.();
       return { section: row.data };
     });
 
     app.delete<{ Params: { key: string } }>("/api/knowledge/:key", async (req, reply) => {
       if (!(await repo.remove(req.params.key))) return notFound(reply);
+      await onChange?.();
       return reply.code(204).send();
     });
 
@@ -123,6 +128,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinicName, language }:
         if (err instanceof KnowledgeOrderError) return reply.code(400).send({ error: "invalid_order", message: err.message });
         throw err;
       }
+      await onChange?.();
       return reply.code(204).send();
     });
 

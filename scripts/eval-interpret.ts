@@ -2,7 +2,7 @@
 // Uso: npx tsx --env-file=.env scripts/eval-interpret.ts
 import type { SessionOption } from "../src/db/schema.js";
 import { buildClinicContext } from "../src/modules/clinic/context.js";
-import { createStaticCatalog } from "../src/modules/scheduling/catalog.js";
+import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createInterpreter, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
@@ -33,8 +33,12 @@ interface Case {
   urgent?: boolean;
   /** O nome esperado (null = nenhum), logo depois do pedido de nome */
   name?: string | null;
+  /** O serviço esperado (null = nenhum), quando a frase cita um tratamento */
+  service?: string | null;
   awaitingName?: boolean;
 }
+/** Idioma da clínica nesta rodada (as chaves dos serviços esperados mudam com o catálogo). */
+const PT = (process.env.CLINIC_LANGUAGE ?? "en") === "pt";
 const c = (step: Step, text: string, intent: Case["intent"], extra: Partial<Case> = {}): Case => ({ step, text, intent, ...extra });
 /** Resposta ao pedido de nome, fora do agendamento: o nome só vale se estiver escrito */
 const named = (text: string, name: string | null, intent: Case["intent"]): Case => ({ step: null, text, intent, name, awaitingName: true });
@@ -51,7 +55,7 @@ const cases: Case[] = [
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
   c(null, "vocês atendem no fim de semana?", "availability", { date: "2026-10-24" }),
-  c(null, "quero marcar uma limpeza", "book"),
+  c(null, "quero marcar uma limpeza", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
   c(null, "preciso cancelar minha consulta", "cancel"),
   c(null, "quanto custa o clareamento?", "question"),
   c(null, "obrigada, tchau!", "goodbye"),
@@ -96,7 +100,7 @@ const cases: Case[] = [
   c("confirm_booking", "isso mesmo", "yes"),
   c("confirm_booking", "nao, melhor outro horario", "no"),
   c("ask_name", "Carla Souza", "give_name"),
-  c("choose_service", "quero fazer um clareamento", "choose_service"),
+  c("choose_service", "quero fazer um clareamento", "choose_service", { service: PT ? "clareamento-dental" : "Teeth Whitening" }),
   c("ask_name", "pode colocar Joana", "give_name", { name: "Joana" }),
   named("Carla", "Carla", "give_name"),
   named("Juliana", "Juliana", "give_name"),
@@ -122,7 +126,9 @@ const clinic = buildClinicContext({
   ASSISTANT_NAME: process.env.ASSISTANT_NAME,
   CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
 });
-const catalog = createStaticCatalog();
+// A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
+// Com o idioma da clínica em português, o catálogo é o da Sorriso Pleno (títulos em português), como no painel
+const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
 const interpreter = createInterpreter({ ollama, clinic, catalog });
 
 let ok = 0;
@@ -135,9 +141,9 @@ for (const k of cases) {
   });
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) &&
-    (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name);
+    (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
   if (right) ok++;
-  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} urgent=${got.urgent} name=${got.name} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
+  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);

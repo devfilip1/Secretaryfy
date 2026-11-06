@@ -9,6 +9,7 @@ import type { InboxEvent } from "../modules/inbox/events.js";
 import { createInboxRepository, type InboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService, type InboxService } from "../modules/inbox/service.js";
 import { createBooking } from "../modules/scheduling/booking.js";
+import { createCatalog, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import { DEFAULT_RULES } from "../modules/scheduling/rules.js";
 import { testCatalog } from "../test/catalog.js";
 import { createSchedulingStore, withAppointmentEvents, type SchedulingStore } from "../modules/scheduling/sessions.js";
@@ -43,15 +44,8 @@ before(async () => {
 });
 after(() => testDb.close());
 
-beforeEach(async () => {
-  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
-  events = [];
-  sent = [];
-  now = NOW;
-  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
-  fake = createFakeCalendar();
-  inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => now.getTime() });
-  store = withAppointmentEvents(rawStore, () => events.push({ type: "appointments.updated" }));
+/** O painel com este catálogo: a marcação e a lista usam os mesmos títulos */
+async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
   const deps = {
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
@@ -61,17 +55,31 @@ beforeEach(async () => {
     customers,
     log: { error: () => {} },
     now: () => now,
+    catalog,
   };
-  app = Fastify();
-  await app.register(
+  const server = Fastify();
+  await server.register(
     panelAppointmentsRoutes({
       ...deps,
       inboxRepo: repo,
       booking: createBooking(deps),
       reminderLeadMinutes: 1440,
-      catalog: testCatalog,
+      catalog,
     }),
   );
+  return server;
+}
+
+beforeEach(async () => {
+  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
+  events = [];
+  sent = [];
+  now = NOW;
+  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
+  fake = createFakeCalendar();
+  inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => now.getTime() });
+  store = withAppointmentEvents(rawStore, () => events.push({ type: "appointments.updated" }));
+  app = await panelWith(testCatalog);
 });
 
 const conversation = (phone = PHONE) => repo.upsertConversation({ phone, name: "Perfil", at: now, preview: "Oi" });
@@ -224,6 +232,18 @@ test("GET /api/services: os serviços na ordem do assistente, com a avaliação 
   );
   assert.equal(services.at(-1).label, "General assessment");
   assert.equal(services[0].label, "Dental Cleaning");
+});
+
+test("o painel mostra o título do tratamento no catálogo; um nome fora dele aparece como está", async () => {
+  // Antes da troca de catálogo, marcado com o nome que o catálogo de teste conhece
+  await book(VALID);
+  const titled = await panelWith(createCatalog([{ name: "limpeza-dental", label: "Limpeza dental" }]));
+  const created = await titled.inject({ method: "POST", url: "/api/appointments", payload: { ...VALID, phone: "71 98888-7777", name: "João", service: "limpeza-dental", start: at("2026-10-23T10:00").toISOString() } });
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.json().appointment.service, "Limpeza dental");
+  assert.equal([...fake.events.values()].at(-1)?.summary, "João — Limpeza dental");
+  const services = (await titled.inject({ url: "/api/appointments" })).json().appointments.map((a: { service: string }) => a.service);
+  assert.deepEqual(services, ["Dental Cleaning", "Limpeza dental"]);
 });
 
 // --- US4: confirmação pelo operador ---

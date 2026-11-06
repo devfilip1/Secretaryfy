@@ -17,5 +17,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0013](0013-reminders-outside-the-24h-window.md) | Reminders may go out even when the patient has been silent for more than 24 h | Accepted |
 | [0011](0011-grounded-answers-measured-not-adopted.md) | Grounded answers: built, measured, off by default | Accepted |
 | [0012](0012-node-server-toward-many-clinics.md) | The Node server toward many clinics: one clinic context first, the tenant key later | Proposed |
+| [0014](0014-booking-services-are-the-clinics-treatments.md) | Booking services are the clinic's treatments from the knowledge table, stored by key | Accepted |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.

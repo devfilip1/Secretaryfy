@@ -1,13 +1,12 @@
 import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
-import { db, sql } from "./db/client.js";
+import { sql } from "./db/client.js";
 import { bus } from "./modules/inbox/events.js";
 import { presentMessage } from "./modules/inbox/presenters.js";
 import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
-import { booking, catalog, clinic, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
-import { createKnowledgeRepository } from "./modules/knowledge/repository.js";
+import { booking, catalog, clinic, knowledge, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { knowledgeInternalRoutes } from "./routes/knowledge-internal.js";
 import { createRagAdmin } from "./modules/rag/admin.js";
 import { panelKnowledgeRoutes } from "./routes/panel-knowledge.js";
@@ -62,7 +61,8 @@ if (fakeMode) {
   }
 }
 
-const knowledge = createKnowledgeRepository(db);
+// Os tratamentos que se podem marcar vêm da tabela de conhecimento: o retrato em memória começa aqui (ADR 0014)
+await catalog.refresh();
 
 await app.register(healthRoutes);
 // Fora do login do painel: protegido só pelo INTERNAL_TOKEN (sem ele, a rota não existe)
@@ -99,6 +99,7 @@ await app.register(
     calendar: googleCalendar,
     connection: connectionStore,
     publish: bus.publish,
+    catalog,
     log: app.log,
   }),
 );
@@ -143,6 +144,7 @@ await app.register(
     rules: rulesStore,
     clinicName: clinic.name,
     language: clinic.language,
+    onChange: () => catalog.refresh(),
   }),
 );
 await app.register(panelStaticRoutes);

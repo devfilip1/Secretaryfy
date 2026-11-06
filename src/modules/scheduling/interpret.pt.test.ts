@@ -54,9 +54,9 @@ test("meu nome é, me chamo e sou o/a dizem o nome", async () => {
   assert.deepEqual(pick(await asking({ intent: "give_name", name: "Ana" }).interpret(input("sou a Ana", { step: "ask_name" }))), ["give_name", "Ana"]);
 });
 
-test("tratamento citado em pt vira escolha de serviço", async () => {
-  assert.deepEqual(pick(await interpreter.interpret(input("limpeza", { step: "choose_service" }))), ["choose_service", "Dental Cleaning"]);
-  assert.deepEqual(pick(await interpreter.interpret(input("canal", { step: "choose_service" }))), ["choose_service", "Root Canal Treatment"]);
+test("tratamento citado em pt vira escolha de serviço: o modelo lê a frase e devolve o tratamento da lista", async () => {
+  assert.deepEqual(pick(await asking({ intent: "choose_service", service: "Dental Cleaning" }).interpret(input("limpeza", { step: "choose_service" }))), ["choose_service", "Dental Cleaning"]);
+  assert.deepEqual(pick(await asking({ intent: "choose_service", service: "Root Canal Treatment" }).interpret(input("canal", { step: "choose_service" }))), ["choose_service", "Root Canal Treatment"]);
 });
 
 function pick(i: { intent: string; name: string | null; service?: string | null }): [string, string | null | undefined] {

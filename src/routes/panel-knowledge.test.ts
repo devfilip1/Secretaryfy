@@ -253,3 +253,26 @@ test("a fact flagged assessment changes the version, which follows the clinic la
   await english.ready();
   assert.equal((await english.inject({ url: "/api/knowledge/status" })).json().version, await versionOf("en"));
 });
+
+test("onChange roda depois de cada criação, troca, ordem e remoção (o catálogo de tratamentos relê); pedido recusado não roda", async () => {
+  let calls = 0;
+  const watched = Fastify();
+  await watched.register(panelKnowledgeRoutes({ repo, rag, rules, clinicName: CLINIC, language: "pt", onChange: async () => void calls++ }));
+  await watched.ready();
+
+  const created = await watched.inject({ method: "POST", url: "/api/knowledge", payload: { ...infoSection, title: "Horários extra" } });
+  assert.equal(calls, 1);
+  const key = created.json().section.key;
+  await watched.inject({ method: "PUT", url: `/api/knowledge/${key}`, payload: { title: "Horários", tagline: null, data: { lines: ["Sáb"] } } });
+  assert.equal(calls, 2);
+  await watched.inject({ method: "PUT", url: "/api/knowledge/order", payload: { keys: await keys() } });
+  assert.equal(calls, 3);
+  await watched.inject({ method: "DELETE", url: `/api/knowledge/${key}` });
+  assert.equal(calls, 4);
+
+  // Pedidos recusados (não existe, ordem inválida) não mudam nada e não relêem
+  await watched.inject({ method: "DELETE", url: `/api/knowledge/${key}` });
+  await watched.inject({ method: "PUT", url: "/api/knowledge/order", payload: { keys: ["x"] } });
+  assert.equal(calls, 4);
+  await watched.close();
+});

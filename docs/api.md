@@ -62,11 +62,11 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 |---|---|
 | `GET /api/appointments` | Booked appointments grouped `today`, `tomorrow`, `week` (next 7 days) in the calendar's time zone. Each has name, service, phone, origin, notes, `conversationId` and `reminder: {label, reason, sentAt}` ([labels](business-rules.md#reminder-states)) |
 | `POST /api/appointments/:id/confirm` | Confirms by the operator; idempotent |
-| `GET /api/services` | `{services: [{name, label}]}`: the services a customer can book, in the assistant's order. `label` is the panel name ("General assessment" for Assessment). Source: [services.ts](../src/modules/scheduling/services.ts) |
+| `GET /api/services` | `{services: [{name, label}]}`: the services a customer can book, in the assistant's order. `name` is the stored key (the treatment's key, or `Assessment`); `label` is the treatment's title, and "General assessment" for Assessment. Source: the bookable treatments of `knowledge_sections` plus the assessment ([catalog.ts](../src/modules/scheduling/catalog.ts), ADR 0014) |
 | `GET /api/booking/days` | Days with free times |
 | `GET /api/booking/slots?date=YYYY-MM-DD` | Free times on that day |
 | `GET /api/booking/lookup?phone=` | Normalized phone, name (registry, else said in the chat), `hasConversation` and `futureAppointment`; 422 `invalid_phone` |
-| `POST /api/appointments` | `{phone, name, service, start}`; 201 `{appointment}`; 409 `slot_taken` (with `date` and fresh `slots`), `already_booked` (with the appointment) or `calendar_disconnected`; 502 when Google fails; 422 with `issues` |
+| `POST /api/appointments` | `{phone, name, service, start}` (`service` is one of the `name`s of `GET /api/services`); 201 `{appointment}`; 409 `slot_taken` (with `date` and fresh `slots`), `already_booked` (with the appointment) or `calendar_disconnected`; 502 when Google fails; 422 with `issues` |
 
 ### Customers — [panel-customers.ts](../src/routes/panel-customers.ts)
 
@@ -92,7 +92,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 
 ### Knowledge — [panel-knowledge.ts](../src/routes/panel-knowledge.ts)
 
-The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). A fact may carry `assessment: true` (BR-KNO-01: its line reaches the RAG with a note in the clinic language). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`.
+The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). A fact may carry `assessment: true` (BR-KNO-01: its line reaches the RAG with a note in the clinic language). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`. Each create, update, delete and reorder also re-reads the booking catalog (`onChange`, ADR 0014).
 
 | Route | Body | Answer |
 |---|---|---|

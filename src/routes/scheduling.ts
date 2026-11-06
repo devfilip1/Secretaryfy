@@ -7,7 +7,8 @@ import { createSchedulingFlow } from "../modules/scheduling/flow.js";
 import { createHumanizer } from "../modules/scheduling/humanize.js";
 import { createOllamaClient } from "../modules/scheduling/ollama.js";
 import { createSchedulingStore, withAppointmentEvents } from "../modules/scheduling/sessions.js";
-import { createStaticCatalog } from "../modules/scheduling/catalog.js";
+import { createKnowledgeCatalog } from "../modules/scheduling/catalog.js";
+import { createKnowledgeRepository } from "../modules/knowledge/repository.js";
 import { createReplies } from "../modules/scheduling/replies.js";
 import { connectionStore, googleCalendar, rulesStore } from "./calendar.js";
 import { customerRepo, inbox } from "./inbox.js";
@@ -21,8 +22,11 @@ export const schedulingStore = withAppointmentEvents(createSchedulingStore(db), 
 /** Identidade da clínica, montada aqui uma vez a partir da configuração e passada aos módulos (ADR 0010). */
 export const clinic = buildClinicContext(env);
 
-/** Os tratamentos que o cliente pode marcar: uma instância só, passada a quem usa a lista (catalog.ts). */
-export const catalog = createStaticCatalog();
+/** Conhecimento da clínica (a tabela que o painel edita): de onde vêm os tratamentos que se podem marcar. */
+export const knowledge = createKnowledgeRepository(db);
+
+/** Os tratamentos que o cliente pode marcar, lidos da tabela (ADR 0014): index.ts relê no boot e a cada mudança no painel. */
+export const catalog = createKnowledgeCatalog({ repo: knowledge });
 
 /** Textos aos clientes na língua e com o nome da clínica (clinic). */
 export const schedulingReplies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName, catalog });

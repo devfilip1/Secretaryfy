@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
 import { testCatalog } from "../../test/catalog.js";
+import { ASSESSMENT } from "./catalog.js";
 import { testClinic } from "../../test/clinic.js";
 import { createInterpreter, nameInText, type InterpretInput } from "./interpret.js";
 import { createOllamaClient, InterpreterUnavailable, type ChatMessage } from "./ollama.js";
@@ -224,21 +225,37 @@ test("give_name do modelo sem um nome válido vira unclear", async () => {
 
 // --- specs/005, US2: serviço ---
 
-test("etapa choose_service: número, nome do tratamento ou 'não sei', sem o modelo", async () => {
-  const { interpreter, bodies } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+test("etapa choose_service: o número da lista vale sem o modelo; o nome do tratamento é o modelo que lê, pelo rótulo", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "Teeth Whitening" });
   const pick = async (text: string) => {
     const r = await interpreter.interpret(input({ text, step: "choose_service" }));
     return [r.intent, r.service ?? null];
   };
   assert.deepEqual(await pick("3"), ["choose_service", "Dental Filling"]);
-  assert.deepEqual(await pick("whitening please"), ["choose_service", "Teeth Whitening"]);
-  assert.deepEqual(await pick("not sure"), ["choose_service", "Assessment"]);
   assert.deepEqual(await pick("10"), ["unclear", null]);
   assert.equal(bodies.length, 0);
+  assert.deepEqual(await pick("whitening please"), ["choose_service", "Teeth Whitening"]);
+  assert.equal(bodies.length, 1);
+  // O enum do serviço tem os rótulos do catálogo e null
+  const format = bodies[0].format as { properties: { service: { enum: unknown[] } } };
+  assert.ok(format.properties.service.enum.includes("Teeth Whitening"));
+  assert.equal(format.properties.service.enum.at(-1), null);
+  // "não sei" é a avaliação geral, com o rótulo em inglês que o modelo devolve
+  const assess = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "General assessment" });
+  assert.deepEqual(await assess.interpreter.interpret(input({ text: "not sure", step: "choose_service" })).then((r) => [r.intent, r.service]), ["choose_service", ASSESSMENT]);
+});
+
+test("o serviço que o modelo dá vale em qualquer intenção; fora do catálogo, nenhum", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, name: null, service: "Braces and Orthodontic Treatment" });
+  const r = await interpreter.interpret(input({ text: "do you have times for braces on Friday?" }));
+  assert.equal(r.intent, "availability");
+  assert.equal(r.service, "Braces and Orthodontic Treatment");
+  const other = fakeOllama({ intent: "availability", option: null, date: null, name: null, service: "hair transplant" });
+  assert.equal((await other.interpreter.interpret(input({ text: "times for hair?" }))).service, undefined);
 });
 
 test("no resumo, citar outro tratamento troca o serviço; sim continua sim", async () => {
-  const { interpreter } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
+  const { interpreter } = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "Dental Cleaning" });
   const r = await interpreter.interpret(input({ text: "actually I want a cleaning", step: "confirm_booking" }));
   assert.equal(r.intent, "choose_service");
   assert.equal(r.service, "Dental Cleaning");

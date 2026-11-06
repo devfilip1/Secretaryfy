@@ -3,7 +3,6 @@ import { test } from "node:test";
 import type { FastifyBaseLogger } from "fastify";
 import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../../db/schema.js";
 import type { IncomingMessage } from "../whatsapp/evolution.js";
-import { testCatalog } from "../../test/catalog.js";
 import { testReplies as replies, testTexts } from "../../test/clinic.js";
 import type { SchedulingFlow } from "./flow.js";
 import type { Interpretation, InterpretInput, Interpreter } from "./interpret.js";
@@ -41,7 +40,10 @@ function setup({
   assistantSaid,
   text = MESSAGE.text!,
   history,
+  service = null,
 }: {  intent?: Interpretation["intent"];
+  /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
+  service?: string | null;
   session?: SchedulingSessionRow | null;
   unavailable?: boolean;
   /** Nome dito na conversa; null = o cliente ainda não disse */
@@ -84,7 +86,7 @@ function setup({
     interpret: async (input) => {
       inputs.push(input);
       if (unavailable) throw new InterpreterUnavailable("Ollama fora do ar");
-      return { intent: intent!, option: null, date: null, name, urgent, source: "model" };
+      return { intent: intent!, option: null, date: null, name, urgent, service, source: "model" };
     },
   };
   const flow = {
@@ -108,7 +110,6 @@ function setup({
     interpreter,
     flow,
     replies,
-    catalog: testCatalog,
     store: {
       getSession: async () => session,
       clearSession: async (id) => {
@@ -296,11 +297,14 @@ test("o interpretador sabe que o nome foi pedido só na primeira mensagem depois
   assert.equal(never.inputs[0].awaitingName, false);
 });
 
-test("o tratamento citado pelo cliente na conversa vai para o agendamento (specs/005 US2)", async () => {
-  // A mensagem atual é "How much are braces?"
-  const r = setup({ intent: "book" });
+test("o tratamento que o modelo viu na conversa vai para o agendamento (specs/005 US2)", async () => {
+  const r = setup({ intent: "book", service: "Braces and Orthodontic Treatment" });
   await r.reply();
   assert.equal(r.handled[0].mentionedService, "Braces and Orthodontic Treatment");
+  // Sem serviço na interpretação, o texto não é lido por palavras
+  const none = setup({ intent: "book", text: "I want braces" });
+  await none.reply();
+  assert.equal(none.handled[0].mentionedService, null);
 });
 
 // --- Resposta ao lembrete (specs/006 US4) ---

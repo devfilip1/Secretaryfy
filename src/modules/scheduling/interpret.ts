@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import type { SchedulingStep, SessionOption } from "../../db/schema.js";
 import type { ClinicContext } from "../clinic/context.js";
-import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay } from "./dates.js";
+import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay, type Language } from "./dates.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import type { ServiceCatalog } from "./catalog.js";
 
@@ -41,7 +41,7 @@ export interface Interpretation {
   /** YYYY-MM-DD no fuso da clínica */
   date: string | null;
   name: string | null;
-  /** Serviço do catálogo (intent = choose_service, specs/005) */
+  /** Nome do serviço do catálogo (a chave do tratamento, ou ASSESSMENT) que o modelo deu, em qualquer intenção; ausente se não deu */
   service?: string | null;
   source: "rule" | "model";
   /** needs_staff: dor, inchaço, sangramento ou outra urgência de saúde (o texto ao cliente muda) */
@@ -154,14 +154,10 @@ function byRules({ text, step, options, now, timeZone, window, awaitingReminder 
     if (YES.has(t) || ATTENDING.has(t)) return result("yes");
     if (NO.has(t)) return result("no");
   }
-  // Serviço (specs/005): pelo número ou pelo nome na lista; no resumo, citar outro tratamento troca o serviço
+  // Serviço (specs/005): o número na lista é conta; o nome do tratamento quem lê é o modelo, que vê a conversa
   if (step === "choose_service" && /^\d{1,2}$/.test(t)) {
     const service = catalog.byNumber(Number(t));
     return service ? result("choose_service", { service }) : result("unclear");
-  }
-  if (step === "choose_service" || step === "confirm_booking") {
-    const service = catalog.detect([text]);
-    if (service) return result("choose_service", { service });
   }
   if (step === null || CHOOSING.includes(step)) {
     const date = parseSimpleDate(text, { now, timeZone });
@@ -186,25 +182,36 @@ function byRules({ text, step, options, now, timeZone, window, awaitingReminder 
 /** O modelo nomeia o dia da semana em inglês (ele erra a numeração); a posição aqui é o número ISO (1 = segunda). */
 const WEEKDAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
-const FORMAT = {
-  type: "object",
-  properties: {
-    intent: { type: "string", enum: INTENTS },
-    option: { type: ["integer", "null"] },
-    date: { type: ["string", "null"], description: "YYYY-MM-DD" },
-    weekday: { type: ["string", "null"], enum: [...WEEKDAY_NAMES, null] },
-    urgent: { type: "boolean" },
-    name: { type: ["string", "null"] },
-    service: { type: ["string", "null"] },
-  },
-  required: ["intent", "option", "date", "weekday", "name", "urgent"],
-};
+/**
+ * Formato da saída do modelo. O serviço é um enum com os rótulos do catálogo deste momento (o painel pode ter mudado a
+ * lista desde a última chamada), na língua da clínica.
+ */
+function formatFor(catalog: ServiceCatalog, language: Language) {
+  const services = catalog.list().map((s) => catalog.label(s.name, language));
+  return {
+    type: "object",
+    properties: {
+      intent: { type: "string", enum: INTENTS },
+      option: { type: ["integer", "null"] },
+      date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+      weekday: { type: ["string", "null"], enum: [...WEEKDAY_NAMES, "weekend", null] },
+      urgent: { type: "boolean" },
+      name: { type: ["string", "null"] },
+      service: {
+        type: ["string", "null"],
+        enum: [...services, null],
+        description: "the treatment the customer wants or has been talking about, exactly as listed; null when none",
+      },
+    },
+    required: ["intent", "option", "date", "weekday", "name", "urgent", "service"],
+  };
+}
 
 const modelOutput = z.object({
   intent: z.enum(INTENTS),
   option: z.number().int().nullable(),
   date: z.string().nullable(),
-  weekday: z.enum(WEEKDAY_NAMES).nullable().optional(),
+  weekday: z.enum([...WEEKDAY_NAMES, "weekend"]).nullable().optional(),
   urgent: z.boolean().optional(),
   name: z.string().nullable(),
   service: z.string().nullable().optional(),
@@ -221,13 +228,17 @@ const STEP_HINTS: Record<SchedulingStep, string> = {
   choose_service: "The assistant offered a numbered list of SERVICES (treatments) and is waiting for the customer to pick one.",
 };
 
-function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput, clinic: Pick<ClinicContext, "name" | "kind">): string {
+function systemPrompt(
+  { step, options, now, timeZone, awaitingName, awaitingReminder }: InterpretInput,
+  clinic: Pick<ClinicContext, "name" | "kind" | "language">,
+  catalog: ServiceCatalog,
+): string {
   const today = DateTime.fromJSDate(now, { zone: timeZone }).setLocale("en-US");
   const offered = options
     .map((o) => {
       if (o.kind === "day") return `${o.n}. ${formatDay(o.date, timeZone)} (${o.date})`;
       if (o.kind === "slot") return `${o.n}. ${formatTime(new Date(o.start), timeZone)}`;
-      return `${o.n}. ${o.service}`;
+      return `${o.n}. ${catalog.label(o.service, clinic.language)}`;
     })
     .join("\n");
   return [
@@ -241,7 +252,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     "",
     "Intents:",
     '- book: wants to make an appointment ("I want to book", "can I schedule a visit?")',
-    '- availability: asks which days or times are free, or whether the clinic is open on a given day, without asking to book yet ("what times do you have on Friday?", "are you open on Sundays?", "abrem no fim de semana?" has weekday saturday)',
+    '- availability: asks which days or times are free, or whether the clinic is open on a given day, without asking to book yet ("what times do you have on Friday?", "are you open on Sundays?", "abrem no fim de semana?" has weekday weekend)',
     '- cancel: wants to cancel their appointment',
     '- reschedule: wants to change the date or time of their appointment',
     '- my_appointment: asks when their appointment is',
@@ -250,7 +261,7 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     '- other_day: wants a different day than the ones offered',
     '- yes / no: answers a yes/no question from the assistant in any wording ("isso mesmo", "sure" are yes; "no, another time instead" is no)',
     '- give_name: tells their name; set "name" exactly as written in the message. A question, a complaint or a treatment is never a name',
-    '- choose_service: picks the service/treatment for the appointment; set "service" to the treatment',
+    '- choose_service: picks the treatment for the appointment from the list the assistant offered, or names another treatment while the booking summary is on screen (a swap); set "service"',
     '- stop: gives up on booking ("never mind", "forget it")',
     `- goodbye: only thanks the assistant or says goodbye, asking nothing else ("thanks, bye", "that's all, have a nice day")`,
     '- greeting: only greets, asking nothing else ("hi", "good morning", "oi, tudo bem?")',
@@ -262,7 +273,8 @@ function systemPrompt({ step, options, now, timeZone, awaitingName, awaitingRemi
     '- off_topic: has nothing to do with the clinic: general knowledge, sports, news, weather, jokes, math or other tasks. Anything about treatments, prices, hours, location or booking is never off_topic',
     "- unclear: anything else, or when you are not sure",
     "",
-    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. The weekend ("fim de semana") is "saturday"; asking about it is never choosing an offered option. "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
+    'Treatments: whatever the intent, when the customer means one of the treatments, set "service" to it exactly as listed (the one being talked about, even from an earlier message); otherwise null.',
+    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. The weekend ("fim de semana", "final de semana", "weekend") is "weekend"; asking about it is never choosing an offered option. "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
     ...(awaitingName ? ["", `The assistant has just asked the customer's name. If the message contains their name, set "name" exactly as written; otherwise leave it null.`] : []),
     ...(awaitingReminder
       ? ["", "The assistant reminded the customer of their appointment and asked them to reply YES to confirm. A confirmation is \"yes\"; a refusal is \"no\"."]
@@ -276,7 +288,8 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   const parsed = modelOutput.safeParse(raw);
   if (!parsed.success) return result("unclear", { source: "model" });
   const { name } = parsed.data;
-  const weekday = parsed.data.weekday ? WEEKDAY_NAMES.indexOf(parsed.data.weekday) + 1 : 0;
+  // O fim de semana conta como sábado: a aritmética da data é do código
+  const weekday = parsed.data.weekday === "weekend" ? 6 : parsed.data.weekday ? WEEKDAY_NAMES.indexOf(parsed.data.weekday) + 1 : 0;
   let { option, date } = parsed.data;
   // O modelo entende o dia da semana em qualquer forma ("sábados", "sab") e devolve só o número; a conta do calendário é do código
   const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
@@ -323,8 +336,8 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   let cleaned = keepsName ? cleanName(name) : null;
   if (cleaned && (!nameInText(cleaned, text) || text.includes("?"))) cleaned = null;
   if (intent === "give_name" && !cleaned) return result("unclear", { source: "model" });
-  // O serviço tem de ser do catálogo: o nome devolvido pelo modelo passa pelas mesmas palavras da conversa
-  const service = intent === "choose_service" ? catalog.detect([parsed.data.service ?? ""]) : null;
+  // O serviço tem de ser do catálogo: o rótulo que o modelo devolveu vira o nome guardado (byLabel, sem busca aproximada)
+  const service = parsed.data.service ? catalog.byLabel(parsed.data.service) : null;
   // Logo depois do pedido, o nome escrito vale mais que uma intenção que não serve: sem etapa, escolher opção ou serviço não existe
   // ("pode me chamar de Bia" lido como serviço ou como outro dia)
   // A mensagem que é só o nome ("Juliana") é dar o nome, mesmo que o modelo a tenha lido como pergunta
@@ -352,7 +365,7 @@ export function createInterpreter({
   catalog,
 }: {
   ollama: Pick<OllamaClient, "chat">;
-  clinic: Pick<ClinicContext, "name" | "kind">;
+  clinic: Pick<ClinicContext, "name" | "kind" | "language">;
   catalog: ServiceCatalog;
 }) {
   return {
@@ -362,9 +375,9 @@ export function createInterpreter({
       if (ruled) return ruled;
 
       const raw = await ollama.chat({
-        format: FORMAT,
+        format: formatFor(catalog, clinic.language),
         messages: [
-          { role: "system", content: systemPrompt(input, clinic) },
+          { role: "system", content: systemPrompt(input, clinic, catalog) },
           ...input.history.slice(-HISTORY_LIMIT),
           { role: "user", content: input.text },
         ],

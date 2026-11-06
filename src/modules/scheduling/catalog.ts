@@ -1,135 +1,88 @@
 import type { Language } from "./dates.js";
+import type { KnowledgeRepository } from "../knowledge/repository.js";
+import { isBookable } from "../knowledge/types.js";
 
 /**
- * O nome da avaliação geral, sempre presente na lista (specs/005, research.md R4). Fica em inglês como no folheto: é o
- * valor guardado no banco.
+ * O nome da avaliação geral, sempre presente na lista (specs/005, research.md R4). Fica em inglês, como o nome de um
+ * tratamento: é o valor guardado em appointments.service.
  */
 export const ASSESSMENT = "Assessment";
 
+/** Como a avaliação geral aparece ao cliente, em cada língua da clínica (o único rótulo escrito no código). */
+const ASSESSMENT_LABEL: Record<Language, string> = { en: "General assessment", pt: "Avaliação geral" };
+
+/** Um serviço que o cliente pode marcar: o nome guardado (a chave do tratamento, ou ASSESSMENT) e o rótulo da lista. */
 export interface Service {
   name: string;
-  labelPt: string;
-  words: string[];
-  wordsPt: string[];
+  label: string;
 }
 
 /**
- * Catálogo dos tratamentos que o cliente pode marcar, injetado nos módulos (ADR 0012, passo 4: a versão do banco terá a
- * mesma forma). Os métodos são síncronos de propósito: a versão do banco guarda um retrato em memória.
+ * Catálogo dos serviços que o cliente pode marcar (ADR 0014). Os métodos são síncronos: o catálogo guarda um retrato em
+ * memória, que o `refresh` do catálogo do banco atualiza.
  */
 export interface ServiceCatalog {
   /** Os serviços na ordem da lista numerada, com a avaliação geral no fim */
   list(): Service[];
-  /** O serviço pelo número da lista (1 a 9), ou null */
+  /** O serviço pelo número da lista (1 a N), ou null */
   byNumber(n: number): string | null;
-  /** Como o serviço aparece para o cliente, na língua da clínica */
+  /** Como o serviço aparece ao cliente, na língua pedida; um nome que não está no catálogo volta igual */
   label(name: string, language?: Language): string;
-  /** O serviço citado por último nos textos (em ordem cronológica), ou null se nenhum (FR-010) */
-  detect(texts: string[]): string | null;
-  /** Os serviços para a lista do painel: nome e rótulo em inglês, na ordem da lista */
-  panelList(): { name: string; label: string }[];
+  /** O serviço cujo rótulo (ou nome) é este texto, sem acento nem caixa; null se nenhum. Sem busca aproximada. */
+  byLabel(text: string): string | null;
+  /** Os serviços para a lista do painel */
+  panelList(): Service[];
 }
 
-/**
- * Serviços que o cliente pode marcar: os tratamentos do folheto, com o nome em inglês como lá (é o valor guardado no
- * banco), o nome em português para a conversa em pt e a avaliação geral (specs/005, research.md R4). A ordem é a da
- * lista numerada.
- */
-const SERVICES: Service[] = [
-  {
-    name: "Dental Cleaning",
-    labelPt: "Limpeza Dental",
-    words: ["clean", "cleaning", "prophylaxis", "tartar", "plaque"],
-    wordsPt: ["limpeza", "limpar", "profilaxia", "tartaro", "placa"],
-  },
-  {
-    name: "Teeth Whitening",
-    labelPt: "Clareamento Dental",
-    words: ["whitening", "whiten", "whiter", "bleach", "bleaching"],
-    wordsPt: ["clareamento", "clarear", "branqueamento", "branquear"],
-  },
-  {
-    name: "Dental Filling",
-    labelPt: "Restauração Dental",
-    words: ["filling", "fillings", "cavity", "cavities", "decay"],
-    wordsPt: ["restauracao", "restauracoes", "obturacao", "carie", "caries"],
-  },
-  {
-    name: "Root Canal Treatment",
-    labelPt: "Tratamento de Canal",
-    words: ["root canal", "endodontic"],
-    wordsPt: ["canal", "endodontia", "tratamento de canal"],
-  },
-  { name: "Dental Implants", labelPt: "Implante Dentário", words: ["implant", "implants"], wordsPt: ["implante", "implantes"] },
-  {
-    name: "Braces and Orthodontic Treatment",
-    labelPt: "Aparelho e Tratamento Ortodôntico",
-    words: ["braces", "aligners", "invisalign", "orthodontic", "orthodontics", "straighten", "crooked"],
-    wordsPt: ["aparelho", "aparelhos", "ortodontia", "ortodontico", "alinhador", "alinhadores", "torto", "tortos"],
-  },
-  {
-    name: "Tooth Extraction",
-    labelPt: "Extração Dentária",
-    words: ["extraction", "extract", "pull", "pulled", "wisdom"],
-    wordsPt: ["extracao", "extrair", "siso", "sisos", "tirar dente", "arrancar"],
-  },
-  {
-    name: "Dental Veneers",
-    labelPt: "Lentes de Contato Dental",
-    words: ["veneer", "veneers"],
-    wordsPt: ["lente", "lentes", "faceta", "facetas"],
-  },
-  {
-    name: ASSESSMENT,
-    labelPt: "Avaliação geral",
-    words: ["not sure", "dont know", "no idea", "assessment", "check up", "checkup", "evaluation"],
-    wordsPt: ["nao sei", "nao tenho certeza", "avaliacao"],
-  },
-];
-
-/** Minúsculas, sem acento, sem apóstrofo ("don't" → "dont"), pontuação vira espaço. */
+/** Minúsculas, sem acento, e pontuação vira espaço: o que um rótulo e o texto do cliente têm em comum. */
 const normalize = (text: string) =>
-  ` ${text
+  text
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/['’]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()} `;
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 
-/** Posição da última palavra do serviço no texto, ou -1. */
-function lastMention(text: string, words: string[]): number {
-  return Math.max(...words.map((w) => text.lastIndexOf(` ${w} `)));
-}
-
-/** O serviço citado por último nos textos (em ordem cronológica), ou null se nenhum (FR-010). */
-function detect(texts: string[]): string | null {
-  for (const raw of [...texts].reverse()) {
-    const text = normalize(raw);
-    let best: { name: string; at: number } | null = null;
-    for (const s of SERVICES) {
-      const at = lastMention(text, [...s.words, ...s.wordsPt]);
-      if (at >= 0 && (!best || at > best.at)) best = { name: s.name, at };
-    }
-    if (best) return best.name;
+/** O catálogo a partir dos tratamentos que se podem marcar, na ordem da lista: a avaliação geral entra no fim. */
+export function createCatalog(treatments: Service[]): ServiceCatalog {
+  const services: Service[] = [...treatments, { name: ASSESSMENT, label: ASSESSMENT_LABEL.en }];
+  const byText = new Map<string, string>();
+  for (const s of services) {
+    const texts = [s.name, s.label, ...(s.name === ASSESSMENT ? Object.values(ASSESSMENT_LABEL) : [])];
+    for (const text of texts) byText.set(normalize(text), s.name);
   }
-  return null;
-}
-
-/** Como o serviço aparece para o cliente, na língua da clínica. */
-function label(service: string, language: Language = "en"): string {
-  const found = SERVICES.find((s) => s.name === service);
-  if (language === "pt") return found?.labelPt ?? service;
-  return service === ASSESSMENT ? "General assessment" : service;
-}
-
-/** O catálogo estático: a lista do folheto, sem leitura de banco. */
-export function createStaticCatalog(): ServiceCatalog {
   return {
-    list: () => [...SERVICES],
-    byNumber: (n) => SERVICES[n - 1]?.name ?? null,
-    label,
-    detect,
-    panelList: () => SERVICES.map((s) => ({ name: s.name, label: label(s.name) })),
+    list: () => [...services],
+    byNumber: (n) => services[n - 1]?.name ?? null,
+    label(name, language = "en") {
+      if (name === ASSESSMENT) return ASSESSMENT_LABEL[language];
+      return services.find((s) => s.name === name)?.label ?? name;
+    },
+    byLabel: (text) => byText.get(normalize(text)) ?? null,
+    panelList: () => [...services],
+  };
+}
+
+export interface KnowledgeCatalog extends ServiceCatalog {
+  /** Relê a tabela de conhecimento e troca o retrato: no boot e depois de cada mudança no painel */
+  refresh(): Promise<void>;
+}
+
+/**
+ * Os tratamentos que o cliente pode marcar são as seções de tratamento da tabela de conhecimento, sem `bookable: false`,
+ * na ordem da posição (ADR 0014). O nome guardado é a chave da seção; o rótulo é o título.
+ */
+export function createKnowledgeCatalog({ repo }: { repo: Pick<KnowledgeRepository, "list"> }): KnowledgeCatalog {
+  let current = createCatalog([]);
+  return {
+    list: () => current.list(),
+    byNumber: (n) => current.byNumber(n),
+    label: (name, language) => current.label(name, language),
+    byLabel: (text) => current.byLabel(text),
+    panelList: () => current.panelList(),
+    async refresh() {
+      const rows = await repo.list();
+      current = createCatalog(rows.filter(isBookable).map((row) => ({ name: row.key, label: row.title })));
+    },
   };
 }

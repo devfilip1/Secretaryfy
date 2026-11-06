@@ -509,14 +509,14 @@ test("sem tratamento na conversa: lista de serviços antes do resumo; o número 
   assert.equal((await sessionOf(conv))?.step, "confirm_booking");
 });
 
-test("'não sei': avaliação geral no resumo e 'Assessment' no evento", async () => {
+test("'não sei': avaliação geral no resumo e no evento, com o rótulo do catálogo", async () => {
   mentioned = null;
   const conv = await conversation();
   await pickSlot(conv);
   const summary = await say(conv, I("choose_service", { service: "Assessment" }));
   assert.match(summary.reply, /🦷 General assessment/);
   await say(conv, I("yes"));
-  assert.equal([...fake.events.values()][0].summary, "Maria — Assessment");
+  assert.equal([...fake.events.values()][0].summary, "Maria — General assessment");
 });
 
 test("sem nome e sem serviço: nome, depois serviço, depois resumo", async () => {

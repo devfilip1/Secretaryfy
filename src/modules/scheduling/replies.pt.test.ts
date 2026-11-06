@@ -72,13 +72,13 @@ test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horá
   assert.match(days, /\n• quarta-feira, 21 de outubro\n• quinta-feira, 22 de outubro\n/);
   const times = pt.offerSlots("2026-10-21", slots, tz, false);
   assert.match(times, /\n• 09:00\n• 10:00\n/);
-  assert.match(pt.chooseService(), /\n• Limpeza Dental\n/);
+  assert.match(pt.chooseService(), /\n• Dental Cleaning\n/);
   assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
 });
 
 test("confirmação e lembrete pedem confirmação", () => {
   assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /Posso confirmar\?/);
-  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /🦷 Limpeza Dental/);
+  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /🦷 Dental Cleaning/);
   for (const text of pt.reminder(start, "Dental Cleaning", "Maria", tz)) assert.match(text, /confirma/i);
 });
 

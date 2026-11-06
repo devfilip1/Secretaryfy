@@ -6,7 +6,7 @@ import type { CalendarGateway } from "../modules/google/gateway.js";
 import type { Publish } from "../modules/inbox/events.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
-import { ASSESSMENT } from "../modules/scheduling/catalog.js";
+import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore } from "../modules/scheduling/sessions.js";
 
 interface Deps {
@@ -18,6 +18,8 @@ interface Deps {
   calendar: Pick<CalendarGateway, "renameEvent">;
   connection: Pick<ConnectionStore, "getForUse">;
   publish: Publish;
+  /** O título do tratamento na lista e no nome do evento (ADR 0014) */
+  catalog: Pick<ServiceCatalog, "label">;
   log?: { warn: (obj: object, msg: string) => void };
   now?: () => Date;
 }
@@ -32,7 +34,7 @@ const patchBody = z
   .strict()
   .refine((b) => b.name !== undefined || b.notes !== undefined, "send a name or notes");
 
-function present(row: CustomerWithAppointments, conversationId: string | null) {
+function present(row: CustomerWithAppointments, conversationId: string | null, catalog: Pick<ServiceCatalog, "label">) {
   return {
     id: row.id,
     name: row.name,
@@ -41,18 +43,29 @@ function present(row: CustomerWithAppointments, conversationId: string | null) {
     conversationId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    appointments: row.appointments.map((a) => ({ startsAt: a.startsAt.toISOString(), service: a.service, status: a.status })),
+    appointments: row.appointments.map((a) => ({ startsAt: a.startsAt.toISOString(), service: catalog.label(a.service ?? ASSESSMENT), status: a.status })),
   };
 }
 
 export type CustomerJson = ReturnType<typeof present>;
 
 /** Aba Customers do painel: o cadastro feito pelo assistente (specs/005), para consultar, editar (specs/006) e excluir. */
-export function panelCustomersRoutes({ customers, inbox, inboxRepo, store, calendar, connection, publish, log = console, now = () => new Date() }: Deps) {
+export function panelCustomersRoutes({
+  customers,
+  inbox,
+  inboxRepo,
+  store,
+  calendar,
+  connection,
+  publish,
+  catalog,
+  log = console,
+  now = () => new Date(),
+}: Deps) {
   async function presentAll() {
     const rows = await customers.list();
     const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
-    return rows.map((r) => present(r, conversations.get(r.phone) ?? null));
+    return rows.map((r) => present(r, conversations.get(r.phone) ?? null, catalog));
   }
 
   /**
@@ -65,7 +78,7 @@ export function panelCustomersRoutes({ customers, inbox, inboxRepo, store, calen
     for (const appt of await store.futureBookedByPhone(phone, now())) {
       await store.setCustomerName(appt.id, name);
       try {
-        await calendar.renameEvent(appt.googleEventId, `${name} — ${appt.service ?? ASSESSMENT}`);
+        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT)}`);
       } catch (err) {
         calendarUpdated = false;
         log.warn({ appointmentId: appt.id, err }, "não foi possível renomear o evento na agenda");

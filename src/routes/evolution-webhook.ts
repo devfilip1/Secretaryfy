@@ -25,7 +25,6 @@ const reply = createSchedulingRouter({
     ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
   }),
   flow: schedulingFlow,
-  catalog,
   replies: schedulingReplies,
   humanize,
   store: schedulingStore,

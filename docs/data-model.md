@@ -87,7 +87,7 @@ Appointments made by the assistant or the panel. Google Calendar is the source o
 | `conversation_id` | Where it was booked; set to null if the conversation is deleted |
 | `origin` | `assistant` or `panel` |
 | `google_event_id`, `calendar_id` | The Google event |
-| `customer_name`, `service` | As in the event title. `service` is null for appointments before feature 005 |
+| `customer_name`, `service` | As in the event title. `service` is the stored service name: the key of a treatment in `knowledge_sections`, or `Assessment` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). Rows from before ADR 0014 keep their English names (e.g. `Dental Cleaning`), not migrated. `service` is null for appointments before feature 005 |
 | `customer_id` | Registry record, set to null if the record is deleted |
 | `status`, `cancelled_by` | `booked` or `cancelled`; cancelled by `customer` or `calendar` (deleted in Google) |
 | `reminder_status`, `reminder_reason`, `reminder_sent_at` | See [reminder states](business-rules.md#reminder-states) |
@@ -121,7 +121,7 @@ Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = S
 Send counts for the limits are read from `messages` (index `messages_outgoing_sent_at_idx`), not kept in a separate table.
 
 ### knowledge_sections
-The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable slug, unique; `kind` is `treatment`, `info` or `clinic` (checked); `title` is the heading without `## `; `tagline` is the part after ` — ` (treatments only); `data` is JSON: for a treatment `{ideal?, howItWorks?, facts, result?, recovery?}` with labelled values (a fact may add `assessment?: boolean`, BR-KNO-01), for an info section `{lines}`; for the clinic `{intro, address, phone?, email?, closing}`, with no hours: the HORÁRIO lines come from the scheduling rules (BR-KNO-02); `position` is the display order. Validated with zod ([types.ts](../src/modules/knowledge/types.ts)). Filled from a Markdown brochure by `scripts/import-knowledge.ts`, which replaces all rows in one transaction; read by `GET /internal/knowledge` ([render.ts](../src/modules/knowledge/render.ts)).
+The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable slug, unique; `kind` is `treatment`, `info` or `clinic` (checked); `title` is the heading without `## `; `tagline` is the part after ` — ` (treatments only); `data` is JSON: for a treatment `{ideal?, howItWorks?, facts, result?, recovery?}` with labelled values (a fact may add `assessment?: boolean`, BR-KNO-01), for an info section `{lines}`; for the clinic `{intro, address, phone?, email?, closing}`, with no hours: the HORÁRIO lines come from the scheduling rules (BR-KNO-02); `position` is the display order. A treatment may carry `bookable?: boolean`: `false` keeps it information-only, while absent or `true` lets the assistant book it (ADR 0014; the RAG ignores this flag). Validated with zod ([types.ts](../src/modules/knowledge/types.ts)). Filled from a Markdown brochure by `scripts/import-knowledge.ts`, which replaces all rows in one transaction; read by `GET /internal/knowledge` ([render.ts](../src/modules/knowledge/render.ts)).
 
 ## Lifecycle and deletion
 

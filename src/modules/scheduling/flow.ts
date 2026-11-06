@@ -58,7 +58,7 @@ export function createSchedulingFlow({
   catalog,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
-  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });
+  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, catalog, log, now: clock, reminderLeadMinutes });
   return {
     async handle({
       conversation,

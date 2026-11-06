@@ -12,7 +12,7 @@ import { createInboxRepository } from "../src/modules/inbox/repository.js";
 import { createInboxService } from "../src/modules/inbox/service.js";
 import { slotsForDay } from "../src/modules/scheduling/availability.js";
 import { createSchedulingFlow } from "../src/modules/scheduling/flow.js";
-import { createStaticCatalog } from "../src/modules/scheduling/catalog.js";
+import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createReplies } from "../src/modules/scheduling/replies.js";
 import { buildClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter } from "../src/modules/scheduling/interpret.js";
@@ -63,7 +63,8 @@ const clinic = buildClinicContext({
   ASSISTANT_NAME: process.env.ASSISTANT_NAME,
   CLINIC_KIND: process.env.CLINIC_KIND || "dental clinic",
 });
-const catalog = createStaticCatalog();
+// A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
+const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
 const replies = createReplies({ language: clinic.language, clinicName: clinic.name, assistantName: clinic.assistantName, catalog });
 const interpreter = createInterpreter({ ollama, clinic, catalog });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
@@ -124,7 +125,6 @@ for (const scenario of scenarios) {
     connection,
     rules: { get: async () => rules },
     replies,
-    catalog,
     answerQuestion: async () => "[resposta do folheto]",
     now: () => now,
   });

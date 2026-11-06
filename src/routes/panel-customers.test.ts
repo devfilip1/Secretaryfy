@@ -7,6 +7,8 @@ import type { InboxEvent } from "../modules/inbox/events.js";
 import { createInboxRepository, type InboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService } from "../modules/inbox/service.js";
 import { createSchedulingStore, withAppointmentEvents, type SchedulingStore } from "../modules/scheduling/sessions.js";
+import { createCatalog, type ServiceCatalog } from "../modules/scheduling/catalog.js";
+import { testCatalog } from "../test/catalog.js";
 import { createTestDb } from "../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../test/fake-calendar.js";
 import { panelCustomersRoutes } from "./panel-customers.js";
@@ -30,13 +32,11 @@ before(async () => {
 });
 after(() => testDb.close());
 
-beforeEach(async () => {
-  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
-  events = [];
-  fake = createFakeCalendar();
+/** O painel de clientes com este catálogo: o rename e a lista usam os mesmos títulos */
+async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
   const publish = (e: InboxEvent) => events.push(e);
-  app = Fastify();
-  await app.register(
+  const server = Fastify();
+  await server.register(
     panelCustomersRoutes({
       customers,
       inbox: createInboxService({ repo, publish, now: () => NOW.getTime() }),
@@ -47,8 +47,17 @@ beforeEach(async () => {
       publish,
       log: { warn: () => {} },
       now: () => NOW,
+      catalog,
     }),
   );
+  return server;
+}
+
+beforeEach(async () => {
+  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
+  events = [];
+  fake = createFakeCalendar();
+  app = await panelWith(testCatalog);
 });
 
 /** Cliente com um horário futuro (evento na agenda falsa) e outro já passado. */
@@ -111,6 +120,17 @@ test("PATCH nome: cadastro, conversa e horários futuros com o nome novo; o tít
   assert.equal(future[0].customerName, "Maria Souza");
   assert.ok(events.some((e) => e.type === "customers.updated"));
   assert.ok(events.some((e) => e.type === "appointments.updated"));
+});
+
+test("o rename e a lista mostram o título do tratamento no catálogo; um nome fora dele aparece como está", async () => {
+  const customer = await maria();
+  app = await panelWith(createCatalog([{ name: "Dental Cleaning", label: "Limpeza dental" }]));
+  const list = (await app.inject({ url: "/api/customers" })).json().customers[0];
+  assert.deepEqual(list.appointments.map((a: { service: string }) => a.service).sort(), ["Limpeza dental", "Teeth Whitening"]);
+  const res = await patch(customer.id, { name: "Maria Souza" });
+  assert.equal(res.statusCode, 200);
+  // Só o horário futuro é renomeado, com o título do tratamento; o passado fica como estava
+  assert.deepEqual(titles(), ["Maria Souza — Limpeza dental", "Maria — Teeth Whitening"]);
 });
 
 test("PATCH nome com o Google fora do ar: nome salvo, calendarUpdated false", async () => {

@@ -39,7 +39,7 @@ Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/
 
 - Interpreter call: `POST {OLLAMA_URL}/api/chat` with `stream: false`, `format: <JSON Schema>`, `temperature: 0`, `keep_alive: "30m"`, and a 20 s timeout. Non-JSON output or any error raises `InterpreterUnavailable`.
 - The model in use is `qwen3:8b`: 8.2B parameters, Q4_K_M quantization, 40k context, with its thinking turned off (`think: false` in this client, `OLLAMA_THINKING` in the RAG). One chat model serves the RAG and the interpreter, so the GPU holds it and the embedding model together. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models: `qwen3:8b` and `llama3` both pass its 23 scenarios.
-- Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times, names and services ([message pipeline](message-pipeline.md#6a-interpret)).
+- Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times and names; the model reads the services ([message pipeline](message-pipeline.md#6a-interpret)).
 
 ## Knowledge endpoint
 

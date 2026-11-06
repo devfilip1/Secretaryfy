@@ -7,6 +7,7 @@ import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
 import { isSlotAvailable } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
+import type { ServiceCatalog } from "./catalog.js";
 import { systemNotes } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
@@ -69,6 +70,8 @@ interface Deps {
   inbox: Pick<InboxService, "recordSystem">;
   /** Cadastro de clientes: quem tem um horário confirmado entra nele (specs/005, US3) */
   customers: Pick<CustomerRepository, "upsert">;
+  /** O título do tratamento para a agenda, a nota e o histórico: a chave guardada nunca sai (ADR 0014) */
+  catalog: Pick<ServiceCatalog, "label">;
   log?: { error: (obj: object, msg: string) => void };
   now?: () => Date;
   reminderLeadMinutes?: number;
@@ -85,6 +88,7 @@ export function createBooking({
   store,
   inbox,
   customers,
+  catalog,
   log = console,
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
@@ -136,10 +140,11 @@ export function createBooking({
         if (!isSlotAvailable(start, { rules, busy, now, timeZone })) return { kind: "slot_taken" };
 
         const id = randomUUID();
+        const title = catalog.label(service);
         const { eventId } = await calendar.createEvent({
-          // "<nome> — <serviço>" (specs/005 FR-013)
-          summary: `${name} — ${service}`,
-          description: `WhatsApp: +${phone}\nServiço: ${service}\n${origin === "panel" ? "Marcado pelo Secretaryfy (painel)." : "Marcado pelo Secretaryfy."}`,
+          // "<nome> — <serviço>" (specs/005 FR-013), com o título do tratamento
+          summary: `${name} — ${title}`,
+          description: `WhatsApp: +${phone}\nServiço: ${title}\n${origin === "panel" ? "Marcado pelo Secretaryfy (painel)." : "Marcado pelo Secretaryfy."}`,
           start,
           end,
           timeZone,
@@ -167,7 +172,7 @@ export function createBooking({
         await registerCustomer(appointment.id, phone, name, now);
         if (conversationId) {
           const note = origin === "panel" ? systemNotes.bookedFromPanel : systemNotes.booked;
-          await inbox.recordSystem(conversationId, note(start, rules.slotMinutes, timeZone, service));
+          await inbox.recordSystem(conversationId, note(start, rules.slotMinutes, timeZone, title));
         }
         return { kind: "booked", appointment };
       });

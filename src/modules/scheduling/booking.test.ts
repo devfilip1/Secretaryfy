@@ -8,7 +8,9 @@ import { createCustomerRepository, type CustomerRepository } from "../customers/
 import type { ActiveConnection } from "../google/connection.js";
 import { createInboxRepository, type InboxRepository } from "../inbox/repository.js";
 import { createInboxService } from "../inbox/service.js";
+import { testCatalog } from "../../test/catalog.js";
 import { createBooking, type Booking } from "./booking.js";
+import { createCatalog, type ServiceCatalog } from "./catalog.js";
 import { DEFAULT_RULES } from "./rules.js";
 import { createSchedulingStore, type SchedulingStore } from "./sessions.js";
 
@@ -34,11 +36,9 @@ before(async () => {
 });
 after(() => testDb.close());
 
-beforeEach(async () => {
-  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
-  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
-  fake = createFakeCalendar();
-  booking = createBooking({
+/** O motor de marcação com este catálogo (os títulos vêm dele) */
+const engine = (catalog: ServiceCatalog) =>
+  createBooking({
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
     rules: { get: async () => ({ ...DEFAULT_RULES }) },
@@ -47,7 +47,14 @@ beforeEach(async () => {
     customers,
     log: { error: () => {} },
     now: () => NOW,
+    catalog,
   });
+
+beforeEach(async () => {
+  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
+  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
+  fake = createFakeCalendar();
+  booking = engine(testCatalog);
 });
 
 const slot = (local = "2026-10-22T10:00", over: Partial<Parameters<Booking["bookSlot"]>[0]> = {}) =>
@@ -103,6 +110,26 @@ test("agenda desconectada: calendar_unavailable, nada criado", async () => {
   conn = null;
   assert.equal((await slot()).kind, "calendar_unavailable");
   assert.equal(fake.calls.createEvent, 0);
+});
+
+test("a chave guardada sai como o título do tratamento no evento, na nota e na descrição", async () => {
+  booking = engine(createCatalog([{ name: "limpeza-dental", label: "Limpeza dental" }]));
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const result = await slot("2026-10-22T10:00", { service: "limpeza-dental", origin: "assistant", conversationId: conv.id });
+  assert.equal(result.kind, "booked");
+  const [event] = [...fake.events.values()];
+  assert.equal(event.summary, "Maria — Limpeza dental");
+  assert.match(event.description, /Serviço: Limpeza dental\n/);
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.equal(appt.service, "limpeza-dental");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
+  assert.deepEqual(notes, ["Booked by the assistant: Thu, Oct 22 at 10:00 AM (60 min), Limpeza dental"]);
+});
+
+test("um nome que não está no catálogo vai para o evento como está", async () => {
+  booking = engine(createCatalog([{ name: "limpeza-dental", label: "Limpeza dental" }]));
+  await slot("2026-10-22T10:00");
+  assert.equal([...fake.events.values()][0].summary, "Maria — Teeth Whitening");
 });
 
 test("menos de 24 h de antecedência: lembrete não necessário", async () => {

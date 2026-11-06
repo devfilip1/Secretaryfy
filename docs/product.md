@@ -72,7 +72,7 @@ There is one operator account and no per-user permissions.
 | Origin | Who wrote a message: customer, assistant, operator (panel), phone (the clinic's own phone app) or system (internal note, never sent) | `messageOrigin` |
 | Customer | A patient in the registry: everyone who confirmed a booking | `customers` |
 | Known name | The name the patient said in the chat, or else the registry name. The WhatsApp profile name never counts. | `inbox.knownName` |
-| Service | What the appointment is for: one of 8 brochure treatments or `Assessment` ("not sure") | `scheduling/services.ts` |
+| Service | What the appointment is for: one of the clinic's bookable treatments (knowledge table) or `Assessment` ("not sure") | `knowledge_sections` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)) |
 | Scheduling session | A booking/cancel/reschedule dialogue in progress, with its current step and the numbered options offered | `scheduling_sessions` |
 | Rules (booking rules) | Opening hours per weekday, appointment length, minimum notice, days ahead, cancellation notice | `scheduling_rules` |
 | Gate | The anti-ban checkpoint every outgoing message passes | `antiban/gate.ts` |

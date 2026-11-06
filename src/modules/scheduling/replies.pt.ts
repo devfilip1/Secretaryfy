@@ -68,7 +68,7 @@ export function createPortugueseReplies({
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza — avaliação geral" : catalog.label(s.name, "pt")));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza — avaliação geral" : s.label));
       return `${who ? `${who}, para` : "Para"} qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
     },
 
