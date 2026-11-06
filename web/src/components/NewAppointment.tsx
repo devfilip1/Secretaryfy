@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from "react";
 import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clinicFormats } from "../format";
@@ -10,16 +10,9 @@ import { Muted } from "./Muted";
 import { Notice } from "./Notice";
 import { Title } from "./Title";
 
-/** Horário ou dia escolhido: o selecionado fica em destaque; no celular os botões dividem a linha. */
+/** Horário ou dia escolhido: o selecionado fica preenchido (primary); os outros ficam secundários. */
 function Choice({ selected, ...props }: ComponentProps<typeof Button> & { selected: boolean }) {
-  return (
-    <Button
-      type="button"
-      variant={selected ? "default" : "secondary"}
-      className="max-md:flex-[1_1_calc(33%_-_6px)] max-md:px-1 max-md:text-sm max-md:whitespace-nowrap"
-      {...props}
-    />
-  );
+  return <Button type="button" size="sm" variant={selected ? "default" : "secondary"} {...props} />;
 }
 
 /** Marcação pelo painel para quem ligou (specs/006 US3): só horários livres, calculados como o assistente calcula. */
@@ -115,7 +108,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
   if (disconnected) {
     return (
-      <Notice layout="box" tone="plain" className="mt-1 mb-4 bg-background">
+      <Notice layout="box" tone="plain">
         Google Calendar is not connected. <a href="#/calendar">Connect it in Calendar</a> to book appointments.
         <Button variant="link" onClick={onCancel}>
           Close
@@ -127,102 +120,97 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const canBook = Boolean(services && service && phone.trim() && name.trim() && start && !existing && !busy);
 
   return (
-    <Card as="form" className="mt-1 mb-4 bg-background p-3.5 max-md:p-3" onSubmit={submit}>
-        <Title level={3} className="mb-1">
-          New appointment
-        </Title>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-4">
-          <Field className="my-2.5">
-            Phone
-            <Input
-              type="tel"
-              inputMode="tel"
-              placeholder="(71) 99999-9999"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onBlur={checkPhone}
-              aria-invalid={!!phoneError}
-            />
-            {phoneError && <Muted tone="destructive">{phoneError}</Muted>}
-          </Field>
-          <Field className="my-2.5">
-            Name
-            <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <Field className="my-2.5">
-            Service
-            <Select value={service} onValueChange={setService}>
-              <SelectTrigger>
-                <SelectValue placeholder={services === null ? "Loading services…" : undefined} />
-              </SelectTrigger>
-              <SelectContent>
-                {services?.map((s) => (
-                  <SelectItem key={s.name} value={s.name}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
+    <form className="grid gap-4" onSubmit={submit}>
+      <Title level={3}>New appointment</Title>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field>
+          Phone
+          <Input
+            type="tel"
+            inputMode="tel"
+            placeholder="(71) 99999-9999"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onBlur={checkPhone}
+            aria-invalid={!!phoneError}
+          />
+          {phoneError && <Muted tone="destructive">{phoneError}</Muted>}
+        </Field>
+        <Field>
+          Name
+          <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field>
+          Service
+          <Select value={service} onValueChange={setService}>
+            <SelectTrigger>
+              <SelectValue placeholder={services === null ? "Loading services…" : undefined} />
+            </SelectTrigger>
+            <SelectContent>
+              {services?.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
 
-        {existing && (
-          <Notice layout="box" tone="destructive" className="mb-3">
-            This customer already has an appointment on {formats.day.format(new Date(existing.startsAt))} at{" "}
-            {formats.time.format(new Date(existing.startsAt))}. Only one future appointment per number.
-          </Notice>
+      {existing && (
+        <Notice layout="box" tone="destructive">
+          This customer already has an appointment on {formats.day.format(new Date(existing.startsAt))} at{" "}
+          {formats.time.format(new Date(existing.startsAt))}. Only one future appointment per number.
+        </Notice>
+      )}
+
+      <FieldSet>
+        <FieldLegend variant="label">Day</FieldLegend>
+        {days === null ? (
+          <Muted>Loading available days…</Muted>
+        ) : days.length === 0 ? (
+          <Muted>No available days within the booking window.</Muted>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {days.map((d) => (
+              <Choice key={d} selected={d === day} onClick={() => setDay(d)}>
+                {dayLabel(d)}
+              </Choice>
+            ))}
+          </div>
         )}
+      </FieldSet>
 
-        <div className="my-2.5 grid gap-1 text-sm">
-          Day
-          {days === null ? (
-            <Muted>Loading available days…</Muted>
-          ) : days.length === 0 ? (
-            <Muted>No available days within the booking window.</Muted>
+      {day && (
+        <FieldSet>
+          <FieldLegend variant="label">Time</FieldLegend>
+          {slots === null ? (
+            <Muted>Loading times…</Muted>
+          ) : slots.length === 0 ? (
+            <Muted>No free times on this day anymore.</Muted>
           ) : (
             <div className="flex flex-wrap gap-1.5">
-              {days.map((d) => (
-                <Choice key={d} selected={d === day} onClick={() => setDay(d)}>
-                  {dayLabel(d)}
+              {slots.map((s) => (
+                <Choice key={s} selected={s === start} onClick={() => setStart(s)}>
+                  {formats.time.format(new Date(s))}
                 </Choice>
               ))}
             </div>
           )}
-        </div>
+        </FieldSet>
+      )}
 
-        {day && (
-          <div className="my-2.5 grid gap-1 text-sm">
-            Time
-            {slots === null ? (
-              <Muted>Loading times…</Muted>
-            ) : slots.length === 0 ? (
-              <Muted>No free times on this day anymore.</Muted>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {slots.map((s) => (
-                  <Choice key={s} selected={s === start} onClick={() => setStart(s)}>
-                    {formats.time.format(new Date(s))}
-                  </Choice>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      {error && <Notice role="alert">{error}</Notice>}
 
-        {error && (
-          <Notice role="alert" className="text-sm">
-            {error}
-          </Notice>
-        )}
-        <div className="flex items-center gap-3 max-md:flex-wrap">
-          <Button type="submit" className="max-md:flex-1" disabled={!canBook}>
-            {busy ? "Booking…" : "Book"}
-          </Button>
-          <Button type="button" variant="secondary" className="max-md:flex-1" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Muted>No message is sent to the customer.</Muted>
-        </div>
-    </Card>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Muted className="mr-auto">No message is sent to the customer.</Muted>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!canBook}>
+          {busy ? "Booking…" : "Book"}
+        </Button>
+      </div>
+    </form>
   );
 }

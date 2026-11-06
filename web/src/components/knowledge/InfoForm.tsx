@@ -19,10 +19,10 @@ export function InfoForm({ section, formId, onSubmit }: SectionFormProps<InfoRow
           <FormSection title="Basics">
             <TextField name="title" label="Title" description="The subject of the lines, for example: Endereço" />
           </FormSection>
-          <FormSection title="Lines">
+          <FormSection title="Content">
             <TextField
               name="lines"
-              label="Lines"
+              label="Text"
               multiline
               description="One line per row, written as patients should read it. Press Enter for a new line."
             />

@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react";
 import { useId } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { TextField } from "./FormParts";
+import { readLine, type ReadBlock } from "./read-preview";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
@@ -10,13 +11,13 @@ import { Muted } from "../Muted";
 /** Texto dos campos de rótulo ("Alterar redação"): o rótulo já vem preenchido com a palavra da brochura. */
 export const LABEL_DESCRIPTION = "The word shown before the text. It is filled in for you; change it only if you want other wording.";
 
-/** Linha de leitura: como o assistente vai ler o campo, aparece só quando há valor. */
-export function ReadPreview({ name }: { name: string }) {
+/** Linha de leitura: como o assistente vai ler o campo, aparece só quando há valor. `assessmentNote` é a nota da brochura. */
+export function ReadPreview({ name, assessmentNote = "" }: { name: string; assessmentNote?: string }) {
   const { control } = useFormContext();
-  const label = String(useWatch({ control, name: `${name}.label` }) ?? "").trim();
-  const value = String(useWatch({ control, name: `${name}.value` }) ?? "").trim();
-  if (!value) return null;
-  return <Muted as="p">{`The assistant reads: ${label ? `${label}: ` : ""}${value}`}</Muted>;
+  const block = useWatch({ control, name }) as ReadBlock | undefined;
+  const line = readLine(block ?? { label: "", value: "" }, assessmentNote);
+  if (!line) return null;
+  return <Muted as="p">{`The assistant reads: ${line}`}</Muted>;
 }
 
 /** Um campo de texto (Como funciona, Resultado, Recuperação): o valor e a linha de leitura embaixo. */
@@ -45,23 +46,33 @@ export function FactValueField({
   label,
   description,
   withAssessment = false,
+  assessmentNote = "",
 }: {
   name: string;
   label: string;
   description: string;
   withAssessment?: boolean;
+  assessmentNote?: string;
 }) {
   return (
     <div className="grid gap-2">
       <TextField name={`${name}.value`} label={label} description={description} />
       {withAssessment && <AssessmentSwitch name={`${name}.assessment`} />}
-      <ReadPreview name={name} />
+      <ReadPreview name={name} assessmentNote={assessmentNote} />
     </div>
   );
 }
 
 /** Um detalhe em "Mais detalhes": nome e valor digitados, com a chave de faixa e o botão de remover. */
-export function ExtraFactFields({ index, onRemove }: { index: number; onRemove: () => void }) {
+export function ExtraFactFields({
+  index,
+  onRemove,
+  assessmentNote,
+}: {
+  index: number;
+  onRemove: () => void;
+  assessmentNote: string;
+}) {
   const name = `extras.${index}`;
   return (
     <div className="grid gap-4 border-b border-border pb-6 last:border-b-0 last:pb-0">
@@ -69,7 +80,7 @@ export function ExtraFactFields({ index, onRemove }: { index: number; onRemove: 
         <TextField name={`${name}.label`} label="Name" description="For example: Mensalidade" />
         <TextField name={`${name}.value`} label="Value" description="For example: R$ 35 a R$ 90" />
       </div>
-      <ReadPreview name={name} />
+      <ReadPreview name={name} assessmentNote={assessmentNote} />
       <div className="flex items-center gap-3">
         <AssessmentSwitch name={`${name}.assessment`} />
         <Button type="button" variant="destructive-ghost" size="icon-sm" aria-label={`Remove detail ${index + 1}`} onClick={onRemove}>

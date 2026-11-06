@@ -91,7 +91,7 @@ export function AppointmentsPage() {
               <Muted as="p">Booked by the assistant or here, for the next 7 days.</Muted>
             </div>
             {!creating && (
-              <Button className="max-md:flex-1" onClick={() => setCreating(true)}>
+              <Button size="sm" onClick={() => setCreating(true)}>
                 New appointment
               </Button>
             )}

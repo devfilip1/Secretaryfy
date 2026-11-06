@@ -55,16 +55,16 @@ export function TreatmentForm({
           </FormSection>
 
           <FormSection title="Duration">
-            <FactValueField name="duration" label="Duration" description="For example: 30 a 50 minutos" />
+            <FactValueField name="duration" label="Value" description="For example: 30 a 50 minutos" />
           </FormSection>
 
           <FormSection title="Price">
-            <FactValueField name="price" label="Price" description="For example: R$ 40 a R$ 85" withAssessment />
+            <FactValueField name="price" label="Value" description="For example: R$ 40 a R$ 85" withAssessment assessmentNote={labels.assessment} />
           </FormSection>
 
           <FormSection title="More details">
             {extras.fields.map((field, index) => (
-              <ExtraFactFields key={field.id} index={index} onRemove={() => extras.remove(index)} />
+              <ExtraFactFields key={field.id} index={index} onRemove={() => extras.remove(index)} assessmentNote={labels.assessment} />
             ))}
             <div>
               <Button type="button" variant="secondary" onClick={() => extras.append(NEW_EXTRA)}>

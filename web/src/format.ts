@@ -71,6 +71,7 @@ export const mediaLabel = (type: MessageType) => (type === "text" ? null : MEDIA
 /** Por que a proteção do número não enviou, ou por que o lembrete não saiu (specs/004 data-model.md, specs/006). */
 const BLOCK_REASONS: Record<string, string> = {
   outside_window: "the customer has not written in over 24 h",
+  disconnected: "WhatsApp is disconnected",
   rate_limited: "waited too long in the queue",
   daily_conversations: "daily conversation limit reached",
   unanswered: "too many messages in a row without a customer reply",

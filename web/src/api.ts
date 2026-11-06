@@ -259,8 +259,8 @@ export interface KnowledgeLabels {
   price: string;
   result: string;
   recovery: string;
+  assessment: string;
 }
-
 export const listKnowledge = () => request<{ sections: KnowledgeRow[]; labels: KnowledgeLabels }>("GET", "/api/knowledge");
 export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
   request<{ section: KnowledgeRow }>("POST", "/api/knowledge", input);
