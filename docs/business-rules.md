@@ -194,7 +194,7 @@ At most 8 messages per minute and 200 per hour from the number (assistant + oper
 - **Where:** `waitForSlot` and rule `daily_conversations` in [gate.ts](../src/modules/antiban/gate.ts); [queue.ts](../src/modules/antiban/queue.ts)
 
 ### BR-AB-03 · Never write first (24 h window)
-The assistant never writes to a patient whose last message is older than 24 h, or who never wrote. Rule `outside_window`.
+The assistant never writes to a patient whose last message is older than 24 h, or who never wrote. Rule `outside_window`. Exception: the appointment reminder skips this rule (ADR 0013, `REMINDER_OUTSIDE_WINDOW`).
 - **Where:** `isCold` in [gate.ts](../src/modules/antiban/gate.ts)
 
 ### BR-AB-04 · No insisting, no loops, no repeats

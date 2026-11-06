@@ -46,15 +46,22 @@ beforeEach(async () => {
   sendOutcome = "sent";
   sent = [];
   inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() });
-  scheduler = createReminderScheduler({
+  scheduler = makeScheduler();
+});
+
+function makeScheduler(extra: { allowOutsideWindow?: boolean } = {}) {
+  return createReminderScheduler({
+    ...extra,
     replies: testReplies,
     store,
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
     gate: {
-      assistantBlockReason: async () => blockReason,
+      // Como o portão: um motivo que o chamador pula (bypass) não bloqueia
+      assistantBlockReason: async ({ bypass = [] }) => (blockReason && !bypass.includes(blockReason) ? blockReason : null),
       // Como o portão: o texto enviado vira mensagem do assistente na conversa
-      sendAssistant: async ({ conversationId, text }) => {
+      sendAssistant: async ({ conversationId, text, bypass = [] }) => {
+        if (blockReason && !bypass.includes(blockReason)) return "blocked";
         if (sendOutcome !== "sent") return sendOutcome;
         sent.push({ conversationId, text });
         const out = await inbox.startOutgoing({ conversationId, origin: "assistant", text });
@@ -71,7 +78,7 @@ beforeEach(async () => {
     cutoffMinutes: 120,
     tickMs: 60_000,
   });
-});
+}
 
 /** Conversa em que o cliente escreveu e o assistente já respondeu (a janela de 24 h está aberta). */
 async function conversation(phone = PHONE, name: string | null = "Maria") {
@@ -150,6 +157,16 @@ test("fora da janela de 24 h do cliente ou sem conversa: lembrar manualmente, se
   const lonely = await appointment("2026-10-21T11:00", "5571977776666");
   await scheduler.tick();
   assert.equal((await reload(lonely)).reminderReason, "no_conversation");
+});
+
+test("fora da janela de 24 h, com o envio autorizado (REMINDER_OUTSIDE_WINDOW): o lembrete sai", async () => {
+  await conversation();
+  const appt = await appointment();
+  blockReason = "outside_window";
+  scheduler = makeScheduler({ allowOutsideWindow: true });
+  await scheduler.tick();
+  assert.equal(sent.length, 1);
+  assert.equal((await reload(appt)).reminderStatus, "sent");
 });
 
 test("a janela reabre (o cliente escreveu): o lembrete sai", async () => {

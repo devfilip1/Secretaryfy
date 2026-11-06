@@ -100,6 +100,8 @@ const envSchema = z.object({
   REMINDER_LEAD_MINUTES: count(1440),
   REMINDER_CUTOFF_MINUTES: count(120),
   REMINDER_TICK_MS: count(60000),
+  // O lembrete sai mesmo que o cliente não escreva há mais de 24 h (ADR 0013); com 0, só dentro da janela (ADR 0008)
+  REMINDER_OUTSIDE_WINDOW: z.stringbool().default(true),
 });
 
 /** Inteiro não negativo com padrão. */

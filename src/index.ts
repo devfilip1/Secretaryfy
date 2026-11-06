@@ -157,6 +157,7 @@ const reminders = createReminderScheduler({
   leadMinutes: env.REMINDER_LEAD_MINUTES,
   cutoffMinutes: env.REMINDER_CUTOFF_MINUTES,
   tickMs: env.REMINDER_TICK_MS,
+  allowOutsideWindow: env.REMINDER_OUTSIDE_WINDOW,
   replies: schedulingReplies,
 });
 
