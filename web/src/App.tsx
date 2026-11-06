@@ -121,7 +121,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
       />
       <div className="flex h-full flex-col max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
         <header className="border-b border-border bg-card">
-          <div className="mx-auto flex w-full max-w-5xl items-center gap-4.5 px-4 py-2.5 md:px-6 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
+          <div className="mx-auto flex w-full max-w-5xl items-center gap-4.5 px-4 py-2.5 md:px-6 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 md:max-lg:pt-2 md:max-lg:pb-0">
             <span className="font-bold max-lg:flex-1">Secretaryfy</span>
             <nav className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5">
               {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (

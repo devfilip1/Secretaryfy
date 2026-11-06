@@ -8,6 +8,7 @@ import { createReminderScheduler } from "./modules/reminders/scheduler.js";
 import { connectionStore, googleCalendar, googleOAuth, listCalendarsFor, rulesStore, startFakeCalendar } from "./routes/calendar.js";
 import { booking, catalog, clinic, clinicSettings, knowledge, schedulingReplies, schedulingStore } from "./routes/scheduling.js";
 import { knowledgeInternalRoutes } from "./routes/knowledge-internal.js";
+import { clinicInternalRoutes } from "./routes/clinic-internal.js";
 import { createRagAdmin } from "./modules/rag/admin.js";
 import { panelKnowledgeRoutes } from "./routes/panel-knowledge.js";
 import { cancelPendingReply, evolutionWebhookRoutes, rememberNumber } from "./routes/evolution-webhook.js";
@@ -75,6 +76,7 @@ await app.register(healthRoutes);
 await app.register(
   knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinic, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
 );
+await app.register(clinicInternalRoutes({ clinic, token: env.INTERNAL_TOKEN ?? "" }));
 await app.register(
   googleOAuthRoutes({
     connection: connectionStore,

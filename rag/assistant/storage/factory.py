@@ -74,13 +74,18 @@ def reset_default_chunk_source() -> None:
 
 
 def default_clinic_profile():
-    """The clinic profile of the process: the lexical index and the pipeline read the same one."""
+    """The clinic profile of the process: the lexical index and the pipeline read the same one. With CLINIC_URL, the name and kind come from the Node server."""
     global _default_clinic_instance
     if _default_clinic_instance is None:
+        from assistant.clinic.identity import HttpClinicIdentity, IdentityClinicProfile
         from assistant.clinic.yaml_source import YamlClinicProfile
-        from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+        from assistant.config import CLINIC_PATH, CLINIC_URL, INTERNAL_TOKEN, LANGUAGES_DIR
 
-        _default_clinic_instance = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
+        profile = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)
+        if CLINIC_URL:
+            _default_clinic_instance = IdentityClinicProfile(profile, HttpClinicIdentity(CLINIC_URL, INTERNAL_TOKEN))
+        else:
+            _default_clinic_instance = profile
     return _default_clinic_instance
 
 

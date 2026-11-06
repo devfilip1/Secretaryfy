@@ -13,6 +13,8 @@ SOURCE_PDF = Path(os.getenv("KNOWLEDGE_PATH") or ROOT / "data" / "source" / "Den
 # When set, the knowledge comes from the Node server instead of the file: GET this URL with the bearer token INTERNAL_TOKEN
 KNOWLEDGE_URL = os.getenv("KNOWLEDGE_URL", "").strip()
 INTERNAL_TOKEN = os.getenv("INTERNAL_TOKEN", "").strip()  # also protects POST /reindex; empty turns that route off
+# When set, the clinic's name and kind come from the Node server: GET this URL with INTERNAL_TOKEN (its /internal/clinic)
+CLINIC_URL = os.getenv("CLINIC_URL", "").strip()
 # the indexes built from the knowledge by assistant.ingest, one per strategy
 INDEX_DIR = Path(os.getenv("INDEX_DIR") or ROOT / "data" / "index")
 

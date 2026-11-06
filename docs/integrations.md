@@ -51,6 +51,10 @@ The panel edits the sections (see [api.md](api.md#knowledge--panel-knowledgets))
 
 The panel compares the version of the current sections with the one the RAG reports on `GET /health` (`knowledge.version`, read only while the RAG's `index.state` is `current`, since the source version is not the indexed one otherwise): equal is `upToDate`, different is `unpublished`, and an unreachable RAG is `unavailable`. The RAG answers `/health` with 503 when it is not ready, and the panel reads that body too. A second publish while the RAG is indexing gets 409.
 
+## Clinic identity endpoint
+
+The RAG reads the clinic's name and kind from `GET /internal/clinic` when `CLINIC_URL` is set (same bearer token, `INTERNAL_TOKEN`; see [api.md](api.md#internal-routes)). The panel edits them in `clinic_settings`, so a rename reaches the next question within a few seconds, without a restart. The reply is `{name, kind, language}`. The RAG keeps its YAML profile (specialty words, example treatment, extra rules, language package) and only checks that the language matches. When the Node server cannot be reached, the YAML name and kind are used.
+
 ## RAG service
 
 The DentalSafe assistant from the RagLab project, copied into [`rag/`](../rag) and wrapped in a small FastAPI server ([ADR 0001](decisions/0001-reuse-raglab-as-separate-service.md)).

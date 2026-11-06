@@ -21,7 +21,7 @@ interface Deps {
 const sha256 = (text: string): Buffer => createHash("sha256").update(text).digest();
 
 /** Compara com `timingSafeEqual` sobre os hashes, para que o tamanho do token não vaze. */
-function authorized(header: string | undefined, token: string): boolean {
+export function authorized(header: string | undefined, token: string): boolean {
   const match = /^Bearer (.+)$/.exec(header ?? "");
   return match !== null && timingSafeEqual(sha256(match[1]), sha256(token));
 }

@@ -71,7 +71,8 @@ Read from the environment or from `rag/.env` (see `.env.example`). The defaults 
 | Variable | Default | What |
 |---|---|---|
 | `KNOWLEDGE_URL` | empty | The Node server that owns the knowledge: `GET` this URL with `Authorization: Bearer <INTERNAL_TOKEN>` answers `{"name", "version", "sections": [{"title", "body"}]}`. When set, `KNOWLEDGE_PATH` is not read |
-| `INTERNAL_TOKEN` | empty | Bearer token for `KNOWLEDGE_URL` and for `POST /reindex`. Empty turns `/reindex` off |
+| `CLINIC_URL` | empty | The Node server's clinic identity: `GET` this URL (`/internal/clinic`) with the bearer token answers `{"name", "kind", "language"}`. When set, the name and kind replace the YAML ones on every question (cached a few seconds); when the server cannot be reached, the YAML values are used |
+| `INTERNAL_TOKEN` | empty | Bearer token for `KNOWLEDGE_URL`, `CLINIC_URL` and `POST /reindex`. Empty turns `/reindex` off |
 | `KNOWLEDGE_PATH` | `data/source/DentalSafe.pdf` | The knowledge file when `KNOWLEDGE_URL` is empty: a PDF, or a Markdown file with one `## Title` per subject |
 | `INDEX_DIR` | `data/index` | Where the indexes are written |
 | `RAG_HOST` / `RAG_PORT` | `127.0.0.1` / `8001` | Address of the HTTP service |

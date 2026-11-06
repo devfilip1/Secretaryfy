@@ -122,9 +122,11 @@ def _lexicon(clinic, pack, clinic_path, language_path):
     )
 
 
-def _build(clinic_path, languages_dir, prompts_path):
+def _build(clinic_path, languages_dir, prompts_path, name=None, kind=None):
     clinic = _read_yaml(clinic_path)
     _check_clinic(clinic, clinic_path)
+    if name is not None:  # the identity the Node server holds replaces the file's name and kind
+        clinic = {**clinic, "name": name, "kind": kind}
     language_path = languages_dir / f"{clinic['language']}.yaml"
     if not language_path.is_file():
         raise ClinicProfileError(
@@ -181,7 +183,14 @@ class YamlClinicProfile:
         return f"{version};{self._prompts_path.name}:{prompts}"
 
     def load(self):
-        version = self.version()
-        if self._loaded is None or self._loaded[0] != version:
-            self._loaded = (version, _build(self._clinic_path, self._languages_dir, self._prompts_path))
+        return self._load(None, None)
+
+    def load_as(self, name, kind):
+        """The profile with the clinic's name and kind replaced; the file's values are kept for everything else."""
+        return self._load(name, kind)
+
+    def _load(self, name, kind):
+        key = (self.version(), name, kind)
+        if self._loaded is None or self._loaded[0] != key:
+            self._loaded = (key, _build(self._clinic_path, self._languages_dir, self._prompts_path, name, kind))
         return self._loaded[1]
