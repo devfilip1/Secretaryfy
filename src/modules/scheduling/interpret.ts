@@ -194,7 +194,7 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
       intent: { type: "string", enum: INTENTS },
       option: { type: ["integer", "null"] },
       date: { type: ["string", "null"], description: "YYYY-MM-DD" },
-      weekday: { type: ["string", "null"], enum: [...WEEKDAY_NAMES, "weekend", null] },
+      weekday: { type: ["string", "null"], enum: [null, ...WEEKDAY_NAMES, "weekend"] },
       urgent: { type: "boolean" },
       name: { type: ["string", "null"] },
       service: {
@@ -203,7 +203,7 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
         description: "the treatment the customer wants or has been talking about, exactly as listed; null when none",
       },
     },
-    required: ["intent", "option", "date", "weekday", "name", "urgent", "service"],
+    required: ["intent", "service"],
   };
 }
 
@@ -242,11 +242,12 @@ function mentionPrompt(catalog: ServiceCatalog, language: Language): string {
 
 const modelOutput = z.object({
   intent: z.enum(INTENTS),
-  option: z.number().int().nullable(),
-  date: z.string().nullable(),
+  // Campos que o modelo só preenche quando a mensagem os traz: ausente é o mesmo que null
+  option: z.number().int().nullable().default(null),
+  date: z.string().nullable().default(null),
   weekday: z.enum([...WEEKDAY_NAMES, "weekend"]).nullable().optional(),
   urgent: z.boolean().optional(),
-  name: z.string().nullable(),
+  name: z.string().nullable().default(null),
   service: z.string().nullable().optional(),
 });
 
