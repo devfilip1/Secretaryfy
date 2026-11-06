@@ -91,15 +91,15 @@ export function ExtraFactFields({
   );
 }
 
-/** A chave "Final value depends on the assessment" (ligada grava `assessment: true`). */
-function AssessmentSwitch({ name }: { name: string }) {
+/** Chave ligada/desligada com texto e descrição; ligada grava `true` no campo. */
+export function SwitchField({ name, label, description }: { name: string; label: string; description: string }) {
   const id = useId();
   const { control } = useFormContext();
   return (
     <Field orientation="horizontal" className="min-w-0 flex-1">
       <FieldContent>
-        <FieldLabel htmlFor={id}>Final value depends on the assessment</FieldLabel>
-        <FieldDescription>Turn it on when the price is a range. The final value is set at the assessment.</FieldDescription>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <FieldDescription>{description}</FieldDescription>
       </FieldContent>
       <Controller
         name={name}
@@ -109,5 +109,16 @@ function AssessmentSwitch({ name }: { name: string }) {
         )}
       />
     </Field>
+  );
+}
+
+/** A chave "Final value depends on the assessment" (ligada grava `assessment: true`). */
+function AssessmentSwitch({ name }: { name: string }) {
+  return (
+    <SwitchField
+      name={name}
+      label="Final value depends on the assessment"
+      description="Turn it on when the price is a range. The final value is set at the assessment."
+    />
   );
 }

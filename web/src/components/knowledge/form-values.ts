@@ -28,6 +28,7 @@ export interface ItemFormValue {
 export interface TreatmentFormValues {
   title: string;
   tagline: string;
+  bookable: boolean;
   ideal: { title: string; items: ItemFormValue[] };
   howItWorks: LabelledFormValue;
   duration: FactFormValue;
@@ -96,6 +97,7 @@ export const treatmentFormSchema = z
   .object({
     title: requiredText,
     tagline: z.string(),
+    bookable: z.boolean(),
     ideal: z.object({ title: z.string(), items: z.array(z.object({ text: z.string() })) }),
     howItWorks: blockSchema,
     duration: factSchema,
@@ -161,6 +163,8 @@ export function toTreatmentInput(values: TreatmentFormValues): SectionInput {
     title: values.title.trim(),
     tagline: values.tagline.trim() || null,
     data: {
+      // Só informação (bookable false) grava false; pode marcar não grava nada, como antes.
+      ...(values.bookable ? {} : { bookable: false }),
       // A lista de "Ideal para" é obrigatória no servidor: sem linhas, o bloco fica de fora
       ideal: items.length > 0 ? { title: idealTitle, items } : undefined,
       howItWorks: optionalLabelled(values.howItWorks),
@@ -180,6 +184,7 @@ export function treatmentDefaults(labels: KnowledgeLabels, section?: TreatmentRo
   return {
     title: section?.title ?? "",
     tagline: section?.tagline ?? "",
+    bookable: section?.data.bookable !== false,
     ideal: {
       title: data?.ideal?.title ?? labels.ideal,
       items: (data?.ideal?.items ?? []).map((text) => ({ text })),

@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import type { KnowledgeLabels, TreatmentRow } from "../../api";
 import { treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
-import { ExtraFactFields, FactValueField, LABEL_DESCRIPTION, ValueField } from "./LabelledValueFields";
+import { ExtraFactFields, FactValueField, LABEL_DESCRIPTION, SwitchField, ValueField } from "./LabelledValueFields";
 import { ItemsField } from "./ItemsField";
 import { FormSection, TextField, type SectionFormProps } from "./FormParts";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,14 @@ export function TreatmentForm({
               name="tagline"
               label="Short description"
               description="Optional. A short line shown after the title, for example: O Primeiro Passo para um Sorriso Saudável."
+            />
+          </FormSection>
+
+          <FormSection title="Booking">
+            <SwitchField
+              name="bookable"
+              label="Patients can book this treatment"
+              description="When on, the assistant offers it in the booking list. Turn it off for treatments that are only information."
             />
           </FormSection>
 

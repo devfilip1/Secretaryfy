@@ -90,6 +90,36 @@ const CLINICA: ClinicRow = {
   },
 };
 
+describe("tratamento: pode marcar pelo WhatsApp (bookable)", () => {
+  it("sem 'bookable' na seção, continua sem o campo ao salvar (padrão: pode marcar)", () => {
+    const defaults = treatmentDefaults(LABELS, LIMPEZA);
+    assert.equal(defaults.bookable, true);
+    assert.equal("bookable" in toTreatmentInput(defaults).data, false);
+  });
+
+  it("tratamento novo começa com pode marcar e não grava o campo", () => {
+    assert.equal(treatmentDefaults(LABELS).bookable, true);
+    assert.equal("bookable" in toTreatmentInput(values()).data, false);
+  });
+
+  it("bookable true explícito volta ligado e sai sem o campo (mesmo significado)", () => {
+    const row: TreatmentRow = { ...LIMPEZA, data: { ...LIMPEZA.data, bookable: true } };
+    assert.equal(treatmentDefaults(LABELS, row).bookable, true);
+    assert.equal("bookable" in toTreatmentInput(treatmentDefaults(LABELS, row)).data, false);
+  });
+
+  it("só informação (bookable false) grava false e volta desligado (round trip)", () => {
+    const row: TreatmentRow = { ...LIMPEZA, data: { ...LIMPEZA.data, bookable: false } };
+    const defaults = treatmentDefaults(LABELS, row);
+    assert.equal(defaults.bookable, false);
+    assert.deepEqual(toTreatmentInput(defaults).data, row.data);
+  });
+
+  it("tratamento só de informação passa no schema do formulário", () => {
+    assert.equal(treatmentFormSchema.safeParse(values({ bookable: false })).success, true);
+  });
+});
+
 describe("clínica: volta do servidor para os valores e de volta (round trip)", () => {
   it("salva sem editar e recebe o mesmo dado", () => {
     const back = toClinicInput(clinicDefaults(CLINICA));

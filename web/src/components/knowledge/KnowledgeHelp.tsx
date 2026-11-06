@@ -83,6 +83,12 @@ const HELP_BLOCKS: HelpBlock[] = [
     ],
   },
   {
+    title: "Booking",
+    paragraphs: [
+      "Each treatment has the switch Patients can book this treatment, on by default. When it is on, the assistant offers the treatment in the booking list. Turn it off for treatments that are only information: the assistant can still explain it, but does not offer it for booking. Treatments that are off show Not bookable in the list.",
+    ],
+  },
+  {
     title: "Tips",
     list: [
       "Do not invent information. The assistant can only repeat what you write here.",

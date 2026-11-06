@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { deleteSection, type KnowledgeRow } from "../../api";
+import { isBookable } from "@server/modules/knowledge/types";
 import { knowledgeKeys } from "../../queries";
 import { serverReason } from "./server-reason";
 import { KIND_LABEL, KIND_NOUN } from "./kinds";
@@ -71,6 +72,7 @@ export function SectionList({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold break-words text-balance">{section.title}</span>
                     <Badge variant="secondary">{KIND_LABEL[section.kind]}</Badge>
+                    {section.kind === "treatment" && !isBookable(section) && <Muted>Not bookable</Muted>}
                   </div>
                   {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
                 </div>
