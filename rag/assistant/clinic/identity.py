@@ -5,15 +5,17 @@ built, through a short TTL cache. When the server cannot be reached or answers s
 """
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 import httpx
 
 from assistant.clinic.profile import ClinicProfile
 from assistant.clinic.yaml_source import YamlClinicProfile
+from assistant.retrieval.lexical import _plain
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,8 @@ class ClinicIdentity:
     name: str
     kind: str
     language: str
+    # (title, other names patients use) of the treatments that have any: they become query synonyms
+    treatments: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 class IdentitySource(Protocol):
@@ -51,7 +55,35 @@ def _parse(text: str) -> ClinicIdentity:
     name, kind, language = (value.strip() for value in values)
     if any(brace in name or brace in kind for brace in BRACES):
         raise ValueError("name and kind may not contain braces")
-    return ClinicIdentity(name=name, kind=kind, language=language)
+    return ClinicIdentity(name=name, kind=kind, language=language, treatments=_parse_treatments(payload.get("treatments")))
+
+
+def _parse_treatments(value) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    if value is None:
+        return ()
+    ok = isinstance(value, list) and all(
+        isinstance(item, dict) and isinstance(item.get("title"), str)
+        and isinstance(item.get("otherNames"), list) and all(isinstance(n, str) for n in item["otherNames"])
+        for item in value
+    )
+    if not ok:
+        raise ValueError("treatments must be a list of {title, otherNames}")
+    return tuple((item["title"], tuple(item["otherNames"])) for item in value)
+
+
+def _words(text: str) -> list[str]:
+    return [word for word in re.findall(r"[a-z0-9]+", _plain(text)) if len(word) >= 3]
+
+
+def treatment_synonyms(treatments) -> dict[str, tuple[str, ...]]:
+    """Each word of an other name -> the words of the treatment title, as the brochure writes them."""
+    merged: dict[str, list[str]] = {}
+    for title, names in treatments:
+        target = _words(title)
+        for name in names:
+            for word in _words(name):
+                merged.setdefault(word, []).extend(item for item in target if item not in merged.get(word, []))
+    return {word: tuple(items) for word, items in merged.items()}
 
 
 class HttpClinicIdentity:
@@ -100,7 +132,9 @@ class IdentityClinicProfile:
         self._warned_language = False
 
     def version(self) -> str:
-        return self._profile.version()
+        identity = self._identity.current()
+        names = treatment_synonyms(identity.treatments) if identity else {}
+        return f"{self._profile.version()};names:{sorted(names.items())}"  # a changed name list rebuilds the word index
 
     def load(self) -> ClinicProfile:
         identity = self._identity.current()
@@ -113,5 +147,11 @@ class IdentityClinicProfile:
                 "the clinic language is %s in the Node server and %s in the YAML profile: the profile keeps %s",
                 identity.language, profile.language, profile.language,
             )
-        return profile
+        names = treatment_synonyms(identity.treatments)
+        if not names:
+            return profile
+        merged = {**profile.lexicon.synonyms}
+        for word, items in names.items():
+            merged[word] = tuple(dict.fromkeys([*merged.get(word, ()), *items]))
+        return replace(profile, lexicon=replace(profile.lexicon, synonyms=merged))
 

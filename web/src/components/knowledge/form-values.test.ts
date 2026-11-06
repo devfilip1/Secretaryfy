@@ -90,6 +90,15 @@ const CLINICA: ClinicRow = {
   },
 };
 
+describe("tratamento: outros nomes", () => {
+  it("as linhas vazias saem, e sem nomes o campo não vai para o dado salvo", () => {
+    const defaults = treatmentDefaults(LABELS);
+    assert.equal("otherNames" in toTreatmentInput(defaults).data, false);
+    const values = { ...defaults, otherNames: [{ text: " branqueamento " }, { text: "" }] };
+    assert.deepEqual((toTreatmentInput(values).data as { otherNames?: string[] }).otherNames, ["branqueamento"]);
+  });
+});
+
 describe("tratamento: pode marcar pelo WhatsApp (bookable)", () => {
   it("sem 'bookable' na seção, continua sem o campo ao salvar (padrão: pode marcar)", () => {
     const defaults = treatmentDefaults(LABELS, LIMPEZA);

@@ -49,6 +49,14 @@ export function TreatmentForm({
             />
           </FormSection>
 
+          <FormSection title="Other names patients use">
+            <ItemsField
+              name="otherNames"
+              label="Names"
+              description="Other words patients use for this treatment, for example: branqueamento, clarear. One per line. The assistant uses them to find the right answer."
+            />
+          </FormSection>
+
           <FormSection title="Who it is for">
             <ItemsField
               name="ideal.items"

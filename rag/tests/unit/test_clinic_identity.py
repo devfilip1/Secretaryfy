@@ -158,3 +158,13 @@ def test_the_factory_uses_the_node_identity_only_when_clinic_url_is_set(monkeypa
         assert isinstance(factory.default_clinic_profile(), IdentityClinicProfile)
     finally:
         factory.reset_default_clinic_profile()
+
+
+def test_other_names_of_a_treatment_become_query_synonyms_and_change_the_version():
+    identity = ClinicIdentity("Clínica Nova", "clínica", YAML.language, treatments=(("Clareamento Dental", ("Branqueamento", "tirar manchas")),))
+    profile = IdentityClinicProfile(YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR), FakeIdentity(identity))
+    synonyms = profile.load().lexicon.synonyms
+    assert synonyms["branqueamento"][:2] == ("clareamento", "dental")
+    assert synonyms["manchas"] == ("clareamento", "dental")
+    plain = IdentityClinicProfile(YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR), FakeIdentity(ClinicIdentity("A", "b", YAML.language)))
+    assert profile.version() != plain.version()

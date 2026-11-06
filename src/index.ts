@@ -76,7 +76,7 @@ await app.register(healthRoutes);
 await app.register(
   knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinic, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
 );
-await app.register(clinicInternalRoutes({ clinic, token: env.INTERNAL_TOKEN ?? "" }));
+await app.register(clinicInternalRoutes({ clinic, knowledge, token: env.INTERNAL_TOKEN ?? "" }));
 await app.register(
   googleOAuthRoutes({
     connection: connectionStore,

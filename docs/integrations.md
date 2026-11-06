@@ -53,7 +53,7 @@ The panel compares the version of the current sections with the one the RAG repo
 
 ## Clinic identity endpoint
 
-The RAG reads the clinic's name and kind from `GET /internal/clinic` when `CLINIC_URL` is set (same bearer token, `INTERNAL_TOKEN`; see [api.md](api.md#internal-routes)). The panel edits them in `clinic_settings`, so a rename reaches the next question within a few seconds, without a restart. The reply is `{name, kind, language}`. The RAG keeps its YAML profile (specialty words, example treatment, extra rules, language package) and only checks that the language matches. When the Node server cannot be reached, the YAML name and kind are used.
+The RAG reads the clinic's name and kind from `GET /internal/clinic` when `CLINIC_URL` is set (same bearer token, `INTERNAL_TOKEN`; see [api.md](api.md#internal-routes)). The panel edits them in `clinic_settings`, so a rename reaches the next question within a few seconds, without a restart. The reply is `{name, kind, language, treatments}`; `treatments` carries the "Other names patients use" of each treatment (field `otherNames` in the panel), and the RAG adds them to its query synonyms, so the clinic needs no YAML for them. The RAG keeps its YAML profile (example treatment, extra rules, language package, and YAML synonyms as a fallback) and only checks that the language matches. When the Node server cannot be reached, the YAML name and kind are used.
 
 ## RAG service
 
