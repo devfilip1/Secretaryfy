@@ -4,7 +4,7 @@ import type { SchedulingStep, SessionOption } from "../../db/schema.js";
 import type { ClinicContext } from "../clinic/context.js";
 import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay, type Language } from "./dates.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
-import type { ServiceCatalog } from "./catalog.js";
+import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 
 /** Intenções que o agendamento entende (contracts/interpreter.md). */
 export const INTENTS = [
@@ -199,12 +199,45 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
       name: { type: ["string", "null"] },
       service: {
         type: ["string", "null"],
-        enum: [...services, null],
+        enum: [null, ...services],
         description: "the treatment the customer wants or has been talking about, exactly as listed; null when none",
       },
     },
     required: ["intent", "option", "date", "weekday", "name", "urgent", "service"],
   };
+}
+
+/** Saída da pergunta focada: só o tratamento citado, ou null */
+// A citação é o trecho que o cliente escreveu e que menciona o tratamento: o código confere que ele está na conversa
+const mentionOutput = z.object({ quote: z.string().nullable(), service: z.string().nullable() });
+
+/**
+ * Os tratamentos para a pergunta focada: sem a avaliação geral, que é o padrão do fluxo quando o cliente não diz nenhum
+ * (se entrasse, o modelo a escolheria em qualquer "quero marcar").
+ */
+function treatmentLabels(catalog: ServiceCatalog, language: Language): string[] {
+  return catalog.list().filter((s) => s.name !== ASSESSMENT).map((s) => catalog.label(s.name, language));
+}
+
+function mentionFormat(catalog: ServiceCatalog, language: Language) {
+  return {
+    type: "object",
+    properties: {
+      quote: { type: ["string", "null"] },
+      service: { type: ["string", "null"], enum: [null, ...treatmentLabels(catalog, language)] },
+    },
+    required: ["quote", "service"],
+  };
+}
+
+function mentionPrompt(catalog: ServiceCatalog, language: Language): string {
+  return [
+    "You are given a WhatsApp conversation of a customer with a clinic and the list of treatments.",
+    "Answer with the treatment the customer wants, exactly as listed, or null if no treatment was mentioned. Do not guess: copy into \"quote\" the customer's own words that mention the treatment (null when there are none). The customer's last message comes first: if it names a treatment, that is the answer, even if an earlier message was about another one; otherwise take the treatment of the most recent earlier message that named one.",
+    "",
+    "Treatments:",
+    ...treatmentLabels(catalog, language).map((label) => `- ${label}`),
+  ].join("\n");
 }
 
 const modelOutput = z.object({
@@ -383,6 +416,42 @@ export function createInterpreter({
         ],
       });
       return validate(raw, input, catalog);
+    },
+
+    /**
+     * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha
+     * vira null: o fluxo pergunta o serviço como antes.
+     */
+    async mentionedService({
+      history,
+      text,
+      log,
+    }: {
+      history: ChatMessage[];
+      text: string;
+      log?: { error: (obj: object, msg: string) => void };
+    }): Promise<string | null> {
+      try {
+        const raw = await ollama.chat({
+          format: mentionFormat(catalog, clinic.language),
+          messages: [
+            { role: "system", content: mentionPrompt(catalog, clinic.language) },
+            ...history.slice(-HISTORY_LIMIT),
+            { role: "user", content: text },
+          ],
+        });
+        const parsed = mentionOutput.safeParse(raw);
+        if (!parsed.success || parsed.data.service === null) return null;
+        // Sem uma citação que esteja nas mensagens do cliente, o modelo está chutando (ex.: o primeiro da lista)
+        const said = [...history.filter((m) => m.role === "user").map((m) => m.content), text].map(normalize).join(" ");
+        const quote = parsed.data.quote ? normalize(parsed.data.quote) : "";
+        if (!quote.trim() || !said.includes(quote)) return null;
+        const name = catalog.byLabel(parsed.data.service);
+        return name === ASSESSMENT ? null : name;
+      } catch (err) {
+        log?.error({ err: (err as Error).message }, "tratamento citado indisponível");
+        return null;
+      }
     },
   };
 }

@@ -200,8 +200,11 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const scheduling = session ? interpretation.intent !== "question" : STARTERS.includes(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
+    // Sem tratamento na interpretação nem na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra)
+    const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
+
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService: interpretation.service ?? null });
+    const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura

@@ -239,7 +239,8 @@ test("etapa choose_service: o número da lista vale sem o modelo; o nome do trat
   // O enum do serviço tem os rótulos do catálogo e null
   const format = bodies[0].format as { properties: { service: { enum: unknown[] } } };
   assert.ok(format.properties.service.enum.includes("Teeth Whitening"));
-  assert.equal(format.properties.service.enum.at(-1), null);
+  // null vem primeiro: na dúvida o modelo não escolhe o primeiro tratamento da lista
+  assert.equal(format.properties.service.enum[0], null);
   // "não sei" é a avaliação geral, com o rótulo em inglês que o modelo devolve
   const assess = fakeOllama({ intent: "choose_service", option: null, date: null, name: null, service: "General assessment" });
   assert.deepEqual(await assess.interpreter.interpret(input({ text: "not sure", step: "choose_service" })).then((r) => [r.intent, r.service]), ["choose_service", ASSESSMENT]);
@@ -326,4 +327,59 @@ test("logo depois do pedido, uma pergunta com o nome na primeira linha ainda tra
 test("nameInText ignora acento e caixa e exige todas as palavras do nome", () => {
   assert.equal(nameInText("José", "jose aqui"), true);
   assert.equal(nameInText("José Silva", "José"), false);
+});
+
+// --- tratamento citado na conversa: uma chamada focada, sem regras por palavra ---
+
+test("mentionedService devolve o tratamento que o modelo escolheu, pelo rótulo do catálogo, sem a avaliação geral na lista", async () => {
+  const { interpreter, bodies } = fakeOllama({ service: "Dental Cleaning", quote: "dental cleaning" });
+  const history: ChatMessage[] = [
+    { role: "user", content: "Do you do dental cleaning?" },
+    { role: "assistant", content: "Yes, we do." },
+  ];
+  assert.equal(await interpreter.mentionedService({ history, text: "I'd like to book an appointment" }), "Dental Cleaning");
+
+  const body = bodies[0];
+  assert.equal(body.options.temperature, 0);
+  assert.equal(body.stream, false);
+  assert.equal(body.messages[0].role, "system");
+  assert.match(body.messages[0].content, /Do not guess/);
+  assert.deepEqual(body.messages.slice(1), [...history, { role: "user", content: "I'd like to book an appointment" }]);
+  const format = body.format as { properties: { service: { enum: unknown[] } }; required: string[] };
+  assert.ok(format.properties.service.enum.includes("Teeth Whitening"));
+  assert.ok(!format.properties.service.enum.includes("General assessment"));
+  assert.deepEqual(format.required, ["quote", "service"]);
+});
+
+test("mentionedService só vale com a citação escrita pelo cliente: sem citação, ou com uma que não está na conversa, é null", async () => {
+  const history: ChatMessage[] = [{ role: "user", content: "How much is teeth whitening?" }];
+  const noQuote = fakeOllama({ service: "Teeth Whitening", quote: null }).interpreter;
+  assert.equal(await noQuote.mentionedService({ history, text: "I want to book" }), null);
+  const invented = fakeOllama({ service: "Dental Cleaning", quote: "dental cleaning" }).interpreter;
+  assert.equal(await invented.mentionedService({ history, text: "I want to book" }), null);
+  const grounded = fakeOllama({ service: "Teeth Whitening", quote: "Teeth Whitening" }).interpreter;
+  assert.equal(await grounded.mentionedService({ history, text: "I want to book" }), "Teeth Whitening");
+  // Só as mensagens do cliente contam: a resposta do assistente não prova nada
+  const assistantOnly = fakeOllama({ service: "Dental Cleaning", quote: "dental cleaning" }).interpreter;
+  const h2: ChatMessage[] = [{ role: "assistant", content: "A dental cleaning takes 30 minutes." }];
+  assert.equal(await assistantOnly.mentionedService({ history: h2, text: "I want to book" }), null);
+});
+
+test("mentionedService: null, rótulo fora do catálogo, avaliação geral, JSON inválido ou Ollama fora do ar viram null sem lançar", async () => {
+  const none = fakeOllama({ service: null, quote: null }).interpreter;
+  assert.equal(await none.mentionedService({ history: [], text: "hi there" }), null);
+  const unknown = fakeOllama({ service: "hair transplant", quote: "hair" }).interpreter;
+  assert.equal(await unknown.mentionedService({ history: [], text: "hair?" }), null);
+  const assessment = fakeOllama({ service: "General assessment", quote: "not sure" }).interpreter;
+  assert.equal(await assessment.mentionedService({ history: [], text: "not sure" }), null);
+  const broken = fakeOllama("isto não é json").interpreter;
+  assert.equal(await broken.mentionedService({ history: [], text: "hmm" }), null);
+
+  const logged: object[] = [];
+  const down = fakeOllama(() => {
+    throw new TypeError("fetch failed");
+  }).interpreter;
+  const log = { error: (obj: object) => logged.push(obj) };
+  assert.equal(await down.mentionedService({ history: [], text: "hmm", log }), null);
+  assert.equal(logged.length, 1);
 });

@@ -41,9 +41,12 @@ function setup({
   text = MESSAGE.text!,
   history,
   service = null,
+  mentioned = null,
 }: {  intent?: Interpretation["intent"];
   /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
   service?: string | null;
+  /** Tratamento que o interpretador acha que a conversa cita (mentionedService), sem a interpretação trazer um */
+  mentioned?: string | null;
   session?: SchedulingSessionRow | null;
   unavailable?: boolean;
   /** Nome dito na conversa; null = o cliente ainda não disse */
@@ -74,6 +77,7 @@ function setup({
   const inputs: InterpretInput[] = [];
   const handled: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }[] = [];
   const asked: string[] = [];
+  const mentionCalls: Parameters<Interpreter["mentionedService"]>[0][] = [];
   const histories: unknown[] = [];
   const savedNames: string[] = [];
   const askedAt: Date[] = [];
@@ -87,6 +91,10 @@ function setup({
       inputs.push(input);
       if (unavailable) throw new InterpreterUnavailable("Ollama fora do ar");
       return { intent: intent!, option: null, date: null, name, urgent, service, source: "model" };
+    },
+    mentionedService: async (input) => {
+      mentionCalls.push(input);
+      return mentioned;
     },
   };
   const flow = {
@@ -151,7 +159,7 @@ function setup({
     },
     humanize,
   });
-  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, savedNames, askedAt, confirmed, notes, flagged, cleared };
+  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, mentionCalls, savedNames, askedAt, confirmed, notes, flagged, cleared };
 }
 
 test("sem etapa, dúvida vai para o folheto", async () => {
@@ -488,4 +496,45 @@ test("o folheto vê a nossa saudação só como \"Bom dia!\", sem o nome, para n
   });
   await r.reply();
   assert.deepEqual(r.histories[0], [{ role: "user", content: "hi" }, { role: "assistant", content: replies.salutation(10) }]);
+});
+
+// --- Tratamento citado na conversa (specs/005 US2): o interpretador só é consultado quando falta ---
+
+test("sem tratamento na interpretação nem na sessão, o interpretador é consultado uma vez e o resultado vai ao fluxo", async () => {
+  const r = setup({
+    intent: "book",
+    mentioned: "Dental Cleaning",
+    history: [
+      { role: "user", content: "Do you do dental cleaning?" },
+      { role: "assistant", content: "Yes." },
+    ],
+  });
+  await r.reply();
+  assert.equal(r.mentionCalls.length, 1);
+  assert.equal(r.mentionCalls[0].text, "How much are braces?");
+  assert.deepEqual(r.mentionCalls[0].history.map((m) => m.content), ["Do you do dental cleaning?", "Yes."]);
+  assert.equal(r.handled[0].mentionedService, "Dental Cleaning");
+});
+
+test("com tratamento na interpretação, o interpretador não é consultado e o dela vai ao fluxo", async () => {
+  const r = setup({ intent: "book", service: "Braces and Orthodontic Treatment", mentioned: "Dental Cleaning" });
+  await r.reply();
+  assert.equal(r.mentionCalls.length, 0);
+  assert.equal(r.handled[0].mentionedService, "Braces and Orthodontic Treatment");
+});
+
+test("com tratamento já na sessão, o interpretador não é consultado", async () => {
+  const r = setup({ intent: "book", session: { ...SESSION, service: "Teeth Whitening" } as SchedulingSessionRow, mentioned: "Dental Cleaning" });
+  await r.reply();
+  assert.equal(r.mentionCalls.length, 0);
+});
+
+test("fora de um agendamento (dúvida), o interpretador não é consultado; dentro, sem tratamento, é", async () => {
+  const q = setup({ intent: "question", mentioned: "Dental Cleaning" });
+  await q.reply();
+  assert.equal(q.mentionCalls.length, 0);
+
+  const inFlow = setup({ intent: "choose", session: SESSION, mentioned: "Dental Cleaning" });
+  await inFlow.reply();
+  assert.equal(inFlow.mentionCalls.length, 1);
 });
