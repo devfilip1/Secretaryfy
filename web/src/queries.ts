@@ -11,7 +11,7 @@ export const knowledgeKeys = {
 export const knowledgeListQuery = () =>
   queryOptions({
     queryKey: knowledgeKeys.list(),
-    queryFn: async () => (await listKnowledge()).sections,
+    queryFn: listKnowledge,
   });
 
 export const knowledgeStatusQuery = () =>

@@ -3,10 +3,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
-// Área de toque de 40px em todas as variantes. Só as propriedades listadas transitam; o toque encolhe um pouco e
-// o movimento some com prefers-reduced-motion.
+// Desktop: controles compactos (h-9, texto de 14px, ícones de 16px). Toque (pointer-coarse): 44px de área,
+// e o movimento some com prefers-reduced-motion.
 const buttonVariants = cva(
-  "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-base whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-disabled [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm whitespace-nowrap transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-disabled pointer-coarse:min-h-11 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -17,13 +17,19 @@ const buttonVariants = cva(
         // Excluir: neutro até o toque ou o foco, quando ganha a cor de perigo
         "destructive-ghost":
           "border border-transparent bg-transparent text-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:text-destructive",
-        link: "rounded-none border-0 bg-transparent p-0 text-primary underline underline-offset-4",
+        link: "rounded-none border-0 bg-transparent text-primary underline underline-offset-4",
       },
       size: {
-        default: "",
-        icon: "size-10 px-0",
+        default: "h-9 px-3",
+        sm: "h-8 px-2.5",
+        icon: "size-9 pointer-coarse:min-w-11",
+        "icon-sm": "size-8 pointer-coarse:min-w-11",
       },
     },
+    compoundVariants: [
+      // O link é texto, não um botão: sem altura nem preenchimento próprios
+      { variant: "link", size: "default", class: "h-auto px-0" },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",

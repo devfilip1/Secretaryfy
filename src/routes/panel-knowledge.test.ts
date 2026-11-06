@@ -59,6 +59,12 @@ const treatmentData = {
 };
 const infoSection = { kind: "info", title: "Horários", tagline: null, data: { lines: ["Seg a sex"] } };
 
+test("GET /api/knowledge brings the field labels in the clinic language", async () => {
+  const json = (await app.inject({ url: "/api/knowledge" })).json();
+  assert.equal(json.labels.howItWorks, "Como funciona");
+  assert.equal(json.labels.price, "Preço");
+});
+
 test("GET /api/knowledge lists the sections in position order", async () => {
   const res = await app.inject({ url: "/api/knowledge" });
   assert.equal(res.statusCode, 200);

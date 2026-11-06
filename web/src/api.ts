@@ -251,7 +251,17 @@ export interface KnowledgeStatus {
   state: "upToDate" | "unpublished" | "unavailable";
 }
 
-export const listKnowledge = () => request<{ sections: KnowledgeRow[] }>("GET", "/api/knowledge");
+/** Rótulos da brochura na língua da clínica: o texto já preenchido dos campos (GET /api/knowledge). */
+export interface KnowledgeLabels {
+  ideal: string;
+  howItWorks: string;
+  duration: string;
+  price: string;
+  result: string;
+  recovery: string;
+}
+
+export const listKnowledge = () => request<{ sections: KnowledgeRow[]; labels: KnowledgeLabels }>("GET", "/api/knowledge");
 export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
   request<{ section: KnowledgeRow }>("POST", "/api/knowledge", input);
 export const updateSection = (key: string, input: SectionInput) =>

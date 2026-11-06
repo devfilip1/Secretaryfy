@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Check, Clock, Info, ShieldAlert, TriangleAlert } from "lucide-react";
 import type { Message } from "../api";
-import { blockReasonText, formatDateTime, formatTime, mediaLabel, originLabel } from "../format";
+import { blockReasonText, failedSendText, formatDateTime, formatTime, mediaLabel, originLabel } from "../format";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Muted } from "./Muted";
@@ -67,8 +67,8 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
           )}
         </span>
         {failed && (
-          <span className="flex flex-wrap gap-2 text-xs text-destructive">
-            Not sent{message.error ? `: ${message.error}` : ""}
+          <span className="flex flex-wrap gap-2 text-xs text-destructive" title={message.error ?? undefined}>
+            {failedSendText}
             {message.origin === "operator" && onRetry && (
               <Button variant="link" className="text-xs" onClick={() => onRetry(message)}>
                 Try again

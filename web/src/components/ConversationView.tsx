@@ -140,7 +140,7 @@ export function ConversationView({
   const paused = conversation?.assistantPaused ?? false;
 
   return (
-    <section className="flex min-h-0 flex-col bg-chat max-md:fixed max-md:inset-0 max-md:z-1">
+    <section className="flex min-h-0 flex-col bg-chat max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:z-1">
       <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 max-md:gap-2 max-md:px-3 max-md:py-2">
         <Button variant="secondary" className="hidden max-md:inline-flex" onClick={onClose} aria-label="Back to the list">
           ←

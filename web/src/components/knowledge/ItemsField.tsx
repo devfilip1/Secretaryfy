@@ -44,7 +44,7 @@ export function ItemsField() {
                 insert(index + 1, { text: "" });
               }}
             />
-            <Button type="button" variant="destructive-ghost" size="icon" aria-label={`Remove item ${index + 1}`} onClick={() => remove(index)}>
+            <Button type="button" variant="destructive-ghost" size="icon-sm" aria-label={`Remove item ${index + 1}`} onClick={() => remove(index)}>
               <Trash2 />
             </Button>
           </li>

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { TreatmentRow } from "../../api";
+import type { KnowledgeLabels, TreatmentRow } from "../../api";
 import {
-  emptyFact,
+  factIssues,
   infoDefaults,
   infoFormSchema,
   toInfoInput,
@@ -11,6 +11,15 @@ import {
   treatmentFormSchema,
   type TreatmentFormValues,
 } from "./form-values";
+
+const LABELS: KnowledgeLabels = {
+  ideal: "Ideal para quem quer",
+  howItWorks: "Como funciona",
+  duration: "Duração",
+  price: "Preço",
+  result: "Resultado",
+  recovery: "Recuperação",
+};
 
 const LIMPEZA: TreatmentRow = {
   key: "limpeza-dental",
@@ -30,8 +39,33 @@ const LIMPEZA: TreatmentRow = {
   },
 };
 
+// Fatos fora da ordem canônica não voltam iguais: a ordem vira Duração, Preço e depois os outros.
+// Este caso usa a ordem canônica, com um fato extra e rótulos próprios.
+const CLAREAMENTO: TreatmentRow = {
+  key: "clareamento",
+  kind: "treatment",
+  title: "Clareamento",
+  tagline: "Sorriso mais claro",
+  position: 1,
+  data: {
+    ideal: { title: "Ideal para", items: ["Dentes amarelados"] },
+    howItWorks: { label: "Modo de fazer", value: "Gel clareador aplicado em consultório" },
+    facts: [
+      { label: "Duração", value: "60 minutos" },
+      { label: "Preço", value: "R$ 900 a R$ 1.200", assessment: true },
+      { label: "Mensalidade", value: "R$ 35 a R$ 90" },
+    ],
+    result: { label: "Resultado", value: "Até 8 tons mais claros" },
+    recovery: { label: "Tempo de recuperação", value: "Imediata" },
+  },
+};
+
 function values(overrides: Partial<TreatmentFormValues> = {}): TreatmentFormValues {
-  const complete = { ...treatmentDefaults(), title: "Limpeza Dental", facts: [{ label: "Duração", value: "30 min", assessment: false }] };
+  const complete: TreatmentFormValues = {
+    ...treatmentDefaults(LABELS),
+    title: "Limpeza Dental",
+    duration: { label: "Duração", value: "30 min", assessment: false },
+  };
   return { ...complete, ...overrides };
 }
 
@@ -44,7 +78,7 @@ describe("texto de linhas (informações)", () => {
   });
 
   it("volta as linhas da seção para o texto, uma por linha", () => {
-    const values = infoDefaults({
+    const back = infoDefaults({
       key: "endereco",
       kind: "info",
       title: "Endereço",
@@ -52,7 +86,7 @@ describe("texto de linhas (informações)", () => {
       position: 1,
       data: { lines: ["Rua A, 10", "Aberto das 8h às 18h"] },
     });
-    assert.equal(values.lines, "Rua A, 10\nAberto das 8h às 18h");
+    assert.equal(back.lines, "Rua A, 10\nAberto das 8h às 18h");
   });
 
   it("aceita a seção de texto só com título e uma linha", () => {
@@ -69,8 +103,8 @@ describe("tratamento: conversão para a forma do servidor", () => {
     assert.deepEqual(input.data.ideal, { title: "Ideal para quem quer", items: ["A", "B"] });
   });
 
-  it("deixa 'ideal' fora quando o título e as linhas estão vazios", () => {
-    const input = toTreatmentInput(values({ ideal: { title: "  ", items: [{ text: "" }] } }));
+  it("deixa 'ideal' fora quando não há linhas, mesmo com o título preenchido", () => {
+    const input = toTreatmentInput(values({ ideal: { title: "Ideal para quem quer", items: [{ text: "" }] } }));
     assert.equal(input.data.ideal, undefined);
   });
 
@@ -79,72 +113,98 @@ describe("tratamento: conversão para a forma do servidor", () => {
     assert.equal(toTreatmentInput(values({ tagline: " Um sorriso " })).tagline, "Um sorriso");
   });
 
-  it("deixa os blocos opcionais vazios como undefined", () => {
+  it("deixa um bloco sem valor como undefined, mesmo com o rótulo da brochura preenchido", () => {
     const input = toTreatmentInput(values());
     assert.equal(input.data.howItWorks, undefined);
     assert.equal(input.data.result, undefined);
     assert.equal(input.data.recovery, undefined);
   });
 
-  it("mantém um bloco preenchido só em um campo, para o servidor apontar o que falta", () => {
-    const input = toTreatmentInput(values({ result: { label: "Resultado", value: "  " } }));
-    assert.deepEqual(input.data.result, { label: "Resultado", value: "" });
+  it("mantém um bloco com valor e sem rótulo, para o servidor apontar o que falta", () => {
+    const input = toTreatmentInput(values({ result: { label: "", value: "Até 8 tons" } }));
+    assert.deepEqual(input.data.result, { label: "", value: "Até 8 tons" });
   });
 
-  it("marca 'assessment' só nos fatos com a chave ligada", () => {
+  it("deixa Duração ou Preço sem valor de fora do salvamento", () => {
+    const input = toTreatmentInput(values({ price: { label: "Preço", value: "  ", assessment: true } }));
+    assert.deepEqual(input.data.facts, [{ label: "Duração", value: "30 min" }]);
+  });
+
+  it("marca 'assessment' só nos fatos com a chave ligada, na ordem Duração, Preço e extras", () => {
     const input = toTreatmentInput(
       values({
-        facts: [
-          { label: "Duração", value: "30 min", assessment: false },
-          { label: " Preço ", value: " R$ 40 a R$ 85 ", assessment: true },
-        ],
+        price: { label: " Preço ", value: " R$ 40 a R$ 85 ", assessment: true },
+        extras: [{ label: " Mensalidade ", value: "R$ 35", assessment: false }],
       }),
     );
     assert.deepEqual(input.data.facts, [
       { label: "Duração", value: "30 min" },
       { label: "Preço", value: "R$ 40 a R$ 85", assessment: true },
+      { label: "Mensalidade", value: "R$ 35" },
     ]);
     assert.equal("assessment" in input.data.facts[0], false);
   });
 });
 
-describe("tratamento: volta do servidor para os valores do formulário", () => {
-  it("leva a seção existente e converte de volta para o mesmo dado", () => {
-    const back = toTreatmentInput(treatmentDefaults(LIMPEZA));
+describe("tratamento: volta do servidor para os valores do formulário (round trip)", () => {
+  it("salva sem editar e recebe o mesmo dado (Limpeza Dental)", () => {
+    const back = toTreatmentInput(treatmentDefaults(LABELS, LIMPEZA));
     assert.equal(back.title, LIMPEZA.title);
     assert.equal(back.tagline, LIMPEZA.tagline);
-    assert.deepEqual(back.data, {
-      ideal: LIMPEZA.data.ideal,
-      howItWorks: LIMPEZA.data.howItWorks,
-      facts: LIMPEZA.data.facts,
-      result: LIMPEZA.data.result,
-      recovery: undefined,
-    });
+    assert.deepEqual(back.data, LIMPEZA.data);
   });
 
-  it("transforma as items da seção em linhas da lista", () => {
-    const defaults = treatmentDefaults(LIMPEZA);
+  it("preserva fato com assessment true, fato extra e rótulos próprios (Clareamento)", () => {
+    const back = toTreatmentInput(treatmentDefaults(LABELS, CLAREAMENTO));
+    assert.deepEqual(back.data, CLAREAMENTO.data);
+  });
+
+  it("um fato com rótulo diferente do da brochura vai para 'Mais detalhes', com o nome guardado", () => {
+    const defaults = treatmentDefaults(LABELS, {
+      ...CLAREAMENTO,
+      data: { ...CLAREAMENTO.data, facts: [{ label: "Tempo", value: "60 min" }] },
+    });
+    assert.deepEqual(defaults.duration, { label: "Duração", value: "", assessment: false });
+    assert.deepEqual(defaults.extras, [{ label: "Tempo", value: "60 min", assessment: false }]);
+  });
+
+  it("transforma os items da seção em linhas da lista", () => {
+    const defaults = treatmentDefaults(LABELS, LIMPEZA);
     assert.deepEqual(defaults.ideal.items, [{ text: "Sensação imediata de boca limpa" }, { text: "Hálito mais fresco" }]);
   });
 
-  it("começa com uma linha de fato vazia e sem itens num tratamento novo", () => {
-    const defaults = treatmentDefaults();
-    assert.deepEqual(defaults.facts, [emptyFact()]);
-    assert.deepEqual(defaults.ideal.items, []);
+  it("num tratamento novo, pré-preenche os rótulos da brochura e deixa os valores vazios", () => {
+    const defaults = treatmentDefaults(LABELS);
+    assert.equal(defaults.ideal.title, "Ideal para quem quer");
+    assert.equal(defaults.howItWorks.label, "Como funciona");
+    assert.equal(defaults.howItWorks.value, "");
+    assert.deepEqual(defaults.duration, { label: "Duração", value: "", assessment: false });
+    assert.deepEqual(defaults.price, { label: "Preço", value: "", assessment: false });
+    assert.deepEqual(defaults.extras, []);
     assert.equal(defaults.tagline, "");
-  });
-
-  it("guarda o fato com faixa de preço ao abrir a seção", () => {
-    const defaults = treatmentDefaults(LIMPEZA);
-    assert.equal(defaults.facts[1].assessment, true);
-    assert.equal(defaults.facts[0].assessment, false);
+    assert.deepEqual(defaults.ideal.items, []);
   });
 });
 
-describe("tratamento: schema do formulário", () => {
-  it("exige pelo menos um fato", () => {
-    const parsed = treatmentFormSchema.safeParse(values({ facts: [] }));
+describe("tratamento: regras dos fatos e schema do formulário", () => {
+  it("sem nenhum valor em Duração, Preço ou extras, não salva", () => {
+    const parsed = treatmentFormSchema.safeParse(values({ duration: { label: "Duração", value: "", assessment: false } }));
     assert.equal(parsed.success, false);
+    assert.deepEqual(factIssues(values({ duration: { label: "Duração", value: "", assessment: false } })), [
+      { path: ["duration", "value"], message: "Fill in Duration or Price" },
+    ]);
+  });
+
+  it("aceita só Preço preenchido", () => {
+    const parsed = treatmentFormSchema.safeParse(
+      values({ duration: { label: "Duração", value: "", assessment: false }, price: { label: "Preço", value: "R$ 40", assessment: false } }),
+    );
+    assert.equal(parsed.success, true);
+  });
+
+  it("exige nome em um fato extra que tem valor", () => {
+    const issues = factIssues(values({ extras: [{ label: "", value: "R$ 35", assessment: false }] }));
+    assert.deepEqual(issues, [{ path: ["extras", 0, "label"], message: "Required" }]);
   });
 
   it("aceita um tratamento completo", () => {

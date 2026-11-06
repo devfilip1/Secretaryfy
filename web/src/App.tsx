@@ -22,7 +22,6 @@ import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, Calendar, CalendarCheck, MessageSquare, Smartphone, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
 
@@ -39,9 +38,6 @@ const NAV_LINKS: { label: string; short: string; hash: string; view: View; icon:
   { label: "Customers", short: "Customers", hash: "#/customers", view: "customers", icon: Users },
   { label: "Knowledge", short: "Knowledge", hash: "#/knowledge", view: "knowledge", icon: BookOpen },
 ];
-
-/** Conversa aberta na Inbox (#/?c=<id>): no celular ela ocupa a tela toda e tem a própria seta de voltar. */
-const conversationOpen = () => viewFromHash() === "inbox" && window.location.hash.includes("?c=");
 
 function viewFromHash(): View {
   const path = window.location.hash.split("?")[0];
@@ -83,14 +79,12 @@ export function App() {
 function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
   const { status, subscribe } = useEventStream(onLoggedOut);
   const [view, setView] = useState<View>(viewFromHash);
-  const [inConversation, setInConversation] = useState(conversationOpen);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [protection, setProtection] = useState<Protection | null>(null);
 
   useEffect(() => {
     const onHash = () => {
       setView(viewFromHash());
-      setInConversation(conversationOpen());
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -125,10 +119,10 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           loadProtection();
         }}
       />
-      <div className={cn("flex h-full flex-col", !inConversation && "max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]")}>
+      <div className="flex h-full flex-col max-md:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
         <header className="flex items-center gap-4.5 border-b border-border bg-card px-4 py-2.5 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 max-lg:pt-2 max-lg:pb-0">
           <span className="font-bold max-lg:flex-1">Secretaryfy</span>
-          <nav className={cn("max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5", inConversation && "max-md:hidden")}>
+          <nav className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5">
             {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (
               <a key={hash} href={hash} className={navLinkClass(view === target)} aria-current={view === target ? "page" : undefined}>
                 <Icon className="size-5 shrink-0 md:hidden" aria-hidden />

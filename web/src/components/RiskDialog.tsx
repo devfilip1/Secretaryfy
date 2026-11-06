@@ -1,6 +1,6 @@
 import type { SendRisk } from "../api";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Title } from "./Title";
 
 const RISK_TEXT: Record<SendRisk, string> = {
@@ -23,16 +23,20 @@ export function RiskDialog({ risks, onCancel, onConfirm }: { risks: SendRisk[]; 
         showCloseButton={false}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <DialogTitle asChild>
-          <Title level={3}>Send anyway?</Title>
-        </DialogTitle>
-        <ul className="list-disc pl-5">
-          {risks.map((risk) => (
-            <li key={risk}>{RISK_TEXT[risk] ?? risk}</li>
-          ))}
-        </ul>
-        <DialogDescription>Sending anyway increases the risk of the number being banned.</DialogDescription>
-        <DialogFooter className="mt-3.5 flex-row justify-end max-md:flex-wrap">
+        <DialogHeader>
+          <DialogTitle asChild>
+            <Title level={3}>Send anyway?</Title>
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <ul className="list-disc pl-5">
+            {risks.map((risk) => (
+              <li key={risk}>{RISK_TEXT[risk] ?? risk}</li>
+            ))}
+          </ul>
+          <DialogDescription className="mt-3">Sending anyway increases the risk of the number being banned.</DialogDescription>
+        </DialogBody>
+        <DialogFooter className="flex-row justify-end max-md:flex-wrap">
           <Button variant="secondary" onClick={onCancel} autoFocus>
             Cancel
           </Button>

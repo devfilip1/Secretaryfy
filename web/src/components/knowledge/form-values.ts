@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { infoDataSchema, treatmentDataSchema, type Fact, type LabelledValue } from "@server/modules/knowledge/types";
-import type { InfoRow, SectionInput, TreatmentRow } from "../../api";
+import type { InfoRow, KnowledgeLabels, SectionInput, TreatmentRow } from "../../api";
 
 // Valores dos formulários: texto como o operador digita. Aqui ficam o schema do formulário,
 // a conversão para a forma do servidor e o caminho de volta (seção existente -> valores).
 // Este arquivo é puro (sem React): os testes ficam em form-values.test.ts.
+//
+// Um tratamento tem campos fixos: Duração, Preço, Como funciona, Resultado e Recuperação. Os rótulos da
+// brochura (labels) são o texto já preenchido; o servidor guarda cada um como {label, value}. Fatos que não
+// são Duração nem Preço ficam em "Mais detalhes", com o nome digitado. Na volta, a ordem dos fatos vira
+// Duração, Preço e depois os outros, na ordem em que aparecem.
 
 export interface LabelledFormValue {
   label: string;
@@ -25,7 +30,9 @@ export interface TreatmentFormValues {
   tagline: string;
   ideal: { title: string; items: ItemFormValue[] };
   howItWorks: LabelledFormValue;
-  facts: FactFormValue[];
+  duration: FactFormValue;
+  price: FactFormValue;
+  extras: FactFormValue[];
   result: LabelledFormValue;
   recovery: LabelledFormValue;
 }
@@ -35,9 +42,14 @@ export interface InfoFormValues {
   lines: string;
 }
 
+type FormIssue = { path: (string | number)[]; message: string };
+
 const requiredText = z.string().trim().min(1, "Required");
-const optionalBlock = z.object({ label: z.string(), value: z.string() });
-const requiredFact = z.object({ label: requiredText, value: requiredText, assessment: z.boolean() });
+const blockSchema = z.object({ label: z.string(), value: z.string() });
+const factSchema = blockSchema.extend({ assessment: z.boolean() });
+
+/** Um campo com valor; o rótulo sozinho não conta como preenchido. */
+const hasValue = (block: LabelledFormValue) => block.value.trim() !== "";
 
 /** Erros do schema do servidor viram erros do campo; "too_small" (vazio) vira "Required". */
 function reportServerIssues(error: z.ZodError, ctx: z.RefinementCtx) {
@@ -50,17 +62,42 @@ function reportServerIssues(error: z.ZodError, ctx: z.RefinementCtx) {
   }
 }
 
+/**
+ * Duração e Preço são opcionais: a linha sem valor fica de fora do salvamento.
+ * Sem nenhum valor em nenhum fato, o formulário não salva. Um fato com valor precisa de nome.
+ */
+export function factIssues(values: TreatmentFormValues): FormIssue[] {
+  const anyValue = [values.duration, values.price, ...values.extras].some(hasValue);
+  if (!anyValue) return [{ path: ["duration", "value"], message: "Fill in Duration or Price" }];
+
+  const issues: FormIssue[] = [];
+  for (const name of ["duration", "price"] as const) {
+    if (hasValue(values[name]) && values[name].label.trim() === "") issues.push({ path: [name, "label"], message: "Required" });
+  }
+  values.extras.forEach((fact, index) => {
+    if (hasValue(fact) && fact.label.trim() === "") issues.push({ path: ["extras", index, "label"], message: "Required" });
+  });
+  return issues;
+}
+
 export const treatmentFormSchema = z
   .object({
     title: requiredText,
     tagline: z.string(),
     ideal: z.object({ title: z.string(), items: z.array(z.object({ text: z.string() })) }),
-    howItWorks: optionalBlock,
-    facts: z.array(requiredFact).min(1, "Add at least one fact"),
-    result: optionalBlock,
-    recovery: optionalBlock,
+    howItWorks: blockSchema,
+    duration: factSchema,
+    price: factSchema,
+    extras: z.array(factSchema),
+    result: blockSchema,
+    recovery: blockSchema,
   })
   .superRefine((values, ctx) => {
+    const issues = factIssues(values);
+    if (issues.length > 0) {
+      for (const issue of issues) ctx.addIssue({ code: "custom", message: issue.message, path: issue.path.map(String) });
+      return;
+    }
     const checked = treatmentDataSchema.safeParse(toTreatmentInput(values).data);
     if (!checked.success) reportServerIssues(checked.error, ctx);
   });
@@ -80,11 +117,10 @@ export function splitLines(text: string): string[] {
     .filter((line) => line !== "");
 }
 
-/** Bloco opcional: vazio nos dois campos vira undefined; preenchido em um só deixa o servidor apontar o que falta. */
+/** Bloco opcional: sem valor é como não preenchido (undefined); com valor, o rótulo vai junto, mesmo vazio. */
 function optionalLabelled(block: LabelledFormValue): LabelledValue | undefined {
-  const label = block.label.trim();
   const value = block.value.trim();
-  return label || value ? { label, value } : undefined;
+  return value ? { label: block.label.trim(), value } : undefined;
 }
 
 /** O campo "assessment" só existe quando está ligado: a seção sem faixa de preço fica igual à de antes. */
@@ -94,48 +130,54 @@ function toFact(fact: FactFormValue): Fact {
   return fact.assessment ? { label, value, assessment: true } : { label, value };
 }
 
-function toBlock(block?: LabelledValue): LabelledFormValue {
-  return { label: block?.label ?? "", value: block?.value ?? "" };
+function toBlock(block: LabelledValue | undefined, fallbackLabel: string): LabelledFormValue {
+  return { label: block?.label ?? fallbackLabel, value: block?.value ?? "" };
 }
 
 function toFactValue(fact: Fact): FactFormValue {
   return { label: fact.label, value: fact.value, assessment: fact.assessment ?? false };
 }
 
+function newFact(label: string): FactFormValue {
+  return { label, value: "", assessment: false };
+}
+
 export function toTreatmentInput(values: TreatmentFormValues): SectionInput {
   const idealTitle = values.ideal.title.trim();
   const items = values.ideal.items.map((item) => item.text.trim()).filter((text) => text !== "");
-  const hasIdeal = idealTitle !== "" || items.length > 0;
   return {
     title: values.title.trim(),
     tagline: values.tagline.trim() || null,
     data: {
-      ideal: hasIdeal ? { title: idealTitle, items } : undefined,
+      // A lista de "Ideal para" é obrigatória no servidor: sem linhas, o bloco fica de fora
+      ideal: items.length > 0 ? { title: idealTitle, items } : undefined,
       howItWorks: optionalLabelled(values.howItWorks),
-      facts: values.facts.map(toFact),
+      facts: [values.duration, values.price, ...values.extras].filter(hasValue).map(toFact),
       result: optionalLabelled(values.result),
       recovery: optionalLabelled(values.recovery),
     },
   };
 }
 
-export function emptyFact(): FactFormValue {
-  return { label: "", value: "", assessment: false };
-}
-
-export function treatmentDefaults(section?: TreatmentRow): TreatmentFormValues {
+/** Seção existente -> valores: Duração e Preço são reconhecidos pelo rótulo da brochura; o resto vai para "Mais detalhes". */
+export function treatmentDefaults(labels: KnowledgeLabels, section?: TreatmentRow): TreatmentFormValues {
   const data = section?.data;
+  const facts = data?.facts ?? [];
+  const duration = facts.find((fact) => fact.label === labels.duration);
+  const price = facts.find((fact) => fact !== duration && fact.label === labels.price);
   return {
     title: section?.title ?? "",
     tagline: section?.tagline ?? "",
     ideal: {
-      title: data?.ideal?.title ?? "",
+      title: data?.ideal?.title ?? labels.ideal,
       items: (data?.ideal?.items ?? []).map((text) => ({ text })),
     },
-    howItWorks: toBlock(data?.howItWorks),
-    facts: data && data.facts.length > 0 ? data.facts.map(toFactValue) : [emptyFact()],
-    result: toBlock(data?.result),
-    recovery: toBlock(data?.recovery),
+    howItWorks: toBlock(data?.howItWorks, labels.howItWorks),
+    duration: duration ? toFactValue(duration) : newFact(labels.duration),
+    price: price ? toFactValue(price) : newFact(labels.price),
+    extras: facts.filter((fact) => fact !== duration && fact !== price).map(toFactValue),
+    result: toBlock(data?.result, labels.result),
+    recovery: toBlock(data?.recovery, labels.recovery),
   };
 }
 

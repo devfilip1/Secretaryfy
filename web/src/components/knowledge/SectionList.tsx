@@ -8,7 +8,7 @@ import { KIND_LABEL, KIND_NOUN } from "./kinds";
 import type { SectionTarget } from "./SectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Muted } from "../Muted";
@@ -74,7 +74,7 @@ export function SectionList({
               {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <Button variant="secondary" onClick={() => onEdit(section)}>
+              <Button variant="secondary" size="sm" onClick={() => onEdit(section)}>
                 <Pencil />
                 Edit
               </Button>
@@ -82,7 +82,7 @@ export function SectionList({
                 <TooltipTrigger asChild>
                   <Button
                     variant="destructive-ghost"
-                    size="icon"
+                    size="icon-sm"
                     aria-label={`Delete ${section.title}`}
                     onClick={() => setPendingDelete(section)}
                   >
@@ -129,12 +129,18 @@ function DeleteDialog({
       }}
     >
       <DialogContent role="alertdialog" className="sm:max-w-md">
-        <DialogTitle asChild>
-          <Title level={3}>{`Delete ${section.title}?`}</Title>
-        </DialogTitle>
-        <DialogDescription>The assistant stops answering about it after you publish.</DialogDescription>
-        {error ? <Notice role="alert">{serverReason(error, "Could not delete the section. Please try again.")}</Notice> : null}
-        <DialogFooter className="mt-2">
+        <DialogHeader>
+          <DialogTitle asChild>
+            <Title level={3}>{`Delete ${section.title}?`}</Title>
+          </DialogTitle>
+          <DialogDescription>The assistant stops answering about it after you publish.</DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <DialogBody>
+            <Notice role="alert">{serverReason(error, "Could not delete the section. Please try again.")}</Notice>
+          </DialogBody>
+        ) : null}
+        <DialogFooter>
           <Button variant="secondary" onClick={onCancel} autoFocus>
             Keep
           </Button>

@@ -16,7 +16,8 @@ import { Title } from "../components/Title";
 export function KnowledgePage() {
   const list = useQuery(knowledgeListQuery());
   const [target, setTarget] = useState<SectionTarget | null>(null);
-  const hasSections = (list.data?.length ?? 0) > 0;
+  const sections = list.data?.sections;
+  const hasSections = (sections?.length ?? 0) > 0;
 
   return (
     <Page>
@@ -37,9 +38,9 @@ export function KnowledgePage() {
               {list.isError ? (
                 <Notice role="alert">Could not load the knowledge. Please try again.</Notice>
               ) : (
-                <SectionList sections={list.data} onEdit={(section) => setTarget(targetFor(section))} onAdd={setTarget} />
+                <SectionList sections={sections} onEdit={(section) => setTarget(targetFor(section))} onAdd={setTarget} />
               )}
-              <SectionDialog target={target} onClose={() => setTarget(null)} />
+              {list.data && <SectionDialog target={target} labels={list.data.labels} onClose={() => setTarget(null)} />}
             </TabsContent>
             <TabsContent value="help" className="pt-4">
               <KnowledgeHelp />

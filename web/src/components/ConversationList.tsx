@@ -38,13 +38,15 @@ export function ConversationList({
 
   return (
     <aside className="flex min-h-0 flex-col border-r border-border bg-card max-md:border-r-0">
-      <Input
-        className="m-2.5"
-        type="search"
-        placeholder="Search by name or number"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
+      {/* Margem dentro de um bloco, não na própria busca: o input tem w-full e a margem o empurrava para fora da coluna */}
+      <div className="p-2.5">
+        <Input
+          type="search"
+          placeholder="Search by name or number"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
       <ul className="overflow-y-auto">
         {conversations.map((c) => (
           <li key={c.id}>

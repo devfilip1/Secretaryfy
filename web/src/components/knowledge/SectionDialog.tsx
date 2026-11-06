@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createSection, updateSection, type InfoRow, type KnowledgeRow, type SectionInput, type TreatmentRow } from "../../api";
+import { createSection, updateSection, type InfoRow, type KnowledgeLabels, type KnowledgeRow, type SectionInput, type TreatmentRow } from "../../api";
 import { knowledgeKeys } from "../../queries";
 import { reasonLines } from "./server-reason";
 import { InfoForm } from "./InfoForm";
@@ -8,7 +8,15 @@ import { TreatmentForm } from "./TreatmentForm";
 import { Notice } from "../Notice";
 import { Title } from "../Title";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /** O que o diálogo edita: uma seção existente, ou uma nova do tipo indicado. */
 export type SectionTarget = { kind: "treatment"; section?: TreatmentRow } | { kind: "info"; section?: InfoRow };
@@ -25,7 +33,15 @@ const DESCRIPTION = {
 } as const;
 
 /** Diálogo de criar ou editar uma seção; `target` null deixa o diálogo fechado. */
-export function SectionDialog({ target, onClose }: { target: SectionTarget | null; onClose: () => void }) {
+export function SectionDialog({
+  target,
+  labels,
+  onClose,
+}: {
+  target: SectionTarget | null;
+  labels: KnowledgeLabels;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: (request: { target: SectionTarget; input: SectionInput }) =>
@@ -53,27 +69,32 @@ export function SectionDialog({ target, onClose }: { target: SectionTarget | nul
       <DialogContent className="sm:max-w-2xl">
         {target && (
           <>
-            <DialogTitle asChild>
-              <Title level={3}>{`${target.section ? "Edit" : "Add"} ${KIND_NOUN[target.kind]}`}</Title>
-            </DialogTitle>
-            <DialogDescription>{DESCRIPTION[target.kind]}</DialogDescription>
-            {target.kind === "treatment" ? (
-              <TreatmentForm
-                section={target.section}
-                formId={FORM_ID}
-                onSubmit={(input) => save.mutate({ target, input })}
-              />
-            ) : (
-              <InfoForm section={target.section} formId={FORM_ID} onSubmit={(input) => save.mutate({ target, input })} />
-            )}
-            {save.isError && (
-              <Notice role="alert">
-                {reasonLines(save.error, "Could not save the section. Please try again.").map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-              </Notice>
-            )}
-            <DialogFooter className="sticky bottom-0 -mx-5 -mb-5 mt-1 border-t border-border bg-card px-5 py-3">
+            <DialogHeader>
+              <DialogTitle asChild>
+                <Title level={3}>{`${target.section ? "Edit" : "Add"} ${KIND_NOUN[target.kind]}`}</Title>
+              </DialogTitle>
+              <DialogDescription>{DESCRIPTION[target.kind]}</DialogDescription>
+            </DialogHeader>
+            <DialogBody>
+              {target.kind === "treatment" ? (
+                <TreatmentForm
+                  section={target.section}
+                  labels={labels}
+                  formId={FORM_ID}
+                  onSubmit={(input) => save.mutate({ target, input })}
+                />
+              ) : (
+                <InfoForm section={target.section} formId={FORM_ID} onSubmit={(input) => save.mutate({ target, input })} />
+              )}
+              {save.isError && (
+                <Notice role="alert" className="mt-4">
+                  {reasonLines(save.error, "Could not save the section. Please try again.").map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </Notice>
+              )}
+            </DialogBody>
+            <DialogFooter>
               <Button variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>

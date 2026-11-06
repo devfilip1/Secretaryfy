@@ -2,24 +2,20 @@ import { Title } from "../Title";
 import { Muted } from "../Muted";
 
 // O texto de ajuda fica aqui como dados: cada bloco tem um título e, conforme o caso, parágrafos, passos,
-// uma lista ou o exemplo (Limpeza Dental). Os valores do exemplo vêm da brochura da clínica.
+// uma lista ou pares "você preenche -> o assistente lê". Os exemplos vêm da brochura da Limpeza Dental.
+
+interface HelpPair {
+  fill: string;
+  reads: string[];
+}
 
 interface HelpBlock {
   title: string;
   paragraphs?: string[];
   steps?: string[];
   list?: string[];
-  example?: { label: string; value: string[] }[];
+  pairs?: HelpPair[];
 }
-
-const EXAMPLE_TREATMENT: { label: string; value: string[] }[] = [
-  { label: "Title", value: ["Limpeza Dental"] },
-  { label: "Tagline", value: ["O Primeiro Passo para um Sorriso Saudável"] },
-  { label: "Ideal for", value: ["Heading: Ideal para quem quer", "Item: Sensação imediata de boca limpa", "Item: Hálito mais fresco"] },
-  { label: "How it works", value: ["Label: Como funciona", "Value: Remoção de placa e tártaro com ultrassom, seguida de polimento"] },
-  { label: "Facts", value: ["Row 1: Duração, 30 a 50 minutos", "Row 2: Preço, R$ 40 a R$ 85 (switch on: the final value depends on the assessment)"] },
-  { label: "Result", value: ["Label: Resultado", "Value: Imediato, já na primeira sessão"] },
-];
 
 const HELP_BLOCKS: HelpBlock[] = [
   {
@@ -35,30 +31,36 @@ const HELP_BLOCKS: HelpBlock[] = [
     ],
   },
   {
-    title: "How a treatment is built, with an example",
-    paragraphs: ["This is the Limpeza Dental section, filled in as the brochure has it."],
-    example: EXAMPLE_TREATMENT,
-  },
-  {
-    title: "Title",
+    title: "What you fill in and what the assistant reads",
     paragraphs: [
-      "The title names the subject of the section. The assistant uses it to tell treatments apart, so write the name patients say. Put one treatment in each section.",
+      "Each field you fill in becomes a sentence the assistant can say. The words before the text, such as Como funciona, are already filled in for you. This is the Limpeza Dental treatment, as the brochure has it.",
+    ],
+    pairs: [
+      { fill: "Title and short description", reads: ["Limpeza Dental - O Primeiro Passo para um Sorriso Saudável"] },
+      { fill: "Who it is for", reads: ["Ideal para quem quer", "Sensação imediata de boca limpa", "Hálito mais fresco"] },
+      { fill: "How it works", reads: ["Como funciona: Remoção de placa e tártaro com ultrassom, seguida de polimento."] },
+      {
+        fill: "Duration and Price",
+        reads: ["Duração: 30 a 50 minutos   |   Preço: R$ 40 a R$ 85 (valor final definido na avaliação)"],
+      },
+      { fill: "Result", reads: ["Resultado: Imediato, já na primeira sessão"] },
+      { fill: "Recovery time", reads: ["Recuperação: 3 a 7 dias"] },
     ],
   },
   {
-    title: "Tagline",
-    paragraphs: ["The tagline is optional. It is shown after the title, in a shorter line."],
-  },
-  {
-    title: "Labels and values",
-    paragraphs: [
-      "Write each label exactly as patients should read it, in the clinic's language. The value is the text that goes under it. Keep the wording of your brochure.",
+    title: "What each text field means",
+    list: [
+      "How it works: how the treatment is done and which materials it uses.",
+      "Result: what the patient gets and how long it lasts.",
+      "Recovery time: how long healing takes afterwards.",
     ],
   },
   {
-    title: "Facts",
+    title: "Duration, price and more details",
     paragraphs: [
-      "Put numbers here, such as duration and price, one per row. A row with a price range, such as R$ 40 to R$ 85, needs the switch Final value depends on the assessment turned on, so the assistant says the final value is set at the assessment.",
+      "Duration and Price have one field each. When the price is a range, such as R$ 40 to R$ 85, turn on Final value depends on the assessment, so the assistant says the final value is set at the assessment.",
+      "Other facts, such as a monthly fee, go in More details. Give each one a name and a value.",
+      "To use other words before the text, open Change wording at the end of the treatment form.",
     ],
   },
   {
@@ -108,13 +110,13 @@ export function KnowledgeHelp() {
               ))}
             </ul>
           )}
-          {block.example && (
-            <dl className="grid gap-x-4 gap-y-2 rounded-lg bg-muted p-4 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
-              {block.example.map((row) => (
-                <div key={row.label} className="contents">
-                  <dt className="font-semibold">{row.label}</dt>
+          {block.pairs && (
+            <dl className="grid gap-x-4 gap-y-3 rounded-lg bg-muted p-4 text-sm sm:grid-cols-[11rem_minmax(0,1fr)]">
+              {block.pairs.map((pair) => (
+                <div key={pair.fill} className="contents">
+                  <dt className="font-semibold">{pair.fill}</dt>
                   <dd className="grid gap-1 text-pretty break-words">
-                    {row.value.map((line) => (
+                    {pair.reads.map((line) => (
                       <span key={line}>{line}</span>
                     ))}
                   </dd>

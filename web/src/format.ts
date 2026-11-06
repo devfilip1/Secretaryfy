@@ -87,3 +87,6 @@ const BLOCK_REASONS: Record<string, string> = {
 };
 
 export const blockReasonText = (reason: string | null) => (reason && BLOCK_REASONS[reason]) ?? reason ?? "";
+
+/** Mensagem que o WhatsApp não aceitou. O erro técnico fica só no tooltip do balão. */
+export const failedSendText = "Not sent. WhatsApp did not accept the message.";
