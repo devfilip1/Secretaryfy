@@ -109,6 +109,7 @@ export const systemNotes = {
 /** Por que o lembrete não saiu, no histórico do painel (os mesmos textos dos bloqueios da proteção, specs/004). */
 export const REMINDER_REASONS: Record<string, string> = {
   outside_window: "the customer has not written in over 24 h",
+  disconnected: "WhatsApp is disconnected",
   no_conversation: "no WhatsApp conversation with this number",
   opted_out: "the customer asked not to receive messages",
   paused: "automatic sending paused by protection",

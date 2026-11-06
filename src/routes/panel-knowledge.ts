@@ -3,7 +3,7 @@ import { z } from "zod";
 import { slugify } from "../modules/knowledge/import-markdown.js";
 import { toDocument } from "../modules/knowledge/render.js";
 import { KnowledgeOrderError, type KnowledgeRepository } from "../modules/knowledge/repository.js";
-import { FIELD_LABELS } from "../modules/knowledge/texts.js";
+import { ASSESSMENT_NOTE, FIELD_LABELS } from "../modules/knowledge/texts.js";
 import { invalidBody } from "./invalid-body.js";
 import { knowledgeRowSchema } from "../modules/knowledge/types.js";
 import { RagAlreadyIndexingError, type RagAdmin } from "../modules/rag/admin.js";
@@ -58,7 +58,7 @@ export function panelKnowledgeRoutes({ repo, rag, clinicName, language }: Deps) 
   }
 
   return async function (app: FastifyInstance) {
-    app.get("/api/knowledge", async () => ({ sections: await repo.list(), labels: FIELD_LABELS[language] }));
+    app.get("/api/knowledge", async () => ({ sections: await repo.list(), labels: { ...FIELD_LABELS[language], assessment: ASSESSMENT_NOTE[language] } }));
 
     app.post("/api/knowledge", async (req, reply) => {
       const body = createBody.safeParse(req.body);

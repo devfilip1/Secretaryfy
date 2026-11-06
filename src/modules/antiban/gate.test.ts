@@ -46,7 +46,7 @@ beforeEach(async () => {
   events = [];
   sent = [];
   failSends = false;
-  connected = null;
+  connected = "5511988887777";
   inbox = createInboxService({ repo, publish: (e) => events.push(e) });
 });
 
@@ -103,6 +103,14 @@ test("resposta normal sai com tempo de digitação dentro dos limites", async ()
   assert.equal(sent.length, 1);
   assert.ok(sent[0].delayMs! >= FAST.typingMinMs && sent[0].delayMs! <= FAST.typingMaxMs);
   assert.equal((await lastMessage(conv.id)).status, "sent");
+});
+
+test("número desconectado: não tenta enviar nem soma falha na proteção", async () => {
+  const conv = await customerSays();
+  connected = null;
+  assert.equal(await ask(gateWith(), conv, "Hello"), "blocked");
+  assert.equal(sent.length, 0);
+  assert.equal((await lastMessage(conv.id)).error, "disconnected");
 });
 
 test("conversas por dia: a 3ª conversa nova passa do limite 2, e uma já atendida continua (FR-011)", async () => {
@@ -296,7 +304,7 @@ test("20 respostas simultâneas: nunca mais de 8 envios em 60 s, e todas saem de
       return { waId: `W${times.length}` };
     },
     markRead: async () => {},
-    connectedNumber: () => null,
+    connectedNumber: () => "5511988887777",
     publish: () => {},
     log: QUIET,
     now: clock.now,
@@ -354,7 +362,7 @@ function pacedGate(clock: ReturnType<typeof fakeClock>, customerAt: Date, timeli
     markRead: async () => {
       timeline.push(`lida ${t()}`);
     },
-    connectedNumber: () => null,
+    connectedNumber: () => "5511988887777",
     publish: () => {},
     log: QUIET,
     now: clock.now,

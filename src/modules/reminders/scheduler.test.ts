@@ -169,6 +169,18 @@ test("fora da janela de 24 h, com o envio autorizado (REMINDER_OUTSIDE_WINDOW): 
   assert.equal((await reload(appt)).reminderStatus, "sent");
 });
 
+test("WhatsApp desconectado: o lembrete espera, sem tentar; ao reconectar, sai", async () => {
+  await conversation();
+  const appt = await appointment();
+  blockReason = "disconnected";
+  await scheduler.tick();
+  assert.equal(sent.length, 0);
+  assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["pending", "disconnected"]);
+  blockReason = null;
+  await scheduler.tick();
+  assert.equal(sent.length, 1);
+});
+
 test("a janela reabre (o cliente escreveu): o lembrete sai", async () => {
   await conversation();
   const appt = await appointment();

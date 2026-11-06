@@ -141,6 +141,8 @@ export function createGate({
 
   const rules: Rule[] = [
     { name: "opted_out", check: ({ phone }) => inboxRepo.isOptedOut(phone) },
+    // Número desconectado: nem tenta enviar, para não somar falhas que pausam a proteção
+    { name: "disconnected", check: async () => connectedNumber() === null },
     { name: "paused", check: async () => (await breaker.current()).paused },
     {
       name: "outside_window",

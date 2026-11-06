@@ -63,6 +63,7 @@ test("GET /api/knowledge brings the field labels in the clinic language", async 
   const json = (await app.inject({ url: "/api/knowledge" })).json();
   assert.equal(json.labels.howItWorks, "Como funciona");
   assert.equal(json.labels.price, "Preço");
+  assert.equal(json.labels.assessment, "(valor final definido na avaliação)");
 });
 
 test("GET /api/knowledge lists the sections in position order", async () => {
