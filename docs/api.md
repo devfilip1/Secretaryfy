@@ -64,7 +64,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `POST /api/appointments/:id/confirm` | Confirms by the operator; idempotent |
 | `GET /api/services` | `{services: [{name, label}]}`: the services a customer can book, in the assistant's order. `name` is the stored key (the treatment's key, or `Assessment`); `label` is the treatment's title, and "General assessment" for Assessment. Source: the bookable treatments of `knowledge_sections` plus the assessment ([catalog.ts](../src/modules/scheduling/catalog.ts), ADR 0014) |
 | `GET /api/booking/days` | Days with free times |
-| `GET /api/booking/slots?date=YYYY-MM-DD` | Free times on that day |
+| `GET /api/booking/slots?date=YYYY-MM-DD[&service=KEY]` | The times offered on that day for the service's appointment length (the default length without `service`) |
 | `GET /api/booking/lookup?phone=` | Normalized phone, name (registry, else said in the chat), `hasConversation` and `futureAppointment`; 422 `invalid_phone` |
 | `POST /api/appointments` | `{phone, name, service, start}` (`service` is one of the `name`s of `GET /api/services`); 201 `{appointment}`; 409 `slot_taken` (with `date` and fresh `slots`), `already_booked` (with the appointment) or `calendar_disconnected`; 502 when Google fails; 422 with `issues` |
 

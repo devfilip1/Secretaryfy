@@ -111,7 +111,7 @@ At most one per conversation: the booking, cancel or reschedule dialogue in prog
 The clinic's Google account and selected calendar: email, scopes, `refresh_token_enc` (AES-256-GCM, see [crypto.ts](../src/config/crypto.ts)), calendar id, name and time zone, and `status` (`connected` or `needs_reauth`). No row means disconnected.
 
 ### scheduling_rules
-Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = Sunday; a missing day is closed), `slot_minutes`, `min_notice_minutes`, `max_days_ahead`, `cancel_notice_minutes`. Created with the defaults on first read ([rules.ts](../src/modules/scheduling/rules.ts)).
+Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = Sunday; a missing day is closed), `slot_minutes` (the default appointment length), `grid_minutes` (the step of start times, default 15), `min_notice_minutes`, `max_days_ahead`, `cancel_notice_minutes`. Created with the defaults on first read ([rules.ts](../src/modules/scheduling/rules.ts)).
 
 ### clinic_settings
 The clinic's identity as the panel edits it: `name`, `assistant_name` (nullable: no name, the greeting only names the clinic) and `kind` (the interpreter prompt's "dental clinic"), with `updated_at`. One row (`check (id = 1)`). The first start inserts it from `CLINIC_NAME`, `ASSISTANT_NAME` and `CLINIC_KIND` when there is no row; after that the row wins ([settings-repository.ts](../src/modules/clinic/settings-repository.ts), ADR 0012 step 2). The language is not here: it stays in `CLINIC_LANGUAGE`.

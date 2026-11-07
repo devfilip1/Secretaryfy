@@ -41,7 +41,7 @@ When WhatsApp logs the number out, all conversations and messages are deleted. T
 Booking rules are stored in `scheduling_rules` and edited in the panel (**Calendar**). Defaults: Monday to Friday 09:00–18:00, 60-minute appointments, 2 h minimum notice, 30 days ahead, cancel or reschedule up to 24 h before.
 
 ### BR-SCH-01 · Free times come from the rules and the calendar
-A time is offered only if it falls within that weekday's opening hours, on a step equal to the appointment length, after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
+A time is offered only if it falls within that weekday's opening hours, on the time grid (`grid_minutes`, 15 by default) with room for the treatment's appointment length (ADR 0015), after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
 - **Where:** `slotsForDay`, `bookingWindow` in [availability.ts](../src/modules/scheduling/availability.ts)
 - **Validation of the rules:** at least one open day; start before end; length 15–240 min in multiples of 5; each open day at least one appointment long. `rulesSchema` in [rules.ts](../src/modules/scheduling/rules.ts)
 
@@ -104,7 +104,11 @@ A message classified as `manipulation` (asks to show, repeat or translate the in
 - **Where:** `manipulation` and `off_topic` in [router.ts](../src/modules/scheduling/router.ts), `stayOnTopic` in the replies files
 
 ### BR-SCH-16 · A repeated brochure answer is sent as one message with a lead
-The number protection drops a message identical to one already sent. When a brochure answer repeats a message from the conversation, it goes out as a single message starting with a short lead ("Como comentei:"), so the customer is never left without a reply.
+The number protection drops a message identical to one already sent. When a brochure answer repeats a message from the conversation, the repeated parts are left out; only when the whole answer repeats it goes out as a single message starting with a short friendly lead ("Claro!"), so the customer is never left without a reply.
+
+### BR-SCH-17 · Appointment length per treatment, a time grid and a few natural times
+Each treatment may set `appointmentMinutes` (a multiple of 5); without it, and for the general assessment, the default length of the rules applies. The assistant asks for the treatment before it offers days, because the length decides which starts are free (a reschedule keeps the length of the appointment being moved). Start times sit on the grid; the assistant offers up to six **natural** times (the first of the day, the first after a busy block, a start that ends where another begins, and starts that follow the treatment's length from opening), never the whole grid. A time the customer names ("às 14h", "9:45") is checked on the full grid: free, it is chosen; taken or off the opening hours, the assistant says so kindly and offers the three nearest. The model only reads the time (`time`, with a focused second call when the field comes back empty); the code decides. Booking, the calendar event and the stored end use the same length; changing a treatment's length does not touch appointments already made.
+- **Where:** [availability.ts](../src/modules/scheduling/availability.ts), [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [interpret.ts](../src/modules/scheduling/interpret.ts), [ADR 0015](decisions/0015-appointment-length-per-treatment-and-time-grid.md)
 
 ## Names and customer registry
 
