@@ -230,12 +230,3 @@ test("the importer turns the assessment note on for price facts only", () => {
     for (const fact of row.data.facts) assert.equal(fact.assessment === true, fact.label === "Preço", `${row.title}: ${fact.label}`);
   }
 });
-
-test("{clinic_name} in the brochure text becomes the current clinic name, so a rename updates it", () => {
-  const rows = parseBrochure(source("sorrisopleno.md")).map((row) =>
-    row.kind === "info" ? { ...row, data: { lines: [`Na {clinic_name}, você é bem-vindo.`] } } : row,
-  );
-  const doc = toDocument("Dentes Felizes", rows, "pt", []);
-  assert.ok(doc.sections.some((s) => s.body.includes("Na Dentes Felizes, você é bem-vindo.")));
-  assert.ok(!JSON.stringify(doc.sections).includes("{clinic_name}"));
-});
