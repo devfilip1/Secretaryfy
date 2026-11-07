@@ -12,6 +12,9 @@ import { createInboxRepository } from "../src/modules/inbox/repository.js";
 import { createInboxService } from "../src/modules/inbox/service.js";
 import { slotsForDay } from "../src/modules/scheduling/availability.js";
 import { createSchedulingFlow } from "../src/modules/scheduling/flow.js";
+import { ptCatalog, testCatalog } from "../src/test/catalog.js";
+import { createReplies } from "../src/modules/scheduling/replies.js";
+import { createClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter } from "../src/modules/scheduling/interpret.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../src/modules/scheduling/router.js";
@@ -47,13 +50,23 @@ delete process.env.DATABASE_URL_TEST;
 const tz = fixture.timeZone;
 const now = DateTime.fromISO(fixture.now).toJSDate();
 const local = (iso: string) => DateTime.fromISO(iso, { zone: tz }).toJSDate();
-const model = process.env.AGENT_MODEL ?? "llama3";
+const model = process.env.AGENT_MODEL ?? "qwen3:8b";
 const ollama = createOllamaClient({
   url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
   model,
   timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
 });
-const interpreter = createInterpreter({ ollama });
+// A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
+const clinic = createClinicContext({
+  name: process.env.CLINIC_NAME || "DentalSafe",
+  language: process.env.CLINIC_LANGUAGE === "pt" ? "pt" : "en",
+  assistantName: process.env.ASSISTANT_NAME,
+  kind: process.env.CLINIC_KIND || "dental clinic",
+});
+// A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
+const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
+const replies = createReplies({ language: clinic.language, clinic, catalog });
+const interpreter = createInterpreter({ ollama, clinic, catalog });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
 const rules = DEFAULT_RULES;
 
@@ -71,7 +84,11 @@ console.log(`Modelo: ${model} · ${scenarios.length} cenários · hoje: ${fixtur
 for (const scenario of scenarios) {
   const testDb = await createTestDb();
   const repo = createInboxRepository(testDb.db as never);
-  const inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() });
+  // O relógio do inbox acompanha a linha do tempo da conversa: a resposta do assistente vem depois da mensagem do cliente.
+  // Com um relógio fixo as respostas ficavam antes das perguntas no histórico, e o modelo recebia uma conversa de cabeça para baixo.
+  let offsetMs = -119_000; // a resposta ao citado (abaixo) vem 1 s depois da pergunta
+  let tick = 0;
+  const inbox = createInboxService({ repo, publish: () => {}, now: () => now.getTime() + offsetMs + tick++ });
   const store = createSchedulingStore(testDb.db as never);
   const fake = createFakeCalendar({ calendars: [{ id: "primary", name: "DentalSafe", timeZone: tz, primary: true }] });
   for (const [start, end] of scenario.busy ?? []) fake.block(local(start), local(end));
@@ -99,7 +116,7 @@ for (const scenario of scenarios) {
 
   const connection = { getForUse: async () => ({ refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" as const }) };
   const customers = createCustomerRepository(testDb.db as never);
-  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now });
+  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now, replies, catalog });
   const reply = createSchedulingRouter({
     interpreter,
     flow,
@@ -107,6 +124,7 @@ for (const scenario of scenarios) {
     inbox,
     connection,
     rules: { get: async () => rules },
+    replies,
     answerQuestion: async () => "[resposta do folheto]",
     now: () => now,
   });
@@ -118,6 +136,7 @@ for (const scenario of scenarios) {
     const eventsBefore = fake.calls.createEvent + fake.calls.moveEvent + fake.calls.deleteEvent;
 
     const message = { kind: "message" as const, id: `E${++seq}`, phone, pushName: name ?? undefined, fromMe: false, type: "text" as const, text, sentAt: new Date(now.getTime() + seq * 1000) };
+    offsetMs = seq * 1000 + 500; // a resposta do assistente vem meio segundo depois
     await inbox.recordIncoming(message);
     const started = performance.now();
     const answer = await reply({ conversationId: conversation.id, message }, silent);

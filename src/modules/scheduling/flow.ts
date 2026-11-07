@@ -5,11 +5,11 @@ import type { ConnectionStore } from "../google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../google/gateway.js";
 import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
-import { availableDays, bookingWindow, isSlotAvailable, slotsForDay } from "./availability.js";
+import { availableDays, bookingWindow, isSlotAvailable, naturalSlotsForDay, slotsForDay } from "./availability.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { Interpretation } from "./interpret.js";
-import { replies, systemNotes } from "./replies.js";
-import { ASSESSMENT, SERVICES } from "./services.js";
+import { systemNotes, type Replies } from "./replies.js";
+import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
 import type { SchedulingStore, SessionDraft } from "./sessions.js";
@@ -37,6 +37,10 @@ interface Deps {
   now?: () => Date;
   /** Antecedência do lembrete, para o status inicial e o de um horário remarcado (specs/006) */
   reminderLeadMinutes?: number;
+  /** Textos na língua da clínica (replies.ts, createReplies) */
+  replies: Replies;
+  /** Os tratamentos que o cliente pode marcar (catalog.ts): a lista da escolha */
+  catalog: ServiceCatalog;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
@@ -50,9 +54,11 @@ export function createSchedulingFlow({
   log = console,
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
+  replies,
+  catalog,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
-  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, log, now: clock, reminderLeadMinutes });
+  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, catalog, log, now: clock, reminderLeadMinutes });
   return {
     async handle({
       conversation,
@@ -80,6 +86,8 @@ export function createSchedulingFlow({
         inbox,
         booking,
         reminderLeadMinutes,
+        replies,
+        catalog,
         conversation,
         session,
         knownName,
@@ -109,6 +117,8 @@ class Run {
   private readonly inbox: Deps["inbox"];
   private readonly booking: Booking;
   private readonly reminderLeadMinutes: number;
+  private readonly replies: Replies;
+  private readonly catalog: ServiceCatalog;
   private readonly conversation: ConversationRow;
   private readonly session: SchedulingSessionRow | null;
   private readonly knownName: string | null;
@@ -116,6 +126,8 @@ class Run {
   private readonly tz: string;
   private readonly calendarId: string;
   private readonly rules: Rules;
+  /** Duração do atendimento em andamento: a do tratamento, ou a do horário que se está remarcando (ADR 0015) */
+  private minutes: number;
   private readonly window: ReturnType<typeof bookingWindow>;
   /** Fluxo, agendamento, nome e serviço que passam de uma etapa para a outra */
   private carry: Pick<SessionDraft, "flow" | "appointmentId" | "customerName" | "service">;
@@ -126,6 +138,8 @@ class Run {
     inbox: Deps["inbox"];
     booking: Booking;
     reminderLeadMinutes: number;
+    replies: Replies;
+    catalog: ServiceCatalog;
     conversation: ConversationRow;
     session: SchedulingSessionRow | null;
     knownName: string | null;
@@ -140,6 +154,8 @@ class Run {
     this.inbox = v.inbox;
     this.booking = v.booking;
     this.reminderLeadMinutes = v.reminderLeadMinutes;
+    this.replies = v.replies;
+    this.catalog = v.catalog;
     this.conversation = v.conversation;
     this.session = v.session;
     this.knownName = v.knownName;
@@ -147,6 +163,7 @@ class Run {
     this.tz = v.tz;
     this.calendarId = v.calendarId;
     this.rules = v.rules;
+    this.minutes = v.rules.slotMinutes;
     this.window = bookingWindow({ rules: v.rules, now: v.now, timeZone: v.tz });
     this.carry = {
       flow: v.session?.flow ?? "book",
@@ -158,35 +175,43 @@ class Run {
 
   async dispatch(i: Interpretation): Promise<FlowResult> {
     const s = this.session;
+    this.minutes = await this.lengthFor();
 
-    if (i.intent === "stop") return this.finish(replies.stopped());
+    if (i.intent === "stop") return this.finish(this.replies.stopped());
     if (i.tooFar && ["availability", "choose", "book"].includes(i.intent)) return this.tooFar();
 
     switch (i.intent) {
       case "book":
-        return this.startBook(i.date);
+        return this.startBook(i.date, i.time ?? null);
       case "availability":
-        return i.date ? this.offerDay(i.date) : this.offerDays();
+        return i.date ? this.offerDayOrTime(i.date, i.time ?? null) : this.offerDays();
       case "cancel":
         return this.startCancel();
       case "reschedule":
         return this.startReschedule();
       case "my_appointment": {
         const appt = await this.currentAppointment();
-        return { reply: appt ? replies.myAppointment(appt.startsAt, this.tz) : replies.noAppointment() };
+        return { reply: appt ? this.replies.myAppointment(appt.startsAt, this.tz) : this.replies.noAppointment() };
       }
     }
 
     switch (s?.step) {
       case "choose_day":
         if (i.intent === "choose" && i.option !== null) return this.offerDay(this.dayOption(i.option));
-        if (i.intent === "choose" && i.date) return this.offerDay(i.date);
+        if (i.intent === "choose" && i.date) return this.offerDayOrTime(i.date, i.time ?? null);
         if (i.intent === "more") return this.offerDays({ after: this.lastOfferedDay() });
         if (i.intent === "other_day") return this.offerDays();
         break;
       case "choose_slot":
-        if (i.intent === "choose" && i.option !== null) return this.selectSlot(this.slotOption(i.option));
-        if (i.intent === "choose" && i.date) return this.offerDay(i.date);
+        if (i.intent === "choose" && i.option !== null) {
+          const slot = this.slotOption(i.option);
+          // O modelo às vezes escolhe a opção mais próxima do horário citado: o horário citado manda
+          if (i.time && DateTime.fromJSDate(slot, { zone: this.tz }).toFormat("HH:mm") !== i.time) return this.askedTime(this.isoDate(slot), i.time);
+          return this.selectSlot(slot);
+        }
+        // Um horário citado se confere na grade inteira, no dia da tela ou no dia que o cliente nomeou
+        if (i.intent === "choose" && i.time) return this.askedTime(i.date ?? this.isoDate(this.optionSlots(s.options)[0]), i.time);
+        if (i.intent === "choose" && i.date) return this.sameDayAsOptions(i.date) ? this.timeNotOffered() : this.offerDay(i.date);
         if (i.intent === "more") return this.moreSlots();
         if (i.intent === "other_day") return this.offerDays();
         break;
@@ -234,13 +259,13 @@ class Run {
   private async misunderstood(): Promise<FlowResult> {
     const s = this.session;
     // Sem etapa em andamento não há pergunta a repetir nem contador
-    if (!s) return { reply: replies.unclear("How can I help you?") };
+    if (!s) return { reply: this.replies.unclear(this.replies.howCanIHelp()) };
     const count = s.misunderstoodCount + 1;
     if (count >= MAX_MISUNDERSTOOD) {
       await this.store.clearSession(this.conversation.id);
       await this.inbox.flagNeedsAttention(this.conversation.id);
       await this.inbox.recordSystem(this.conversation.id, systemNotes.handoff());
-      return { reply: replies.handoff(), handoff: true };
+      return { reply: this.replies.handoff(), handoff: true };
     }
     await this.store.saveSession(
       {
@@ -256,24 +281,24 @@ class Run {
       },
       this.now,
     );
-    return { reply: replies.unclear(this.repeatPrompt(s)) };
+    return { reply: this.replies.unclear(this.repeatPrompt(s)) };
   }
 
   /** A pergunta da etapa, repetida depois de um "não entendi". */
   private repeatPrompt(s: SchedulingSessionRow): string {
     switch (s.step) {
       case "choose_day":
-        return replies.offerDays(this.optionDays(s.options), this.tz, "These days have openings:");
+        return this.replies.offerDays(this.optionDays(s.options), this.tz, this.replies.daysIntro());
       case "choose_slot": {
         const slots = this.optionSlots(s.options);
-        return replies.offerSlots(this.isoDate(slots[0]), slots, this.tz, false);
+        return this.replies.offerSlots(this.isoDate(slots[0]), slots, this.tz, false);
       }
       case "ask_name":
-        return replies.askName();
+        return this.replies.askName();
       case "choose_service":
-        return replies.chooseService();
+        return this.replies.chooseService();
       default:
-        return "Please reply YES or NO.";
+        return this.replies.yesOrNo();
     }
   }
 
@@ -306,7 +331,15 @@ class Run {
   // --- Oferta de dias e horários ---
 
   private ctx(busy: { start: Date; end: Date }[]) {
-    return { rules: this.rules, busy, now: this.now, timeZone: this.tz };
+    return { rules: this.rules, busy, now: this.now, timeZone: this.tz, minutes: this.minutes };
+  }
+
+  /** O tempo do atendimento: o do horário que se remarca, senão o do tratamento, senão o padrão das regras. */
+  private async lengthFor(): Promise<number> {
+    const id = this.session?.flow === "reschedule" ? this.session.appointmentId : null;
+    const appt = id ? await this.store.findAppointment(id) : null;
+    if (appt) return Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / 60_000);
+    return this.catalog.minutes(this.carry.service ?? ASSESSMENT) ?? this.rules.slotMinutes;
   }
 
   /** Dias com vaga em toda a janela, numa consulta só à agenda. */
@@ -315,10 +348,18 @@ class Run {
     return availableDays({ ...this.ctx(busy), after });
   }
 
+  /** Todos os inícios livres do dia, na grade: servem para conferir o horário que o cliente pediu. */
   private async slotsOn(date: string): Promise<Date[]> {
     const start = DateTime.fromISO(date, { zone: this.tz });
     const busy = await this.calendar.busy(start.toJSDate(), start.plus({ days: 1 }).toJSDate());
     return slotsForDay(date, this.ctx(busy));
+  }
+
+  /** Os horários que se oferecem ao cliente: só os naturais, sem buracos (ADR 0015). */
+  private async offerableOn(date: string): Promise<Date[]> {
+    const start = DateTime.fromISO(date, { zone: this.tz });
+    const busy = await this.calendar.busy(start.toJSDate(), start.plus({ days: 1 }).toJSDate());
+    return naturalSlotsForDay(date, this.ctx(busy));
   }
 
   private async saveDays(days: string[]) {
@@ -327,20 +368,24 @@ class Run {
 
   private async offerDays({ after }: { after?: string } = {}): Promise<FlowResult> {
     const days = (await this.daysWithOpenings(after)).slice(0, PAGE);
-    if (days.length === 0) return this.finish(replies.noOpenings());
+    if (days.length === 0) return this.finish(this.replies.noOpenings());
     await this.saveDays(days);
-    return { reply: replies.offerDays(days, this.tz) };
+    return { reply: this.replies.offerDays(days, this.tz) };
   }
 
   /** Horários de um dia; sem vaga, os dias livres mais próximos (US2, cenário 3). */
   private async offerDay(date: string): Promise<FlowResult> {
     if (date > this.window.lastDate) return this.tooFar();
-    const slots = await this.slotsOn(date);
+    const slots = await this.offerableOn(date);
     if (slots.length === 0) {
       const closest = await this.closestDays(date);
-      if (closest.length === 0) return this.finish(replies.noOpenings());
+      if (closest.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(closest);
-      return { reply: replies.dayFull(date, closest, this.tz) };
+      // Dia sem atendimento nas regras semanais: avisa que está fechado, em vez de "sem horários"
+      const isClosed = (weekday: number) => !this.rules.weeklyHours[String(weekday) as keyof Rules["weeklyHours"]];
+      if (!isClosed(DateTime.fromISO(date, { zone: this.tz }).weekday)) return { reply: this.replies.dayFull(date, closest, this.tz) };
+      const closedWeekdays = [1, 2, 3, 4, 5, 6, 7].filter(isClosed);
+      return { reply: this.replies.closedDay(closedWeekdays, closest, this.tz) };
     }
     return this.offerSlots(date, slots);
   }
@@ -350,19 +395,30 @@ class Run {
     const page = slots.slice(0, PAGE);
     await this.save({ step: "choose_slot", options: page.map((s, i) => ({ n: i + 1, kind: "slot" as const, start: s.toISOString() })) });
     const reply =
-      kind === "taken" ? replies.slotTaken(date, page, this.tz) : replies.offerSlots(date, page, this.tz, slots.length > PAGE);
+      kind === "taken" ? this.replies.slotTaken(date, page, this.tz) : this.replies.offerSlots(date, page, this.tz, slots.length > PAGE);
     return { reply };
+  }
+
+  /** O cliente nomeou o dia que já está na tela: o que ele quer é um horário, e ele não está entre as opções. */
+  private sameDayAsOptions(date: string): boolean {
+    const slots = this.optionSlots(this.session!.options);
+    return slots.length > 0 && this.isoDate(slots[0]) === date;
+  }
+
+  private async timeNotOffered(): Promise<FlowResult> {
+    const slots = this.optionSlots(this.session!.options);
+    return { reply: this.replies.slotNotOffered(this.isoDate(slots[0]), slots, this.tz) };
   }
 
   private async moreSlots(): Promise<FlowResult> {
     const last = this.optionSlots(this.session!.options).at(-1)!;
     const date = this.isoDate(last);
-    const rest = (await this.slotsOn(date)).filter((s) => s > last);
+    const rest = (await this.offerableOn(date)).filter((s) => s > last);
     if (rest.length === 0) {
       const days = (await this.daysWithOpenings(date)).slice(0, PAGE);
-      if (days.length === 0) return this.finish(replies.noOpenings());
+      if (days.length === 0) return this.finish(this.replies.noOpenings());
       await this.saveDays(days);
-      return { reply: replies.offerDays(days, this.tz, "There are no more openings that day. Other days with openings:") };
+      return { reply: this.replies.offerDays(days, this.tz, this.replies.noMoreOpeningsToday()) };
     }
     return this.offerSlots(date, rest);
   }
@@ -378,37 +434,68 @@ class Run {
 
   private async tooFar(): Promise<FlowResult> {
     const days = (await this.daysWithOpenings()).slice(0, PAGE);
-    if (days.length === 0) return this.finish(replies.noOpenings());
+    if (days.length === 0) return this.finish(this.replies.noOpenings());
     await this.saveDays(days);
-    return { reply: replies.tooFar(this.rules.maxDaysAhead, this.window.lastDate, days, this.tz) };
+    return { reply: this.replies.tooFar(this.rules.maxDaysAhead, this.window.lastDate, days, this.tz) };
   }
 
   // --- Marcar ---
 
-  private async startBook(date: string | null): Promise<FlowResult> {
+  private async startBook(date: string | null, time: string | null): Promise<FlowResult> {
     const existing = await this.currentAppointment();
     if (existing) return this.offerReschedule(existing);
-    this.carry = { flow: "book", appointmentId: null, customerName: this.carry.customerName };
+    this.carry = { flow: "book", appointmentId: null, customerName: this.carry.customerName, service: this.carry.service };
+    // O tempo do atendimento decide quais inícios estão livres: o tratamento vem antes dos dias (ADR 0015)
+    if (!this.carry.service) return this.askService();
+    this.minutes = await this.lengthFor();
+    if (date && time) return this.askedTime(date, time);
     return date ? this.offerDay(date) : this.offerDays();
+  }
+
+  private async askService(): Promise<FlowResult> {
+    const options = this.catalog.list().map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
+    await this.save({ step: "choose_service", options });
+    return { reply: this.replies.chooseService(this.knownName) };
+  }
+
+  /** Dia com horário citado: confere o horário; sem horário, oferece os do dia. */
+  private offerDayOrTime(date: string, time: string | null): Promise<FlowResult> {
+    return time ? this.askedTime(date, time) : this.offerDay(date);
+  }
+
+  /** O cliente citou um horário: livre na grade, vale; ocupado ou fora da grade, avisa e oferece os mais próximos do dia. */
+  private async askedTime(date: string, time: string): Promise<FlowResult> {
+    if (date > this.window.lastDate) return this.tooFar();
+    const slots = await this.slotsOn(date);
+    if (slots.length === 0) return this.offerDay(date);
+    const wanted = DateTime.fromISO(`${date}T${time}`, { zone: this.tz }).toMillis();
+    const exact = slots.find((s) => s.getTime() === wanted);
+    if (exact) return this.selectSlot(exact);
+    const nearest = [...slots]
+      .sort((a, b) => Math.abs(a.getTime() - wanted) - Math.abs(b.getTime() - wanted))
+      .slice(0, 3)
+      .sort((a, b) => a.getTime() - b.getTime());
+    await this.save({ step: "choose_slot", options: nearest.map((s, i) => ({ n: i + 1, kind: "slot" as const, start: s.toISOString() })) });
+    return { reply: this.replies.slotNotOffered(date, nearest, this.tz) };
   }
 
   private async offerReschedule(appt: AppointmentRow): Promise<FlowResult> {
     this.carry = { ...this.carry, flow: "book", appointmentId: appt.id };
     await this.save({ step: "offer_reschedule" });
-    return { reply: replies.alreadyBooked(appt.startsAt, this.tz) };
+    return { reply: this.replies.alreadyBooked(appt.startsAt, this.tz) };
   }
 
   private async selectSlot(start: Date): Promise<FlowResult> {
     if (this.session?.flow === "reschedule") {
       const appt = this.session.appointmentId ? await this.store.findAppointment(this.session.appointmentId) : null;
-      if (!appt) return this.finish(replies.noAppointment());
+      if (!appt) return this.finish(this.replies.noAppointment());
       await this.save({ step: "confirm_reschedule", selectedStart: start });
-      return { reply: replies.confirmReschedule(appt.startsAt, start, this.tz) };
+      return { reply: this.replies.confirmReschedule(appt.startsAt, start, this.tz) };
     }
     const name = this.session?.customerName ?? this.knownName;
     if (!name) {
       await this.save({ step: "ask_name", selectedStart: start });
-      return { reply: replies.askName() };
+      return { reply: this.replies.askName() };
     }
     return this.toSummary(start, name);
   }
@@ -422,20 +509,27 @@ class Run {
   /** Com nome e horário: pergunta o serviço se ele ainda não veio da conversa, senão mostra o resumo (FR-011). */
   private async toSummary(start: Date, name: string): Promise<FlowResult> {
     if (this.carry.service) return this.confirmBooking(start, name);
-    const options = SERVICES.map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
+    const options = this.catalog.list().map((s, i) => ({ n: i + 1, kind: "service" as const, service: s.name }));
     await this.save({ step: "choose_service", options, selectedStart: start, customerName: name });
-    return { reply: replies.chooseService() };
+    return { reply: this.replies.chooseService(name) };
   }
 
   private async serviceChosen(service: string): Promise<FlowResult> {
     const s = this.session!;
     this.carry = { ...this.carry, service };
+    this.minutes = this.catalog.minutes(service) ?? this.rules.slotMinutes;
+    // Perguntado antes dos dias: agora há como oferecê-los
+    if (!s.selectedStart) return this.offerDays();
+    // Trocado no resumo: o tempo novo precisa caber no horário escolhido
+    const end = new Date(s.selectedStart.getTime() + this.minutes * 60_000);
+    const busy = await this.calendar.busy(s.selectedStart, end);
+    if (!isSlotAvailable(s.selectedStart, this.ctx(busy))) return this.slotTaken(s.selectedStart);
     return this.confirmBooking(s.selectedStart!, s.customerName ?? this.knownName ?? "Cliente");
   }
 
   private async confirmBooking(start: Date, name: string): Promise<FlowResult> {
     await this.save({ step: "confirm_booking", selectedStart: start, customerName: name });
-    return { reply: replies.confirmBooking(start, this.rules.slotMinutes, name, this.carry.service!, this.tz) };
+    return { reply: this.replies.confirmBooking(start, this.minutes, name, this.carry.service!, this.tz) };
   }
 
   /**
@@ -466,14 +560,14 @@ class Run {
         throw new CalendarUnavailable("agenda desconectada durante a marcação");
       case "booked":
         await this.store.clearSession(this.conversation.id);
-        return { reply: replies.booked(start, this.tz) };
+        return { reply: this.replies.booked(start, this.tz, s.customerName ?? this.knownName) };
     }
   }
 
   /** O horário foi tomado entre a oferta e o "sim": novas opções no mesmo dia, ou os dias mais próximos. */
   private async slotTaken(start: Date): Promise<FlowResult> {
     const date = this.isoDate(start);
-    const slots = await this.slotsOn(date);
+    const slots = await this.offerableOn(date);
     if (slots.length > 0) return this.offerSlots(date, slots, "taken");
     return this.offerDay(date);
   }
@@ -505,29 +599,29 @@ class Run {
 
   private async keep(): Promise<FlowResult> {
     const appt = await this.refreshSessionAppointment();
-    return this.finish(appt ? replies.keptAppointment(appt.startsAt, this.tz) : replies.stopped());
+    return this.finish(appt ? this.replies.keptAppointment(appt.startsAt, this.tz) : this.replies.stopped());
   }
 
   // --- Cancelar (FR-026, FR-027) ---
 
   private async startCancel(): Promise<FlowResult> {
     const appt = await this.currentAppointment();
-    if (!appt) return this.finish(replies.noAppointment());
-    if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+    if (!appt) return this.finish(this.replies.noAppointment());
+    if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
     this.carry = { ...this.carry, flow: "cancel", appointmentId: appt.id };
     await this.save({ step: "confirm_cancel" });
-    return { reply: replies.confirmCancel(appt.startsAt, this.tz) };
+    return { reply: this.replies.confirmCancel(appt.startsAt, this.tz) };
   }
 
   private cancel(): Promise<FlowResult> {
     return withCalendarLock(async () => {
       const appt = await this.refreshSessionAppointment();
-      if (!appt) return this.finish(replies.noAppointment());
-      if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+      if (!appt) return this.finish(this.replies.noAppointment());
+      if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
       await this.calendar.deleteEvent(appt.googleEventId);
       await this.store.markCancelled(appt.id, "customer");
       await this.inbox.recordSystem(this.conversation.id, systemNotes.cancelledByCustomer(appt.startsAt, this.tz));
-      return this.finish(replies.cancelled(appt.startsAt, this.tz));
+      return this.finish(this.replies.cancelled(appt.startsAt, this.tz));
     });
   }
 
@@ -535,20 +629,20 @@ class Run {
 
   private async startReschedule(): Promise<FlowResult> {
     const appt = this.session?.step === "offer_reschedule" ? await this.refreshSessionAppointment() : await this.currentAppointment();
-    if (!appt) return this.finish(replies.noAppointment());
-    if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+    if (!appt) return this.finish(this.replies.noAppointment());
+    if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
     this.carry = { ...this.carry, flow: "reschedule", appointmentId: appt.id };
     return this.offerDays();
   }
 
   private move(): Promise<FlowResult> {
     const start = this.session!.selectedStart!;
-    const end = new Date(start.getTime() + this.rules.slotMinutes * 60_000);
+    const end = new Date(start.getTime() + this.minutes * 60_000);
 
     return withCalendarLock(async () => {
       const appt = await this.refreshSessionAppointment();
-      if (!appt) return this.finish(replies.noAppointment());
-      if (this.tooLate(appt)) return this.finish(replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+      if (!appt) return this.finish(this.replies.noAppointment());
+      if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
 
       // O próprio horário atual não conta como ocupado
       const busy = (await this.calendar.busy(start, end)).filter(
@@ -562,7 +656,7 @@ class Run {
         return this.slotTaken(start);
       }
       await this.inbox.recordSystem(this.conversation.id, systemNotes.rescheduled(appt.startsAt, start, this.tz));
-      return this.finish(replies.rescheduled(start, this.tz));
+      return this.finish(this.replies.rescheduled(start, this.tz));
     });
   }
 }

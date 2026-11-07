@@ -24,7 +24,16 @@
         "match_count": { "type": "integer", "minimum": 1, "maximum": 20 },
         "match_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
         "use_hyde": { "type": "boolean" },
-        "prompt": { "enum": ["rules", "original"] }
+        "prompt": { "enum": ["rules", "original"] },
+        "lexical": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stopwords": { "enum": ["profile", "none", "stopwordsiso"] },
+            "stemmer": { "enum": ["plural", "none", "snowball"] },
+            "synonyms": { "enum": ["profile", "none", "generic"] }
+          }
+        }
       }
     }
   }

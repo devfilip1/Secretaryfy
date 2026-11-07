@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { testCatalog } from "../../test/catalog.js";
+import { createReplies, type Replies } from "./replies.js";
+
+const tz = "America/Bahia";
+const start = new Date("2026-10-21T13:00:00Z");
+const other = new Date("2026-10-23T17:00:00Z");
+const slots = [new Date("2026-10-21T12:00:00Z"), new Date("2026-10-21T13:00:00Z")];
+
+/** Uma chamada de cada método de Replies, com argumentos válidos. */
+function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
+  return {
+    offerDays: () => r.offerDays(["2026-10-21", "2026-10-22"], tz),
+    offerSlots: () => r.offerSlots("2026-10-21", slots, tz, true),
+    dayFull: () => r.dayFull("2026-10-21", ["2026-10-22"], tz),
+    tooFar: () => r.tooFar(60, "2026-12-20", ["2026-10-22"], tz),
+    noOpenings: () => r.noOpenings(),
+    askName: () => r.askName(),
+    chooseService: () => r.chooseService(),
+    confirmBooking: () => r.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz),
+    booked: () => r.booked(start, tz),
+    slotTaken: () => r.slotTaken("2026-10-21", slots, tz),
+    alreadyBooked: () => r.alreadyBooked(start, tz),
+    myAppointment: () => r.myAppointment(start, tz),
+    noAppointment: () => r.noAppointment(),
+    confirmCancel: () => r.confirmCancel(start, tz),
+    cancelled: () => r.cancelled(start, tz),
+    keptAppointment: () => r.keptAppointment(start, tz),
+    confirmReschedule: () => r.confirmReschedule(start, other, tz),
+    rescheduled: () => r.rescheduled(other, tz),
+    tooLateToChange: () => r.tooLateToChange(1440),
+    stopped: () => r.stopped(),
+    askNameFollowUp: () => r.askNameFollowUp(() => 0),
+    nameReceived: () => r.nameReceived("Maria", () => 0),
+    goodbye: () => r.goodbye(() => 0),
+    unclear: () => r.unclear("Como posso ajudar?"),
+    handoff: () => r.handoff(),
+    calendarUnavailable: () => r.calendarUnavailable(),
+    interpreterUnavailable: () => r.interpreterUnavailable(),
+    reminder: () => r.reminder(start, "Dental Cleaning", "Maria", tz),
+    reminderConfirmed: () => r.reminderConfirmed(start, "Maria", tz),
+    daysIntro: () => r.daysIntro(),
+    noMoreOpeningsToday: () => r.noMoreOpeningsToday(),
+    yesOrNo: () => r.yesOrNo(),
+    howCanIHelp: () => r.howCanIHelp(),
+  };
+}
+
+const pt = createReplies({ language: "pt", clinic: { name: "Clínica Sorriso" }, catalog: testCatalog });
+
+test("todo método de Replies devolve texto não vazio em português", () => {
+  for (const [name, call] of Object.entries(everyCall(pt))) {
+    const out = call();
+    const texts = Array.isArray(out) ? out : [out];
+    assert.ok(texts.length > 0, name);
+    for (const text of texts) assert.ok(text.trim().length > 0, name);
+  }
+});
+
+test("texto em pt usa a linguagem da clínica, sem o nome padrão quando a clínica tem outro", () => {
+  for (const [name, call] of Object.entries(everyCall(pt))) {
+    const out = call();
+    const texts = Array.isArray(out) ? out : [out];
+    for (const text of texts) assert.doesNotMatch(text, /DentalSafe/, name);
+  }
+  assert.equal(pt.booked(start, tz), "Tudo certo, seu horário está marcado! 📅 quarta-feira, 21 de outubro às 10:00. Até lá, na Clínica Sorriso.");
+});
+
+test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horário", () => {
+  const days = pt.offerDays(["2026-10-21", "2026-10-22"], tz);
+  assert.match(days, /\n• quarta-feira, 21 de outubro\n• quinta-feira, 22 de outubro\n/);
+  const times = pt.offerSlots("2026-10-21", slots, tz, false);
+  assert.match(times, /\n• 09:00\n• 10:00\n/);
+  assert.match(pt.chooseService(), /\n• Dental Cleaning\n/);
+  assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
+});
+
+test("confirmação e lembrete pedem confirmação", () => {
+  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /Posso confirmar\?/);
+  assert.match(pt.confirmBooking(start, 60, "Maria", "Dental Cleaning", tz), /🦷 Dental Cleaning/);
+  for (const text of pt.reminder(start, "Dental Cleaning", "Maria", tz)) assert.match(text, /confirma/i);
+});
+
+test("clínica em inglês continua com o nome configurado", () => {
+  const en = createReplies({ language: "en", clinic: { name: "Smile Clinic" }, catalog: testCatalog });
+  assert.equal(en.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at Smile Clinic.");
+});
+
+test("horas de antecedência em pt", () => {
+  assert.match(pt.tooLateToChange(1440), /menos de 24 horas/);
+  assert.match(pt.tooLateToChange(60), /menos de 1 hora/);
+  assert.match(pt.tooLateToChange(90), /menos de 90 minutos/);
+});
+
+test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
+  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  assert.ok(r.offerSlots("2026-10-21", slots, tz, false).startsWith("Na quarta-feira, 21 de outubro, tenho estes horários:\n• 09:00\n• 10:00\n"));
+  assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
+  assert.match(r.closedDay([6, 7], ["2026-10-26"], tz), /^Não atendemos sábado e domingo\./);
+  assert.match(r.closedDay([1, 3, 7], ["2026-10-27"], tz), /^Não atendemos segunda, quarta e domingo\./);
+});
+
+test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
+  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  assert.match(r.booked(start, tz, "Paulo Lima"), /^Tudo certo, Paulo, seu horário está marcado!/);
+  assert.match(r.booked(start, tz), /^Tudo certo, seu horário está marcado!/);
+  assert.match(r.chooseService("Paulo Lima"), /^Paulo, para qual serviço é este agendamento\?/);
+  assert.match(r.goodbye(() => 0, "Paulo Lima"), /^De nada, Paulo!/);
+});
+
+test("nameReceived usa só o primeiro nome", () => {
+  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  assert.match(r.nameReceived("Carla Souza", () => 0), /^Prazer, Carla! /);
+});
+
+test("a saudação segue o período do dia, e de madrugada ainda é noite", () => {
+  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  assert.deepEqual([1, 8, 14, 20].map((h) => r.greeting(h).split("!")[0]), ["Boa noite", "Bom dia", "Boa tarde", "Boa noite"]);
+});

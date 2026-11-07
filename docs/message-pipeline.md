@@ -12,7 +12,7 @@ Everything Secretaryfy does for a patient starts with a WhatsApp message and end
 | 4. Handle | Opt-out/opt-in, paused conversation, then ask for a reply | [handle-message.ts](../src/modules/whatsapp/handle-message.ts) |
 | 5. Route | Known name, reminder answer, interpret, then scheduling or brochure | [router.ts](../src/modules/scheduling/router.ts) |
 | 6a. Interpret | Rules first; the model only when rules can't decide | [interpret.ts](../src/modules/scheduling/interpret.ts), [ollama.ts](../src/modules/scheduling/ollama.ts) |
-| 6b. Scheduling | State machine decides the next step and writes the reply | [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
+| 6b. Scheduling | State machine decides the next step and writes the reply (optionally reworded by the humanizer, see below) | [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
 | 6c. Brochure | RAG service answers from the clinic's PDF | [rag/client.ts](../src/modules/rag/client.ts), [rag/server.py](../rag/server.py) |
 | 7. Gate | Anti-ban rules, read receipt, typing, queue, send | [gate.ts](../src/modules/antiban/gate.ts) |
 
@@ -40,7 +40,7 @@ sequenceDiagram
   H->>O: interpret (only if rules can't)
   O-->>H: {"intent":"book","date":"2026-10-27",…}
   H->>F: flow.handle(interpretation, session)
-  F-->>H: reply text (numbered times for Tuesday)
+  F-->>H: reply text (times for Tuesday)
   H->>G: sendAssistant(reply)
   G->>G: rules: opted_out, paused, outside_window, daily, loop, unanswered, duplicate
   G->>E: mark as read (after 2–8 s), then send with "typing…"
@@ -80,10 +80,10 @@ Then it interprets the message and decides:
 - Reminder answer → `yes` confirms the appointment and replies; `no` becomes `book`, which offers a reschedule.
 - A name given → saved on the conversation.
 - During a session, anything but a `question` goes to the flow. Without a session, only `book`, `availability`, `cancel`, `reschedule` and `my_appointment` start one. Everything else goes to the brochure, which adds the one-time name request to unknown patients.
-- The service for a new booking is the last treatment mentioned in the patient's messages.
+- The service for a new booking is the treatment the model reads in the conversation (the last one mentioned), picked from the clinic's bookable treatments plus the assessment. When the main interpretation gives none, one extra focused model call (`mentionedService`) answers only "which treatment is this conversation about"; it must quote the customer's own words and the code checks that the quote is in the customer's messages, otherwise the answer is ignored and the assistant asks for the service ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)).
 
 ### 6a. Interpret
-The interpreter tries deterministic rules first: option numbers, yes/no words, "more", "other day", simple dates ("tuesday", "27th", "10/27"), times, closings ("thanks, bye"), names ("my name is…", or a bare name when `awaitingName`), service numbers and words, reminder answers. Only when no rule applies does it call Ollama's `/api/chat` with `temperature: 0`, the step, the offered options, the history and a JSON Schema for the output, and validate the result with zod. `source: "rule" | "model"` is logged with the latency. Ollama failing or timing out (20 s) raises `InterpreterUnavailable` ([BR-CNV-07](business-rules.md#br-cnv-07--when-the-assistant-is-down-the-patient-is-told-once)).
+The interpreter tries deterministic rules first: option numbers, yes/no words, "more", "other day", simple dates ("tuesday", "27th", "10/27"), times, closings ("thanks, bye"), names ("my name is…"; a bare name is left to the model, and the code keeps it only if it is written in the message), service numbers, reminder answers. Only when no rule applies does it call Ollama's `/api/chat` with `temperature: 0`, the step, the offered options, the history and a JSON Schema for the output (the service is an enum of the catalog labels), and validate the result with zod. `source: "rule" | "model"` is logged with the latency. Ollama failing or timing out (20 s) raises `InterpreterUnavailable` ([BR-CNV-07](business-rules.md#br-cnv-07--when-the-assistant-is-down-the-patient-is-told-once)).
 
 This split is why a small 8B model is enough: most turns never reach it, and when it runs it only has to label the message, not decide anything ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
 
@@ -113,7 +113,7 @@ stateDiagram-v2
 Each step's options are stored in `scheduling_sessions`, so "2" means the second option actually shown. Free times come from [availability.ts](../src/modules/scheduling/availability.ts) and Google's free/busy. Writes to the calendar go through the lock and the booking engine ([architecture](architecture.md#main-flows)). Every reply text comes from [replies.ts](../src/modules/scheduling/replies.ts), never from the model. Results are logged in the conversation as system notes (📅).
 
 ### 6c. Brochure (RAG)
-[rag/client.ts](../src/modules/rag/client.ts) posts `{question, history}` (last 6 turns) to the Python service, with a 30 s timeout. The service ([rag/server.py](../rag/server.py), [retrieval/pipeline.py](../rag/assistant/retrieval/pipeline.py)) rewrites a follow-up into a standalone question, searches the brochure with the `section_hybrid` experiment (vector search + BM25 merged by reciprocal rank fusion over section-sized chunks), and asks `llama3` to answer only from those chunks, or with the fixed "I don't have that information right now." It refuses to start with an outdated index. Details: [rag/README.md](../rag/README.md).
+[rag/client.ts](../src/modules/rag/client.ts) posts `{question, history}` (last 6 turns) to the Python service, with a 30 s timeout. The service ([rag/server.py](../rag/server.py), [retrieval/pipeline.py](../rag/assistant/retrieval/pipeline.py)) rewrites a follow-up into a standalone question, searches the brochure with the `section_hybrid` experiment (vector search + BM25 merged by reciprocal rank fusion over section-sized chunks), and asks `qwen3:8b` to answer only from those chunks, or with the fixed "I don't have that information right now." It refuses to start with an outdated index. Details: [rag/README.md](../rag/README.md).
 
 ### 7. Gate
 `gate.sendAssistant` is the only way an assistant message reaches WhatsApp ([ADR 0003](decisions/0003-single-send-gate.md)):
@@ -147,6 +147,12 @@ The Evolution API then echoes the sent message back through the webhook; the uni
 - `npx tsx --env-file=.env scripts/eval-scheduling.ts`: 23 scripted booking conversations against the **real** local model and a fake calendar; reports per-criterion results and latency (last run: 23/23).
 - `npx tsx --env-file=.env scripts/simulate-customer.ts "I'd like to book an appointment"`: posts a message to the webhook as if it came from your own number; the reply arrives in your WhatsApp "You" chat.
 - Manual end-to-end scripts: [specs/003 quickstart](../specs/003-google-calendar-scheduling/quickstart.md), [specs/004 quickstart](../specs/004-whatsapp-anti-ban/quickstart.md), [specs/006 quickstart](../specs/006-panel-appointments-reminders/quickstart.md).
+
+### Humanizer (HUMANIZE_REPLIES, on by default)
+
+The interpreter model returns a weekday as an English name (`weekday`) instead of a date, in any form the customer wrote ("sábados", "sab"), and the code does the calendar arithmetic; it also classifies `greeting` and `who_are_you`. `scripts/eval-interpret.ts` measures this with the real model.
+
+Only the text of a scheduling flow reply (not brochure answers, handoffs, reminders or the interpreter-unavailable text) can pass through [humanize.ts](../src/modules/scheduling/humanize.ts). The model rewords it as a warm message, and `guardRewrite` accepts the rewrite only if every numbered or bullet line, 📅 👤 🦷 line, number, time, quoted word and YES/NO/SIM/NÃO of the original survives unchanged, with no new numbers, no markdown and no growth beyond about 1.6x. Any refusal, error or timeout sends the fixed text.
 
 ## See also
 

@@ -1,6 +1,7 @@
 """Answer key of questions: loading, validation, and subsets."""
 import hashlib
 import json
+import os
 from collections import Counter
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -8,10 +9,10 @@ from pathlib import Path
 
 import jsonschema
 
-from evaluation.normalize import FACT_UNITS, extract_values, normalize_text
+from evaluation.normalize import FACT_UNITS, extract_values, locale_for, normalize_text
 
 PACKAGE_DIR = Path(__file__).parent
-ANSWER_KEY_PATH = PACKAGE_DIR / "data" / "answer_key.json"
+ANSWER_KEY_PATH = Path(os.getenv("ANSWER_KEY_PATH") or PACKAGE_DIR / "data" / "answer_key.json")
 SCHEMA_PATH = PACKAGE_DIR / "schemas" / "answer_key.schema.json"
 
 MIN_ITEMS = 60
@@ -61,12 +62,14 @@ class Item:
     evidence: tuple = ()
     variant_of: str | None = None
     notes: str | None = None
+    expected_language: str | None = None
 
 
 @dataclass(frozen=True)
 class AnswerKey:
     version: str
     hash: str
+    language: str = "en"  # how money, durations and clock times are written, and what a refusal sounds like
     procedures: dict = field(default_factory=dict)  # name -> list of anchors
     items: tuple = ()
 
@@ -108,11 +111,14 @@ def parse_answer_key(data, file_hash=""):
             evidence=tuple(raw.get("evidence", ())),
             variant_of=raw.get("variant_of"),
             notes=raw.get("notes"),
+            expected_language=raw.get("expected_language"),
         )
         for raw in data["items"]
     )
     procedures = {name: list(value["anchors"]) for name, value in data["procedures"].items()}
-    return AnswerKey(version=data["version"], hash=file_hash, procedures=procedures, items=items)
+    return AnswerKey(
+        version=data["version"], hash=file_hash, language=data.get("language", "en"), procedures=procedures, items=items
+    )
 
 
 def load_answer_key(path=ANSWER_KEY_PATH):
@@ -122,10 +128,13 @@ def load_answer_key(path=ANSWER_KEY_PATH):
 
 @lru_cache(maxsize=1)
 def load_source_text():
-    """Full text of the clinic brochure, page by page."""
-    from pypdf import PdfReader
-
+    """Full text of the clinic knowledge as it is written in its file: a PDF page by page, or a Markdown file."""
     from assistant.config import SOURCE_PDF
+
+    if SOURCE_PDF.suffix.lower() != ".pdf":
+        return SOURCE_PDF.read_text(encoding="utf-8")
+
+    from pypdf import PdfReader
 
     return "\n".join(page.extract_text() for page in PdfReader(SOURCE_PDF).pages)
 
@@ -134,6 +143,7 @@ def validate(answer_key, source_text, check_coverage=True):
     """Applies the validation rules of the answer key. Returns the list of problems."""
     problems = []
     source = normalize_text(source_text)
+    locale = locale_for(answer_key.language)
     by_id = answer_key.by_id()
 
     for item_id, count in Counter(item.id for item in answer_key.items).items():
@@ -156,7 +166,7 @@ def validate(answer_key, source_text, check_coverage=True):
                     f"{item.id}: the evidence \"{evidence}\" appears {occurrences} times in the brochure (must be 1)"
                 )
 
-        evidence_values = {v.key for evidence in item.evidence for v in extract_values(evidence)}
+        evidence_values = {v.key for evidence in item.evidence for v in extract_values(evidence, locale)}
         for fact in item.expected_facts:
             for target in fact.targets():
                 if target not in evidence_values:

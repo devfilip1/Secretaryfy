@@ -1,12 +1,13 @@
 import type { AppointmentRow } from "../../db/schema.js";
 import type { Gate } from "../antiban/gate.js";
+import type { BlockReason } from "../antiban/queue.js";
 import type { ConnectionStore } from "../google/connection.js";
 import { FALLBACK_TIME_ZONE, type CalendarGateway } from "../google/gateway.js";
 import type { InboxRepository } from "../inbox/repository.js";
 import type { InboxService } from "../inbox/service.js";
 import { syncAppointment } from "../scheduling/booking.js";
-import { reminderReasonText, replies, systemNotes } from "../scheduling/replies.js";
-import { ASSESSMENT } from "../scheduling/services.js";
+import { reminderReasonText, systemNotes, type Replies } from "../scheduling/replies.js";
+import { ASSESSMENT } from "../scheduling/catalog.js";
 import type { SchedulingStore } from "../scheduling/sessions.js";
 
 const MINUTE = 60_000;
@@ -28,6 +29,10 @@ interface Deps {
   /** Depois disso (minutos antes do horário) o lembrete não sai mais (padrão 2 h) */
   cutoffMinutes: number;
   tickMs: number;
+  /** Textos na língua da clínica (replies.ts, createReplies) */
+  replies: Replies;
+  /** O lembrete sai mesmo que o cliente não escreva há mais de 24 h (decisão do dono, ADR 0013). Padrão: não. */
+  allowOutsideWindow?: boolean;
 }
 
 /**
@@ -47,6 +52,8 @@ export function createReminderScheduler({
   leadMinutes,
   cutoffMinutes,
   tickMs,
+  replies,
+  allowOutsideWindow = false,
 }: Deps) {
   let running = false;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -95,11 +102,13 @@ export function createReminderScheduler({
     const text = await gate.pickVariant(conversation.id, options);
     if (!text) return waiting(current, "duplicate");
 
-    const blocked = await gate.assistantBlockReason({ conversationId: conversation.id, phone: conversation.phone, text });
+    // O lembrete combinado com o cliente pode pular só a janela de 24 h; todas as outras regras da proteção valem
+    const bypass: BlockReason[] = allowOutsideWindow ? ["outside_window"] : [];
+    const blocked = await gate.assistantBlockReason({ conversationId: conversation.id, phone: conversation.phone, text, bypass });
     if (blocked === "opted_out") return notSent(current, blocked, conversation.id, timeZone);
     if (blocked) return waiting(current, blocked);
 
-    const outcome = await gate.sendAssistant({ conversationId: conversation.id, phone: conversation.phone, text });
+    const outcome = await gate.sendAssistant({ conversationId: conversation.id, phone: conversation.phone, text, bypass });
     if (outcome !== "sent") return waiting(current, outcome === "failed" ? "failed" : "blocked");
     if (await store.markReminderSent(current.id, clock())) {
       log.info({ appointmentId: current.id, conversationId: conversation.id }, "lembrete enviado");

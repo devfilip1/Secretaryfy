@@ -1,3 +1,5 @@
+import type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+
 // Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
 // e specs/004-whatsapp-anti-ban/contracts/panel-api.md
 
@@ -134,6 +136,7 @@ export type CalendarConnection =
 export interface CalendarRules {
   weeklyHours: Partial<Record<DayKey, { start: string; end: string }>>;
   slotMinutes: number;
+  gridMinutes: number;
   minNoticeMinutes: number;
   maxDaysAhead: number;
   cancelNoticeMinutes: number;
@@ -185,7 +188,7 @@ export interface Customer {
   appointments: CustomerAppointment[];
 }
 
-export const listCustomers = () => request<{ customers: Customer[] }>("GET", "/api/customers");
+export const listCustomers = () => request<{ timeZone: string; customers: Customer[] }>("GET", "/api/customers");
 /** Exclui o cadastro; os agendamentos e o Google Agenda não mudam. */
 export const deleteCustomer = (id: string) => request<void>("DELETE", `/api/customers/${id}`);
 /** Edita nome e/ou anotações; `calendarUpdated` é false se algum título na agenda não pôde ser trocado. */
@@ -217,7 +220,8 @@ export const listAppointments = () => request<{ timeZone: string; appointments: 
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 
 export const bookingDays = () => request<{ timeZone: string; days: string[] }>("GET", "/api/booking/days");
-export const bookingSlots = (date: string) => request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}`);
+export const bookingSlots = (date: string, service?: string) =>
+  request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
 export const lookupPhone = (phone: string) =>
   request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
     "GET",
@@ -226,3 +230,72 @@ export const lookupPhone = (phone: string) =>
 /** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. */
 export const createAppointment = (body: { phone: string; name: string; service: string; start: string }) =>
   request<{ appointment: Appointment }>("POST", "/api/appointments", body);
+
+/** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome para o painel. */
+export const listServices = () => request<{ services: { name: string; label: string }[] }>("GET", "/api/services");
+
+// --- Conhecimento da clínica (src/routes/panel-knowledge.ts; tipos em src/modules/knowledge/types.ts) ---
+
+export type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+export type TreatmentRow = Extract<KnowledgeRow, { kind: "treatment" }>;
+export type InfoRow = Extract<KnowledgeRow, { kind: "info" }>;
+export type ClinicRow = Extract<KnowledgeRow, { kind: "clinic" }>;
+
+/** Campos de uma seção como o painel envia (a chave e a posição o servidor define). */
+export interface SectionInput {
+  title: string;
+  tagline: string | null;
+  data: KnowledgeData;
+}
+
+export interface KnowledgeStatus {
+  version: string;
+  indexedVersion: string | null;
+  state: "upToDate" | "unpublished" | "unavailable";
+}
+
+/** Rótulos da brochura na língua da clínica: o texto já preenchido dos campos (GET /api/knowledge). */
+export interface KnowledgeLabels {
+  ideal: string;
+  howItWorks: string;
+  duration: string;
+  price: string;
+  result: string;
+  recovery: string;
+  assessment: string;
+  address: string;
+  hours: string;
+  contact: string;
+}
+/** `hours` são os horários da página Agenda, em linhas: não ficam na seção. */
+export interface KnowledgeList {
+  sections: KnowledgeRow[];
+  labels: KnowledgeLabels;
+  hours: string[];
+}
+export const listKnowledge = () => request<KnowledgeList>("GET", "/api/knowledge");export const createSection = (input: SectionInput & { kind: KnowledgeKind }) =>
+  request<{ section: KnowledgeRow }>("POST", "/api/knowledge", input);
+export const updateSection = (key: string, input: SectionInput) =>
+  request<{ section: KnowledgeRow }>("PUT", `/api/knowledge/${encodeURIComponent(key)}`, input);
+export const deleteSection = (key: string) => request<void>("DELETE", `/api/knowledge/${encodeURIComponent(key)}`);
+export const knowledgeStatus = () => request<KnowledgeStatus>("GET", "/api/knowledge/status");
+export const publishKnowledge = () => request<KnowledgeStatus>("POST", "/api/knowledge/publish", {});
+
+// --- Dados da clínica (GET/PUT /api/clinic-settings) ---
+
+export interface ClinicSettings {
+  name: string;
+  assistantName: string | null;
+  kind: string;
+  language: "pt" | "en";
+  restartRequired: boolean;
+}
+/** assistantName vazio quer dizer nenhum nome. */
+export interface ClinicSettingsInput {
+  name: string;
+  assistantName: string;
+  kind: string;
+}
+export const getClinicSettings = () => request<ClinicSettings>("GET", "/api/clinic-settings");
+export const saveClinicSettings = (input: ClinicSettingsInput) =>
+  request<ClinicSettings>("PUT", "/api/clinic-settings", input);

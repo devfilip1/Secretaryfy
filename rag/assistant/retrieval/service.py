@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from assistant.retrieval import pipeline
 from assistant.retrieval.pipeline import AnswerResult, RagConfig, RagDeps, RetrievalResult
 
-_REQUIRED_DEPS = ("vector_store_provider", "embeddings", "generator", "lexical")
+_REQUIRED_DEPS = ("vector_store_provider", "embeddings", "generator", "lexical", "clinic")
 
 
 class RagService:

@@ -4,6 +4,8 @@ import { sql } from "drizzle-orm";
 import { appointments, customers, messages, type ConversationRow } from "../../db/schema.js";
 import { createTestDb } from "../../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../../test/fake-calendar.js";
+import { testCatalog } from "../../test/catalog.js";
+import { testReplies } from "../../test/clinic.js";
 import type { ActiveConnection } from "../google/connection.js";
 import { createCustomerRepository, type CustomerRepository } from "../customers/repository.js";
 import { CalendarUnavailable } from "../google/gateway.js";
@@ -35,6 +37,8 @@ let rules: Rules;
 let now: Date;
 /** Tratamento citado na conversa, como o roteador passa (specs/005); null = nenhum */
 let mentioned: string | null;
+/** Tempo na agenda de tratamentos específicos (ADR 0015); vazio = a duração padrão das regras */
+let catalogMinutes: Record<string, number>;
 
 before(async () => {
   testDb = await createTestDb();
@@ -51,6 +55,7 @@ beforeEach(async () => {
   events = [];
   now = NOW;
   mentioned = "Dental Cleaning";
+  catalogMinutes = {};
   failUpsert = false;
   rules = { ...DEFAULT_RULES };
   conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
@@ -70,6 +75,8 @@ beforeEach(async () => {
     },
     log: { error: () => {} },
     now: () => now,
+    replies: testReplies,
+    catalog: { ...testCatalog, minutes: (name) => catalogMinutes[name] },
   });
 });
 
@@ -116,12 +123,12 @@ async function book(conv: ConversationRow, day = 2, slot = 2) {
 
 // --- US2: consultar ---
 
-test("disponibilidade: até 6 dias numerados com vaga, e a sessão fica em choose_day", async () => {
+test("disponibilidade: até 6 dias em bullets com vaga, e a sessão fica em choose_day", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability"));
   assert.equal(
     reply,
-    "Sure! These days have openings:\n1. Tue, Oct 20\n2. Wed, Oct 21\n3. Thu, Oct 22\n4. Fri, Oct 23\n5. Mon, Oct 26\n6. Tue, Oct 27\nReply with the number of the day, or tell me another date.",
+    "Sure! These days have openings:\n• Tuesday, October 20\n• Wednesday, October 21\n• Thursday, October 22\n• Friday, October 23\n• Monday, October 26\n• Tuesday, October 27\nWhich one works best for you? Or tell me another date.",
   );
   const s = await sessionOf(conv);
   assert.equal(s?.step, "choose_day");
@@ -133,26 +140,32 @@ test("escolher o dia mostra os horários livres; more mostra o resto", async () 
   const conv = await conversation();
   await say(conv, I("availability"));
   const { reply } = await say(conv, I("choose", { option: 2 }));
-  assert.match(reply, /^Available times on Wed, Oct 21:\n1\. 9:00 AM\n2\. 12:00 PM\n3\. 1:00 PM\n4\. 2:00 PM\n5\. 3:00 PM\n6\. 4:00 PM\n/);
-  assert.match(reply, /"more"/);
+  assert.match(reply, /^On Wednesday, October 21 I have these times:\n• 9:00 AM\n• 12:00 PM\n• 1:00 PM\n• 2:00 PM\n• 3:00 PM\n• 4:00 PM\nWhich one would you like\? I can show more times/);
   assert.equal((await sessionOf(conv))?.step, "choose_slot");
 
   const more = await say(conv, I("more"));
-  assert.match(more.reply, /^Available times on Wed, Oct 21:\n1\. 5:00 PM\n/);
+  assert.match(more.reply, /^On Wednesday, October 21 I have these times:\n• 5:00 PM\n/);
 });
 
-test("dia sem atendimento: day_full com os dias mais próximos", async () => {
+test("dia fechado nas regras semanais: avisa que não atende e oferece os dias mais próximos", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability", { date: "2026-10-25" }));
-  assert.match(reply, /^Sorry, there are no openings on Sun, Oct 25\. The closest days with openings are:\n1\. Wed, Oct 21/);
-  assert.match(reply, /Mon, Oct 26/);
+  assert.match(reply, /^We're closed on Saturdays and Sundays\. The closest days with openings are:\n• Wednesday, October 21/);
+  assert.match(reply, /• Monday, October 26/);
   assert.equal((await sessionOf(conv))?.step, "choose_day");
+});
+
+test("dia que atende mas está lotado: day_full com os dias mais próximos", async () => {
+  fake.block(at("2026-10-21T00:00"), at("2026-10-22T00:00"));
+  const conv = await conversation();
+  const { reply } = await say(conv, I("availability", { date: "2026-10-21" }));
+  assert.match(reply, /^Sorry, there are no openings on Wednesday, October 21\. The closest days with openings are:/);
 });
 
 test("data além do limite: too_far com os primeiros dias", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability", { date: "2027-01-10", tooFar: true }));
-  assert.match(reply, /^I can only book up to 30 days ahead, until Thu, Nov 19\./);
+  assert.match(reply, /^I can only book up to 30 days ahead, until Thursday, November 19\./);
 });
 
 test("agenda desconectada ou fora do ar: calendar_unavailable, sem quebrar", async () => {
@@ -183,11 +196,11 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   const confirm = await say(conv, I("choose", { option: 2 }));
   assert.equal(
     confirm.reply,
-    "Please confirm your appointment:\n📅 Wed, Oct 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nReply YES to confirm, NO to choose another time, or tell me another service.",
+    "Just to confirm:\n📅 Wednesday, October 21 at 10:00 AM (60 min)\n👤 Maria\n🦷 Dental Cleaning\nShall I confirm? If anything is wrong, like the name, the time or the service, just tell me.",
   );
 
   const done = await say(conv, I("yes"));
-  assert.equal(done.reply, "You're booked! 📅 Wed, Oct 21 at 10:00 AM. See you at DentalSafe.");
+  assert.equal(done.reply, "You're booked, Maria! 📅 Wednesday, October 21 at 10:00 AM. See you at DentalSafe.");
   assert.equal(fake.calls.createEvent, 1);
   const [event] = [...fake.events.values()];
   // specs/005: "<nome> — <serviço>"
@@ -200,7 +213,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   assert.equal(event.properties.secretaryfy_appointment, appt.id);
   assert.equal(await sessionOf(conv), null);
   // US4: registro no histórico
-  assert.deepEqual(await systemTexts(conv), ["📅 Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min) — Dental Cleaning"]);
+  assert.deepEqual(await systemTexts(conv), ["Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning"]);
   assert.equal(appt.service, "Dental Cleaning");
 });
 
@@ -219,7 +232,7 @@ test("no na confirmação não cria nada e volta para os horários do dia", asyn
   await say(conv, I("choose", { option: 2 }));
   await say(conv, I("choose", { option: 2 }));
   const { reply } = await say(conv, I("no"));
-  assert.match(reply, /^Available times on Wed, Oct 21/);
+  assert.match(reply, /^On Wednesday, October 21 I have these times:/);
   assert.equal(fake.calls.createEvent, 0);
   assert.equal((await sessionOf(conv))?.step, "choose_slot");
 });
@@ -231,7 +244,7 @@ test("horário ocupado entre a oferta e o yes: slot_taken, sem evento (FR-015)",
   await say(conv, I("choose", { option: 2 }));
   fake.block(at("2026-10-21T10:00"), at("2026-10-21T11:00"));
   const { reply } = await say(conv, I("yes"));
-  assert.match(reply, /^Sorry, that time was just taken\. The closest available times on Wed, Oct 21 are:\n1\. 9:00 AM\n2\. 11:00 AM/);
+  assert.match(reply, /^Sorry, that time was just taken\. The closest available times on Wednesday, October 21 are:\n• 9:00 AM\n• 11:00 AM/);
   assert.equal(fake.calls.createEvent, 0);
   assert.equal((await allAppointments()).length, 0);
 });
@@ -245,7 +258,7 @@ test("dois clientes confirmando o mesmo horário ao mesmo tempo: só um fica com
     await say(c, I("choose", { option: 2 }));
   }
   const results = await Promise.all([say(a, I("yes")), say(b, I("yes"))]);
-  assert.equal(results.filter((r) => r.reply.startsWith("You're booked!")).length, 1);
+  assert.equal(results.filter((r) => r.reply.startsWith("You're booked")).length, 1);
   assert.equal(results.filter((r) => r.reply.startsWith("Sorry, that time was just taken")).length, 1);
   assert.equal(fake.events.size, 1);
   assert.equal((await allAppointments()).length, 1);
@@ -271,7 +284,7 @@ test("um horário futuro por número; evento apagado no Google libera para marca
   const conv = await conversation();
   await book(conv);
   const again = await say(conv, I("book"));
-  assert.equal(again.reply, "You already have an appointment on Wed, Oct 21 at 10:00 AM. Would you like to reschedule it? (YES/NO)");
+  assert.equal(again.reply, "You already have an appointment on Wednesday, October 21 at 10:00 AM. Would you like to reschedule it?");
   assert.equal((await sessionOf(conv))?.step, "offer_reschedule");
 
   fake.events.clear();
@@ -280,7 +293,7 @@ test("um horário futuro por número; evento apagado no Google libera para marca
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "calendar");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("o horário é do telefone: sobrevive à limpeza das conversas e vale numa conversa nova (specs/006 R1)", async () => {
@@ -290,8 +303,8 @@ test("o horário é do telefone: sobrevive à limpeza das conversas e vale numa 
 
   const fresh = await conversation();
   assert.notEqual(fresh.id, conv.id);
-  assert.equal((await say(fresh, I("my_appointment"))).reply, "Your appointment is on Wed, Oct 21 at 10:00 AM.");
-  assert.match((await say(fresh, I("book"))).reply, /^You already have an appointment on Wed, Oct 21 at 10:00 AM/);
+  assert.equal((await say(fresh, I("my_appointment"))).reply, "Your appointment is on Wednesday, October 21 at 10:00 AM.");
+  assert.match((await say(fresh, I("book"))).reply, /^You already have an appointment on Wednesday, October 21 at 10:00 AM/);
   const [appt] = await allAppointments();
   assert.deepEqual([appt.conversationId, appt.phone, appt.origin], [null, "5571999999999", "assistant"]);
 });
@@ -313,7 +326,7 @@ test("duas respostas não entendidas seguidas: handoff, pausa e destaque (FR-024
   const conv = await conversation();
   await say(conv, I("book"));
   const first = await say(conv, I("unclear"));
-  assert.match(first.reply, /^Sorry, I didn't get that\. These days have openings:\n1\. Tue, Oct 20/);
+  assert.match(first.reply, /^Sorry, I didn't get that\. These days have openings:\n• Tuesday, October 20/);
   assert.equal((await sessionOf(conv))?.misunderstoodCount, 1);
 
   // Uma resposta entendida no meio zera o contador
@@ -328,7 +341,7 @@ test("duas respostas não entendidas seguidas: handoff, pausa e destaque (FR-024
   assert.equal(after.assistantPaused, true);
   assert.equal(after.needsAttention, true);
   assert.equal(await sessionOf(conv), null);
-  assert.ok((await systemTexts(conv)).includes("⚠️ The assistant did not understand the customer and was paused in this conversation"));
+  assert.ok((await systemTexts(conv)).includes("The assistant did not understand the customer and was paused in this conversation"));
 });
 
 test("yes fora de uma pergunta de sim ou não conta como não entendido", async () => {
@@ -346,7 +359,7 @@ test("my_appointment mostra o horário atual, inclusive se foi movido no Google"
   const [event] = [...fake.events.values()];
   event.start = at("2026-10-22T14:00");
   event.end = at("2026-10-22T15:00");
-  assert.equal((await say(conv, I("my_appointment"))).reply, "Your appointment is on Thu, Oct 22 at 2:00 PM.");
+  assert.equal((await say(conv, I("my_appointment"))).reply, "Your appointment is on Thursday, October 22 at 2:00 PM.");
   const [appt] = await allAppointments();
   assert.equal(appt.startsAt.toISOString(), at("2026-10-22T14:00").toISOString());
 });
@@ -356,13 +369,13 @@ test("cancelar: confirmação, evento apagado, cancelado pelo cliente e registro
   rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
   const conv = await conversation();
   await book(conv);
-  assert.equal((await say(conv, I("cancel"))).reply, "Cancel your appointment on Wed, Oct 21 at 10:00 AM? (YES/NO)");
-  assert.equal((await say(conv, I("yes"))).reply, "Your appointment on Wed, Oct 21 at 10:00 AM was cancelled.");
+  assert.equal((await say(conv, I("cancel"))).reply, "Do you really want to cancel your appointment on Wednesday, October 21 at 10:00 AM?");
+  assert.equal((await say(conv, I("yes"))).reply, "Your appointment on Wednesday, October 21 at 10:00 AM was cancelled.");
   assert.equal(fake.events.size, 0);
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "customer");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled by the customer: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled by the customer: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("no na confirmação do cancelamento mantém o horário", async () => {
@@ -383,15 +396,15 @@ test("remarcar: escolhe dia e horário, confirma e o evento é movido", async ()
   assert.match((await say(conv, I("reschedule"))).reply, /^Sure! These days have openings/);
   await say(conv, I("choose", { option: 4 }));
   const confirm = await say(conv, I("choose", { option: 6 }));
-  assert.equal(confirm.reply, "Move your appointment from Wed, Oct 21 at 10:00 AM to Fri, Oct 23 at 2:00 PM? (YES/NO)");
-  assert.equal((await say(conv, I("yes"))).reply, "Done! Your appointment is now on Fri, Oct 23 at 2:00 PM.");
+  assert.equal(confirm.reply, "Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Friday, October 23 at 2:00 PM?");
+  assert.equal((await say(conv, I("yes"))).reply, "Done! Your appointment is now on Friday, October 23 at 2:00 PM.");
 
   assert.equal(fake.calls.moveEvent, 1);
   const [event] = [...fake.events.values()];
   assert.equal(event.start.toISOString(), at("2026-10-23T14:00").toISOString());
   const [appt] = await allAppointments();
   assert.equal(appt.startsAt.toISOString(), at("2026-10-23T14:00").toISOString());
-  assert.ok((await systemTexts(conv)).includes("📅 Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"));
+  assert.ok((await systemTexts(conv)).includes("Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"));
 });
 
 test("yes na oferta de remarcar entra no fluxo de remarcação", async () => {
@@ -428,7 +441,7 @@ test("evento apagado no Google antes do yes do cancelamento: no_appointment e re
   await say(conv, I("cancel"));
   fake.events.clear();
   assert.equal((await say(conv, I("yes"))).reply, "I couldn't find an appointment for this number.");
-  assert.ok((await systemTexts(conv)).includes("📅 Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
 });
 
 test("stop encerra o fluxo", async () => {
@@ -486,35 +499,84 @@ async function pickSlot(conv: ConversationRow) {
   return say(conv, I("choose", { option: 2 }));
 }
 
-test("sem tratamento na conversa: lista de serviços antes do resumo; o número escolhe o serviço", async () => {
+test("sem tratamento na conversa: o tratamento vem antes dos dias; o número escolhe o serviço", async () => {
   mentioned = null;
   const conv = await conversation();
-  const list = await pickSlot(conv);
-  assert.match(list.reply, /^Which service is this appointment for\?/);
+  const list = await say(conv, I("book"));
+  assert.match(list.reply, /^Maria, which service is this appointment for\?/);
   assert.equal((await sessionOf(conv))?.step, "choose_service");
   assert.equal((await sessionOf(conv))?.options.length, 9);
 
-  const summary = await say(conv, I("choose_service", { service: "Teeth Whitening" }));
+  const days = await say(conv, I("choose_service", { service: "Teeth Whitening" }));
+  assert.match(days.reply, /days/i);
+  assert.equal((await sessionOf(conv))?.step, "choose_day");
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2 }));
   assert.match(summary.reply, /👤 Maria\n🦷 Teeth Whitening/);
   assert.equal((await sessionOf(conv))?.step, "confirm_booking");
 });
 
-test("'não sei': avaliação geral no resumo e 'Assessment' no evento", async () => {
+test("'não sei': avaliação geral no resumo e no evento, com o rótulo do catálogo", async () => {
   mentioned = null;
   const conv = await conversation();
-  await pickSlot(conv);
-  const summary = await say(conv, I("choose_service", { service: "Assessment" }));
+  await say(conv, I("book"));
+  await say(conv, I("choose_service", { service: "Assessment" }));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2 }));
   assert.match(summary.reply, /🦷 General assessment/);
   await say(conv, I("yes"));
-  assert.equal([...fake.events.values()][0].summary, "Maria — Assessment");
+  assert.equal([...fake.events.values()][0].summary, "Maria — General assessment");
 });
 
-test("sem nome e sem serviço: nome, depois serviço, depois resumo", async () => {
+test("sem nome e sem serviço: serviço, dias e horário, depois o nome e o resumo", async () => {
   mentioned = null;
   const conv = await conversation("5571999999999", null);
-  assert.match((await pickSlot(conv)).reply, /What name should I put/);
-  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /^Which service/);
-  assert.match((await say(conv, I("choose_service", { service: "Dental Veneers" }))).reply, /👤 Ana\n🦷 Dental Veneers/);
+  assert.match((await say(conv, I("book"))).reply, /Which service/);
+  await say(conv, I("choose_service", { service: "Dental Veneers" }));
+  await say(conv, I("choose", { option: 2 }));
+  assert.match((await say(conv, I("choose", { option: 2 }))).reply, /What name should I put/);
+  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /👤 Ana\n🦷 Dental Veneers/);
+});
+
+test("'não entendi' na lista de serviços repete a lista; o segundo seguido passa para o operador", async () => {
+  mentioned = null;
+  const conv = await conversation();
+  await say(conv, I("book"));
+  assert.match((await say(conv, I("unclear"))).reply, /^Sorry, I didn't get that\. Which service/);
+  assert.equal((await say(conv, I("unclear"))).handoff, true);
+});
+
+test("horário citado e livre na grade de 15 min: vai direto para o resumo", async () => {
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { time: "10:15" }));
+  assert.match(summary.reply, /10:15 AM/);
+  assert.equal((await sessionOf(conv))?.step, "confirm_booking");
+});
+
+test("horário citado e ocupado: avisa e oferece os três mais próximos, sem mostrar o dia inteiro", async () => {
+  const first = await conversation("5571888888888", "Bia");
+  await book(first); // dia 2, 10:00 a 11:00
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const reply = await say(conv, I("choose", { time: "10:30" }));
+  assert.match(reply.reply, /Unfortunately we do not have that time/);
+  const session = await sessionOf(conv);
+  assert.equal(session?.step, "choose_slot");
+  assert.equal(session?.options.length, 3);
+});
+
+test("um tratamento de 30 min ocupa só 30 min: o horário seguinte fica livre", async () => {
+  catalogMinutes = { "Dental Cleaning": 30 };
+  const first = await conversation("5571888888888", "Bia");
+  await book(first); // 10:00 a 10:30
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { time: "10:30" }));
+  assert.match(summary.reply, /10:30 AM \(30 min\)/);
 });
 
 test("trocar o serviço no resumo mostra o resumo de novo e não cria nada", async () => {
@@ -525,14 +587,6 @@ test("trocar o serviço no resumo mostra o resumo de novo e não cria nada", asy
   assert.equal(fake.calls.createEvent, 0);
   await say(conv, I("yes"));
   assert.equal([...fake.events.values()][0].summary, "Maria — Teeth Whitening");
-});
-
-test("'não entendi' na lista de serviços repete a lista; o segundo seguido passa para o operador", async () => {
-  mentioned = null;
-  const conv = await conversation();
-  await pickSlot(conv);
-  assert.match((await say(conv, I("unclear"))).reply, /^Sorry, I didn't get that\. Which service/);
-  assert.equal((await say(conv, I("unclear"))).handoff, true);
 });
 
 test("remarcar mantém o título do evento", async () => {
@@ -596,9 +650,17 @@ test("falha ao gravar o cliente não desfaz a marcação", async () => {
   failUpsert = true;
   const conv = await conversation("5571999999999", "Maria");
   const done = await book(conv);
-  assert.match(done.reply, /^You're booked!/);
+  assert.match(done.reply, /^You're booked, /);
   const [appt] = await allAppointments();
   assert.equal(appt.status, "booked");
   assert.equal(appt.customerId, null);
   assert.equal(fake.events.size, 1);
+});
+
+test("o modelo escolheu a opção mais próxima, mas o horário citado manda", async () => {
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2, time: "10:15" }));
+  assert.match(summary.reply, /10:15 AM/);
 });

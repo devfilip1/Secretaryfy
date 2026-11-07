@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { verifySigned } from "../../config/crypto.js";
-import { buildConnectUrl, CONNECT_STATE, GOOGLE_SCOPES, isGoogleConfigured, missingScopes } from "./oauth.js";
+import { CONNECT_STATE, createGoogleOAuth, GOOGLE_SCOPES, isGoogleConfigured, missingScopes } from "./oauth.js";
 
 test("isGoogleConfigured recusa valores de exemplo", () => {
   assert.equal(isGoogleConfigured("nao-configurado", "nao-configurado"), false);
@@ -10,7 +10,12 @@ test("isGoogleConfigured recusa valores de exemplo", () => {
 });
 
 test("URL de consentimento: offline, consent, os escopos de agenda e o state assinado", () => {
-  const url = new URL(buildConnectUrl());
+  const google = createGoogleOAuth({
+    clientId: "123456789012-abc123def456.apps.googleusercontent.com",
+    clientSecret: "GOCSPX-abcdefghijklmnopqrstuvwx",
+    redirectUri: "http://localhost:3000/auth/google/callback",
+  });
+  const url = new URL(google.buildConnectUrl());
   assert.equal(url.searchParams.get("access_type"), "offline");
   assert.equal(url.searchParams.get("prompt"), "consent");
   assert.equal(url.searchParams.get("redirect_uri"), "http://localhost:3000/auth/google/callback");

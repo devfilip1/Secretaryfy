@@ -9,12 +9,26 @@ import { bus } from "../modules/inbox/events.js";
 import { createCustomerRepository } from "../modules/customers/repository.js";
 import { createInboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService } from "../modules/inbox/service.js";
-import { markMessagesRead, sendWhatsAppText } from "../modules/whatsapp/evolution.js";
-import { instance } from "../modules/whatsapp/instance.js";
+import { createEvolutionClient, type EvolutionConfig } from "../modules/whatsapp/evolution.js";
+import { createInstanceManager } from "../modules/whatsapp/instance.js";
 
 type Log = Pick<FastifyBaseLogger, "info" | "warn" | "error">;
 
 export const antibanConfig = configFromEnv(env);
+
+/** Evolution API: envio, leitura e conexão do número. A configuração sai do ambiente só aqui. */
+const evolutionConfig: EvolutionConfig = {
+  apiUrl: env.EVOLUTION_API_URL,
+  instance: env.EVOLUTION_INSTANCE,
+  apiKey: env.EVOLUTION_API_KEY,
+};
+export const evolution = createEvolutionClient(evolutionConfig);
+export const instance = createInstanceManager({
+  evolution: evolutionConfig,
+  webhook: { baseUrl: env.WEBHOOK_BASE_URL ?? env.PUBLIC_URL, token: env.EVOLUTION_WEBHOOK_TOKEN },
+  qrAttempts: env.ANTIBAN_QR_ATTEMPTS,
+  qrWindowMs: env.ANTIBAN_QR_WINDOW_MS,
+});
 
 /** Instâncias do processo, compartilhadas pelo webhook e pela API do painel. */
 export const inboxRepo = createInboxRepository(db);
@@ -61,8 +75,8 @@ export const gate = createGate({
   inboxRepo,
   inbox,
   breaker,
-  send: (phone, text, opts) => sendWhatsAppText(phone, text, opts),
-  markRead: (phone, waIds) => markMessagesRead(phone, waIds),
+  send: (phone, text, opts) => evolution.sendWhatsAppText(phone, text, opts),
+  markRead: (phone, waIds) => evolution.markMessagesRead(phone, waIds),
   connectedNumber: () => instance.getState().number,
   publish: bus.publish,
   log: protectionLog,

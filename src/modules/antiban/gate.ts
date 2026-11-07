@@ -141,6 +141,8 @@ export function createGate({
 
   const rules: Rule[] = [
     { name: "opted_out", check: ({ phone }) => inboxRepo.isOptedOut(phone) },
+    // Número desconectado: nem tenta enviar, para não somar falhas que pausam a proteção
+    { name: "disconnected", check: async () => connectedNumber() === null },
     { name: "paused", check: async () => (await breaker.current()).paused },
     {
       name: "outside_window",
@@ -291,8 +293,18 @@ export function createGate({
      * O que `sendAssistant` faria com este texto agora, sem gravar nem destacar nada: o motivo do bloqueio ou null. O
      * agendador de lembretes consulta antes de enviar, para não encher o histórico de tentativas (specs/006 R4).
      */
-    assistantBlockReason({ conversationId, phone, text }: { conversationId: string; phone: string; text: string }) {
-      return firstBlock({ conversationId, phone, text });
+    assistantBlockReason({
+      conversationId,
+      phone,
+      text,
+      bypass = [],
+    }: {
+      conversationId: string;
+      phone: string;
+      text: string;
+      bypass?: BlockReason[];
+    }) {
+      return firstBlock({ conversationId, phone, text }, bypass);
     },
 
     /** Envio do operador: só espera a vez na fila. Se não sair, é uma falha para ele, que pode reenviar. */

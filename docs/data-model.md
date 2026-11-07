@@ -45,7 +45,7 @@ erDiagram
   }
 ```
 
-Single-row and standalone tables: `calendar_connection`, `scheduling_rules`, `protection_state` (one row each, enforced by a `check (id = 1)`), `contact_preferences` and `connected_numbers` (keyed by phone/number, no foreign keys).
+Single-row and standalone tables: `calendar_connection`, `scheduling_rules`, `clinic_settings`, `protection_state` (one row each, enforced by a `check (id = 1)`), `contact_preferences` and `connected_numbers` (keyed by phone/number, no foreign keys).
 
 The **phone number** (digits with country code, as WhatsApp sends it, e.g. `5571999999999`) is the real key across tables. `customers`, `appointments`, `contact_preferences` deliberately have no foreign key to `conversations`, so they survive deleting conversations or disconnecting the number ([ADR 0006](decisions/0006-appointment-belongs-to-phone.md)).
 
@@ -58,7 +58,8 @@ One per phone number.
 |---|---|
 | `name` | WhatsApp profile name. Only a label; never the patient's name ([BR-NAM-02](business-rules.md#br-nam-02--the-whatsapp-profile-name-is-never-the-patients-name)) |
 | `customer_name` | Name the patient said in the chat |
-| `name_asked_at` | When the assistant asked for the name; it never asks twice |
+| `name_asked_at` | When the assistant last asked for the name |
+| `name_asks` | How many times it asked; at most 2 ([BR-NAM-01](business-rules.md#br-nam-01--the-assistant-asks-for-the-name-at-a-calm-moment-at-most-twice)) |
 | `assistant_paused` | The assistant stays silent here until the operator resumes |
 | `needs_attention` | Flagged for staff (hand-off, loop, limit) |
 | `unread_count`, `last_message_*` | Panel list |
@@ -86,7 +87,7 @@ Appointments made by the assistant or the panel. Google Calendar is the source o
 | `conversation_id` | Where it was booked; set to null if the conversation is deleted |
 | `origin` | `assistant` or `panel` |
 | `google_event_id`, `calendar_id` | The Google event |
-| `customer_name`, `service` | As in the event title. `service` is null for appointments before feature 005 |
+| `customer_name`, `service` | As in the event title. `service` is the stored service name: the key of a treatment in `knowledge_sections`, or `Assessment` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). Rows from before ADR 0014 keep their English names (e.g. `Dental Cleaning`), not migrated. `service` is null for appointments before feature 005 |
 | `customer_id` | Registry record, set to null if the record is deleted |
 | `status`, `cancelled_by` | `booked` or `cancelled`; cancelled by `customer` or `calendar` (deleted in Google) |
 | `reminder_status`, `reminder_reason`, `reminder_sent_at` | See [reminder states](business-rules.md#reminder-states) |
@@ -110,7 +111,10 @@ At most one per conversation: the booking, cancel or reschedule dialogue in prog
 The clinic's Google account and selected calendar: email, scopes, `refresh_token_enc` (AES-256-GCM, see [crypto.ts](../src/config/crypto.ts)), calendar id, name and time zone, and `status` (`connected` or `needs_reauth`). No row means disconnected.
 
 ### scheduling_rules
-Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = Sunday; a missing day is closed), `slot_minutes`, `min_notice_minutes`, `max_days_ahead`, `cancel_notice_minutes`. Created with the defaults on first read ([rules.ts](../src/modules/scheduling/rules.ts)).
+Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = Sunday; a missing day is closed), `slot_minutes` (the default appointment length), `grid_minutes` (the step of start times, default 15), `min_notice_minutes`, `max_days_ahead`, `cancel_notice_minutes`. Created with the defaults on first read ([rules.ts](../src/modules/scheduling/rules.ts)).
+
+### clinic_settings
+The clinic's identity as the panel edits it: `name`, `assistant_name` (nullable: no name, the greeting only names the clinic) and `kind` (the interpreter prompt's "dental clinic"), with `updated_at`. One row (`check (id = 1)`). The first start inserts it from `CLINIC_NAME`, `ASSISTANT_NAME` and `CLINIC_KIND` when there is no row; after that the row wins ([settings-repository.ts](../src/modules/clinic/settings-repository.ts), ADR 0012 step 2). The language is not here: it stays in `CLINIC_LANGUAGE`.
 
 ### Anti-ban tables
 - `contact_preferences`: `phone`, `opted_out_at`. Opt-out by phone, survives disconnection.
@@ -118,6 +122,9 @@ Opening hours per ISO weekday (`weekly_hours` JSON, `"1"` = Monday … `"7"` = S
 - `protection_state`: the automatic brake: `paused_until` and `reason` (`send_failures` or `connection_drops`).
 
 Send counts for the limits are read from `messages` (index `messages_outgoing_sent_at_idx`), not kept in a separate table.
+
+### knowledge_sections
+The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable slug, unique; `kind` is `treatment`, `info` or `clinic` (checked); `title` is the heading without `## `; `tagline` is the part after ` — ` (treatments only); `data` is JSON: for a treatment `{ideal?, howItWorks?, facts, result?, recovery?}` with labelled values (a fact may add `assessment?: boolean`, BR-KNO-01), for an info section `{lines}`; for the clinic `{intro, address, phone?, email?, closing}`, with no hours: the HORÁRIO lines come from the scheduling rules (BR-KNO-02); `position` is the display order. The importer turns `assessment` on for price facts. A treatment may carry `otherNames?: string[]` (other words patients use for it, read by the RAG as query synonyms) and `bookable?: boolean`: `false` keeps it information-only, while absent or `true` lets the assistant book it (ADR 0014; the RAG ignores this flag). Validated with zod ([types.ts](../src/modules/knowledge/types.ts)). Filled from a Markdown brochure by `scripts/import-knowledge.ts`, which replaces all rows in one transaction; read by `GET /internal/knowledge` ([render.ts](../src/modules/knowledge/render.ts)).
 
 ## Lifecycle and deletion
 

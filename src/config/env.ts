@@ -1,9 +1,22 @@
 import { z } from "zod";
+import { calendarModeRefusal } from "../modules/google/fake-mode.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   PUBLIC_URL: z.url(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  // Língua das mensagens ao cliente (en ou pt) e nome da clínica nelas; o painel continua em inglês
+  CLINIC_LANGUAGE: z.enum(["en", "pt"]).default("en"),
+  CLINIC_NAME: z.string().min(1).default("DentalSafe"),
+  // O que a clínica é, em inglês, para o interpretador do agendamento ("dental clinic", "physiotherapy clinic")
+  CLINIC_KIND: z.string().min(1).default("dental clinic"),
+  // Nome de quem atende nas mensagens ("Meu nome é Ana, da Sorriso Pleno"); vazio = sem nome
+  ASSISTANT_NAME: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .transform((v) => v || undefined),
 
   DATABASE_URL: z.url(),
   APP_SECRET: z
@@ -12,6 +25,9 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_ID: z.string().min(1),
   GOOGLE_CLIENT_SECRET: z.string().min(1),
+  // "fake": agenda em memória no lugar do Google, só para desenvolvimento offline (docs/development.md)
+  CALENDAR_MODE: z.enum(["google", "fake"]).default("google"),
+  NODE_ENV: z.string().optional(),
 
   EVOLUTION_API_URL: z.url(),
   EVOLUTION_API_KEY: z.string().min(1),
@@ -27,10 +43,19 @@ const envSchema = z.object({
 
   // Agendamento: o Ollama interpreta as mensagens do cliente (specs/003, research.md R2)
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),
-  AGENT_MODEL: z.string().min(1).default("llama3"),
+  AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  // Reescreve as respostas do agendamento para soarem humanas (opt-in, uma chamada extra ao modelo; humanize.ts)
+  HUMANIZE_REPLIES: z.stringbool().default(true),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
   PANEL_URL: z.url().optional(),
+  // Token do endpoint interno GET /internal/knowledge (o RAG lê a brochura por ele); vazio = endpoint desligado
+  INTERNAL_TOKEN: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || v.length >= 32, "INTERNAL_TOKEN deve ter pelo menos 32 caracteres (ou ficar vazio)")
+    .optional()
+    .transform((v) => v || undefined),
 
   // Painel web: sem a senha, o painel fica desligado
   OPERATOR_PASSWORD: z.string().min(12, "OPERATOR_PASSWORD deve ter pelo menos 12 caracteres").optional(),
@@ -75,6 +100,8 @@ const envSchema = z.object({
   REMINDER_LEAD_MINUTES: count(1440),
   REMINDER_CUTOFF_MINUTES: count(120),
   REMINDER_TICK_MS: count(60000),
+  // O lembrete sai mesmo que o cliente não escreva há mais de 24 h (ADR 0013); com 0, só dentro da janela (ADR 0008)
+  REMINDER_OUTSIDE_WINDOW: z.stringbool().default(true),
 });
 
 /** Inteiro não negativo com padrão. */
@@ -94,6 +121,8 @@ const ANTIBAN_RANGES = [
 
 const parsed = envSchema
   .superRefine((v, ctx) => {
+    const refusal = calendarModeRefusal(v.CALENDAR_MODE, v.NODE_ENV);
+    if (refusal) ctx.addIssue({ code: "custom", path: ["CALENDAR_MODE"], message: refusal });
     for (const [low, high] of ANTIBAN_RANGES) {
       if (v[low] > v[high]) ctx.addIssue({ code: "custom", path: [low], message: `${low} não pode ser maior que ${high}` });
     }

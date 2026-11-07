@@ -1,9 +1,14 @@
 import pytest
 
-from assistant.ingest import build_chunks, clean_text, is_heading, load_pages, split_sections
+from assistant.composition import build_knowledge_source
+from assistant.ingest import build_chunks, is_heading, split_sections
+from assistant.ingestion.pdf_source import clean_text as clean_pdf_text
+from assistant.ingestion.source import KnowledgeDocument, Section
 from assistant.settings import SettingsError, Strategy
 
 B = "\x7f"  # list marker as it comes out of the PDF
+INTRO_SUFFIX = "Clinic Information"
+SOURCE_NAME = "data/source/DentalSafe.pdf"
 
 # Page text as it comes out of the DentalSafe brochure: a running header with the marker and the page number,
 # markers on the same line as the item, field labels in capitals, and a closing note.
@@ -45,6 +50,28 @@ Note: The clinic address, contact details, opening hours, and prices in this sam
 publication.
 """
 PAGES = [PAGE_1, PAGE_2]
+
+def clean_text(text):
+    return clean_pdf_text(text, {}, ("Note:",))
+
+
+def document(pages, version="pdf-1"):
+    cleaned = tuple(clean_text(page) for page in pages)
+    sections = tuple(Section(title, tuple(body)) for title, body in split_sections("\n".join(cleaned), INTRO_SUFFIX))
+    return KnowledgeDocument(SOURCE_NAME, version, cleaned, sections)
+
+
+class FakeSource:
+    def __init__(self, pages=None, version="pdf-1"):
+        self.pages = pages
+        self.document_version = version
+
+    def version(self):
+        return self.document_version
+
+    def load(self):
+        return document(self.pages, self.document_version)
+
 
 SECTION = Strategy("section", "section", {"max_chars": 1200, "overlap": 100})
 CLINIC = "DentalSafe — Clinic Information"
@@ -125,7 +152,7 @@ def test_an_ignored_paragraph_ends_at_the_next_heading_or_list():
 def test_sections_follow_the_headings_across_pages():
     text = "\n".join(clean_text(page) for page in PAGES)
 
-    sections = dict(split_sections(text))
+    sections = dict(split_sections(text, INTRO_SUFFIX))
 
     assert list(sections) == [CLINIC, CLEANING, IMPLANTS, "Why Choose DentalSafe?", "Schedule Your Assessment Today"]
     assert sections[CLEANING] == [
@@ -140,7 +167,7 @@ def test_sections_follow_the_headings_across_pages():
 def test_the_opening_block_becomes_the_clinic_section():
     text = "\n".join(clean_text(page) for page in PAGES)
 
-    clinic = dict(split_sections(text))[CLINIC]
+    clinic = dict(split_sections(text, INTRO_SUFFIX))[CLINIC]
 
     assert clinic[0] == "Transform Your Smile with Safety, Speed, and Guaranteed Results"  # the tagline is body, not a title
     for line in ("LOCATION", "125 Ocean Avenue, Suite 204", "Miami, FL 33139, USA", "HOURS", "Saturday: 9:00 AM–2:00 PM",
@@ -149,19 +176,19 @@ def test_the_opening_block_becomes_the_clinic_section():
 
 
 def test_a_title_that_wraps_into_two_lines_is_joined():
-    sections = split_sections("Dental Implants — Get Your Tooth Back\nPermanently\nIdeal for people who want to:\n- Chew again")
+    sections = split_sections("Dental Implants — Get Your Tooth Back\nPermanently\nIdeal for people who want to:\n- Chew again", INTRO_SUFFIX)
 
     assert sections == [("Dental Implants — Get Your Tooth Back Permanently", ["Ideal for people who want to:", "- Chew again"])]
 
 
 def test_a_document_that_opens_with_a_heading_has_no_clinic_section():
-    sections = split_sections("Dental Cleaning — The First Step\nPrice: $40–$85")
+    sections = split_sections("Dental Cleaning — The First Step\nPrice: $40–$85", INTRO_SUFFIX)
 
     assert sections == [("Dental Cleaning — The First Step", ["Price: $40–$85"])]
 
 
 def test_section_strategy_keeps_each_value_with_its_treatment():
-    chunks = build_chunks(SECTION, PAGES)
+    chunks = build_chunks(SECTION, document(PAGES))
 
     assert len(chunks) == 5
     implants = chunks[2]
@@ -175,7 +202,7 @@ def test_section_larger_than_the_limit_is_split_with_the_title_repeated():
     body = "\n".join(f"Detail {n}: " + "information about the treatment " * 5 for n in range(20))
     small = Strategy("small", "section", {"max_chars": 400, "overlap": 50})
 
-    chunks = build_chunks(small, [f"Long Treatment — A Large Example\n{body}\n"])
+    chunks = build_chunks(small, document([f"Long Treatment — A Large Example\n{body}\n"]))
 
     assert len(chunks) > 1
     for chunk in chunks:
@@ -186,7 +213,7 @@ def test_section_larger_than_the_limit_is_split_with_the_title_repeated():
 def test_split_strategy_respects_the_chunk_size_and_uses_clean_text():
     strategy = Strategy("recursive_200_50", "split", {"chunk_size": 200, "chunk_overlap": 50})
 
-    chunks = build_chunks(strategy, PAGES)
+    chunks = build_chunks(strategy, document(PAGES))
 
     assert len(chunks) > 3
     assert all(len(chunk.page_content) <= 200 for chunk in chunks)
@@ -198,14 +225,14 @@ def test_split_strategy_respects_the_chunk_size_and_uses_clean_text():
 def test_split_strategy_can_separate_a_value_from_its_treatment():
     strategy = Strategy("recursive_200_50", "split", {"chunk_size": 200, "chunk_overlap": 50})
 
-    chunks = build_chunks(strategy, PAGES)
+    chunks = build_chunks(strategy, document(PAGES))
 
     with_price = [chunk.page_content for chunk in chunks if "$900–$2,000" in chunk.page_content]
     assert with_price and not any("Implants" in content for content in with_price)
 
 
 def test_page_strategy_makes_one_chunk_per_page():
-    chunks = build_chunks(Strategy("page", "page", {}), PAGES)
+    chunks = build_chunks(Strategy("page", "page", {}), document(PAGES))
 
     assert [chunk.metadata["page"] for chunk in chunks] == [1, 2]
     assert chunks[0].page_content == clean_text(PAGE_1)
@@ -214,14 +241,14 @@ def test_page_strategy_makes_one_chunk_per_page():
 
 def test_unknown_strategy_type():
     with pytest.raises(ValueError, match="semantic"):
-        build_chunks(Strategy("x", "semantic", {}), PAGES)
+        build_chunks(Strategy("x", "semantic", {}), document(PAGES))
 
 
 def test_vectorize_chunks_uses_the_injected_store_rebuild_operation(monkeypatch):
     from assistant import ingest
 
     strategy = Strategy("section", "section", {"max_chars": 1200, "overlap": 100})
-    chunks = [build_chunks(strategy, PAGES)[0]]
+    chunks = [build_chunks(strategy, document(PAGES))[0]]
     calls = []
 
     class FakeStore:
@@ -256,11 +283,10 @@ def test_ingest_cli_forwards_vector_store_provider_through_index_build(monkeypat
         return FakeStore()
 
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"fake": strategy}))
-    monkeypatch.setattr(ingestion.service, "load_pages", lambda: ["Dental Cleaning\nPrice: $40–$85"])
     monkeypatch.setattr(ingestion.service, "save_chunks", lambda strategy, chunks: None)
     monkeypatch.setattr(ingestion.service, "write_manifest", lambda *args, **kwargs: None)
 
-    result = ingest.main(["fake"], vector_store_provider=provider)
+    result = ingest.main(["fake"], vector_store_provider=provider, knowledge_source=FakeSource(["Dental Cleaning\nPrice: $40–$85"]))
 
     assert result == 0
     assert calls == ["fake"]
@@ -269,7 +295,7 @@ def test_ingest_cli_forwards_vector_store_provider_through_index_build(monkeypat
 
 
 def test_the_real_brochure_gives_one_section_per_subject():
-    chunks = build_chunks(SECTION, load_pages())
+    chunks = build_chunks(SECTION, build_knowledge_source().load())
 
     assert [chunk.metadata["section"] for chunk in chunks] == [
         CLINIC,
@@ -299,9 +325,13 @@ def test_ingest_cli_rejects_an_unknown_strategy_before_reading_the_brochure(monk
     from assistant import ingestion
 
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
-    monkeypatch.setattr(ingestion.service, "load_pages", lambda: pytest.fail("must not read the brochure"))
 
-    result = ingest.main(["section", "bogus"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+    class NoReads:
+        def load(self):
+            pytest.fail("must not read the brochure")
+
+    result = ingest.main(["section", "bogus"], vector_store_provider=lambda name: pytest.fail("must not open a store"),
+                         knowledge_source=NoReads())
 
     assert result == 2
     assert capsys.readouterr().out.strip() == "Unknown strategy: bogus. Use one of: section, page"
@@ -321,9 +351,8 @@ def test_build_index_records_the_dimensions_of_the_stored_vectors(monkeypatch, t
             return {"chunk": [0.1, 0.2, 0.3]}
 
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the files go to tmp_path, not data/
-    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
 
-    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: FakeStore())
+    ingestion.service.build_index(SECTION, document(PAGES), vector_store_provider=lambda name: FakeStore())
 
     manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["embedding_dimensions"] == 3
@@ -340,9 +369,8 @@ def test_build_index_leaves_the_dimensions_out_when_the_store_cannot_tell(monkey
             pass
 
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
-    monkeypatch.setattr(index_module, "source_hash", lambda path=None: "pdf-1")
 
-    ingestion.service.build_index(SECTION, PAGES, vector_store_provider=lambda name: BareStore())
+    ingestion.service.build_index(SECTION, document(PAGES), vector_store_provider=lambda name: BareStore())
 
     manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
     assert "embedding_dimensions" not in manifest
@@ -357,7 +385,8 @@ def test_ingest_cli_stops_with_the_configuration_problems(monkeypatch, capsys):
 
     monkeypatch.setattr(ingestion.service, "load_settings", invalid)
 
-    result = ingest.main(["section"], vector_store_provider=lambda name: pytest.fail("must not open a store"))
+    result = ingest.main(["section"], vector_store_provider=lambda name: pytest.fail("must not open a store"),
+                         knowledge_source=FakeSource([]))
 
     assert result == 2
     assert capsys.readouterr().out.strip() == (
@@ -377,7 +406,10 @@ def test_ingestion_main_requires_an_explicit_vector_store_provider():
     from assistant.ingestion import service
 
     with pytest.raises(TypeError):
-        service.main(["section"])
+        service.main(["section"], knowledge_source=FakeSource([]))
+
+    with pytest.raises(TypeError):
+        service.main(["section"], vector_store_provider=lambda name: None)
 
 
 def test_ingest_cli_uses_the_composition_root_when_no_provider_is_given(monkeypatch, tmp_path):
@@ -390,9 +422,9 @@ def test_ingest_cli_uses_the_composition_root_when_no_provider_is_given(monkeypa
     names = []
     store = SimpleNamespace(rebuild=lambda chunks: None)
     monkeypatch.setattr(ingest, "build_vector_store_provider", lambda: lambda name: names.append(name) or store)
+    monkeypatch.setattr(ingest, "build_knowledge_source", lambda: FakeSource(PAGES))
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"page": PAGE}))
-    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
     monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: None)
 
     result = ingest.main(["page"])
@@ -420,10 +452,9 @@ def test_ingest_cli_builds_every_declared_index_into_its_own_folder(monkeypatch,
     manifests = []
     monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)  # the chunk files go to tmp_path, not data/
     monkeypatch.setattr(ingestion.service, "load_settings", lambda: SimpleNamespace(strategies={"section": SECTION, "page": PAGE}))
-    monkeypatch.setattr(ingestion.service, "load_pages", lambda: PAGES)
     monkeypatch.setattr(ingestion.service, "write_manifest", lambda strategy, count, **kwargs: manifests.append((strategy.name, count)))
 
-    result = ingest.main([], vector_store_provider=FakeStore)
+    result = ingest.main([], vector_store_provider=FakeStore, knowledge_source=FakeSource(PAGES))
 
     assert result == 0
     assert rebuilt == {"section": 5, "page": 2}
@@ -448,3 +479,36 @@ def test_the_ingest_facade_builds_nothing_without_the_store_provider():
 
     with pytest.raises(TypeError):
         ingest.build_index("section", [])
+
+
+def test_the_manifest_records_the_version_of_the_document_that_was_indexed(tmp_path, monkeypatch):
+    import json
+
+    from assistant import index as index_module
+    from assistant import ingestion
+
+    monkeypatch.setattr(index_module, "INDEX_DIR", tmp_path)
+
+    ingestion.service.build_index(
+        SECTION, document(PAGES, version="markdown-7"), vector_store_provider=lambda name: type("S", (), {"rebuild": lambda self, c: None})()
+    )
+
+    manifest = json.loads((tmp_path / "section" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_hash"] == "markdown-7"
+
+
+def test_the_pdf_source_renders_a_document_and_versions_it_by_content(tmp_path):
+    import hashlib
+
+    from assistant.ingestion.pdf_source import PdfBrochureSource
+
+    source = PdfBrochureSource(
+        build_knowledge_source().path, name=SOURCE_NAME, text_fixes={}, ignored_line_prefixes=("Note:",), intro_suffix=INTRO_SUFFIX
+    )
+
+    loaded = source.load()
+
+    assert loaded.version == source.version() == hashlib.sha256(source.path.read_bytes()).hexdigest()[:16]
+    assert loaded.name == SOURCE_NAME
+    assert loaded.sections[0].title == CLINIC and loaded.sections[1].title == CLEANING
+    assert loaded.pages and all(B not in page and "fictional" not in page for page in loaded.pages)

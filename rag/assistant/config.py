@@ -6,15 +6,28 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
-# the clinic brochure (source) and the indexes built from it by assistant.ingest, one per strategy
-SOURCE_PDF = ROOT / "data" / "source" / "DentalSafe.pdf"
-INDEX_DIR = ROOT / "data" / "index"
+# The clinic and where its knowledge, indexes and answer key are. Each one can be pointed elsewhere with an environment
+# variable, to run another clinic (for example the Portuguese one) without touching the default: see docs/development.md.
+# The knowledge is a PDF brochure or, for any other extension, a Markdown file (one "## Title" per subject).
+SOURCE_PDF = Path(os.getenv("KNOWLEDGE_PATH") or ROOT / "data" / "source" / "DentalSafe.pdf")
+# When set, the knowledge comes from the Node server instead of the file: GET this URL with the bearer token INTERNAL_TOKEN
+KNOWLEDGE_URL = os.getenv("KNOWLEDGE_URL", "").strip()
+INTERNAL_TOKEN = os.getenv("INTERNAL_TOKEN", "").strip()  # also protects POST /reindex; empty turns that route off
+# When set, the clinic's name and kind come from the Node server: GET this URL with INTERNAL_TOKEN (its /internal/clinic)
+CLINIC_URL = os.getenv("CLINIC_URL", "").strip()
+# the indexes built from the knowledge by assistant.ingest, one per strategy
+INDEX_DIR = Path(os.getenv("INDEX_DIR") or ROOT / "data" / "index")
 
 # chunking strategies and search experiments, edited by hand (read by assistant.settings)
 CONFIG_DIR = ROOT / "config"
 STRATEGIES_PATH = CONFIG_DIR / "strategies.yaml"
 EXPERIMENTS_PATH = CONFIG_DIR / "experiments.yaml"
 SCHEMAS_DIR = CONFIG_DIR / "schemas"
+
+# the clinic profile (identity and what is specific to its specialty) and one language package per language
+CLINIC_PATH = Path(os.getenv("CLINIC_PATH") or CONFIG_DIR / "clinic.yaml")
+LANGUAGES_DIR = CONFIG_DIR / "languages"
+
 COLLECTION_NAME = "raglab"
 
 # Fixes applied to the extracted text, as {wrong: right}. The current brochure needs none.
@@ -28,49 +41,18 @@ IGNORED_LINE_PREFIXES = ("Note:",)
 # That opening block becomes a section titled "<clinic name> — <this suffix>".
 INTRO_SECTION_SUFFIX = "Clinic Information"
 
-# Words that do not help the word-based search. "much", "long", "where", and "open" are not here on purpose:
-# they carry the intent of "how much", "how long", "where are you", and "are you open".
-STOPWORDS = frozenset("""
-a an the of to in on at for with without from by and or but if so as than then that this these those
-is are was were be been being am do does did has have had will would can could should may might must
-i me my we us our you your yours he she it its they them their there here
-what which who whom how why
-not no yes please just also very really about into over up out any some
-get got need want like know tell say
-""".split())
-
-# How customers ask -> how the brochure writes it. Used only by the word-based search.
-QUERY_SYNONYMS = {
-    "cost": ("price",), "costs": ("price",), "much": ("price",), "fee": ("price",), "fees": ("price",),
-    "charge": ("price",), "expensive": ("price",), "cheap": ("price",), "pay": ("price",),
-    "pricing": ("price",), "prices": ("price",),
-    "long": ("duration",), "take": ("duration",), "takes": ("duration",), "time": ("duration",),
-    "quick": ("duration",), "fast": ("duration",),
-    "last": ("durability", "lasting"), "lasts": ("durability", "lasting"),
-    "recover": ("recovery",), "heal": ("recovery",), "healing": ("recovery",), "downtime": ("recovery",),
-    "pull": ("extraction",), "pulled": ("extraction",), "remove": ("extraction",),
-    "removed": ("extraction",), "removal": ("extraction",), "extract": ("extraction",),
-    "cavity": ("filling", "decay"), "cavities": ("filling", "decay"),
-    "whiten": ("whitening",), "whiter": ("whitening",), "bleach": ("whitening",), "bleaching": ("whitening",),
-    "aligners": ("braces",), "invisalign": ("braces", "aligners"), "straighten": ("braces", "alignment"),
-    "crooked": ("braces", "alignment"), "orthodontics": ("orthodontic", "braces"),
-    "teeth": ("tooth",), "tooth": ("teeth",),
-    "where": ("location",), "located": ("location",), "address": ("location",), "directions": ("location",),
-    "open": ("hours",), "close": ("hours",), "closed": ("hours",), "opening": ("hours",),
-    "weekend": ("hours", "saturday", "sunday"), "weekends": ("hours", "saturday", "sunday"),
-    "phone": ("contact",), "call": ("contact",), "number": ("contact",), "email": ("contact",),
-    "reach": ("contact",),
-    "hurt": ("pain",), "hurts": ("pain",), "painful": ("pain",),
-    "installments": ("payment",), "financing": ("payment",), "card": ("payment",),
-    "works": ("work",), "done": ("works", "work"),
-    "types": ("options",), "kinds": ("options",),
-}
-
 # Generation. Temperature 0 because the assistant quotes prices and durations: the same question must get the same answer.
 TEMPERATURE = 0.0
 MAX_ANSWER_TOKENS = 200   # safety cap; the answers asked for have at most 3 short messages
+THINKING_ANSWER_TOKENS = 2000   # answer budget when thinking is on: the thinking uses it too; the usual cap of 200 would cut it
 KEEP_ALIVE = "30m"        # keeps the model loaded between questions, so the load time is not paid again
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "llama3")
-OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_CHAT_MODEL = os.getenv("OLLAMA_CHAT_MODEL", "qwen3:8b")
+# Thinking of the chat models that think (qwen3): "off" (default) answers at once, "on" thinks first: a bit more right, about 5 times slower, and it can end with an empty answer.
+OLLAMA_THINKING = os.getenv("OLLAMA_THINKING", "off").strip().lower() in ("on", "1", "true", "yes")
+# Grounded answers: the model quotes the knowledge and the code checks the quote before the answer is given. Off by default.
+RAG_GROUNDED = os.getenv("RAG_GROUNDED", "").lower() in ("1", "true", "yes", "on")
+# Support check of grounded answers: one more model call checks that the quote states the answer. Only with RAG_GROUNDED.
+RAG_VERIFY_SUPPORT = os.getenv("RAG_VERIFY_SUPPORT", "").lower() in ("1", "true", "yes", "on")
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "embeddinggemma")

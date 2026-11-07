@@ -1,42 +1,53 @@
-import { env } from "../../config/env.js";
 import type { MessageType } from "../../db/schema.js";
 
 type Fetch = typeof fetch;
 
-/**
- * Envia uma mensagem de texto pela Evolution API (v2). `number` no formato 5511999999999. Devolve o id da mensagem.
- * Com `delayMs`, a Evolution mostra "digitando…" por esse tempo antes de enviar (specs/004, contracts/evolution.md).
- */
-export async function sendWhatsAppText(
-  number: string,
-  text: string,
-  { delayMs = 0, fetch: doFetch = fetch }: { delayMs?: number; fetch?: Fetch } = {},
-): Promise<{ waId: string }> {
-  const res = await doFetch(`${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
-    body: JSON.stringify({ number, text, delay: delayMs, linkPreview: false }),
-    // A resposta só chega depois do "digitando…"
-    signal: AbortSignal.timeout(delayMs + 10_000),
-  });
-  if (!res.ok) {
-    throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
-  }
-  const body = (await res.json()) as { key?: { id?: string } };
-  if (!body.key?.id) throw new Error("Evolution API did not return key.id");
-  return { waId: body.key.id };
+/** Endereço, instância e chave da Evolution API v2 (EVOLUTION_API_URL, EVOLUTION_INSTANCE, EVOLUTION_API_KEY). */
+export interface EvolutionConfig {
+  apiUrl: string;
+  instance: string;
+  apiKey: string;
 }
 
-/** Marca como lidas mensagens do cliente (specs/004 FR-005). */
-export async function markMessagesRead(phone: string, waIds: string[], { fetch: doFetch = fetch }: { fetch?: Fetch } = {}) {
-  if (!waIds.length) return;
-  const res = await doFetch(`${env.EVOLUTION_API_URL}/chat/markMessageAsRead/${env.EVOLUTION_INSTANCE}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", apikey: env.EVOLUTION_API_KEY },
-    body: JSON.stringify({ readMessages: waIds.map((id) => ({ remoteJid: `${phone}@s.whatsapp.net`, fromMe: false, id })) }),
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
+/** Envio e leitura de mensagens pela Evolution API (specs/004, contracts/evolution.md). */
+export function createEvolutionClient({ apiUrl, instance, apiKey }: EvolutionConfig) {
+  /**
+   * Envia uma mensagem de texto. `number` no formato 5511999999999. Devolve o id da mensagem.
+   * Com `delayMs`, a Evolution mostra "digitando…" por esse tempo antes de enviar (specs/004, contracts/evolution.md).
+   */
+  async function sendWhatsAppText(
+    number: string,
+    text: string,
+    { delayMs = 0, fetch: doFetch = fetch }: { delayMs?: number; fetch?: Fetch } = {},
+  ): Promise<{ waId: string }> {
+    const res = await doFetch(`${apiUrl}/message/sendText/${instance}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ number, text, delay: delayMs, linkPreview: false }),
+      // A resposta só chega depois do "digitando…"
+      signal: AbortSignal.timeout(delayMs + 10_000),
+    });
+    if (!res.ok) {
+      throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
+    }
+    const body = (await res.json()) as { key?: { id?: string } };
+    if (!body.key?.id) throw new Error("Evolution API did not return key.id");
+    return { waId: body.key.id };
+  }
+
+  /** Marca como lidas mensagens do cliente (specs/004 FR-005). */
+  async function markMessagesRead(phone: string, waIds: string[], { fetch: doFetch = fetch }: { fetch?: Fetch } = {}) {
+    if (!waIds.length) return;
+    const res = await doFetch(`${apiUrl}/chat/markMessageAsRead/${instance}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ readMessages: waIds.map((id) => ({ remoteJid: `${phone}@s.whatsapp.net`, fromMe: false, id })) }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`Evolution API ${res.status}: ${await res.text()}`);
+  }
+
+  return { sendWhatsAppText, markMessagesRead };
 }
 
 /** Mensagem individual recebida ou enviada pelo número conectado. */

@@ -84,6 +84,14 @@ def test_normal_answer_is_not_abstention():
     assert not detect_abstention("Teeth whitening costs $180–$450. Shall we schedule your assessment?")
 
 
+def test_more_refusal_phrases_are_abstention():
+    from evaluation.normalize import PT
+
+    assert detect_abstention("We don't have that information right now. I can help you with our treatments.")
+    assert detect_abstention("Infelizmente, não temos essa informação. No entanto, posso ajudar com nossos tratamentos.", PT)
+    assert not detect_abstention("Teeth whitening costs $180–$450.")
+
+
 # --- numeric faithfulness ---
 
 CHUNKS = ["Teeth Whitening\nPrice: $180–$450\nDuration: Full treatment: up to 14 days\nHOURS\nSaturday: 9:00 AM–2:00 PM"]
@@ -128,8 +136,71 @@ def test_too_long_answer():
 
 
 def test_answer_in_portuguese():
-    assert check_rules("O clareamento é a melhor opção para você e para o seu sorriso.") == ["not_english"]
+    assert check_rules("O clareamento é a melhor opção para você e para o seu sorriso.",
+                       expected_language="en") == ["not_english"]
 
 
 def test_clean_answer_has_no_violations():
     assert check_rules("Teeth whitening costs $180–$450. Shall we schedule your assessment?") == []
+
+
+def test_portuguese_refusal_is_recognized():
+    from evaluation.normalize import PT
+
+    assert detect_abstention("No momento não tenho essa informação. Posso ajudar com nossos tratamentos.", PT)
+    assert not detect_abstention("O clareamento custa R$ 180 a R$ 450.", PT)
+
+
+def test_portuguese_rules_forbid_the_portuguese_terms_and_the_english_language():
+    from evaluation.normalize import PT
+
+    assert check_rules("De acordo com o folheto, a limpeza custa R$ 40 a R$ 85.", PT) == [
+        "forbidden_term:de acordo com", "forbidden_term:folheto"
+    ]
+    assert check_rules("Teeth whitening is great for you and the price is high.", PT,
+                       expected_language="pt") == ["not_portuguese"]
+    assert check_rules("O clareamento é a melhor opção para você e para o seu sorriso.", PT,
+                       expected_language="pt") == []
+
+
+def test_portuguese_facts_are_found_with_the_portuguese_number_format():
+    from evaluation.normalize import PT
+
+    facts = [Fact("money", "price", (900, 2000))]
+
+    assert check_facts("O implante custa de R$ 900 a R$ 2.000.", facts, PT) == [{"label": "price", "found": True}]
+    assert unexpected_values("Custa R$ 2.500.", facts, locale=PT) == ["R$ 2.500"]
+
+# --- language check ---
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "A complete smile transformation",
+        "A dental cleaning costs $40–$85.",
+        "Yes, we do! Do you want to book?",
+        "You can write to appointments@dentalsafe.example",
+    ],
+)
+def test_short_english_answer_is_not_flagged_as_portuguese(answer):
+    assert check_rules(answer, expected_language="en") == []
+
+
+def test_short_portuguese_answer_is_not_flagged_as_english():
+    from evaluation.normalize import PT
+
+    assert check_rules("Sim, o clareamento custa R$ 180 a R$ 450.", PT, expected_language="pt") == []
+
+
+def test_english_sentence_is_flagged_as_not_portuguese():
+    from evaluation.normalize import PT
+
+    assert check_rules("Teeth whitening is great for you and the price is high.", PT,
+                       expected_language="pt") == ["not_portuguese"]
+
+
+def test_language_is_checked_only_when_the_item_asks_for_it():
+    portuguese = "O clareamento é a melhor opção para você e para o seu sorriso."
+
+    assert check_rules(portuguese) == []
+    assert check_rules(portuguese, expected_language="en") == ["not_english"]

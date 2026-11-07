@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { ApiError, login } from "../api";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { CenterPage } from "../components/CenterPage";
+import { Field } from "../components/Field";
+import { Notice } from "../components/Notice";
+import { Title } from "../components/Title";
 
 export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [password, setPassword] = useState("");
@@ -30,29 +37,27 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <main className="center-page">
-      <form className="card login" onSubmit={submit}>
-        <h1>Secretaryfy</h1>
-        <p className="muted">WhatsApp panel</p>
-        <label>
+    <CenterPage>
+      <Card as="form" className="flex w-[min(420px,100%)] flex-col gap-3.5" onSubmit={submit}>
+        <Title level={1} className="mb-1">
+          Secretaryfy
+        </Title>
+        <p className="text-muted-foreground">WhatsApp panel</p>
+        <Field className="gap-1.5 font-medium">
           Operator password
-          <input
+          <Input
             type="password"
             autoComplete="current-password"
             autoFocus
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="primary" type="submit" disabled={!password || busy}>
+        </Field>
+        {error && <Notice role="alert">{error}</Notice>}
+        <Button type="submit" disabled={!password || busy}>
           {busy ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
-    </main>
+        </Button>
+      </Card>
+    </CenterPage>
   );
 }

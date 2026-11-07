@@ -12,7 +12,6 @@ from assistant.ingestion.service import (
     build_index,
     clean_text,
     is_heading,
-    load_pages,
     save_chunks,
     split_by_characters,
     split_by_page,
@@ -20,15 +19,22 @@ from assistant.ingestion.service import (
     split_sections,
     vectorize_chunks,
 )
-from assistant.composition import build_vector_store_provider
+from assistant.composition import build_knowledge_source, build_vector_store_provider
 from assistant.ingestion.service import main as _main
+from assistant.ingestion.source import KnowledgeSource
 from assistant.storage.vector_store import VectorStore
 
 
-def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore] | None = None):
-    """CLI entry point: without a provider, the composition root chooses the backend."""
+def main(
+    argv=None,
+    *,
+    vector_store_provider: Callable[[str], VectorStore] | None = None,
+    knowledge_source: KnowledgeSource | None = None,
+):
+    """CLI entry point: without a provider or a source, the composition root chooses them."""
     provider = build_vector_store_provider() if vector_store_provider is None else vector_store_provider
-    return _main(argv, vector_store_provider=provider)
+    source = build_knowledge_source() if knowledge_source is None else knowledge_source
+    return _main(argv, vector_store_provider=provider, knowledge_source=source)
 
 
 if __name__ == "__main__":

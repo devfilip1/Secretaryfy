@@ -1,0 +1,116 @@
+# Language package: the language DATA the assistant uses in Brazilian Portuguese: the answer language, the
+# example conversations, the words of the search, the patterns that clean the answer and the texts it says by itself.
+# The prompt texts are shared by every language, in config/prompts.yaml.
+# Placeholders filled per question: {knowledge}, {conversation}, {ask}, {no_answer}.
+# Placeholders filled from the clinic file when the profile loads: {clinic_name}, {clinic_name_upper},
+# {clinic_kind}, {example_treatment}, {extra_rules}. A clinic value may not contain braces.
+# The examples may contain {no_answer}, which is filled per question.
+
+# The refusal sentence. The evaluation recognizes it through the abstention patterns of the pt Locale (evaluation/normalize.py).
+no_answer: "No momento não tenho essa informação."
+# Stands in for the brochure text when the search finds nothing.
+no_information: "(nenhuma informação encontrada para esta pergunta)"
+# Stands in for the conversation before the first message.
+no_conversation: "(esta é a primeira mensagem)"
+# Labels of each turn of the conversation, by the role the chat uses.
+conversation_roles: {user: Cliente, assistant: Assistente}
+# Between the chunks in the original (baseline) prompt.
+original_separator: "\n\n----\n\n"
+# What the model sometimes writes after the answer, for itself: a "---" line or a "(Obs.: ...)" paragraph.
+# Compiled with re.IGNORECASE.
+afterthought: '\n\s*(?:-{3,}|\(?\s*(?:nota|obs|observa[cç][aã]o)\.?\s*:)'
+# A greeting at the start of the answer ("Oi!", "Olá, tudo bem?"). Compiled with re.IGNORECASE.
+greeting: '^(?:oi|ol[aá]|bom dia|boa tarde|boa noite)(?:\s*,?\s*tudo bem)?\b[?!.,]*\s*'
+# A oferta que segue a frase de recusa. Quem escreve a recusa é o código, nunca o modelo.
+refusal_offer: "Posso ajudar com nossos tratamentos ou agendar uma avaliação para você."
+# Mensagem feita só de cumprimentos, agradecimentos e despedidas (várias palavras, com pontuação ou emoji). A mensagem
+# inteira do cliente tem de bater com este padrão; qualquer outra coisa não é conversa cordial. Compilado com re.IGNORECASE.
+small_talk: '[\W_]*(?:\b(?:oi|oie|ol[aá]|bom dia|boa tarde|boa noite|obrigad[oa]|muito obrigad[oa]|valeu|tchau|at[eé] logo|at[eé] mais|at[eé] breve|falou|xau|adeus|de nada)\b[\W_]*)+'
+
+# The language of the answer: rule 1 of config/prompts.yaml.
+answer_language: "Brazilian Portuguese"
+# The examples of rule 12 (greeting) and rule 11 (thanks) of config/prompts.yaml, as the prompt shows them.
+greeting_examples: '"Oi!", "Olá!"'
+thanks_example: "Por nada! Tenha um ótimo dia 😊"
+# The example conversations of config/prompts.yaml, in the answer language. They show the output style. The
+# {no_answer} in them is filled per question.
+examples: |-
+  EXEMPLOS DE RESPOSTA DIRETA (A representa o nome simples de qualquer tratamento)
+  Cliente: Quanto tempo leva A?
+  Assistente: A leva [apenas a duração escrita no bloco de A].
+
+  Cliente: Vocês abrem aos domingos?
+  Assistente: Aos domingos estamos fechados.
+
+  Cliente: Vocês fazem A?
+  Assistente: Fazemos sim! A leva [duração escrita no bloco de A].
+
+  Custa [faixa de preço escrita no bloco de A].
+
+  EXEMPLO DE PERGUNTA SEGUINTE (a mensagem anterior era sobre A)
+  Cliente: e quanto custa?
+  Assistente: A custa [faixa de preço escrita no bloco de A].
+
+  EXEMPLO DE COMPARAÇÃO (A e B representam quaisquer tratamentos)
+  Cliente: Qual a diferença de preço entre A e B?
+  Assistente: O tratamento A custa [faixa de preço escrita no bloco de A] e o tratamento B custa [faixa de preço escrita no bloco de B].
+
+  Se quiser, podemos agendar uma avaliação para ver o que é melhor para você.
+
+  EXEMPLOS DE COMO RESPONDER QUANDO NÃO HÁ RESPOSTA
+  Cliente: Vocês atendem crianças?
+  Assistente: {no_answer} Posso ajudar com nossos tratamentos ou agendar uma avaliação para você.
+
+# Words that do not help the word-based search (lowercase, without accents). "quanto", "tempo", "onde", and "abre" are
+# not here on purpose: they carry the intent of "how much", "how long", "where are you", and "are you open".
+stopwords: [
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+  "por", "para", "pra", "com", "sem", "sobre", "ao", "aos", "ate", "entre", "e", "ou", "mas", "se", "que", "como",
+  "eu", "me", "meu", "minha", "meus", "minhas", "nos", "nosso", "nossa", "voce", "voces", "seu", "sua", "seus", "suas",
+  "ele", "ela", "eles", "elas", "isso", "isto", "esse", "essa", "esses", "essas", "este", "esta", "aquele", "aquela",
+  "e", "sao", "foi", "ser", "estar", "esta", "estao", "tem", "ter", "tenho", "temos", "vai", "vou", "pode", "podem",
+  "qual", "quais", "quem", "porque", "nao", "sim", "favor", "so", "tambem", "muito", "mais", "ja", "la", "ai", "aqui",
+  "quero", "preciso", "gostaria", "saber", "dizer", "oi", "ola",
+]
+# How customers ask -> how the brochure writes it, for the word-based search only. Words that are about the
+# clinic in general are here; the words of the specialty are in the clinic file.
+query_synonyms:
+  custa: [preco]
+  custo: [preco]
+  valor: [preco]
+  valores: [preco]
+  cobram: [preco]
+  cobra: [preco]
+  caro: [preco]
+  barato: [preco]
+  pagar: [preco]
+  precos: [preco]
+  tempo: [duracao]
+  demora: [duracao]
+  leva: [duracao]
+  dura: [duracao]
+  rapido: [duracao]
+  onde: [endereco]
+  fica: [endereco]
+  ficam: [endereco]
+  localizacao: [endereco]
+  localizados: [endereco]
+  abre: [horario]
+  abrem: [horario]
+  aberto: [horario]
+  fecha: [horario]
+  fechado: [horario]
+  funciona: [horario]
+  funcionamento: [horario]
+  telefone: [contato]
+  ligar: [contato]
+  email: [contato]
+  falar: [contato]
+  doi: [dor]
+  dolorido: [dor]
+  dolorosa: [dor]
+  parcelado: [pagamento]
+  parcelar: [pagamento]
+  cartao: [pagamento]
+  financiamento: [pagamento]
+  tipos: [opcoes]

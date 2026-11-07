@@ -8,6 +8,7 @@ import jsonschema
 import yaml
 
 from assistant.config import EXPERIMENTS_PATH, SCHEMAS_DIR, STRATEGIES_PATH
+from assistant.retrieval.lexical_options import LexicalOptions
 
 STRATEGY_TYPES = ("section", "split", "page")
 SEARCH_TYPES = ("hybrid", "vector", "bm25")
@@ -46,6 +47,7 @@ class Experiment:
     match_threshold: float = 0.0
     use_hyde: bool = False
     prompt: str = "rules"
+    lexical: LexicalOptions = LexicalOptions()  # how the word search analyses the text (defaults: the project's)
 
 
 @dataclass(frozen=True)
@@ -203,6 +205,7 @@ def parse_settings(strategies_text, experiments_text):
                     match_threshold=float(raw.get("match_threshold", 0.0)),
                     use_hyde=raw.get("use_hyde", False),
                     prompt=raw.get("prompt", "rules"),
+                    lexical=LexicalOptions.from_mapping(raw.get("lexical")),
                 ))
             except (KeyError, TypeError, ValueError):
                 pass  # the schema already listed the problem

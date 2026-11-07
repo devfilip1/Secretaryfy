@@ -5,14 +5,23 @@ The entry points (chat, server, ingest CLI, evaluation) get their dependencies f
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from assistant.storage.factory import default_embeddings, default_generator, default_lexical_index, default_vector_store_provider
+from assistant.storage.factory import (
+    default_clinic_profile,
+    default_embeddings,
+    default_generator,
+    default_knowledge_source,
+    default_lexical_index,
+    default_vector_store_provider,
+)
 from assistant.storage.vector_store import VectorStore
 
 if TYPE_CHECKING:
     from assistant.generation.model import TextGenerator
+    from assistant.ingestion.source import KnowledgeSource
     from assistant.retrieval.lexical import LexicalIndex
     from assistant.retrieval.pipeline import RagConfig, RagDeps
     from assistant.retrieval.service import RagService
+    from assistant.clinic.profile import ClinicProfileSource
     from assistant.storage.embeddings import EmbeddingProvider
 
 
@@ -32,6 +41,15 @@ def build_lexical_provider() -> "LexicalIndex":
     return default_lexical_index()
 
 
+def build_clinic_provider() -> "ClinicProfileSource":
+    # the same instance the lexical index reads: one clinic profile per process
+    return default_clinic_profile()
+
+
+def build_knowledge_source() -> "KnowledgeSource":
+    return default_knowledge_source()
+
+
 def build_rag_deps() -> "RagDeps":
     # imported here, not at the top: importing this module must not load the retrieval pipeline (numpy, langchain_ollama)
     from assistant.retrieval.pipeline import RagDeps
@@ -41,6 +59,7 @@ def build_rag_deps() -> "RagDeps":
         embeddings=build_embeddings_provider(),
         generator=build_generator_provider(),
         lexical=build_lexical_provider(),
+        clinic=build_clinic_provider(),
     )
 
 

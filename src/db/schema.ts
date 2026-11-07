@@ -1,9 +1,11 @@
 import { sql } from "drizzle-orm";
+import type { KnowledgeData, KnowledgeKind } from "../modules/knowledge/types.js";
 import {
   boolean,
   check,
   index,
   integer,
+  serial,
   jsonb,
   pgEnum,
   pgTable,
@@ -45,8 +47,10 @@ export const conversations = pgTable(
     needsAttention: boolean("needs_attention").notNull().default(false),
     // Nome que o cliente disse na conversa; `name` é o do perfil do WhatsApp (specs/005, research.md R1)
     customerName: text("customer_name"),
-    // Quando o assistente pediu o nome fora do agendamento; impede pedir de novo (specs/005 FR-005)
+    // Quando o assistente pediu o nome pela última vez
     nameAskedAt: timestamp("name_asked_at", { withTimezone: true }),
+    // Quantas vezes o assistente pediu o nome (no máximo NAME_ASKS_MAX, specs/005 FR-005)
+    nameAsks: integer("name_asks").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("conversations_last_message_at_idx").on(t.lastMessageAt.desc())],
@@ -111,6 +115,8 @@ export const schedulingRules = pgTable(
     id: smallint("id").primaryKey().default(1),
     weeklyHours: jsonb("weekly_hours").$type<WeeklyHours>().notNull(),
     slotMinutes: integer("slot_minutes").notNull(),
+    /** Passo dos horários de início (ADR 0015); `slotMinutes` é a duração padrão de um atendimento */
+    gridMinutes: integer("grid_minutes").notNull().default(15),
     minNoticeMinutes: integer("min_notice_minutes").notNull(),
     maxDaysAhead: integer("max_days_ahead").notNull(),
     cancelNoticeMinutes: integer("cancel_notice_minutes").notNull(),
@@ -207,6 +213,22 @@ export const schedulingSessions = pgTable("scheduling_sessions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Conhecimento do assistente: a brochura da clínica, uma linha por seção (ADR 0010; docs/data-model.md). */
+export const knowledgeSections = pgTable(
+  "knowledge_sections",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    kind: text("kind").$type<KnowledgeKind>().notNull(),
+    title: text("title").notNull(),
+    tagline: text("tagline"),
+    data: jsonb("data").$type<KnowledgeData>().notNull(),
+    position: integer("position").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("knowledge_sections_kind_check", sql`${t.kind} in ('treatment', 'info', 'clinic')`)],
+);
+
 /** Quem pediu para não receber mensagens. Fica pelo telefone, e não pela conversa, para sobreviver à limpeza ao desconectar. */
 export const contactPreferences = pgTable("contact_preferences", {
   phone: text("phone").primaryKey(),
@@ -231,6 +253,19 @@ export const protectionState = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [check("protection_state_single_row", sql`${t.id} = 1`)],
+);
+
+/** Identidade da clínica que o painel edita: nome, nome da atendente e tipo. Uma linha só (ADR 0012, passo 2). */
+export const clinicSettings = pgTable(
+  "clinic_settings",
+  {
+    id: smallint("id").primaryKey().default(1),
+    name: text("name").notNull(),
+    assistantName: text("assistant_name"),
+    kind: text("kind").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("clinic_settings_single_row", sql`${t.id} = 1`)],
 );
 
 export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;

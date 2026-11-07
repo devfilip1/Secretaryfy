@@ -42,6 +42,46 @@ def test_only_the_options_that_are_set_reach_the_model(built):
     }
 
 
+def test_qwen3_models_get_thinking_turned_off(built):
+    OllamaChat().generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is False
+
+
+def test_models_other_than_qwen3_get_no_reasoning_argument(built):
+    OllamaChat().generate("hi", model="llama3", temperature=None, seed=None, max_tokens=None)
+
+    assert "reasoning" not in built[0].kwargs
+
+
+def test_qwen3_small_models_get_thinking_turned_off(built):
+    OllamaChat().generate("hi", model="qwen3:4b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is False
+
+
+def test_thinking_on_turns_thinking_on_and_raises_the_answer_budget(built):
+    OllamaChat(thinking=True).generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=200)
+
+    assert built[0].kwargs["reasoning"] is True
+    assert built[0].kwargs["num_predict"] >= 2000
+
+
+def test_thinking_on_without_a_token_cap_leaves_num_predict_unset(built):
+    OllamaChat(thinking=True).generate("hi", model="qwen3:8b", temperature=None, seed=None, max_tokens=None)
+
+    assert built[0].kwargs["reasoning"] is True
+    assert "num_predict" not in built[0].kwargs
+
+
+@pytest.mark.parametrize("thinking", [False, True])
+def test_models_other_than_qwen3_are_the_same_whatever_the_thinking_setting(built, thinking):
+    OllamaChat(thinking=thinking).generate("hi", model="llama3", temperature=None, seed=None, max_tokens=50)
+
+    assert "reasoning" not in built[0].kwargs
+    assert built[0].kwargs["num_predict"] == 50
+
+
 def test_the_same_settings_reuse_the_model_and_other_settings_build_another(built):
     chat = OllamaChat()
 
@@ -128,3 +168,19 @@ def test_importing_the_generation_model_does_not_load_langchain_ollama():
     result = subprocess.run([sys.executable, "-c", code], cwd=root, capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_response_format_reaches_the_model_as_format(built):
+    OllamaChat().generate("hi", model="llama3", temperature=None, seed=None, max_tokens=None, response_format={"type": "object"})
+
+    assert built[0].kwargs["format"] == {"type": "object"}
+
+
+def test_response_format_is_part_of_the_cache_key(built):
+    chat = OllamaChat()
+
+    chat.generate("a", model="llama3", temperature=None, seed=None, max_tokens=None)
+    chat.generate("a", model="llama3", temperature=None, seed=None, max_tokens=None, response_format={"type": "object"})
+
+    assert len(built) == 2
+    assert "format" not in built[0].kwargs

@@ -62,10 +62,11 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 |---|---|
 | `GET /api/appointments` | Booked appointments grouped `today`, `tomorrow`, `week` (next 7 days) in the calendar's time zone. Each has name, service, phone, origin, notes, `conversationId` and `reminder: {label, reason, sentAt}` ([labels](business-rules.md#reminder-states)) |
 | `POST /api/appointments/:id/confirm` | Confirms by the operator; idempotent |
+| `GET /api/services` | `{services: [{name, label}]}`: the services a customer can book, in the assistant's order. `name` is the stored key (the treatment's key, or `Assessment`); `label` is the treatment's title, and "General assessment" for Assessment. Source: the bookable treatments of `knowledge_sections` plus the assessment ([catalog.ts](../src/modules/scheduling/catalog.ts), ADR 0014) |
 | `GET /api/booking/days` | Days with free times |
-| `GET /api/booking/slots?date=YYYY-MM-DD` | Free times on that day |
+| `GET /api/booking/slots?date=YYYY-MM-DD[&service=KEY]` | The times offered on that day for the service's appointment length (the default length without `service`) |
 | `GET /api/booking/lookup?phone=` | Normalized phone, name (registry, else said in the chat), `hasConversation` and `futureAppointment`; 422 `invalid_phone` |
-| `POST /api/appointments` | `{phone, name, service, start}`; 201 `{appointment}`; 409 `slot_taken` (with `date` and fresh `slots`), `already_booked` (with the appointment) or `calendar_disconnected`; 502 when Google fails; 422 with `issues` |
+| `POST /api/appointments` | `{phone, name, service, start}` (`service` is one of the `name`s of `GET /api/services`); 201 `{appointment}`; 409 `slot_taken` (with `date` and fresh `slots`), `already_booked` (with the appointment) or `calendar_disconnected`; 502 when Google fails; 422 with `issues` |
 
 ### Customers — [panel-customers.ts](../src/routes/panel-customers.ts)
 
@@ -88,6 +89,36 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `connection.updated` | `state`, `number`, `qr` |
 | `calendar.updated` | `connection` |
 | `protection.updated` | gate state, as `GET /api/protection` |
+
+### Knowledge — [panel-knowledge.ts](../src/routes/panel-knowledge.ts)
+
+The brochure sections the assistant answers from ([knowledge](data-model.md#knowledge_sections)). A fact may carry `assessment: true` (BR-KNO-01: its line reaches the RAG with a note in the clinic language). Invalid bodies are `400 {error: "invalid_body", message}`; an unknown key is `404 {error: "not_found"}`. Each create, update, delete and reorder also re-reads the booking catalog (`onChange`, ADR 0014).
+
+| Route | Body | Answer |
+|---|---|---|
+| `GET /api/knowledge` | — | `{sections, labels, hours}`: the sections in position order; `labels` are the field labels in the clinic language (with `address`, `hours`, `contact` for the clinic section); `hours` is the list of opening-hours lines generated from the scheduling rules (BR-KNO-02), which the form previews |
+| `POST /api/knowledge` | `{kind: "treatment" \| "info" \| "clinic", title, tagline?, data}`. A clinic takes `data: {intro: string[], address: string[] (min 1), phone?, email?, closing: string[]}`, with no hours | `201 {section}`. The key is a slug of the title, with `-2`, `-3`… when taken (`order` is never used). Appended at the end |
+| `PUT /api/knowledge/:key` | `{title, tagline?, data}` | `200 {section}`. Key, kind and position stay |
+| `DELETE /api/knowledge/:key` | — | `204` |
+| `PUT /api/knowledge/order` | `{keys: string[]}` | `204`. Must list every section exactly once; otherwise `400 {error: "invalid_order", message}` |
+| `GET /api/knowledge/status` | — | `{version, indexedVersion, state}`; `state` is `upToDate`, `unpublished` or `unavailable` (RAG unreachable) |
+| `POST /api/knowledge/publish` | — | Asks the RAG to reindex. `200 {version, indexedVersion, state}`; `409 {error: "already indexing"}`; `502 {error: "rag_unavailable"}` |
+
+`version` is the hash of the current sections, with the opening-hours lines of the rules inside the clinic section, so a change in the Calendar page makes the status `unpublished` (`toDocument` in [render.ts](../src/modules/knowledge/render.ts)); `indexedVersion` is the version the RAG's index was built from (`knowledge.version` of its `/health`, while `index.state` is `current`; `null` otherwise). Nothing is sent to the RAG until the publish.
+
+### Clinic identity (`panel-clinic.ts`)
+
+| Route | Body | Response |
+|---|---|---|
+| `GET /api/clinic-settings` | — | `{name, assistantName, kind, language, restartRequired}`. `assistantName` is `null` when there is none; `restartRequired` is `false` here (see below) |
+| `PUT /api/clinic-settings` | `{name}` (1–120), `{assistantName}` (0–60, empty means none), `{kind}` (1–80) | `200` in the GET shape; `400 {error: "invalid_body", fields}` otherwise. Saved to `clinic_settings` and applied at once, with no restart. The `language` is read from `CLINIC_LANGUAGE` at boot: changing it needs a restart |
+
+## Internal routes
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /internal/knowledge` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's brochure for the RAG service: `{name, version, sections: [{title, body[]}]}`. `version` is the sha256 of `name` and `sections`, so any edit changes it. The bodies are rendered in `CLINIC_LANGUAGE` (the assessment notes, BR-KNO-01; the HORÁRIO lines of the clinic section come from the scheduling rules, BR-KNO-02). 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [knowledge-internal.ts](../src/routes/knowledge-internal.ts) |
+| `GET /internal/clinic` | `Authorization: Bearer <INTERNAL_TOKEN>` | The clinic's identity for the RAG service: `{name, kind, language, treatments}`, read from the live clinic context and the knowledge table on each request. `treatments` lists `{title, otherNames, extraLabels}` for every treatment: the RAG turns `otherNames` into query synonyms, takes the first title as the prompt's example treatment, and writes rule 5 (values with their own names, such as "Custo inicial" and "Mensalidade", taken from `extraLabels`) from them. 401 without or with a wrong token; the route does not exist while `INTERNAL_TOKEN` is empty. Outside the panel login. [clinic-internal.ts](../src/routes/clinic-internal.ts) |
 
 ## RAG service
 

@@ -47,13 +47,14 @@ def test_import_has_no_side_effects(monkeypatch):
 def test_every_index_matches_its_strategy_and_the_current_brochure():
     """If it fails, some index is missing or out of date: run python -m assistant.ingest."""
     from assistant.index import CURRENT, chunks_path, index_state
-    from assistant.ingest import build_chunks, load_pages
+    from assistant.composition import build_knowledge_source
+    from assistant.ingest import build_chunks
     from assistant.settings import strategies
 
-    pages = load_pages()
+    document = build_knowledge_source().load()
     for strategy in strategies():
         assert index_state(strategy) == (CURRENT, None), strategy.name
-        expected = [chunk.page_content for chunk in build_chunks(strategy, pages)]
+        expected = [chunk.page_content for chunk in build_chunks(strategy, document)]
         with open(chunks_path(strategy.name), encoding="utf-8") as f:
             indexed = [chunk["content"] for chunk in json.load(f)]
         assert indexed == expected, strategy.name
@@ -124,9 +125,12 @@ def test_answers_in_english_a_question_in_another_language():
 
 
 def test_refuses_what_is_not_in_the_brochure():
-    from assistant.retrieval.pipeline import NO_ANSWER, RagConfig
+    from assistant.clinic.yaml_source import YamlClinicProfile
+    from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+    from assistant.retrieval.pipeline import RagConfig
 
-    assert NO_ANSWER in answer("Do you accept dental insurance?", RagConfig()).answer
+    no_answer = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR).load().no_answer
+    assert no_answer in answer("Do you accept dental insurance?", RagConfig()).answer
 
 
 def test_stream_yields_the_same_kind_of_answer():
@@ -138,10 +142,13 @@ def test_stream_yields_the_same_kind_of_answer():
 
 
 def test_hyde_generates_a_short_hypothetical_answer():
+    from assistant.clinic.yaml_source import YamlClinicProfile
+    from assistant.config import CLINIC_PATH, LANGUAGES_DIR
     from assistant.generation.model import build_generator
     from assistant.retrieval.pipeline import RagConfig, hypothetical_answer
 
-    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator())
+    clinic = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR).load()
+    text = hypothetical_answer("How much is a dental implant?", RagConfig(), build_generator(), clinic)
 
     assert 10 < len(text) < 600
 

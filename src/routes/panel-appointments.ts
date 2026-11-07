@@ -3,17 +3,17 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import type { AppointmentRow } from "../db/schema.js";
 import type { CustomerRepository } from "../modules/customers/repository.js";
-import type { ConnectionStore } from "../modules/google/connection.js";
-import { CalendarUnavailable, FALLBACK_TIME_ZONE, type CalendarGateway } from "../modules/google/gateway.js";
+import { clinicTimeZone, type ConnectionStore } from "../modules/google/connection.js";
+import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gateway.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
-import { availableDays, bookingWindow, slotsForDay } from "../modules/scheduling/availability.js";
+import { availableDays, bookingWindow, naturalSlotsForDay } from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
-import { SERVICES } from "../modules/scheduling/services.js";
+import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
 
 interface Deps {
@@ -26,23 +26,14 @@ interface Deps {
   rules: Pick<RulesStore, "get">;
   booking: Pick<Booking, "bookSlot" | "currentAppointment">;
   reminderLeadMinutes: number;
+  /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
+  catalog: ServiceCatalog;
   now?: () => Date;
 }
 
 const idParams = z.object({ id: z.uuid() });
-const slotsQuery = z.object({ date: z.iso.date() });
+const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
-const SERVICE_NAMES = SERVICES.map((s) => s.name);
-const bookBody = z.object({
-  phone: z.string().transform((v, ctx) => {
-    const phone = normalizePhone(v);
-    if (!phone) ctx.addIssue({ code: "custom", message: "enter a phone number with area code" });
-    return phone ?? "";
-  }),
-  name: z.string().trim().min(1, "enter the customer's name").max(120),
-  service: z.string().refine((v) => SERVICE_NAMES.includes(v), "choose one of the clinic's services"),
-  start: z.iso.datetime({ offset: true }),
-});
 
 type Group = "today" | "tomorrow" | "week";
 
@@ -57,12 +48,11 @@ export function panelAppointmentsRoutes({
   rules: rulesStore,
   booking,
   reminderLeadMinutes,
+  catalog,
   now: clock = () => new Date(),
 }: Deps) {
   /** Fuso da agenda conectada; sem agenda, o de reserva. */
-  async function timeZoneOf() {
-    return (await connection.getForUse())?.timeZone ?? FALLBACK_TIME_ZONE;
-  }
+  const timeZoneOf = () => clinicTimeZone(connection);
 
   function present(appt: AppointmentRow | UpcomingAppointment, extra: { now: Date; timeZone: string; conversationId: string | null }) {
     const { now, timeZone, conversationId } = extra;
@@ -76,7 +66,8 @@ export function panelAppointmentsRoutes({
       endsAt: appt.endsAt.toISOString(),
       group,
       customerName: "registeredName" in appt && appt.registeredName ? appt.registeredName : appt.customerName,
-      service: appt.service,
+      // O título do tratamento; sem serviço guardado é avaliação geral, como no fluxo
+      service: catalog.label(appt.service ?? ASSESSMENT),
       phone: appt.phone,
       customerId: appt.customerId,
       notes: "notes" in appt ? appt.notes : null,
@@ -116,9 +107,11 @@ export function panelAppointmentsRoutes({
     return { rules, now, timeZone, busy, window };
   }
 
-  async function slotsOn(date: string, timeZone: string) {
+  /** Os horários oferecidos no dia, para a duração do serviço (ADR 0015), como o assistente os oferece */
+  async function slotsOn(date: string, timeZone: string, service?: string) {
     const ctx = await availabilityContext(timeZone);
-    return slotsForDay(date, ctx).map((s) => s.toISOString());
+    const minutes = service ? catalog.minutes(service) : undefined;
+    return naturalSlotsForDay(date, { ...ctx, minutes }).map((s) => s.toISOString());
   }
 
   /** Erros do Google viram 502; o resto segue. */
@@ -130,6 +123,18 @@ export function panelAppointmentsRoutes({
       throw err;
     }
   }
+
+  // Serviço da marcação: tem de estar no catálogo, consultado a cada pedido
+  const bookBody = z.object({
+    phone: z.string().transform((v, ctx) => {
+      const phone = normalizePhone(v);
+      if (!phone) ctx.addIssue({ code: "custom", message: "enter a phone number with area code" });
+      return phone ?? "";
+    }),
+    name: z.string().trim().min(1, "enter the customer's name").max(120),
+    service: z.string().refine((v) => catalog.list().some((s) => s.name === v), "choose one of the clinic's services"),
+    start: z.iso.datetime({ offset: true }),
+  });
 
   return async function (app: FastifyInstance) {
     // --- Aba Appointments (US1) ---
@@ -164,6 +169,9 @@ export function panelAppointmentsRoutes({
 
     // --- Marcar pelo painel (US3) ---
 
+    // Lista de serviços do painel: a mesma do assistente, com o rótulo em inglês
+    app.get("/api/services", async () => ({ services: catalog.panelList() }));
+
     app.get("/api/booking/days", async (_req, reply) => {
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
@@ -178,7 +186,7 @@ export function panelAppointmentsRoutes({
       if (!query.success) return reply.code(422).send({ error: "invalid_date" });
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
-      return guard(reply, async () => ({ date: query.data.date, slots: await slotsOn(query.data.date, conn.timeZone) }));
+      return guard(reply, async () => ({ date: query.data.date, slots: await slotsOn(query.data.date, conn.timeZone, query.data.service) }));
     });
 
     app.get("/api/booking/lookup", async (req, reply) => {
@@ -226,7 +234,7 @@ export function panelAppointmentsRoutes({
           case "slot_taken": {
             const timeZone = await timeZoneOf();
             const date = DateTime.fromISO(start, { zone: timeZone }).toISODate()!;
-            return reply.code(409).send({ error: "slot_taken", date, slots: await slotsOn(date, timeZone) });
+            return reply.code(409).send({ error: "slot_taken", date, slots: await slotsOn(date, timeZone, service) });
           }
         }
       });

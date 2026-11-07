@@ -246,6 +246,48 @@
       ],
       "final": "2026-10-21T10:00",
       "summary": "Maria — Braces and Orthodontic Treatment"
+    },
+    {
+      "name": "horário citado e livre na grade de 15 min (ADR 0015)",
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "can I do 10:15?",
+        "yes"
+      ],
+      "final": "2026-10-21T10:15"
+    },
+    {
+      "name": "horário citado e ocupado: oferece os próximos (ADR 0015)",
+      "busy": [
+        [
+          "2026-10-21T10:00",
+          "2026-10-21T11:00"
+        ]
+      ],
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "how about 10:30?",
+        "11:00",
+        "yes"
+      ],
+      "final": "2026-10-21T11:00"
+    },
+    {
+      "name": "horário citado numa frase só (ADR 0015)",
+      "messages": [
+        "Can I book a visit tomorrow at 2pm?",
+        "yes"
+      ],
+      "final": "2026-10-21T14:00"
+    },
+    {
+      "name": "horário citado como pergunta com os horários na tela (ADR 0015)",
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "do you have 10:45?",
+        "yes"
+      ],
+      "final": "2026-10-21T10:45"
     }
   ]
 }

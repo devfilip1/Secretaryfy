@@ -5,7 +5,7 @@
 - **Node.js 24** and npm
 - **Docker Desktop** (Postgres 17, Redis, Evolution API)
 - **Python 3.14** (RAG service)
-- **[Ollama](https://ollama.com)** with `llama3` and `nomic-embed-text` pulled
+- **[Ollama](https://ollama.com)** with `qwen3:8b` and `embeddinggemma` pulled
 - A **WhatsApp number** to connect (ideally not a personal one; see the [anti-ban advice](#keeping-the-number-safe))
 - A **Google Cloud project** with an OAuth client, and a Google account whose calendar the clinic uses
 
@@ -17,8 +17,8 @@ Four things run at once: Docker, the RAG service, the server and (in development
 
 ```bash
 # 1. Models
-ollama pull llama3
-ollama pull nomic-embed-text
+ollama pull qwen3:8b
+ollama pull embeddinggemma
 
 # 2. RAG service (PowerShell, from rag/)
 python -m venv .venv
@@ -57,16 +57,24 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `EVOLUTION_WEBHOOK_TOKEN` | yes | Random secret of 16+ characters, put in the webhook URL |
 | `WEBHOOK_BASE_URL` | no | Server address as seen from Docker: `http://host.docker.internal:3000` |
 | `OPERATOR_PASSWORD` | no | Panel password, 12+ characters; without it the panel is off |
+| `INTERNAL_TOKEN` | no | Bearer token of `GET /internal/knowledge` (the RAG's view of the brochure), 32+ characters; empty = the route does not exist |
+| `CALENDAR_MODE` | no | `google` (default) or `fake`: in-memory calendar for development only, see [Offline calendar](#offline-calendar) |
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
 | `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
-| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`llama3`), timeout (20000) |
+| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`qwen3:8b`), timeout (20000) |
+| `HUMANIZE_REPLIES` | no | `1` (default) lets the model reword scheduling replies in a warm, kind tone (one extra model call, ~1 s; a code guard falls back to the fixed text). `0` turns it off |
 | `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES`, `REMINDER_TICK_MS` | no | Reminder window (1440 / 120 min) and scheduler tick (60000 ms). Shorten only to test |
+| `REMINDER_OUTSIDE_WINDOW` | no | `1` (default): the reminder also goes to patients silent for more than 24 h (ADR 0013); `0`: only inside the 24 h window |
 | `ANTIBAN_*` | no | About 30 anti-ban limits; the ones most likely to change: `ANTIBAN_CONVERSATIONS_PER_DAY` (150), `ANTIBAN_PER_MINUTE` / `ANTIBAN_PER_HOUR` (8 / 200), `ANTIBAN_ALLOWED_LINK_DOMAINS` (empty), `ANTIBAN_WARMUP_DAYS` (14; 0 turns it off) |
 | `DATABASE_URL_TEST` | no | Real Postgres for tests; without it tests use in-memory PGlite |
+| `CLINIC_LANGUAGE`, `CLINIC_NAME`, `ASSISTANT_NAME` | no | Language of the messages to patients: `en` (default) or `pt`; the panel stays English; changing it needs a restart. `CLINIC_NAME` (`DentalSafe`) and `ASSISTANT_NAME` (empty by default: the greeting names only the clinic) seed the clinic settings on the first start only; after that the database wins and the panel changes them without a restart (`clinic_settings`) |
+| `CLINIC_KIND` | no | What the clinic is, in English, for the scheduling interpreter prompt: `dental clinic` (default), or e.g. `physiotherapy clinic`. |
 | `PORT`, `LOG_LEVEL` | no | 3000, `info` |
 
-The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example).
+The RAG service reads `rag/.env` (`RAG_HOST`, `RAG_PORT`, Ollama settings); see [rag/.env.example](../rag/.env.example). `OLLAMA_CHAT_MODEL` and `OLLAMA_EMBEDDING_MODEL` choose the models. `RAG_GROUNDED=1` makes the RAG answer in JSON and the code check the quote (see [rag/evaluation/README.md](../rag/evaluation/README.md)). `OLLAMA_THINKING=on` (default `off`) lets a `qwen3` chat model think before answering: a bit more right, about 5 times slower, and it can end with an empty answer; it is read at start, so restart the service after changing it.
+
+To run another clinic without touching the default one, set `CLINIC_PATH` (the clinic file), `KNOWLEDGE_PATH` (a PDF, or a Markdown file with one `## Title` per subject), `INDEX_DIR` and, for the evaluation, `ANSWER_KEY_PATH`. The Portuguese clinic and the commands are in [rag/evaluation/README.md](../rag/evaluation/README.md#portuguese-stage-6c).
 
 ## Google Calendar setup
 
@@ -91,9 +99,10 @@ cd rag && .\run.ps1 test   # RAG unit tests, no Ollama needed
 ### Evaluating with the real model
 
 ```bash
+npx tsx --env-file=.env scripts/eval-interpret.ts                    # 31 natural phrases through the interpreter (needs Ollama)
 npx tsx --env-file=.env scripts/eval-scheduling.ts                    # 23 scripted conversations, fake calendar
 npx tsx --env-file=.env scripts/eval-scheduling.ts --only "name"      # one scenario
-AGENT_MODEL=llama3.1:8b npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
+AGENT_MODEL=llama3 npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
 ```
 
 Scenarios are in [scheduling-scenarios.json](../scripts/fixtures/scheduling-scenarios.json). It checks that offered times follow the rules, nothing is double-booked, nothing is booked without "yes", the right time is booked in at least 90% of scenarios, replies take under 30 s, and the service is in the event title. Run it after any change to the interpreter, the router or the flow.
@@ -112,6 +121,52 @@ The message is posted to the webhook as if it came from your own number; the rep
 `node --env-file=.env --import tsx scripts/seed-conversation.ts [phone] [count]` fills a large conversation to test the panel.
 
 To test reminders without waiting a day: set `REMINDER_LEAD_MINUTES=10`, `REMINDER_CUTOFF_MINUTES=2`, `REMINDER_TICK_MS=15000`, restart, and follow [specs/006 quickstart](../specs/006-panel-appointments-reminders/quickstart.md). Reset them afterwards.
+
+## Testing without a WhatsApp account
+
+`npm run dev:whatsapp` starts a fake Evolution API ([scripts/fake-evolution.ts](../scripts/fake-evolution.ts)) on `FAKE_EVOLUTION_PORT` (default 8080) with a chat page. The whole flow runs without a number: a customer message goes to the webhook, through the inbox, the router and the gate, and the reply comes back to the chat page. The page has a **Clear chat** button that empties the screen for the selected number (the app keeps the conversation and any booking; use **New customer** for a fresh one). Message and event ids change on every start, so restarting never makes the app drop a message as a repeat. It is for development only: it refuses to start unless `EVOLUTION_API_URL` points to `localhost`, `127.0.0.1` or `[::1]`, or if `NODE_ENV=production`, and it listens on `127.0.0.1` only.
+
+1. Start only Postgres and Redis, so the fake can use port 8080: `docker compose up -d postgres redis`.
+2. Terminal 1: `npm run dev` (server on :3000). Ollama must be running as usual.
+3. Terminal 2: `npm run dev:whatsapp` (fake Evolution on :8080).
+4. Open http://localhost:8080. The badge says "not connected".
+5. Terminal 3: `npm run dev:web`, then http://localhost:5173, log in with `OPERATOR_PASSWORD`, open **Connection** and click **Connect**. The fake "pairs" after about 1.5 s and the badge changes to "connected".
+6. Pick or create a customer (phone and name) on the chat page and type. The reply appears in the thread; "Assistant is typing…" shows while a reply is being sent.
+
+Notes:
+- Customer messages are refused (409, "Connect the number in the panel first") until the panel has connected the number, and sends from the app fail while it is disconnected, as with the real API.
+- Everything is in memory. Restarting either process disconnects the number: connect again in the panel.
+- The fake sends webhook events to the app at `http://localhost:${PORT}` (the server's `PORT`), not to `WEBHOOK_BASE_URL`, which only resolves inside Docker.
+- Logout from the panel does not send a 401 event, so conversations are kept.
+- The anti-ban pacing still applies: the 4 s debounce, read/think/typing delays, the per-minute and per-hour limits, and the warm-up for a number less than 14 days old. The fake caps the typing wait at 3 s, and the real delay is logged. To go faster in development, copy this block into `.env` (not into the code). Restart `npm run dev` after changing it:
+
+```bash
+# Development only: shorter pauses and no warm-up, same code paths as production
+ANTIBAN_DEBOUNCE_MS=1000
+ANTIBAN_READ_MIN_MS=200
+ANTIBAN_READ_MAX_MS=800
+ANTIBAN_THINK_MIN_MS=200
+ANTIBAN_THINK_MAX_MS=600
+ANTIBAN_TYPING_MIN_MS=500
+ANTIBAN_TYPING_MAX_MS=2000
+ANTIBAN_GAP_MIN_MS=200
+ANTIBAN_GAP_MAX_MS=800
+ANTIBAN_PER_MINUTE=60
+ANTIBAN_WARMUP_PER_MINUTE=60
+ANTIBAN_WARMUP_DAYS=0
+```
+
+Keep `ANTIBAN_WARMUP_PER_MINUTE` no higher than `ANTIBAN_PER_MINUTE`, and the minimum of each pair no higher than its maximum, or the server refuses to start.
+
+## Offline calendar
+
+`CALENDAR_MODE=fake` replaces Google Calendar with the in-memory calendar the tests use, so the whole scheduling flow runs without a Google account, network or OAuth. It pairs with `npm run dev:whatsapp`: set it in `.env`, restart `npm run dev`, and follow the steps above with the fake number. The default stays `CALENDAR_MODE=google`.
+
+- At startup the connection is seeded as connected to a calendar named DentalSafe (`America/Bahia`) with a placeholder token that never leaves the process. The panel shows it connected; **Connect** answers 501 `calendar_fake_mode` and the OAuth callback redirects with `google=error`. Disconnecting is not undone by reconnecting: restart to seed again.
+- Events live only in memory, so a restart empties the calendar while the `appointments` table keeps its rows. At startup the booked appointments that have not ended yet are put back into the fake calendar with the same event id (the server logs how many), so the DB and the calendar agree; past ones are not restored. Google Calendar is the source of truth ([ADR 0005](decisions/0005-google-calendar-source-of-truth.md)).
+- Seeding replaces a Google connection stored in the database; its token is not revoked.
+- The server refuses to start with `CALENDAR_MODE=fake` and `NODE_ENV=production`.
+- For a real test calendar, leave `CALENDAR_MODE` unset and follow [Google Calendar setup](#google-calendar-setup).
 
 ## Build and deploy
 
@@ -140,4 +195,4 @@ The gate can't fix what's outside the code. For the clinic's number:
 - **Add a panel API route:** add it to the matching `src/routes/panel-*.ts` (all `/api/*` routes are authenticated by the hook in [panel-session.ts](../src/routes/panel-session.ts)), validate with zod, add a `*.test.ts` using `app.inject`, add the client function in [web/src/api.ts](../web/src/api.ts), and update [api.md](api.md).
 - **Add a panel page:** create `web/src/pages/X.tsx`, add the hash and the tab in [App.tsx](../web/src/App.tsx), subscribe to SSE with `useInboxEvents` if it shows live data, style it in [styles.css](../web/src/styles.css) and check it at 375 px.
 - **Change what the assistant understands:** add rules in [interpret.ts](../src/modules/scheduling/interpret.ts) before touching the prompt, add cases to `interpret.test.ts`, and run `scripts/eval-scheduling.ts`.
-- **Add a service to the catalog:** edit `SERVICES` in [services.ts](../src/modules/scheduling/services.ts) (name as in the brochure, plus trigger words) **and** the copy of the list in [NewAppointment.tsx](../web/src/components/NewAppointment.tsx), in the same order. The API rejects a service that isn't in `SERVICES`.
+- **Add a service to the catalog:** add a treatment to the knowledge table in the panel (Conhecimento), with `bookable` left on. There is no list in code; the catalog is re-read on every change ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). The API rejects a service that isn't in `GET /api/services`.

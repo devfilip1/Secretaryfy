@@ -21,8 +21,8 @@ Every message is interpreted first. Booking-related intents (book, availability,
 - **Where:** [router.ts](../src/modules/scheduling/router.ts); detail in [message pipeline](message-pipeline.md)
 
 ### BR-CNV-05 · Brochure answers are short and honest
-At most 3 messages per reply, split by paragraph (or by sentence when one long block). When the brochure doesn't have the answer, the assistant says "I don't have that information right now." instead of guessing. The assistant always writes in English.
-- **Where:** `splitReply` and `MAX_PARTS` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `NO_ANSWER` and the system prompt in [rag/assistant/generation/prompting.py](../rag/assistant/generation/prompting.py)
+At most 3 messages per reply, split by paragraph (or by sentence when one long block). When the brochure doesn't have the answer, the assistant says "I don't have that information right now." instead of guessing. The assistant writes in the clinic language (`CLINIC_LANGUAGE`, English by default); panel text stays English.
+- **Where:** `splitReply` and `MAX_PARTS` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `NO_ANSWER` in [rag/config/languages/en.yaml](../rag/config/languages/en.yaml), the system prompt in [rag/config/prompts.yaml](../rag/config/prompts.yaml) (shared by every language), with the clinic data in [rag/config/clinic.yaml](../rag/config/clinic.yaml)
 
 ### BR-CNV-06 · The operator takes over a conversation by writing in it
 Sending a message from the panel pauses the assistant in that conversation and cancels any reply it was about to send. It stays silent until the operator clicks **Resume**. Pause is checked before the assistant thinks and again right before sending.
@@ -41,12 +41,12 @@ When WhatsApp logs the number out, all conversations and messages are deleted. T
 Booking rules are stored in `scheduling_rules` and edited in the panel (**Calendar**). Defaults: Monday to Friday 09:00–18:00, 60-minute appointments, 2 h minimum notice, 30 days ahead, cancel or reschedule up to 24 h before.
 
 ### BR-SCH-01 · Free times come from the rules and the calendar
-A time is offered only if it falls within that weekday's opening hours, on a step equal to the appointment length, after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
+A time is offered only if it falls within that weekday's opening hours, on the time grid (`grid_minutes`, 15 by default) with room for the treatment's appointment length (ADR 0015), after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
 - **Where:** `slotsForDay`, `bookingWindow` in [availability.ts](../src/modules/scheduling/availability.ts)
 - **Validation of the rules:** at least one open day; start before end; length 15–240 min in multiples of 5; each open day at least one appointment long. `rulesSchema` in [rules.ts](../src/modules/scheduling/rules.ts)
 
-### BR-SCH-02 · Options are numbered, at most 6 per message
-Days and times are offered as numbered lists of up to 6; "more" shows the next page.
+### BR-SCH-02 · Options are bullets, at most 6 per message
+Days (written in full, e.g. "quinta-feira, 5 de novembro") and times are offered as bullet lists of up to 6; asking for more shows the next page. The customer picks in free text ("quero sexta", "dia 10", "o primeiro", "o das 9", "quero ver mais"); the code maps the phrase to the offered option, and a bare number still works. A phrase that points to more than one option goes to the model or is asked again.
 - **Where:** `PAGE` in [flow.ts](../src/modules/scheduling/flow.ts)
 
 ### BR-SCH-03 · Nothing is booked without "yes"
@@ -77,12 +77,12 @@ A scheduling session expires 30 min after the last message. When the patient ret
 On the second consecutive reply the assistant can't understand inside a booking, it tells the patient someone will help, pauses itself in that conversation and flags it **Needs attention**.
 - **Where:** `MAX_MISUNDERSTOOD` and `misunderstood()` in [flow.ts](../src/modules/scheduling/flow.ts)
 
-### BR-SCH-10 · The service is the last treatment mentioned
-The appointment's service is the treatment the patient mentioned last in the conversation. If none, the assistant lists the 8 brochure treatments plus "Not sure — general assessment" (`Assessment`). The patient can change it at the summary.
-- **Where:** `SERVICES`, `detectService` in [services.ts](../src/modules/scheduling/services.ts)
+### BR-SCH-10 · The services are the clinic's treatments, plus the assessment
+The services a patient can book are the treatments of the knowledge table that are not marked `bookable: false`, in the table's order, plus "General assessment" (`Assessment`), always last. The assistant picks one of them from the list, by its label: the treatment the patient talks about (the model reads the conversation) or the number of the list shown. A treatment that is not in the list is never the service. The patient can change it at the summary. The stored service is the treatment's key (see BR-SCH-11).
+- **Where:** `createKnowledgeCatalog` in [catalog.ts](../src/modules/scheduling/catalog.ts); `formatFor` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts); [ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)
 
 ### BR-SCH-11 · What the calendar event looks like
-Title `"<name> — <service>"` (e.g. "Maria Souza — Dental Cleaning"); the description holds the WhatsApp number and "Marcado pelo Secretaryfy." (or "Marcado pelo Secretaryfy (painel)." for panel bookings). Every booking, cancellation and reschedule is also written as a 📅 system note in the conversation history.
+Title `"<name> — <service>"` (e.g. "Maria Souza — Dental Cleaning"; the service is the stored name: a treatment's key, such as `limpeza-dental`, or `Assessment`, see BR-SCH-10); the description holds the WhatsApp number and "Marcado pelo Secretaryfy." (or "Marcado pelo Secretaryfy (painel)." for panel bookings). Every booking, cancellation and reschedule is also written as a 📅 system note in the conversation history.
 - **Where:** `bookSlot` in [booking.ts](../src/modules/scheduling/booking.ts); `systemNotes` in [replies.ts](../src/modules/scheduling/replies.ts)
 
 ### BR-SCH-12 · Panel bookings use the same engine and send nothing
@@ -91,11 +91,41 @@ A booking made by staff runs the same checks as the assistant (rules, free times
 
 > ⚠️ Known limitation: the `+` is dropped before counting, so any 10–11 digit input is read as Brazilian. A US or Canadian number (`+1` plus 10 digits, 11 digits in total) becomes `551…` and can't be booked from the panel. Other countries with 12–15 digits work. See [phone.test.ts](../src/modules/scheduling/phone.test.ts).
 
+### BR-SCH-13 · Replies may be reworded, facts may not
+
+With `HUMANIZE_REPLIES` on (the default) the model may reword a scheduling reply, but only if every time, date, number, name, list line and quoted option survives unchanged (see [message-pipeline](message-pipeline.md#optional-humanizer-humanize_replies1)). Otherwise the fixed text is sent. Handoffs are never reworded.
+
+### BR-SCH-14 · What only the team can decide never gets a model answer
+When the interpreter classifies a message as `needs_staff` (asks for the doctor, receptionist or manager; says someone authorized a discount or special condition; demands a discount, refund or exception; complains; describes pain, swelling or bleeding; asks for a prescription or medical advice), the reply is a fixed text ("vou chamar alguém da nossa equipe"), the scheduling session is cleared, the conversation is flagged as needing attention and the assistant is paused, with a system note in the panel. For pain, swelling or bleeding (`urgent`) the text also says to go to an emergency room if it gets worse. The brochure model never answers these, so it cannot promise a free service or give medical advice.
+- **Where:** `needs_staff` in [router.ts](../src/modules/scheduling/router.ts), `staff` in the replies files
+
+### BR-SCH-15 · Manipulation attempts and off-topic requests get a fixed reply
+A message classified as `manipulation` (asks to show, repeat or translate the instructions, tells the assistant to ignore its rules or act as another AI, fake system messages, encoded commands) or as `off_topic` (general knowledge, sports, news, weather, jokes, math or other tasks that have nothing to do with the clinic) gets "Só consigo ajudar com informações da clínica…" and does not reach the brochure model.
+- **Where:** `manipulation` and `off_topic` in [router.ts](../src/modules/scheduling/router.ts), `stayOnTopic` in the replies files
+
+### BR-SCH-16 · A repeated brochure answer is sent as one message with a lead
+The number protection drops a message identical to one already sent. When a brochure answer repeats a message from the conversation, the repeated parts are left out; only when the whole answer repeats it goes out as a single message starting with a short friendly lead ("Claro!"), so the customer is never left without a reply.
+
+### BR-SCH-17 · Appointment length per treatment, a time grid and a few natural times
+Each treatment may set `appointmentMinutes` (a multiple of 5); without it, and for the general assessment, the default length of the rules applies. The assistant asks for the treatment before it offers days, because the length decides which starts are free (a reschedule keeps the length of the appointment being moved). Start times sit on the grid; the assistant offers up to six **natural** times (the first of the day, the first after a busy block, a start that ends where another begins, and starts that follow the treatment's length from opening), never the whole grid. A time the customer names ("às 14h", "9:45") is checked on the full grid: free, it is chosen; taken or off the opening hours, the assistant says so kindly and offers the three nearest. The model only reads the time (`time`, with a focused second call when the field comes back empty); the code decides. Booking, the calendar event and the stored end use the same length; changing a treatment's length does not touch appointments already made.
+- **Where:** [availability.ts](../src/modules/scheduling/availability.ts), [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [interpret.ts](../src/modules/scheduling/interpret.ts), [ADR 0015](decisions/0015-appointment-length-per-treatment-and-time-grid.md)
+
 ## Names and customer registry
 
-### BR-NAM-01 · The assistant asks for the name once
-On its first reply to a patient with no known name, the assistant adds a request for the name, only once per conversation (`name_asked_at`). The next message alone can be read as the name.
-- **Where:** `fromBrochure` and `awaitingName` in [router.ts](../src/modules/scheduling/router.ts)
+### BR-NAM-01 · The assistant asks for the name at a calm moment, at most twice
+To a patient with no known name, the assistant adds a request for the name to a greeting or a brochure answer, never after an insult, a complaint, a handoff or a message it did not understand. If the patient keeps going without saying it, it asks once more after 3 messages, and then never again (`name_asks`, `name_asked_at`). Only the interpreter model decides that a message holds a name, with the hint that the assistant just asked; the code keeps the name only if every word of it is written in the patient's messages (accent- and case-insensitive) and the message has no question mark. Messages grouped by the debounce are read together, so "Carla" followed by a question still gives the name. The booking summary shows the name and invites the patient to correct it.
+- **Where:** `askName`, `justAsked` and `fromBrochure` in [router.ts](../src/modules/scheduling/router.ts), `nameInText` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts)
+
+### BR-NAM-08 · An insult gets a short, polite reply
+A message classified as `rude` (insults the assistant or the clinic and asks nothing) gets "Entendo sua frustração…", with no brochure answer, no offer and no name request.
+- **Where:** `rude` in [router.ts](../src/modules/scheduling/router.ts), `calmDown` in the replies files
+
+### BR-NAM-09 · Our greeting does not reach the brochure model
+In the history sent to the RAG service, our greeting appears only as its short salutation ("Boa noite!", `salutation` in the replies files), and on the first reply that salutation is appended. The brochure model then neither repeats "Meu nome é Ana…" nor greets a second time ("Oi!"), because it sees a conversation already opened. The greeting follows the time of day, and before 5 a.m. it is still "Boa noite".
+
+### BR-NAM-07 · The first reply opens with a greeting, and the assistant can say its name
+The first reply the assistant sends in a conversation (flow or brochure, not a handoff) starts with a greeting for the time of day in the clinic time zone ("Boa tarde! Meu nome é Ana, da Sorriso Pleno."), as its own message. The name comes from the clinic settings the panel edits (`ASSISTANT_NAME` only seeds them on the first start); without a name the greeting only names the clinic. The interpreter model recognises two intents for this, in any wording: `who_are_you` ("Qual seu nome?", "com quem falo?") is answered with the same name, and `greeting` (only a greeting: "oi", "bom dia, tudo bem?") gets our greeting plus "how can I help" and the name request once, without the brochure. The text is ours; the model only classifies. A question mark never makes a message the patient's name. A reply identical to one already sent in the conversation gets a short friendly lead ("Claro!") so the repeated-text protection does not silently drop it; when only some parts of a brochure answer repeat, those parts are left out instead.
+- **Where:** `greet` and the `greeting` / `who_are_you` intents in [router.ts](../src/modules/scheduling/router.ts), `greeting` and `myName` in the replies files
 
 ### BR-NAM-02 · The WhatsApp profile name is never the patient's name
 The known name is the name said in the chat (`conversations.customer_name`), or else the registry name. The profile name is only a label in the panel.
@@ -168,7 +198,7 @@ At most 8 messages per minute and 200 per hour from the number (assistant + oper
 - **Where:** `waitForSlot` and rule `daily_conversations` in [gate.ts](../src/modules/antiban/gate.ts); [queue.ts](../src/modules/antiban/queue.ts)
 
 ### BR-AB-03 · Never write first (24 h window)
-The assistant never writes to a patient whose last message is older than 24 h, or who never wrote. Rule `outside_window`.
+The assistant never writes to a patient whose last message is older than 24 h, or who never wrote. Rule `outside_window`. Exception: the appointment reminder skips this rule (ADR 0013, `REMINDER_OUTSIDE_WINDOW`).
 - **Where:** `isCold` in [gate.ts](../src/modules/antiban/gate.ts)
 
 ### BR-AB-04 · No insisting, no loops, no repeats
@@ -201,6 +231,20 @@ Assistant messages still in `sending` when the server stopped are marked `blocke
 
 Every message the gate refuses is stored with status `blocked` and the reason, and shown in the panel.
 
+## Knowledge
+
+### BR-KNO-01 · A fact marked as an assessment says the final value is set at the assessment
+A treatment fact flagged `assessment: true` (a price range, for instance) reaches the RAG with a short note in the clinic language, written after the fact inside the same line: "Preço: R$ 40 a R$ 85 (valor final definido na avaliação)" in Portuguese, "Price: $40-$85 (final value set at the assessment)" in English. The note is code, not prompt, so the assistant always says the final value depends on the assessment. A fact without the flag renders as before. The version of the brochure changes when the flag or the clinic language changes, so the next publish picks them up.
+- **Where:** [render.ts](../src/modules/knowledge/render.ts), the notes in [texts.ts](../src/modules/knowledge/texts.ts), the flag in [types.ts](../src/modules/knowledge/types.ts)
+
+### BR-KNO-02 · The opening hours come from the scheduling rules
+The clinic section (intro, address, contact and closing text) is stored with no hours. Its HORÁRIO lines are generated from the weekly hours of the Calendar page: consecutive open days with the same hours become one line ("Segunda a sexta: 9h às 18h"), closed days say "Fechado" ("Closed" in English). So the assistant reads the same hours the bookings use, and a change on the Calendar page makes the brochure `unpublished` until the next publish. An import from Markdown drops the hours lines of the brochure and prints them, so the owner can check them against the rules.
+- **Where:** [hours.ts](../src/modules/knowledge/hours.ts), the texts in [texts.ts](../src/modules/knowledge/texts.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), the rules in [rules.ts](../src/modules/scheduling/rules.ts)
+
+### BR-KNO-03 · Price facts carry the assessment note
+Price facts are imported with the assessment note on (a price is almost always a range), and a new price in the form starts with the switch on; the clinic can turn it off.
+- **Where:** [render.ts](../src/modules/knowledge/render.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), [form-values.ts](../web/src/components/knowledge/form-values.ts)
+
 ## Panel access
 
 ### BR-PNL-01 · One shared password
@@ -211,5 +255,5 @@ The panel is off unless `OPERATOR_PASSWORD` (12+ characters) is set. A login cre
 
 - `package.json` still describes the project as an assistant "for sending emails"; no email feature exists.
 - `ANTHROPIC_API_KEY` is required by [env.ts](../src/config/env.ts), but no code calls the Claude API.
-- The service catalog exists twice: `SERVICES` in [services.ts](../src/modules/scheduling/services.ts) and a hard-coded copy in [NewAppointment.tsx](../web/src/components/NewAppointment.tsx). Changing one without the other makes the panel offer a service the API rejects, or hide one the assistant books.
+- The service catalog is the knowledge table ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)): the panel reads it from `GET /api/services` and keeps no copy. A treatment's key is what appointments store, so renaming a key does not rename the bookings made before.
 - The comment on `DELETE /api/conversations` in [panel-api.ts](../src/routes/panel-api.ts) says it deletes "appointments in progress". It deletes scheduling sessions (dialogues in progress), not appointments, which survive since feature 006.

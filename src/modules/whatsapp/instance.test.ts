@@ -3,20 +3,17 @@ import { test } from "node:test";
 import type { InboxEvent } from "../inbox/events.js";
 import { AlreadyConnected, createInstanceManager, EvolutionError, TooManyAttempts } from "./instance.js";
 
-const env = {
-  EVOLUTION_API_URL: "http://evo",
-  EVOLUTION_API_KEY: "key",
-  EVOLUTION_INSTANCE: "secretaryfy",
-  EVOLUTION_WEBHOOK_TOKEN: "token-0000000000",
-  PUBLIC_URL: "https://app.example.com",
-};
+const evolution = { apiUrl: "http://evo", apiKey: "key", instance: "secretaryfy" };
+const webhook = { baseUrl: "https://app.example.com", token: "token-0000000000" };
+/** Os limites de QR code do ambiente (ANTIBAN_QR_ATTEMPTS, ANTIBAN_QR_WINDOW_MS) */
+const qr = { qrAttempts: 5, qrWindowMs: 600_000 };
 
 type Route = (body: unknown) => { status?: number; body?: unknown };
 
 function fakeEvolution(routes: Record<string, Route>) {
   const calls: { method: string; path: string; body: unknown; apikey: string | null }[] = [];
   const fetch = (async (url: string, init: RequestInit) => {
-    const path = url.replace(env.EVOLUTION_API_URL, "");
+    const path = url.replace(evolution.apiUrl, "");
     const method = init.method ?? "GET";
     const body = init.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ method, path, body, apikey: new Headers(init.headers).get("apikey") });
@@ -35,7 +32,9 @@ function manager(routes: Record<string, Route>) {
   const m = createInstanceManager({
     fetch: evo.fetch,
     publish: (e) => events.push(e),
-    env,
+    evolution,
+    webhook,
+    ...qr,
     setInterval: ((fn: () => void, ms: number) => {
       timers.push({ fn, ms });
       return timers.length as unknown as NodeJS.Timeout;
@@ -126,7 +125,9 @@ test("erros da Evolution API viram EvolutionError", async () => {
       throw new Error("ECONNREFUSED");
     }) as typeof fetch,
     publish: () => {},
-    env,
+    evolution,
+    webhook,
+    ...qr,
   });
   await assert.rejects(offline.refresh(), EvolutionError);
 });
@@ -159,7 +160,9 @@ test("com WEBHOOK_BASE_URL, o webhook usa esse endereço em vez de PUBLIC_URL", 
   const m = createInstanceManager({
     fetch: evo.fetch,
     publish: () => {},
-    env: { ...env, WEBHOOK_BASE_URL: "http://host.docker.internal:3000" },
+    evolution,
+    webhook: { ...webhook, baseUrl: "http://host.docker.internal:3000" },
+    ...qr,
   });
   await m.prepareQr();
   const set = evo.calls.find((c) => c.path === "/webhook/set/secretaryfy");

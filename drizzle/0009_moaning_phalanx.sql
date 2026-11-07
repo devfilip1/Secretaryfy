@@ -1,0 +1,2 @@
+ALTER TABLE "knowledge_sections" DROP CONSTRAINT "knowledge_sections_kind_check";--> statement-breakpoint
+ALTER TABLE "knowledge_sections" ADD CONSTRAINT "knowledge_sections_kind_check" CHECK ("knowledge_sections"."kind" in ('treatment', 'info', 'clinic'));

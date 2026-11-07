@@ -7,6 +7,7 @@ export type BlockReason =
   | "loop"
   | "duplicate"
   | "opted_out"
+  | "disconnected"
   | "paused"
   | "restart"
   | "superseded";

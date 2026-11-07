@@ -4,6 +4,7 @@ import { decrypt, encrypt } from "../../config/crypto.js";
 import * as schema from "../../db/schema.js";
 import { calendarConnection, schedulingSessions, type CalendarConnectionRow } from "../../db/schema.js";
 import type { Publish } from "../inbox/events.js";
+import { FALLBACK_TIME_ZONE } from "./gateway.js";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -140,3 +141,8 @@ export function createConnectionStore({ db, publish }: { db: Db; publish: Publis
 }
 
 export type ConnectionStore = ReturnType<typeof createConnectionStore>;
+
+/** Fuso da agenda conectada; sem agenda, o de reserva. Um só lugar para as rotas do painel. */
+export async function clinicTimeZone(connection: { getForUse(): Promise<{ timeZone: string } | null> }): Promise<string> {
+  return (await connection.getForUse())?.timeZone ?? FALLBACK_TIME_ZONE;
+}

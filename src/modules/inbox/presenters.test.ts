@@ -32,6 +32,7 @@ test("formato do contrato", () => {
       needsAttention: true,
       customerName: null,
       nameAskedAt: null,
+      nameAsks: 0,
       createdAt: at,
     }),
     {
@@ -76,6 +77,7 @@ test("o nome dito pelo cliente aparece no lugar do nome do perfil", () => {
     needsAttention: false,
     customerName: null as string | null,
     nameAskedAt: null,
+    nameAsks: 0,
     createdAt: at,
   };
   assert.equal(presentConversation(row).name, ".");

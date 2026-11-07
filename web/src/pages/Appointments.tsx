@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { StickyNote } from "lucide-react";
 import { confirmAppointment, listAppointments, type Appointment, type ReminderLabel } from "../api";
 import { NewAppointment } from "../components/NewAppointment";
-import { blockReasonText, formatPhone } from "../format";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { blockReasonText, clinicFormats, formatPhone } from "../format";
+import { Muted } from "../components/Muted";
+import { Notice } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
 
 const GROUPS: { key: Appointment["group"]; title: string }[] = [
@@ -25,6 +34,13 @@ function reminderTag(a: Appointment): { text: string; tone: "ok" | "warn" | "bad
   return labels[a.reminder.label];
 }
 
+const TAG_TONE: Record<"ok" | "warn" | "bad" | "muted", string> = {
+  ok: "text-ok",
+  warn: "",
+  bad: "text-destructive",
+  muted: "text-muted-foreground",
+};
+
 /** Próximos horários marcados pelo assistente ou pelo painel (specs/006 US1). */
 export function AppointmentsPage() {
   const [data, setData] = useState<{ timeZone: string; appointments: Appointment[] } | null>(null);
@@ -47,13 +63,7 @@ export function AppointmentsPage() {
     if (event.type === "appointments.updated" || event.type === "customers.updated" || event.type === "reconnected") load();
   });
 
-  const formats = useMemo(() => {
-    const timeZone = data?.timeZone;
-    return {
-      time: new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }),
-      day: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }),
-    };
-  }, [data?.timeZone]);
+  const formats = useMemo(() => clinicFormats(data?.timeZone), [data?.timeZone]);
 
   async function confirm(a: Appointment) {
     setConfirming(a.id);
@@ -67,37 +77,32 @@ export function AppointmentsPage() {
     }
   }
 
-  if (!data) return <main className="page muted">{error ?? "Loading…"}</main>;
+  if (!data) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
 
   return (
-    <main className="page">
-      <div className="appointments-page">
-        <section className="card wide">
-          <div className="appointments-head">
+    <Page>
+      <div className="w-[min(860px,100%)]">
+        <Card as="section" className="w-full">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2>Appointments</h2>
-              <p className="muted small">Booked by the assistant or here, for the next 7 days.</p>
+              <Title level={2} className="mb-0.5">
+                Appointments
+              </Title>
+              <Muted as="p">Booked by the assistant or here, for the next 7 days.</Muted>
             </div>
             {!creating && (
-              <button className="primary" onClick={() => setCreating(true)}>
+              <Button size="sm" onClick={() => setCreating(true)}>
                 New appointment
-              </button>
+              </Button>
             )}
           </div>
 
           {notice && (
-            <div className="flash ok" role="status">
+            <Notice layout="box" tone="ok" role="status" onDismiss={() => setNotice(null)}>
               {notice}
-              <button className="link" onClick={() => setNotice(null)} aria-label="Dismiss notice">
-                ×
-              </button>
-            </div>
+            </Notice>
           )}
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+          {error && <Notice role="alert">{error}</Notice>}
 
           {creating && (
             <NewAppointment
@@ -111,50 +116,65 @@ export function AppointmentsPage() {
           )}
 
           {data.appointments.length === 0 ? (
-            <p className="muted empty">No appointments in the next 7 days.</p>
+            <p className="mt-6 mb-2 text-center text-muted-foreground">No appointments in the next 7 days.</p>
           ) : (
             GROUPS.map(({ key, title }) => {
               const items = data.appointments.filter((a) => a.group === key);
               if (items.length === 0) return null;
               return (
-                <section key={key} className="appointment-group">
-                  <h3>
-                    {title} <span className="muted small">({items.length})</span>
-                  </h3>
-                  <ul className="appointment-list">
+                <section key={key}>
+                  <Title level={3} className="mt-4.5 mb-1.5">
+                    {title} <Muted>({items.length})</Muted>
+                  </Title>
+                  <ul className="border-t border-border">
                     {items.map((a) => {
                       const tag = reminderTag(a);
                       const start = new Date(a.startsAt);
                       return (
-                        <li key={a.id} className={a.reminder.label === "remind_manually" ? "attention" : ""}>
-                          <div className="appointment-time">
+                        <li
+                          key={a.id}
+                          className={cn(
+                            "grid grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-1.5 py-2.5 max-md:grid-cols-[64px_minmax(0,1fr)] max-md:gap-x-2.5 max-md:gap-y-1",
+                            a.reminder.label === "remind_manually" && "shadow-stripe-warn",
+                          )}
+                        >
+                          <div className="flex flex-col tabular-nums">
                             <strong>{formats.time.format(start)}</strong>
-                            {key === "week" && <span className="muted small">{formats.day.format(start)}</span>}
+                            {key === "week" && <Muted>{formats.day.format(start)}</Muted>}
                           </div>
-                          <div className="appointment-main">
-                            <span className="appointment-name">{a.customerName}</span>
-                            <span className="muted small">
-                              {a.service ?? "—"} · {formatPhone(a.phone)}
+                          <div className="flex min-w-0 flex-col gap-0.5">
+                            <span className="truncate font-semibold">{a.customerName}</span>
+                            <Muted>
+                              {a.service ?? "-"} · {formatPhone(a.phone)}
                               {a.origin === "panel" ? " · booked here" : ""}
-                            </span>
-                            {a.notes && <span className="appointment-notes">📝 {a.notes}</span>}
-                          </div>
-                          <div className="appointment-side">
-                            {tag && (
-                              <span className={`tag ${tag.tone}`} title={tag.title}>
-                                {tag.text}
-                              </span>
+                            </Muted>
+                            {a.notes && (
+                              <Muted tone="warn" className="wrap-anywhere">
+                                <StickyNote className="mr-1 inline size-3.5" />
+                                {a.notes}
+                              </Muted>
                             )}
-                            <div className="appointment-actions">
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 max-md:col-span-full max-md:flex-row max-md:flex-wrap max-md:items-center max-md:justify-between">
+                            {tag && (
+                              <Badge
+                                variant={tag.tone === "warn" ? "warn" : "secondary"}
+                                className={cn("py-px font-normal", TAG_TONE[tag.tone])}
+                                title={tag.title}
+                              >
+                                {tag.text}
+                              </Badge>
+                            )}
+                            <div className="flex items-center gap-2.5 text-sm">
                               {!a.confirmedAt && (
-                                <button
-                                  className={a.reminder.label === "remind_manually" ? "primary" : ""}
+                                <Button
+                                  variant={a.reminder.label === "remind_manually" ? "default" : "secondary"}
                                   onClick={() => confirm(a)}
                                   disabled={confirming === a.id}
                                   title="Mark as confirmed (for example, after calling the customer)"
                                 >
                                   {confirming === a.id ? "Confirming…" : "Confirm"}
-                                </button>
+                                </Button>
                               )}
                               {a.conversationId && <a href={`#/?c=${a.conversationId}`}>Open conversation</a>}
                             </div>
@@ -167,8 +187,8 @@ export function AppointmentsPage() {
               );
             })
           )}
-        </section>
+        </Card>
       </div>
-    </main>
+    </Page>
   );
 }

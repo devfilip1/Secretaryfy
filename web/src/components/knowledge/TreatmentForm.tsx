@@ -1,0 +1,118 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus } from "lucide-react";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import type { KnowledgeLabels, TreatmentRow } from "../../api";
+import { treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
+import { ExtraFactFields, FactValueField, SwitchField, ValueField } from "./LabelledValueFields";
+import { ItemsField } from "./ItemsField";
+import { FormSection, TextField, type SectionFormProps } from "./FormParts";
+import { Button } from "@/components/ui/button";
+import { FieldGroup } from "@/components/ui/field";
+
+const NEW_EXTRA = { label: "", value: "", assessment: false };
+
+/** Formulário de um tratamento. Os rótulos da brochura ("Preço", "Duração"…) são os do idioma e não se editam: ficam nos dados. */
+export function TreatmentForm({
+  section,
+  formId,
+  onSubmit,
+  labels,
+}: SectionFormProps<TreatmentRow> & { labels: KnowledgeLabels }) {
+  const form = useForm<TreatmentFormValues>({
+    resolver: zodResolver(treatmentFormSchema),
+    defaultValues: treatmentDefaults(labels, section),
+  });
+  const extras = useFieldArray({ control: form.control, name: "extras" });
+
+  return (
+    <FormProvider {...form}>
+      <form id={formId} onSubmit={form.handleSubmit((values) => onSubmit(toTreatmentInput(values)))}>
+        <FieldGroup className="gap-10">
+          <FormSection title="Basics">
+            <TextField
+              name="title"
+              label="Title"
+              description="The name patients use, for example: Limpeza Dental. One treatment per section."
+            />
+            <TextField
+              name="tagline"
+              label="Short description"
+              description="Optional. A short line shown after the title, for example: O Primeiro Passo para um Sorriso Saudável."
+            />
+          </FormSection>
+
+          <FormSection title="Booking">
+            <SwitchField
+              name="bookable"
+              label="Patients can book this treatment"
+              description="When on, the assistant offers it in the booking list. Turn it off for treatments that are only information."
+            />
+            <TextField
+              name="appointmentMinutes"
+              label="Appointment time (minutes)"
+              description="How long this treatment blocks in the calendar, in minutes (a multiple of 5). Leave empty to use the default appointment length of the Calendar page."
+            />
+          </FormSection>
+
+          <FormSection title="Other names patients use">
+            <ItemsField
+              name="otherNames"
+              label="Names"
+              description="Other words patients use for this treatment, for example: branqueamento, clarear. One per line. The assistant uses them to find the right answer."
+            />
+          </FormSection>
+
+          <FormSection title="Who it is for">
+            <ItemsField
+              name="ideal.items"
+              label="Items"
+              description="One short line each, for example: Hálito mais fresco. Press Enter for a new line."
+            />
+          </FormSection>
+
+          <FormSection title="How it works">
+            <ValueField
+              name="howItWorks"
+              label="Text"
+              multiline
+              description="How it is done and which materials it uses, for example: Remoção de placa e tártaro com ultrassom, seguida de polimento."
+            />
+          </FormSection>
+
+          <FormSection title="Duration">
+            <FactValueField name="duration" label="Value" description="For example: 30 a 50 minutos" />
+          </FormSection>
+
+          <FormSection title="Price">
+            <FactValueField name="price" label="Value" description="For example: R$ 40 a R$ 85" withAssessment assessmentNote={labels.assessment} />
+          </FormSection>
+
+          <FormSection title="More details">
+            {extras.fields.map((field, index) => (
+              <ExtraFactFields key={field.id} index={index} onRemove={() => extras.remove(index)} assessmentNote={labels.assessment} />
+            ))}
+            <div>
+              <Button type="button" variant="secondary" onClick={() => extras.append(NEW_EXTRA)}>
+                <Plus />
+                Add detail
+              </Button>
+            </div>
+          </FormSection>
+
+          <FormSection title="Result">
+            <ValueField
+              name="result"
+              label="Text"
+              multiline
+              description="What the patient gets and how long it lasts, for example: Até 8 tons mais claros, com resultado que dura até 3 anos."
+            />
+          </FormSection>
+
+          <FormSection title="Recovery time">
+            <ValueField name="recovery" label="Time" description="How long healing takes afterwards, for example: 3 a 7 dias. Optional." />
+          </FormSection>
+        </FieldGroup>
+      </form>
+    </FormProvider>
+  );
+}

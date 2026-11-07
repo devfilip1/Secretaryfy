@@ -13,6 +13,7 @@ let app: FastifyInstance;
 let connection: ConnectionStore;
 let grantedScopes: string;
 let exchangeFails: boolean;
+let accountHasCalendars: boolean;
 
 before(async () => {
   testDb = await createTestDb();
@@ -23,6 +24,7 @@ beforeEach(async () => {
   await testDb.db.execute(sql`delete from calendar_connection`);
   grantedScopes = GOOGLE_SCOPES.join(" ");
   exchangeFails = false;
+  accountHasCalendars = true;
   connection = createConnectionStore({ db: testDb.db as never, publish: () => {} });
   app = Fastify();
   await app.register(
@@ -33,10 +35,10 @@ beforeEach(async () => {
         if (exchangeFails) throw new Error("invalid_grant");
         return { refreshToken: `token-${code}`, scopes: grantedScopes, email: "clinica@gmail.com" };
       },
-      listCalendars: async () => [
+      listCalendars: async () => (accountHasCalendars ? [
         { id: "outra", name: "Feriados", timeZone: "UTC", primary: false },
         { id: "primary", name: "clinica@gmail.com", timeZone: "America/Bahia", primary: true },
-      ],
+      ] : []),
     }),
   );
 });
@@ -60,6 +62,21 @@ test("operador cancelou no Google: aviso e a conexão existente não muda", asyn
   const res = await callback(`error=access_denied&state=${validState()}`);
   assert.equal(res.headers.location, "http://panel.test/#/calendar?google=denied");
   assert.equal((await connection.getForUse())?.refreshToken, "token-abc");
+});
+
+test("callback sem code ou sem state dá erro e não grava", async () => {
+  for (const query of [`state=${validState()}`, "code=abc", "code=abc&state="]) {
+    const res = await callback(query);
+    assert.equal(res.headers.location, "http://panel.test/#/calendar?google=error");
+  }
+  assert.equal((await connection.get()).status, "disconnected");
+});
+
+test("conta sem agenda para criar eventos dá erro e não grava", async () => {
+  accountHasCalendars = false;
+  const res = await callback(`code=abc&state=${validState()}`);
+  assert.equal(res.headers.location, "http://panel.test/#/calendar?google=error");
+  assert.equal((await connection.get()).status, "disconnected");
 });
 
 test("state inválido, vencido ou de outro uso dá erro e não grava", async () => {

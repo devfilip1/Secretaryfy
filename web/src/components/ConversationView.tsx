@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Ban, Bot, Pause, TriangleAlert } from "lucide-react";
 import {
   listMessages,
   markRead,
@@ -12,7 +13,10 @@ import {
 } from "../api";
 import { formatPhone } from "../format";
 import { useInboxEvents } from "../useEvents";
+import { Button } from "./ui/button";
 import { Composer } from "./Composer";
+import { Muted } from "./Muted";
+import { Notice } from "./Notice";
 import { RiskDialog } from "./RiskDialog";
 import { MessageBubble } from "./MessageBubble";
 
@@ -136,41 +140,57 @@ export function ConversationView({
   const paused = conversation?.assistantPaused ?? false;
 
   return (
-    <section className="conversation-view">
-      <header className="conversation-header">
-        <button className="back" onClick={onClose} aria-label="Back to the list">
+    <section className="flex min-h-0 flex-col bg-chat max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:z-1">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 max-md:gap-2 max-md:px-3 max-md:py-2">
+        <Button variant="secondary" className="hidden max-md:inline-flex" onClick={onClose} aria-label="Back to the list">
           ←
-        </button>
-        <div className="title">
-          <h2>{title}</h2>
-          {conversation?.name && <span className="muted small">{formatPhone(conversation.phone)}</span>}
+        </Button>
+        <div className="min-w-0 flex-1 max-md:[&_span]:whitespace-nowrap">
+          <h2 className="m-0 text-base font-bold">{title}</h2>
+          {conversation?.name && <Muted>{formatPhone(conversation.phone)}</Muted>}
         </div>
         {conversation && (
-          <div className={`assistant-state ${paused ? "paused" : "active"}`}>
-            <span title={paused ? "Assistant paused" : "Assistant active"}>
-              {paused ? "⏸" : "🤖"}
-              <span className="state-text"> {paused ? "Assistant paused" : "Assistant active"}</span>
+          <div className="flex items-center gap-2.5 text-sm max-md:gap-2 max-md:text-base">
+            <span className={paused ? "font-semibold text-warn" : undefined} title={paused ? "Assistant paused" : "Assistant active"}>
+              {paused ? <Pause className="inline size-4" /> : <Bot className="inline size-4" />}
+              <span className="max-md:hidden"> {paused ? "Assistant paused" : "Assistant active"}</span>
             </span>
-            <button onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
+            <Button variant="secondary" onClick={togglePause}>
+              {paused ? "Resume" : "Pause"}
+            </Button>
           </div>
         )}
       </header>
       {conversation?.needsAttention && (
-        <div className="attention-banner" role="status">
-          ⚠️ The assistant did not understand the customer and was paused. Reply here or resume the assistant.
-        </div>
+        <Notice layout="bar" tone="warn" role="status" className="text-sm">
+          <TriangleAlert className="mr-1 inline size-4" />
+          The assistant did not understand the customer and was paused. Reply here or resume the assistant.
+        </Notice>
       )}
       {conversation?.optedOut && (
-        <div className="opted-out-banner" role="status">
-          🚫 The customer asked not to receive messages. The assistant does not reply to this number.
-          <button onClick={reactivate}>Reactivate</button>
-        </div>
+        <Notice layout="bar" tone="destructive" role="status" className="flex items-center justify-between gap-3 text-sm max-md:flex-wrap">
+          <span>
+            <Ban className="mr-1 inline size-4" />
+            The customer asked not to receive messages. The assistant does not reply to this number.
+          </span>
+          <Button variant="secondary" onClick={reactivate}>
+            Reactivate
+          </Button>
+        </Notice>
       )}
 
-      <div className="messages" ref={scroller} onScroll={onScroll}>
-        {hasMore && <p className="muted small center">Scroll up to see earlier messages</p>}
-        {loading && <p className="muted center">Loading…</p>}
-        {error && <p className="error center">{error}</p>}
+      <div
+        className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-[6%] py-4 max-md:px-2.5 max-md:py-3"
+        ref={scroller}
+        onScroll={onScroll}
+      >
+        {hasMore && (
+          <Muted as="p" className="my-4 text-center">
+            Scroll up to see earlier messages
+          </Muted>
+        )}
+        {loading && <p className="text-center text-muted-foreground">Loading…</p>}
+        {error && <Notice className="text-center">{error}</Notice>}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} onRetry={onRetry} />
         ))}

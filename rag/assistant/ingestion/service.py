@@ -3,31 +3,19 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from pypdf import PdfReader
-
 from assistant.ingestion.chunking import (
-    BULLET,
-    HEADING_STOPWORDS,
-    PAGE_HEADER,
     STRATEGY_TYPES,
     build_chunks,
-    clean_text,
-    is_heading,
     split_by_characters,
     split_by_page,
     split_by_section,
-    split_sections,
 )
-from assistant.config import SOURCE_PDF
+from assistant.ingestion.pdf_source import BULLET, HEADING_STOPWORDS, PAGE_HEADER, clean_text, is_heading, split_sections
+from assistant.ingestion.source import KnowledgeDocument, KnowledgeSource
 from assistant.storage.embeddings import PrefixedEmbeddings
 from assistant.index import chunks_path, index_dir, write_manifest
 from assistant.settings import SettingsError, load_settings
 from assistant.storage.vector_store import VectorStore
-
-
-def load_pages():
-    """Text of each page of the brochure, as it comes out of the PDF."""
-    return [page.extract_text() for page in PdfReader(SOURCE_PDF).pages]
 
 
 def save_chunks(strategy, chunks):
@@ -60,12 +48,12 @@ def _stored_dimensions(store):
     return len(next(iter(stored.values()))) if stored else None
 
 
-def build_index(strategy, pages=None, *, vector_store_provider: Callable[[str], VectorStore]):
+def build_index(strategy, document: KnowledgeDocument, *, vector_store_provider: Callable[[str], VectorStore]):
     """Creates or recreates the index of one strategy, without touching the indexes of the others."""
-    chunks = build_chunks(strategy, pages if pages is not None else load_pages())
+    chunks = build_chunks(strategy, document)
     save_chunks(strategy, chunks)
     store = vectorize_chunks(strategy, chunks, vector_store_provider=vector_store_provider)
-    write_manifest(strategy, len(chunks), embedding_dimensions=_stored_dimensions(store))
+    write_manifest(strategy, len(chunks), source=document.version, embedding_dimensions=_stored_dimensions(store))
     return len(chunks)
 
 
@@ -81,7 +69,15 @@ def shown_index_dir(name):
         return path.as_posix()
 
 
-def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore]):
+def rebuild_all(document: KnowledgeDocument, strategies, *, vector_store_provider: Callable[[str], VectorStore]):
+    """Rebuilds the index of every given strategy from one document; returns the chunk count of each, by name."""
+    return {
+        name: build_index(strategy, document, vector_store_provider=vector_store_provider)
+        for name, strategy in strategies.items()
+    }
+
+
+def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore], knowledge_source: KnowledgeSource):
     """python -m assistant.ingest [STRATEGY...] — with no arguments, builds the indexes of all of them."""
     names = list(sys.argv[1:] if argv is None else argv)
     try:
@@ -97,9 +93,9 @@ def main(argv=None, *, vector_store_provider: Callable[[str], VectorStore]):
         print(f"Unknown strategy: {', '.join(unknown)}. Use one of: {', '.join(declared)}")
         return 2
 
-    pages = load_pages()
+    document = knowledge_source.load()
     for name in names or declared:
-        count = build_index(declared[name], pages, vector_store_provider=vector_store_provider)
+        count = build_index(declared[name], document, vector_store_provider=vector_store_provider)
         print(f"{name}: {count} chunks in {shown_index_dir(name)}/")
     return 0
 

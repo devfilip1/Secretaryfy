@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, ilike, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../../db/schema.js";
 import { contactPreferences, conversations, messages, type ConversationRow, type MessageRow } from "../../db/schema.js";
@@ -54,18 +54,18 @@ function createQueries(db: Db) {
     async forgetCustomerName(phone: string): Promise<ConversationRow | null> {
       const [row] = await db
         .update(conversations)
-        .set({ customerName: null, nameAskedAt: null })
+        .set({ customerName: null, nameAskedAt: null, nameAsks: 0 })
         .where(eq(conversations.phone, phone))
         .returning();
       return row ?? null;
     },
 
-    /** Registra o pedido de nome uma vez só (FR-005). */
+    /** Registra mais um pedido de nome. */
     async markNameAsked(conversationId: string, at: Date): Promise<void> {
       await db
         .update(conversations)
-        .set({ nameAskedAt: at })
-        .where(and(eq(conversations.id, conversationId), isNull(conversations.nameAskedAt)));
+        .set({ nameAskedAt: at, nameAsks: sql`${conversations.nameAsks} + 1` })
+        .where(eq(conversations.id, conversationId));
     },
 
     /** Mensagens do cliente depois de `since`. */

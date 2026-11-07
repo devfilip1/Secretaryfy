@@ -1,8 +1,17 @@
 """Comparison between two runs."""
+from dataclasses import asdict
+
+from assistant.retrieval.lexical_options import LexicalOptions
 from evaluation.aggregate import flatten
 
 # Small slack for floating-point differences.
 EPSILON = 1e-9
+# Runs saved before the word search options have no "lexical" entry: they are compared as the defaults.
+LEXICAL_DEFAULT = asdict(LexicalOptions())
+
+
+def _config(run):
+    return {"lexical": LEXICAL_DEFAULT, **run["config"]}
 
 
 def _spread(run, name):
@@ -64,8 +73,8 @@ def compare(base, candidate):
         elif not before["passed"] and after["passed"]:
             comparison["improvements"].append({"item_id": item_id, "previous_cause": before.get("cause")})
 
-    for field, before in base["config"].items():
-        after = candidate["config"].get(field)
+    for field, before in _config(base).items():
+        after = _config(candidate).get(field)
         if before != after and field not in ("git_commit", "git_dirty"):
             comparison["config_changes"][field] = {"base": before, "candidate": after}
 

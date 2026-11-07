@@ -5,7 +5,7 @@
 Small clinics answer patients on WhatsApp by hand: the same questions about prices and treatments, back-and-forth to find a free time, and patients who forget their appointment. Secretaryfy puts an assistant on the clinic's own WhatsApp number that answers from the clinic's material, books straight into the clinic's Google Calendar and reminds patients the day before. Staff keep full control from a web panel.
 
 Two things set it apart:
-- **It runs on a small local model.** `llama3` 8B (4-bit) runs on the clinic's machine through Ollama, with no paid API and no conversation leaving the machine. Reliability comes from the design: rules and code do the deciding, and the model only interprets ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
+- **It runs on a small local model.** `qwen3:8b` (4-bit) runs on the clinic's machine through Ollama, with no paid API and no conversation leaving the machine. Reliability comes from the design: rules and code do the deciding, and the model only interprets ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
 - **It protects the number.** It connects like WhatsApp Web (QR code), not through Meta's official platform, so every message passes an anti-ban gate that imitates human pacing and refuses risky sends ([business rules](business-rules.md#anti-ban-protection)).
 
 ## User roles
@@ -21,9 +21,9 @@ There is one operator account and no per-user permissions.
 
 - **Assistant on WhatsApp**
   - Answers questions from the clinic's brochure, in up to 3 short messages, like someone typing. Says it doesn't know instead of inventing. See [RAG service](integrations.md#rag-service).
-  - Books an appointment: offers days, then times (numbered options), asks for the name and the service, shows a summary and books only after "yes". Rules: [scheduling](business-rules.md#scheduling).
+  - Books an appointment: offers days, then times (bullet options the customer answers in their own words), asks for the name and the service, shows a summary and books only after "yes". Rules: [scheduling](business-rules.md#scheduling).
   - Shows, reschedules and cancels the patient's upcoming appointment.
-  - Asks the patient's name once and remembers it ([names and customers](business-rules.md#names-and-customer-registry)).
+  - Asks the patient's name at a calm moment (at most twice) and remembers it ([names and customers](business-rules.md#names-and-customer-registry)).
   - Sends a reminder 24 h before; YES confirms, NO leads to rescheduling ([reminders](business-rules.md#reminders)).
   - Hands over to staff after 2 messages it can't understand.
   - Stops writing to anyone who says "stop" ([opt-out](business-rules.md#br-ab-05--opt-out-and-opt-in)).
@@ -72,7 +72,7 @@ There is one operator account and no per-user permissions.
 | Origin | Who wrote a message: customer, assistant, operator (panel), phone (the clinic's own phone app) or system (internal note, never sent) | `messageOrigin` |
 | Customer | A patient in the registry: everyone who confirmed a booking | `customers` |
 | Known name | The name the patient said in the chat, or else the registry name. The WhatsApp profile name never counts. | `inbox.knownName` |
-| Service | What the appointment is for: one of 8 brochure treatments or `Assessment` ("not sure") | `scheduling/services.ts` |
+| Service | What the appointment is for: one of the clinic's bookable treatments (knowledge table) or `Assessment` ("not sure") | `knowledge_sections` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)) |
 | Scheduling session | A booking/cancel/reschedule dialogue in progress, with its current step and the numbered options offered | `scheduling_sessions` |
 | Rules (booking rules) | Opening hours per weekday, appointment length, minimum notice, days ahead, cancellation notice | `scheduling_rules` |
 | Gate | The anti-ban checkpoint every outgoing message passes | `antiban/gate.ts` |

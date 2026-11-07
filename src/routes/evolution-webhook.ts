@@ -9,26 +9,34 @@ import { createDebouncer } from "../modules/antiban/debounce.js";
 import { matchCommand } from "../modules/antiban/opt-out.js";
 import { parseEvolutionEvent, type IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/handle-message.js";
-import { instance } from "../modules/whatsapp/instance.js";
 import { connectionStore, rulesStore } from "./calendar.js";
-import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo } from "./inbox.js";
-import { schedulingFlow, schedulingStore } from "./scheduling.js";
+import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo, instance } from "./inbox.js";
+import { catalog, clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
+import { fixedTextsFor } from "../modules/antiban/texts.js";
+
+// Textos fixos na língua da clínica
+const texts = fixedTextsFor(clinic.language);
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001
 const reply = createSchedulingRouter({
   interpreter: createInterpreter({
+    clinic,
+    catalog,
     ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
   }),
   flow: schedulingFlow,
+  replies: schedulingReplies,
+  humanize,
   store: schedulingStore,
   inbox,
   connection: connectionStore,
   rules: rulesStore,
-  answerQuestion: createRagAnswerer(createRagClient({ baseUrl: env.RAG_SERVICE_URL, timeoutMs: env.RAG_TIMEOUT_MS }).ask),
+  answerQuestion: createRagAnswerer(createRagClient({ baseUrl: env.RAG_SERVICE_URL, timeoutMs: env.RAG_TIMEOUT_MS }).ask, { unavailable: texts.unavailable[0] }),
 });
 
 const handleMessage = createMessageHandler({
   reply,
+  texts,
   gate,
   inbox,
   hasSchedulingSession: async (conversationId) => Boolean(await schedulingStore.getSession(conversationId, new Date())),

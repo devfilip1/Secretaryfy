@@ -1,6 +1,6 @@
 # 0008 · Reminders only inside the 24 h window
 
-**Status:** Accepted · **Date:** 2026-10-25
+**Status:** Superseded by [0013](0013-reminders-outside-the-24h-window.md) · **Date:** 2026-10-25
 
 ## Context
 A WhatsApp reminder the day before reduces no-shows. But the anti-ban rules say the assistant never writes to someone whose last message is older than 24 h ([BR-AB-03](../business-rules.md#br-ab-03--never-write-first-24-h-window)), and most patients book days ahead and then go quiet. During the feature 006 clarification, the product owner chose between allowing an exception for reminders and keeping the rule absolute (option B).

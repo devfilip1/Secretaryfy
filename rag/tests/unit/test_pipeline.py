@@ -1,22 +1,17 @@
+import json
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from assistant.retrieval import pipeline
-from assistant.retrieval.pipeline import (
-    NO_ANSWER,
-    NO_CONVERSATION,
-    NO_INFORMATION,
-    RagConfig,
-    RagDeps,
-    build_prompt,
-    retrieve,
-    standalone_question,
-    tokenize,
-)
+from assistant.clinic.yaml_source import YamlClinicProfile
+from assistant.config import CLINIC_PATH, LANGUAGES_DIR
+from assistant.generation import prompting
+from assistant.retrieval.pipeline import RagConfig, RagDeps, retrieve, tokenize
 from assistant.index import IndexInconsistent
 from assistant.retrieval.lexical import LexicalIndex
+from assistant.retrieval.lexical_options import LexicalOptions
 from assistant.settings import Experiment
 
 CLEANING = "Dental Cleaning — The First Step Toward a Healthy Smile\nDuration: 30–50 minutes\nPrice: $40–$85"
@@ -41,7 +36,7 @@ BRACES_QUESTION = "how long do braces take"  # the vector search ranks the brace
 
 def config(search_type="hybrid", match_count=4, match_threshold=0.0, use_hyde=False):
     return RagConfig(experiment="test", strategy="fake", search_type=search_type, match_count=match_count,
-                     match_threshold=match_threshold, use_hyde=use_hyde)
+                     match_threshold=match_threshold, use_hyde=use_hyde, lexical=LexicalOptions())
 
 
 class FakeChunkSource:
@@ -58,7 +53,7 @@ class FakeChunkSource:
         return list(self.texts)
 
 
-LEXICAL = LexicalIndex(FakeChunkSource(DOCUMENTS, SimpleNamespace(bm25=0)))
+LEXICAL = LexicalIndex(FakeChunkSource(DOCUMENTS, SimpleNamespace(bm25=0)), YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR))
 
 
 class UnusedGenerator:
@@ -72,6 +67,27 @@ class UnusedGenerator:
 
 
 UNUSED_GENERATOR = UnusedGenerator()
+
+SOURCE = YamlClinicProfile(CLINIC_PATH, LANGUAGES_DIR)  # the source the pipeline gets in RagDeps
+CLINIC = SOURCE.load()
+NO_ANSWER, NO_CONVERSATION, NO_INFORMATION = CLINIC.no_answer, CLINIC.no_conversation, CLINIC.no_information
+REFUSAL = f"{NO_ANSWER} {CLINIC.refusal_offer}"  # the refusal of a grounded answer: the sentence and the offer of help
+
+
+def build_prompt(question, retrieval, config, history=None):
+    return prompting.build_prompt(question, retrieval, config, CLINIC, history)
+
+
+def standalone_question(question, history, config, generator):
+    return pipeline.standalone_question(question, history, config, generator, CLINIC)
+
+
+def clean_answer(text, history=None):
+    return prompting.clean_answer(text, CLINIC, history)
+
+
+def prompt_text(config):
+    return prompting.prompt_text(config, CLINIC)
 
 
 @pytest.fixture
@@ -98,7 +114,7 @@ def index(monkeypatch):
             calls.embedded.append(("document", texts[0]))
             return [[2.0, 0.0]]
 
-    def fake_hyde(question, cfg, generator):
+    def fake_hyde(question, cfg, generator, clinic):
         calls.hyde.append(question)
         return "Braces stay on for 12 to 36 months."
 
@@ -106,7 +122,8 @@ def index(monkeypatch):
         vector_store_provider=lambda strategy: FakeDb(),
         embeddings=FakeEmbeddings(),
         generator=UNUSED_GENERATOR,
-        lexical=LexicalIndex(FakeChunkSource(DOCUMENTS, calls)),
+        lexical=LexicalIndex(FakeChunkSource(DOCUMENTS, calls), SOURCE),
+        clinic=SOURCE,
     )
     monkeypatch.setattr(pipeline, "hypothetical_answer", fake_hyde)
     return calls
@@ -115,17 +132,17 @@ def index(monkeypatch):
 # --- tokenizing ---
 
 def test_tokenize_removes_punctuation_stopwords_and_plural():
-    assert tokenize("How much does Whitening cost?") == ["much", "whitening", "cost"]
-    assert tokenize("How many sessions are needed for the veneers?") == ["many", "session", "needed", "veneer"]
+    assert tokenize("How much does Whitening cost?", CLINIC.lexicon) == ["much", "whitening", "cost"]
+    assert tokenize("How many sessions are needed for the veneers?", CLINIC.lexicon) == ["many", "session", "needed", "veneer"]
 
 
 def test_tokenize_keeps_words_that_end_in_double_s():
-    assert tokenize("painless process, address") == ["painless", "process", "address"]
+    assert tokenize("painless process, address", CLINIC.lexicon) == ["painless", "process", "address"]
 
 
 def test_tokenize_expands_customer_words_into_brochure_words():
-    assert tokenize(PRICE_QUESTION, expand=True) == ["much", "price", "whitening", "cost", "price"]
-    assert "duration" in tokenize("how long does it take?", expand=True)
+    assert tokenize(PRICE_QUESTION, CLINIC.lexicon, expand=True) == ["much", "price", "whitening", "cost", "price"]
+    assert "duration" in tokenize("how long does it take?", CLINIC.lexicon, expand=True)
 
 
 @pytest.mark.parametrize(
@@ -141,11 +158,11 @@ def test_tokenize_expands_customer_words_into_brochure_words():
     ],
 )
 def test_customer_wording_reaches_the_brochure_wording(question, brochure_word):
-    assert brochure_word in tokenize(question, expand=True)
+    assert brochure_word in tokenize(question, CLINIC.lexicon, expand=True)
 
 
 def test_documents_are_not_expanded():
-    assert tokenize("the cost and the price") == ["cost", "price"]
+    assert tokenize("the cost and the price", CLINIC.lexicon) == ["cost", "price"]
 
 
 # --- configuration from the experiment ---
@@ -275,7 +292,7 @@ def test_retrieve_uses_an_injected_vector_store_provider(index):
 
     result = retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(
         vector_store_provider=provider, embeddings=index.deps.embeddings,
-        generator=UNUSED_GENERATOR, lexical=index.deps.lexical,
+        generator=UNUSED_GENERATOR, lexical=index.deps.lexical, clinic=SOURCE,
     ))
 
     assert [chunk.content for chunk in result.vector] == [CLEANING]
@@ -425,12 +442,10 @@ def test_original_prompt_is_a_single_message_with_the_question_before_the_contex
 def test_runs_with_different_prompts_have_different_prompt_texts():
     from dataclasses import replace
 
-    assert pipeline.prompt_text(config()) != pipeline.prompt_text(replace(config(), prompt="original"))
+    assert prompt_text(config()) != prompt_text(replace(config(), prompt="original"))
 
 
 def test_notes_the_model_adds_about_its_own_answer_are_removed():
-    from assistant.retrieval.pipeline import clean_answer
-
     leaked = "Yes, we do! It costs $40–$85.\n\n---\n\n(Note: I didn't invite the customer to schedule.)"
     assert clean_answer(leaked) == "Yes, we do! It costs $40–$85."
     assert clean_answer("Yes, we do!\n\nNote: bring your ID.") == "Yes, we do!"
@@ -438,13 +453,22 @@ def test_notes_the_model_adds_about_its_own_answer_are_removed():
 
 
 def test_greeting_is_removed_only_in_an_ongoing_conversation():
-    from assistant.retrieval.pipeline import clean_answer
-
     assert clean_answer("Hi!\n\nYes, this is DentalSafe.", CONVERSATION) == "Yes, this is DentalSafe."
     assert clean_answer("Hello there, we are open on Saturdays.", CONVERSATION) == "We are open on Saturdays."
     assert clean_answer("Hi!", CONVERSATION) == "Hi!"  # nothing else to say: the greeting stays
     assert clean_answer("Hi! How can I help?") == "Hi! How can I help?"  # first message
     assert clean_answer("Highly recommended.", CONVERSATION) == "Highly recommended."
+
+
+def test_empty_reply_gives_the_refusal_sentence():
+    # the model ran out of tokens: the patient gets the refusal sentence, never a blank message
+    assert clean_answer("") == NO_ANSWER
+    assert clean_answer("  \n\t ") == NO_ANSWER
+    assert clean_answer("\n\n---\n\n(Note: I did not invite the customer to schedule.)") == NO_ANSWER
+
+
+def test_normal_reply_is_unchanged_by_the_empty_check():
+    assert clean_answer("Braces cost $180–$450.") == "Braces cost $180–$450."
 
 
 # --- injected embeddings and the dimension check ---
@@ -472,7 +496,7 @@ class TwoDimensionalStore:
 def test_retrieve_embeds_with_the_injected_embeddings(monkeypatch):
     embeddings = RecordingEmbeddings()
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=embeddings, generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=embeddings, generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert embeddings.queries == [BRACES_QUESTION]
     assert [chunk.content for chunk in result.vector] == [CLEANING]
@@ -494,7 +518,7 @@ def test_query_of_another_size_than_the_index_is_refused_with_the_rebuild_comman
             pytest.fail("the search must not run with incompatible vectors")
 
     with pytest.raises(EmbeddingMismatch) as info:
-        pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: ThreeDimensionalStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+        pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: ThreeDimensionalStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert str(info.value) == (
         'the embedding model returned 2 dimensions but the index of strategy "fake" has 3; '
@@ -524,16 +548,16 @@ class FakeGenerator:
 def test_hyde_asks_the_model_for_a_short_text_with_fixed_settings():
     from dataclasses import replace
 
-    from assistant.generation.prompting import HYDE_MAX_TOKENS, HYDE_PROMPT
+    from assistant.generation.prompting import HYDE_MAX_TOKENS
 
     generator = FakeGenerator("  Braces stay on for 12 to 36 months.  ")
     cfg = replace(config(use_hyde=True), chat_model="llama3.1", seed=7)
 
-    text = pipeline.hypothetical_answer(BRACES_QUESTION, cfg, generator)
+    text = pipeline.hypothetical_answer(BRACES_QUESTION, cfg, generator, CLINIC)
 
     assert text == "Braces stay on for 12 to 36 months."
     assert generator.calls == [{
-        "method": "generate", "prompt": HYDE_PROMPT.format(ask=BRACES_QUESTION), "model": "llama3.1",
+        "method": "generate", "prompt": CLINIC.hyde_prompt.format(ask=BRACES_QUESTION), "model": "llama3.1",
         "temperature": 0.0, "seed": 7, "max_tokens": HYDE_MAX_TOKENS,
     }]
 
@@ -560,12 +584,54 @@ def test_answer_asks_the_model_with_the_configured_settings_and_cleans_the_reply
     generator = FakeGenerator("Braces cost $180–$450.\n\nNote: bring your ID.")
     cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
 
-    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL))
+    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
 
     assert result.answer == "Braces cost $180–$450."
     assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
         ("llama3.1", 0.3, 11, 99),
     ]
+
+
+def test_empty_model_reply_gives_the_refusal_sentence_to_the_patient():
+    from dataclasses import replace
+
+    generator = FakeGenerator("")
+    cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
+
+    result = pipeline.answer(BRACES_QUESTION, cfg, None, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
+
+    assert result.answer == NO_ANSWER
+
+
+class EmptyVectorStore:
+    def vectors_by_content(self):
+        return {}
+
+    def search_by_vector(self, vector, limit):
+        return []
+
+
+def test_no_chunk_found_gives_the_refusal_sentence_without_calling_the_model():
+    generator = FakeGenerator("the model must not answer this")
+    deps = RagDeps(vector_store_provider=lambda strategy: EmptyVectorStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+    result = pipeline.answer(BRACES_QUESTION, config("vector", 1), None, deps)
+
+    assert result.answer == NO_ANSWER
+    assert result.retrieval.fused == []
+    assert generator.calls == []
+
+
+def test_no_chunk_found_streams_the_refusal_sentence_without_calling_the_model():
+    generator = FakeGenerator(pieces=["the model must not answer this"])
+    deps = RagDeps(vector_store_provider=lambda strategy: EmptyVectorStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), deps))
+
+    assert pieces == [NO_ANSWER]
+    assert generator.calls == []
 
 
 def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pieces():
@@ -574,7 +640,7 @@ def test_streaming_asks_the_model_with_the_configured_settings_and_yields_the_pi
     generator = FakeGenerator(pieces=["Braces ", "cost $180."])
     cfg = replace(config("vector", 1), chat_model="llama3.1", temperature=0.3, seed=11, max_answer_tokens=99)
 
-    pieces = list(pipeline.stream_answer(BRACES_QUESTION, cfg, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL)))
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, cfg, RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE)))
 
     assert pieces == ["Braces ", "cost $180."]
     assert [(c["model"], c["temperature"], c["seed"], c["max_tokens"]) for c in generator.calls] == [
@@ -586,7 +652,7 @@ def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
     # Characterization: the plain answer drops the model's notes; the stream passes the text through unchanged.
     generator = FakeGenerator(pieces=["Yes, we do!\n\nNote: bring your ID."])
 
-    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL)))
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE)))
 
     assert pieces == ["Yes, we do!\n\nNote: bring your ID."]
 
@@ -594,7 +660,7 @@ def test_streaming_does_not_clean_the_pieces_as_the_plain_answer_is_cleaned():
 def test_retrieval_without_hyde_does_not_call_the_generator():
     generator = FakeGenerator()
 
-    pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL))
+    pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(), generator=generator, lexical=LEXICAL, clinic=SOURCE))
 
     assert generator.calls == []
 
@@ -607,7 +673,7 @@ def test_empty_index_is_not_compared_with_the_query():
         def search_by_vector(self, vector, limit):
             return []
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: EmptyStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: EmptyStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert result.vector == []
 
@@ -623,7 +689,7 @@ def test_a_chunk_of_the_words_index_missing_from_the_vector_store_is_refused_wit
             return [SimpleNamespace(page_content=CLEANING)]
 
     with pytest.raises(IndexInconsistent) as info:
-        pipeline.retrieve(BRACES_QUESTION, config(), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+        pipeline.retrieve(BRACES_QUESTION, config(), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert str(info.value) == (
         'the index of strategy "fake" is inconsistent: chunks.json holds 3 chunk(s) the vector store does not; '
@@ -639,7 +705,7 @@ def test_the_consistency_check_runs_only_when_the_words_are_searched():
         def search_by_vector(self, vector, limit):
             return [SimpleNamespace(page_content=CLEANING)]
 
-    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL))
+    result = pipeline.retrieve(BRACES_QUESTION, config("vector", 1), RagDeps(vector_store_provider=lambda strategy: PartialStore(), embeddings=RecordingEmbeddings(), generator=UNUSED_GENERATOR, lexical=LEXICAL, clinic=SOURCE))
 
     assert [chunk.content for chunk in result.vector] == [CLEANING]
 
@@ -649,17 +715,190 @@ def test_the_consistency_check_runs_only_when_the_words_are_searched():
 def test_the_dependencies_have_no_defaults():
     with pytest.raises(TypeError):
         RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
-                generator=UNUSED_GENERATOR)  # no lexical index
+                generator=UNUSED_GENERATOR, clinic=SOURCE)  # no lexical index
     with pytest.raises(TypeError):
         RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), generator=UNUSED_GENERATOR,
-                lexical=LEXICAL)  # no embeddings
+                lexical=LEXICAL, clinic=SOURCE)  # no embeddings
 
 
 def test_hyde_is_asked_of_the_generator_in_the_dependencies():
     generator = FakeGenerator("Braces stay on for 12 to 36 months.")
     deps = RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
-                   generator=generator, lexical=LEXICAL)
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
 
     pipeline.retrieve(BRACES_QUESTION, config("vector", 1, use_hyde=True), deps)
 
     assert [call["method"] for call in generator.calls] == ["generate"]
+
+# --- grounded answers: the model quotes the brochure and the code checks the quote ---
+
+class GroundedGenerator(FakeGenerator):
+    """Like FakeGenerator, and records the response format each generate call asks for."""
+
+    def generate(self, prompt, *, model, temperature, seed, max_tokens, response_format=None):
+        self.calls.append(dict(method="generate", prompt=prompt, model=model, temperature=temperature, seed=seed,
+                               max_tokens=max_tokens, response_format=response_format))
+        return self.replies.pop(0)
+
+
+def grounded_deps(generator):
+    return RagDeps(vector_store_provider=lambda strategy: TwoDimensionalStore(), embeddings=RecordingEmbeddings(),
+                   generator=generator, lexical=LEXICAL, clinic=SOURCE)
+
+
+def grounded_config(**overrides):
+    from dataclasses import replace
+
+    return replace(config("vector", 1), grounded=True, chat_model="llama3.1", max_answer_tokens=99, **overrides)
+
+
+def test_grounded_answer_whose_quote_is_in_the_chunks_is_given():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == "Cleaning is in the brochure."
+    assert result.grounding == "verified"
+
+
+def test_grounded_answer_whose_quote_is_invented_gives_the_refusal():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free on Sundays."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unverified_quote"
+
+
+def test_grounded_call_asks_for_the_schema_with_the_format_in_the_system_message():
+    from assistant.generation.grounded import FORMAT_INSTRUCTION, GROUNDED_SCHEMA
+
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    call = generator.calls[0]
+    assert call["response_format"] == GROUNDED_SCHEMA
+    assert call["max_tokens"] == 400  # the grounded JSON needs more room than the usual 99
+    assert FORMAT_INSTRUCTION in call["prompt"].to_messages()[0].content
+
+
+def test_without_grounding_the_model_gets_no_schema_and_no_format_instruction():
+    from dataclasses import replace
+
+    from assistant.generation.grounded import FORMAT_INSTRUCTION
+
+    generator = FakeGenerator("Braces cost $180.")
+
+    result = pipeline.answer(BRACES_QUESTION, replace(config("vector", 1), grounded=False), None, grounded_deps(generator))
+
+    assert result.answer == "Braces cost $180."
+    assert result.grounding is None
+    assert FORMAT_INSTRUCTION not in generator.calls[0]["prompt"].to_messages()[0].content
+
+
+def test_grounded_stream_yields_the_verified_answer_in_one_piece():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."}))
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, grounded_config(), grounded_deps(generator)))
+
+    assert pieces == ["Cleaning is in the brochure."]
+    assert generator.calls[0]["method"] == "generate"
+
+
+def test_grounded_stream_with_an_invented_quote_yields_the_refusal():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free on Sundays."}))
+
+    pieces = list(pipeline.stream_answer(BRACES_QUESTION, grounded_config(), grounded_deps(generator)))
+
+    assert pieces == [REFUSAL]
+
+
+def test_the_model_text_of_a_no_answer_is_ignored_and_the_refusal_is_given():
+    generator = GroundedGenerator(json.dumps({"kind": "no_answer", "evidence_quote": "", "answer": "Yes, we accept insurance."}))
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "no_answer"
+
+
+SUPPORTED = json.dumps({"supported": True})
+NOT_SUPPORTED = json.dumps({"supported": False})
+GROUNDED_CLEANING = json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning is in the brochure."})
+
+
+def test_a_supported_answer_is_kept_after_one_support_call_with_fixed_settings():
+    from assistant.generation.grounded import SUPPORT_MAX_TOKENS, SUPPORT_SCHEMA
+
+    generator = GroundedGenerator(GROUNDED_CLEANING, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == "Cleaning is in the brochure."
+    assert result.grounding == "verified"
+    support = generator.calls[1]
+    assert support["response_format"] == SUPPORT_SCHEMA
+    assert (support["temperature"], support["max_tokens"]) == (0.0, SUPPORT_MAX_TOKENS)
+
+
+def test_an_unsupported_answer_gives_the_refusal():
+    generator = GroundedGenerator(GROUNDED_CLEANING, NOT_SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unsupported"
+
+
+def test_an_unreadable_support_reply_gives_the_refusal():
+    generator = GroundedGenerator(GROUNDED_CLEANING, "maybe")
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.answer == REFUSAL
+    assert result.grounding == "unsupported"
+
+
+def test_the_support_call_is_skipped_when_the_answer_was_already_refused():
+    invented = json.dumps({"kind": "answer", "evidence_quote": "Braces are free on Sundays.", "answer": "Free."})
+    generator = GroundedGenerator(invented, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.grounding == "unverified_quote"
+    assert len(generator.calls) == 1
+
+
+def test_the_support_call_is_skipped_when_the_number_check_refused_the_answer():
+    generator = GroundedGenerator(json.dumps({"kind": "answer", "evidence_quote": CLEANING, "answer": "Cleaning costs $200."}), SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=True), None, grounded_deps(generator))
+
+    assert result.grounding == "ungrounded_number"
+    assert len(generator.calls) == 1
+
+
+def test_the_support_call_is_skipped_when_verify_support_is_off():
+    generator = GroundedGenerator(GROUNDED_CLEANING, SUPPORTED)
+
+    result = pipeline.answer(BRACES_QUESTION, grounded_config(verify_support=False), None, grounded_deps(generator))
+
+    assert result.grounding == "verified"
+    assert len(generator.calls) == 1
+
+
+def test_small_talk_is_checked_against_the_customer_question_not_the_rewritten_one():
+    # With a conversation the question is first rewritten by one model call; the small talk check reads the customer's words.
+    generator = GroundedGenerator("How long do braces take?", json.dumps({"kind": "small_talk", "evidence_quote": "", "answer": "You're welcome!"}))
+
+    result = pipeline.answer("Thanks!", grounded_config(), CONVERSATION, grounded_deps(generator))
+
+    assert result.answer == "You're welcome!"
+    assert result.grounding == "small_talk"
+
+
+def test_clean_answer_drops_the_emoji_left_by_the_greeting_but_keeps_a_currency_symbol():
+    history = [{"role": "assistant", "content": "Hello!"}]
+    assert clean_answer("Hi! 😊\n\nThe price is $40.", history) == "The price is $40."
+    assert clean_answer("Hello! $40 is the price.", history) == "$40 is the price."

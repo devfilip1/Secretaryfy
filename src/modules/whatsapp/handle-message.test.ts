@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FastifyBaseLogger } from "fastify";
 import type { SendOutcome } from "../antiban/gate.js";
-import { fixedTexts } from "../antiban/texts.js";
+import { testTexts } from "../../test/clinic.js";
 import type { RagAnswer } from "../rag/client.js";
 import type { IncomingMessage } from "./evolution.js";
-import { createMessageHandler, createRagReplier, splitReply, UNAVAILABLE_MESSAGE, type Replier } from "./handle-message.js";
+import { createMessageHandler, createRagReplier, splitReply, type Replier } from "./handle-message.js";
 
 const MESSAGE: IncomingMessage = {
   kind: "message",
@@ -42,12 +42,13 @@ function fakes(
   } as unknown as FastifyBaseLogger;
 
   const handle = createMessageHandler({
+    texts: testTexts,
     reply:
       options.reply ??
       createRagReplier(async (q) => {
         asked.push(q);
         return options.ask ? options.ask() : ANSWER;
-      }),
+      }, { unavailable: testTexts.unavailable[0] }),
     gate: {
       sendAssistant: async ({ phone, text, ignorePause, bypass }) => {
         sent.push({ phone, text, ignorePause, bypass });
@@ -86,17 +87,17 @@ test("pergunta ao assistente e entrega a resposta ao portão", async () => {
 test("com o assistente indisponível envia uma variação da indisponibilidade", async () => {
   const f = fakes({ ask: () => Promise.reject(new Error("down")) });
   await f.handle(MESSAGE);
-  assert.deepEqual(f.texts(), [["5511999999999", UNAVAILABLE_MESSAGE]]);
+  assert.deepEqual(f.texts(), [["5511999999999", testTexts.unavailable[0]]]);
   assert.equal(f.errors.length, 1);
   assert.equal((f.errors[0] as { phone: string }).phone, "5511999999999");
 });
 
 test("indisponibilidade já enviada: sai a próxima variação; todas enviadas, nada sai (specs/004 FR-017)", async () => {
   const down = () => Promise.reject(new Error("down"));
-  const f = fakes({ ask: down, recent: [fixedTexts.unavailable[0]] });
+  const f = fakes({ ask: down, recent: [testTexts.unavailable[0]] });
   await f.handle(MESSAGE);
-  assert.deepEqual(f.texts(), [["5511999999999", fixedTexts.unavailable[1]]]);
-  const g = fakes({ ask: down, recent: fixedTexts.unavailable });
+  assert.deepEqual(f.texts(), [["5511999999999", testTexts.unavailable[1]]]);
+  const g = fakes({ ask: down, recent: testTexts.unavailable });
   await g.handle(MESSAGE);
   assert.deepEqual(g.sent, []);
 });
@@ -143,7 +144,7 @@ test("STOP: registra a saída e manda uma única confirmação, sem perguntar ao
   assert.deepEqual(f.asked, []);
   assert.equal(f.optOuts.length, 1);
   assert.equal(f.optOuts[0][0], true);
-  assert.deepEqual(f.texts(), [["5511999999999", fixedTexts.optOutConfirmation[0]]]);
+  assert.deepEqual(f.texts(), [["5511999999999", testTexts.optOutConfirmation[0]]]);
   assert.deepEqual(f.sent[0].bypass, ["opted_out", "unanswered"]);
 });
 
@@ -159,7 +160,7 @@ test("START volta a aceitar mensagens e dá as boas-vindas", async () => {
   const f = fakes({ optedOut: true });
   await f.handle({ ...MESSAGE, text: "Start" });
   assert.deepEqual(f.optOuts.map((o) => o[0]), [false]);
-  assert.deepEqual(f.texts(), [["5511999999999", fixedTexts.optIn[0]]]);
+  assert.deepEqual(f.texts(), [["5511999999999", testTexts.optIn[0]]]);
 });
 
 test("'cancelar' com agendamento em andamento segue para o agendamento", async () => {

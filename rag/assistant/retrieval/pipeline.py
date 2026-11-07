@@ -5,32 +5,37 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from assistant.clinic.profile import ClinicProfile, ClinicProfileSource
 from assistant.config import (
     MAX_ANSWER_TOKENS,
     OLLAMA_CHAT_MODEL,
     OLLAMA_EMBEDDING_MODEL,
+    RAG_GROUNDED,
+    RAG_VERIFY_SUPPORT,
     TEMPERATURE,
+)
+from assistant.generation.grounded import (
+    FORMAT_INSTRUCTION,
+    GROUNDED_SCHEMA,
+    SUPPORT_MAX_TOKENS,
+    SUPPORT_SCHEMA,
+    is_supported,
+    refusal_text,
+    support_prompt,
+    verify,
 )
 from assistant.generation.model import TextGenerator
 from assistant.storage.embeddings import EmbeddingProvider
 from assistant.retrieval.fusion import RRF_K, reciprocal_rank_fusion
 from assistant.index import EmbeddingMismatch, IndexInconsistent, ingest_command
 from assistant.retrieval.lexical import LexicalIndex, tokenize
+from assistant.retrieval.lexical_options import LexicalOptions
 from assistant.settings import assistant_experiment, get_experiment
 from assistant.generation.prompting import (
     HYDE_MAX_TOKENS,
-    HYDE_PROMPT,
-    NO_ANSWER,
-    NO_CONVERSATION,
-    NO_INFORMATION,
-    ORIGINAL_SEPARATOR,
-    ORIGINAL_TEMPLATE,
     STANDALONE_MAX_TOKENS,
-    SYSTEM_PROMPT,
-    USER_TEMPLATE,
     build_prompt as _build_prompt,
     clean_answer,
-    format_conversation,
     prompt_text,
     standalone_question_prompt,
 )
@@ -54,14 +59,17 @@ class RagConfig:
     temperature: float | None = TEMPERATURE
     seed: int | None = None
     max_answer_tokens: int | None = MAX_ANSWER_TOKENS
-    prompt_template: str = SYSTEM_PROMPT
-    user_template: str = USER_TEMPLATE
+    prompt_template: str | None = None  # None: the system prompt of the clinic profile
+    user_template: str | None = None  # None: the user template of the clinic profile
+    lexical: LexicalOptions | None = None  # word search options; None: those of the experiment
+    grounded: bool = RAG_GROUNDED  # the model quotes the knowledge and the quote is checked before the answer is given
+    verify_support: bool = RAG_VERIFY_SUPPORT  # one more model call checks the quote supports the answer; only when grounded
 
     def __post_init__(self):
         search_fields = {
             "experiment": "exp_name", "strategy": "collection", "search_type": "search_type",
             "match_count": "match_count", "match_threshold": "match_threshold", "use_hyde": "use_hyde",
-            "prompt": "prompt",
+            "prompt": "prompt", "lexical": "lexical",
         }
         missing = [name for name in search_fields if getattr(self, name) is None]
         if missing:
@@ -82,6 +90,7 @@ class RagConfig:
             match_threshold=experiment.match_threshold,
             use_hyde=experiment.use_hyde,
             prompt=experiment.prompt,
+            lexical=experiment.lexical,
             **overrides,
         )
 
@@ -123,6 +132,9 @@ class AnswerResult:
     answer: str
     retrieval: RetrievalResult
     latency_s: float
+    # None when the answer is not grounded; else "verified", "no_answer", "small_talk", "small_talk_rejected",
+    # "unverified_quote", "ungrounded_number", "unsupported" (the support check refused it) or "invalid_json"
+    grounding: str | None = None
 
 
 @dataclass(frozen=True)
@@ -132,6 +144,7 @@ class RagDeps:
     embeddings: EmbeddingProvider
     generator: TextGenerator
     lexical: LexicalIndex
+    clinic: ClinicProfileSource  # o perfil da clínica: textos e regras de idioma
 
 
 def _unit(vector):
@@ -140,10 +153,10 @@ def _unit(vector):
     return vector / norm if norm else vector
 
 
-def hypothetical_answer(question, config, generator: TextGenerator):
+def hypothetical_answer(question, config, generator: TextGenerator, clinic: ClinicProfile):
     """HyDE's hypothetical answer: a text in the brochure's style, which sits closer to the chunks than the question does."""
     text = generator.generate(
-        HYDE_PROMPT.format(ask=question),
+        clinic.hyde_prompt.format(ask=question),
         model=config.chat_model,
         temperature=0.0,
         seed=config.seed,
@@ -152,11 +165,11 @@ def hypothetical_answer(question, config, generator: TextGenerator):
     return text.strip()
 
 
-def _search_vector(question, config, embeddings: EmbeddingProvider, generator: TextGenerator | None):
+def _search_vector(question, config, embeddings: EmbeddingProvider, generator: TextGenerator | None, clinic: ClinicProfile):
     """Vector used in the search and in the similarity computation, with norm 1."""
     if config.use_hyde:
         # the hypothetical answer is a document text, so it gets the document prefix
-        return _unit(embeddings.embed_documents([hypothetical_answer(question, config, generator)])[0])
+        return _unit(embeddings.embed_documents([hypothetical_answer(question, config, generator, clinic)])[0])
     return _unit(embeddings.embed_query(question))
 
 
@@ -175,7 +188,8 @@ def _check_dimensions(query_vector, stored, strategy):
 def retrieve(question, config, deps: RagDeps):
     """The chunks that answer the question: vector search, word search, their fusion, and the similarity cut."""
     config = config or RagConfig()
-    query_vector = _search_vector(question, config, deps.embeddings, deps.generator)
+    clinic = deps.clinic.load()
+    query_vector = _search_vector(question, config, deps.embeddings, deps.generator, clinic)
     store = deps.vector_store_provider(config.strategy)
     stored = store.vectors_by_content()
     _check_dimensions(query_vector, stored, config.strategy)
@@ -195,14 +209,14 @@ def retrieve(question, config, deps: RagDeps):
     # BM25 SEARCH (always with the original question, even with HyDE)
     bm25_chunks = []
     if config.bm25_k > 0:
-        bm25, documents = deps.lexical.get(config.strategy)
+        bm25, documents = deps.lexical.get(config.strategy, config.lexical)
         missing = [document for document in documents if document not in vectors]
         if missing:
             raise IndexInconsistent(
                 f'the index of strategy "{config.strategy}" is inconsistent: chunks.json holds {len(missing)} chunk(s) '
                 f"the vector store does not; run: {ingest_command(config.strategy)}"
             )
-        scores = bm25.get_scores(tokenize(question, expand=True))
+        scores = bm25.get_scores(tokenize(question, clinic.lexicon, expand=True, options=config.lexical))
         ranked_docs = sorted(zip(documents, scores), key=lambda x: x[1], reverse=True)[:config.bm25_k]
         bm25_chunks = [
             RetrievedChunk(doc, rank, float(score), similarity(doc))
@@ -221,12 +235,12 @@ def retrieve(question, config, deps: RagDeps):
     return RetrievalResult(vector=vector, bm25=bm25_chunks, fused=fused)
 
 
-def standalone_question(question, history, config, generator: TextGenerator):
+def standalone_question(question, history, config, generator: TextGenerator, clinic: ClinicProfile):
     """The question to search with: the same one without a conversation, or rewritten to stand alone with it."""
     if not history:
         return question
     rewritten = generator.generate(
-        standalone_question_prompt(question, history),
+        standalone_question_prompt(question, history, clinic),
         model=config.chat_model,
         temperature=0.0,
         seed=config.seed,
@@ -236,9 +250,50 @@ def standalone_question(question, history, config, generator: TextGenerator):
     return rewritten or question
 
 
-def build_prompt(question, retrieval, config=None, history=None):
-    """Compatibility facade that supplies the configured experiment when omitted."""
-    return _build_prompt(question, retrieval, config or RagConfig(), history)
+# A grounded reply is JSON that also holds the quote, so it needs more room than the usual answer cap.
+GROUNDED_MIN_ANSWER_TOKENS = 400
+
+
+def build_prompt(question, retrieval, config, clinic: ClinicProfile, history=None):
+    extra = FORMAT_INSTRUCTION if config.grounded else ""
+    return _build_prompt(question, retrieval, config, clinic, history, extra_system=extra)
+
+
+def _reply(question, retrieval, config, deps: RagDeps, clinic: ClinicProfile, history=None):
+    """The text to give the patient, and its grounding status (None when the answer is not grounded)."""
+    prompt = build_prompt(question, retrieval, config, clinic, history)
+    if not config.grounded:
+        reply = deps.generator.generate(
+            prompt,
+            model=config.chat_model,
+            temperature=config.temperature,
+            seed=config.seed,
+            max_tokens=config.max_answer_tokens,
+        )
+        return clean_answer(reply, clinic, history), None
+    max_tokens = None if config.max_answer_tokens is None else max(config.max_answer_tokens, GROUNDED_MIN_ANSWER_TOKENS)
+    reply = deps.generator.generate(
+        prompt,
+        model=config.chat_model,
+        temperature=config.temperature,
+        seed=config.seed,
+        max_tokens=max_tokens,
+        response_format=GROUNDED_SCHEMA,
+    )
+    outcome = verify(reply, [chunk.content for chunk in retrieval.fused], clinic, question)
+    text, status = outcome.text, outcome.status
+    if config.verify_support and status == "verified":
+        support = deps.generator.generate(
+            support_prompt(question, outcome.quote, text),
+            model=config.chat_model,
+            temperature=0.0,
+            seed=config.seed,
+            max_tokens=SUPPORT_MAX_TOKENS,
+            response_format=SUPPORT_SCHEMA,
+        )
+        if not is_supported(support):
+            text, status = refusal_text(clinic), "unsupported"
+    return clean_answer(text, clinic, history), status
 
 
 def answer(question, config, history, deps: RagDeps):
@@ -246,24 +301,27 @@ def answer(question, config, history, deps: RagDeps):
     config = config or RagConfig()
     start = time.perf_counter()
 
-    retrieval = retrieve(standalone_question(question, history, config, deps.generator), config, deps)
-    prompt = build_prompt(question, retrieval, config, history)
-    reply = deps.generator.generate(
-        prompt,
-        model=config.chat_model,
-        temperature=config.temperature,
-        seed=config.seed,
-        max_tokens=config.max_answer_tokens,
-    )
-
-    return AnswerResult(answer=clean_answer(reply, history), retrieval=retrieval, latency_s=time.perf_counter() - start)
+    clinic = deps.clinic.load()
+    retrieval = retrieve(standalone_question(question, history, config, deps.generator, clinic), config, deps)
+    if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
+        return AnswerResult(answer=clinic.no_answer, retrieval=retrieval, latency_s=time.perf_counter() - start)
+    text, grounding = _reply(question, retrieval, config, deps, clinic, history)
+    return AnswerResult(answer=text, retrieval=retrieval, latency_s=time.perf_counter() - start, grounding=grounding)
 
 
 def stream_answer(question, config, deps: RagDeps):
     """Generates the answer in pieces, so the chat shows the text while it is being written."""
     config = config or RagConfig()
     retrieval = retrieve(question, config, deps)
-    prompt = build_prompt(question, retrieval, config)
+    clinic = deps.clinic.load()
+    if not retrieval.fused:  # nothing found: the model has nothing to answer from, so it is not asked
+        yield clinic.no_answer
+        return
+    if config.grounded:  # the JSON is checked as a whole, so the verified answer is given in one piece
+        text, _ = _reply(question, retrieval, config, deps, clinic)
+        yield text
+        return
+    prompt = build_prompt(question, retrieval, config, clinic)
     yield from deps.generator.stream(
         prompt,
         model=config.chat_model,

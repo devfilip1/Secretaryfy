@@ -9,6 +9,10 @@
 #   match_threshold  minimum similarity of a chunk, from 0 to 1 (0 turns it off; default 0)
 #   use_hyde         search with a hypothetical answer instead of the question (default false)
 #   prompt           rules (the assistant's prompt, default) or original (the prompt the project started with)
+#   lexical          how the word search (BM25) reads the text; optional, each key defaults to the project's value:
+#                      stopwords: profile (default), none, or stopwordsiso (the library's list for the profile's language)
+#                      stemmer:   plural (default, cuts the final "s"), none, or snowball (PyStemmer, the profile's language)
+#                      synonyms:  profile (default, language and clinic), none, or generic (language only)
 
 # The experiment that the chat and the answer evaluation use.
 # To change the assistant's configuration, change this name.
@@ -22,6 +26,25 @@ experiments:
     match_count: 4
     match_threshold: 0.0
     use_hyde: false
+    # Libraries for the stop words and the stems, and no synonyms (Stage 6a-B2, issue 11): same pass rate on the 51 dev
+    # questions, 2 more answers right on the 21 holdout ones, and no synonym list to keep. To go back: lex_base.
+    lexical:
+      stopwords: stopwordsiso
+      stemmer: snowball
+      synonyms: none
+
+  # --- How many chunks the model receives (same search, fewer chunks) ---
+  - exp_name: section_hybrid_3
+    collection: section
+    search_type: hybrid
+    match_count: 3
+    lexical: {stopwords: stopwordsiso, stemmer: snowball, synonyms: none}
+
+  - exp_name: section_hybrid_2
+    collection: section
+    search_type: hybrid
+    match_count: 2
+    lexical: {stopwords: stopwordsiso, stemmer: snowball, synonyms: none}
 
   # --- Where the project started: 500-character chunks, vector search with 3 chunks, and a generic prompt ---
   # Kept to show the improvement. Measure its answers with:
@@ -43,6 +66,70 @@ experiments:
     collection: section
     search_type: bm25
     match_count: 4
+
+  # --- Word search options, on the assistant's search (section, hybrid, 4 chunks). lex_base is the control: the settings
+  #     the assistant had before the libraries. Run only these with: python -m evaluation experiments lex_base lex_no_synonyms ... ---
+  - exp_name: lex_base
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stopwords: profile
+      stemmer: plural
+      synonyms: profile
+
+  - exp_name: lex_no_synonyms
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      synonyms: none
+
+  - exp_name: lex_generic_synonyms
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      synonyms: generic
+
+  - exp_name: lex_stopwordsiso
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stopwords: stopwordsiso
+
+  - exp_name: lex_snowball
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stemmer: snowball
+
+  - exp_name: lex_snowball_stopwordsiso
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stemmer: snowball
+      stopwords: stopwordsiso
+
+  - exp_name: lex_snowball_no_synonyms
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stemmer: snowball
+      synonyms: none
+
+  - exp_name: lex_snowball_stopwordsiso_no_synonyms
+    collection: section
+    search_type: hybrid
+    match_count: 4
+    lexical:
+      stopwords: stopwordsiso
+      stemmer: snowball
+      synonyms: none
 
   # --- Options measured on 2026-10-11 and not adopted. Uncomment to measure again. ---
   # Other chunking strategies, same search. Per page: same True Rate (44/44), but each chunk carries a whole page.

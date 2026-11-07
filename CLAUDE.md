@@ -20,22 +20,23 @@ npm run typecheck      # server + panel; run before declaring a task done
 npm run db:generate    # after changing src/db/schema.ts; review the SQL, then
 npm run db:migrate
 npx tsx --env-file=.env scripts/eval-scheduling.ts   # after touching interpret/router/flow (needs Ollama)
+npx tsx --env-file=.env scripts/eval-interpret.ts     # natural phrases through the interpreter (needs Ollama)
 cd rag && .\run.ps1 test                             # RAG unit tests
 ```
 
 ## Rules the code doesn't show
 - Every WhatsApp send goes through the gate (`gate.sendAssistant` / `gate.sendOperator` in `src/modules/antiban/gate.ts`). Never call `evolution.ts` send functions directly.
-- The model only interprets. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Prefer a rule in `interpret.ts` over prompt changes.
+- The model only interprets, and rephrases flow replies in a warm tone (HUMANIZE_REPLIES, on by default), under a code guard (`guardRewrite` in `humanize.ts`) that falls back to the fixed text. Scheduling decisions and every reply text live in code (`flow.ts`, `replies.ts`). Do not grow keyword lists in code (weekday plurals, greeting words…): let the model understand the wording through an intent or an enum in its schema and keep the arithmetic and the texts in code. Measure with `scripts/eval-interpret.ts`.
 - Appointments belong to the **phone**, not the conversation (`conversation_id` can be null). Booking from anywhere goes through `bookSlot` in `scheduling/booking.ts`.
 - Google Calendar is the source of truth: call `syncAppointment` before acting on a stored appointment.
 - Single process only: calendar lock, send queue, SSE bus and reminder timer are in memory.
 - Customer notes must never reach the assistant (interpreter, RAG history, known name).
-- The service list exists twice: `scheduling/services.ts` and `web/src/components/NewAppointment.tsx`. Change both.
-- Patient- and operator-facing text is English; code comments, logs and specs are Portuguese.
+- The service list lives only in `scheduling/services.ts`. The panel reads it from `GET /api/services` (`web/src/components/NewAppointment.tsx` keeps no copy), so change it there only.
+- Patient-facing text follows `CLINIC_LANGUAGE` (en/pt); operator/panel text is English; code comments, logs and specs are Portuguese.
 - Modules take dependencies as `createX(deps)`; tests inject PGlite (`src/test/db.ts`), the fake calendar and a clock. Tests must not import `src/routes/{inbox,calendar,scheduling}.ts`.
 - Tests are `*.test.ts` next to the code and excluded from `tsc`.
 - Many files use CRLF line endings; `router.ts` and some others use LF. Preserve each file's style.
-- Commit messages in Portuguese, with no co-author or "generated with" lines.
+- Commit messages in English, with no co-author or "generated with" lines.
 
 ## Where to read before changing
 | Changing | Read |

@@ -1,12 +1,16 @@
-"""Where the index of each strategy lives and whether it still matches the declared strategy and the brochure."""
-import hashlib
+"""Where the index of each strategy lives and whether it still matches the declared strategy and the knowledge source."""
 import json
 from datetime import datetime
 from pathlib import Path
 
-from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL, SOURCE_PDF
+from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL
+from assistant.ingestion.http_source import KnowledgeUnavailable
 
-CURRENT, STALE, MISSING = "current", "stale", "missing"
+CURRENT, STALE, MISSING, UNKNOWN = "current", "stale", "missing", "unknown"  # UNKNOWN: the knowledge source cannot be read
+
+DEFINITION_CHANGED = "the strategy definition changed"
+SOURCE_CHANGED = "the knowledge source changed"
+MODEL_CHANGED = "the embedding model changed"
 
 
 class EmbeddingMismatch(Exception):
@@ -45,8 +49,11 @@ def index_version(name, base=None):
     return None
 
 
-def source_hash(path=SOURCE_PDF):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+def source_hash():
+    """Version of the knowledge source the process is configured with."""
+    from assistant.storage.factory import default_knowledge_source
+
+    return default_knowledge_source().version()
 
 
 def ingest_command(name):
@@ -54,7 +61,7 @@ def ingest_command(name):
 
 
 def write_manifest(strategy, chunk_count, base=None, source=None, embedding_model=None, embedding_dimensions=None):
-    """Records which definition, brochure, and model the index was built with."""
+    """Records which definition, knowledge source, and model the index was built with."""
     manifest = {
         "strategy": strategy.name,
         "definition_hash": strategy.definition_hash(),
@@ -81,25 +88,44 @@ def read_manifest(name, base=None):
         return None
 
 
-def index_state(strategy, base=None, source=None, embedding_model=None):
-    """Returns (state, reason). The reason is None when the index is current."""
+def built_from(name, base=None):
+    """The knowledge version the index was built from; None when there is no index."""
+    manifest = read_manifest(name, base)
+    return None if manifest is None else manifest.get("source_hash")
+
+
+def index_changes(strategy, base=None, source=None, embedding_model=None, compare_source=True):
+    """Returns (state, changed): changed names, in words, what differs between the index and the process.
+
+    compare_source=False leaves the knowledge source out, for when it cannot be read.
+    """
     manifest = read_manifest(strategy.name, base)
-    command = ingest_command(strategy.name)
     if manifest is None or not chunks_path(strategy.name, base).is_file():
-        return MISSING, f"the index of strategy \"{strategy.name}\" has not been built yet; run: {command}"
+        return MISSING, []
 
     changed = []
     if manifest.get("definition_hash") != strategy.definition_hash():
-        changed.append("the strategy definition changed")
-    if manifest.get("source_hash") != (source or source_hash()):
-        changed.append("the brochure changed")
+        changed.append(DEFINITION_CHANGED)
+    if compare_source and manifest.get("source_hash") != (source or source_hash()):
+        changed.append(SOURCE_CHANGED)
     if manifest.get("embedding_model") != (embedding_model or OLLAMA_EMBEDDING_MODEL):
-        changed.append("the embedding model changed")
-    if changed:
-        return STALE, (
-            f"the index of strategy \"{strategy.name}\" is out of date ({' and '.join(changed)}); run: {command}"
-        )
-    return CURRENT, None
+        changed.append(MODEL_CHANGED)
+    return (STALE if changed else CURRENT), changed
+
+
+def _reason(strategy, state, changed):
+    command = ingest_command(strategy.name)
+    if state == MISSING:
+        return f"the index of strategy \"{strategy.name}\" has not been built yet; run: {command}"
+    if state == STALE:
+        return f"the index of strategy \"{strategy.name}\" is out of date ({' and '.join(changed)}); run: {command}"
+    return None
+
+
+def index_state(strategy, base=None, source=None, embedding_model=None, compare_source=True):
+    """Returns (state, reason). The reason is None when the index is current."""
+    state, changed = index_changes(strategy, base, source, embedding_model, compare_source)
+    return state, _reason(strategy, state, changed)
 
 
 def check_embedding_dimensions(strategy, embeddings, base=None):
@@ -128,3 +154,27 @@ def require_index(strategy, base=None):
     state, reason = index_state(strategy, base)
     if state != CURRENT:
         raise IndexUnavailable(reason)
+
+
+def require_index_for_http_source(strategy, knowledge, base=None):
+    """Startup check of the server when the knowledge comes from the Node server.
+
+    Returns the one warning line to print, or None when the index is current. A knowledge change that is not published
+    yet, or a server that cannot be reached, leaves the last published index usable. A missing index, a changed strategy
+    definition or a changed embedding model still refuse (IndexUnavailable). The file source keeps require_index.
+    """
+    try:
+        version = knowledge.version()
+    except KnowledgeUnavailable as error:
+        unreachable = str(error)
+        state, changed = index_changes(strategy, base, compare_source=False)
+    else:
+        unreachable = None
+        state, changed = index_changes(strategy, base, source=version)
+    if state == MISSING or DEFINITION_CHANGED in changed or MODEL_CHANGED in changed:
+        raise IndexUnavailable(_reason(strategy, state, changed))
+    if unreachable is not None:
+        return f"{unreachable}; answering from the last published index"
+    if SOURCE_CHANGED in changed:
+        return "the knowledge has unpublished changes; answering from the last published index"
+    return None

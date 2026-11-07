@@ -161,6 +161,39 @@ test("PUT /api/calendar/rules valida e salva", async () => {
   assert.deepEqual((await get("/api/calendar")).json().rules, rules);
 });
 
+test("CALENDAR_MODE=fake: conectar dá 501 sem tocar no Google, e a agenda continua funcionando", async () => {
+  const fakeApp = Fastify();
+  await fakeApp.register(cookie);
+  registerPanelAuth(fakeApp, { password: "senha-do-operador", publicUrl: "http://localhost:3000" });
+  await fakeApp.register(
+    panelCalendarRoutes({
+      connection,
+      calendar: fake.gateway,
+      rules: createRulesStore(testDb.db as never),
+      buildConnectUrl: () => {
+        throw new Error("não deve montar URL do Google em modo fake");
+      },
+      googleConfigured: () => true,
+      revoke: async () => {
+        throw new Error("não deve revogar token em modo fake");
+      },
+      fakeMode: true,
+    }),
+  );
+  const fakeSend = (method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: object) =>
+    fakeApp.inject({ method, url, payload, cookies: auth });
+
+  const connectRes = await fakeSend("POST", "/api/calendar/connect", {});
+  assert.equal(connectRes.statusCode, 501);
+  assert.equal(connectRes.json().error, "calendar_fake_mode");
+  assert.equal((await connection.get()).status, "disconnected");
+
+  await connect();
+  const calendars = await fakeSend("GET", "/api/calendar/calendars");
+  assert.equal(calendars.statusCode, 200);
+  assert.equal(calendars.json().calendars.length, 2);
+});
+
 test("DELETE /api/calendar revoga e desconecta, mesmo se a revogação falhar", async () => {
   await connect();
   revokeFails = true;

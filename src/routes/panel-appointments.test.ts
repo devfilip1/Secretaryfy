@@ -9,7 +9,9 @@ import type { InboxEvent } from "../modules/inbox/events.js";
 import { createInboxRepository, type InboxRepository } from "../modules/inbox/repository.js";
 import { createInboxService, type InboxService } from "../modules/inbox/service.js";
 import { createBooking } from "../modules/scheduling/booking.js";
+import { createCatalog, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import { DEFAULT_RULES } from "../modules/scheduling/rules.js";
+import { testCatalog } from "../test/catalog.js";
 import { createSchedulingStore, withAppointmentEvents, type SchedulingStore } from "../modules/scheduling/sessions.js";
 import { createTestDb } from "../test/db.js";
 import { createFakeCalendar, type FakeCalendar } from "../test/fake-calendar.js";
@@ -42,15 +44,8 @@ before(async () => {
 });
 after(() => testDb.close());
 
-beforeEach(async () => {
-  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
-  events = [];
-  sent = [];
-  now = NOW;
-  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
-  fake = createFakeCalendar();
-  inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => now.getTime() });
-  store = withAppointmentEvents(rawStore, () => events.push({ type: "appointments.updated" }));
+/** O painel com este catálogo: a marcação e a lista usam os mesmos títulos */
+async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
   const deps = {
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
@@ -60,16 +55,31 @@ beforeEach(async () => {
     customers,
     log: { error: () => {} },
     now: () => now,
+    catalog,
   };
-  app = Fastify();
-  await app.register(
+  const server = Fastify();
+  await server.register(
     panelAppointmentsRoutes({
       ...deps,
       inboxRepo: repo,
       booking: createBooking(deps),
       reminderLeadMinutes: 1440,
+      catalog,
     }),
   );
+  return server;
+}
+
+beforeEach(async () => {
+  await testDb.db.execute(sql`truncate table scheduling_sessions, appointments, customers, messages, conversations cascade`);
+  events = [];
+  sent = [];
+  now = NOW;
+  conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
+  fake = createFakeCalendar();
+  inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => now.getTime() });
+  store = withAppointmentEvents(rawStore, () => events.push({ type: "appointments.updated" }));
+  app = await panelWith(testCatalog);
 });
 
 const conversation = (phone = PHONE) => repo.upsertConversation({ phone, name: "Perfil", at: now, preview: "Oi" });
@@ -139,7 +149,7 @@ test("POST /api/appointments com conversa no telefone: registro no histórico", 
   const conv = await conversation();
   await book(VALID);
   const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.deepEqual(notes, ["📅 Booked from the panel: Thu, Oct 22 at 10:00 AM (60 min) — Dental Cleaning"]);
+  assert.deepEqual(notes, ["Booked from the panel: Thu, Oct 22 at 10:00 AM (60 min), Dental Cleaning"]);
 });
 
 test("POST /api/appointments: um horário futuro por telefone, como o assistente", async () => {
@@ -214,6 +224,28 @@ test("GET /api/booking/lookup: telefone normalizado, nome conhecido e horário f
   assert.equal((await app.inject({ url: "/api/booking/lookup?phone=12" })).statusCode, 422);
 });
 
+test("GET /api/services: os serviços na ordem do assistente, com a avaliação geral em inglês", async () => {
+  const { services } = (await app.inject({ url: "/api/services" })).json();
+  assert.deepEqual(
+    services.map((s: { name: string }) => s.name),
+    testCatalog.list().map((s) => s.name),
+  );
+  assert.equal(services.at(-1).label, "General assessment");
+  assert.equal(services[0].label, "Dental Cleaning");
+});
+
+test("o painel mostra o título do tratamento no catálogo; um nome fora dele aparece como está", async () => {
+  // Antes da troca de catálogo, marcado com o nome que o catálogo de teste conhece
+  await book(VALID);
+  const titled = await panelWith(createCatalog([{ name: "limpeza-dental", label: "Limpeza dental" }]));
+  const created = await titled.inject({ method: "POST", url: "/api/appointments", payload: { ...VALID, phone: "71 98888-7777", name: "João", service: "limpeza-dental", start: at("2026-10-23T10:00").toISOString() } });
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.json().appointment.service, "Limpeza dental");
+  assert.equal([...fake.events.values()].at(-1)?.summary, "João — Limpeza dental");
+  const services = (await titled.inject({ url: "/api/appointments" })).json().appointments.map((a: { service: string }) => a.service);
+  assert.deepEqual(services, ["Dental Cleaning", "Limpeza dental"]);
+});
+
 // --- US4: confirmação pelo operador ---
 
 test("POST /api/appointments/:id/confirm: confirma, o lembrete pendente deixa de ser necessário, uma vez só", async () => {
@@ -229,7 +261,7 @@ test("POST /api/appointments/:id/confirm: confirma, o lembrete pendente deixa de
 
   await app.inject({ method: "POST", url: `/api/appointments/${appointment.id}/confirm` });
   const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.equal(notes.filter((t) => t?.startsWith("✅ Appointment confirmed by the operator")).length, 1);
+  assert.equal(notes.filter((t) => t?.startsWith("Appointment confirmed by the operator")).length, 1);
 });
 
 test("confirmar horário inexistente, passado ou cancelado: 404", async () => {

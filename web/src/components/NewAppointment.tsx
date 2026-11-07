@@ -1,25 +1,26 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ApiError, bookingDays, bookingSlots, createAppointment, lookupPhone, type Appointment } from "../api";
+import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from "react";
+import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
+import { Button } from "@/components/ui/button";
+import { FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { clinicFormats } from "../format";
+import { Field } from "./Field";
+import { Muted } from "./Muted";
+import { Notice } from "./Notice";
+import { Title } from "./Title";
 
-/** Os serviços do assistente (src/modules/scheduling/services.ts), na mesma ordem. */
-const SERVICES = [
-  "Dental Cleaning",
-  "Teeth Whitening",
-  "Dental Filling",
-  "Root Canal Treatment",
-  "Dental Implants",
-  "Braces and Orthodontic Treatment",
-  "Tooth Extraction",
-  "Dental Veneers",
-  "Assessment",
-];
-const serviceLabel = (s: string) => (s === "Assessment" ? "General assessment" : s);
+/** Horário ou dia escolhido: o selecionado fica preenchido (primary); os outros ficam secundários. */
+function Choice({ selected, ...props }: ComponentProps<typeof Button> & { selected: boolean }) {
+  return <Button type="button" size="sm" variant={selected ? "default" : "secondary"} {...props} />;
+}
 
 /** Marcação pelo painel para quem ligou (specs/006 US3): só horários livres, calculados como o assistente calcula. */
 export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointment) => void; onCancel: () => void }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [service, setService] = useState(SERVICES[0]);
+  const [services, setServices] = useState<{ name: string; label: string }[] | null>(null);
+  const [service, setService] = useState("");
   const [timeZone, setTimeZone] = useState<string | undefined>();
   const [days, setDays] = useState<string[] | null>(null);
   const [day, setDay] = useState<string | null>(null);
@@ -31,13 +32,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [disconnected, setDisconnected] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const formats = useMemo(
-    () => ({
-      day: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }),
-      time: new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }),
-    }),
-    [timeZone],
-  );
+  const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
   // Dias vêm como YYYY-MM-DD no fuso da clínica: o meio-dia UTC cai no mesmo dia em qualquer fuso do Brasil
   const dayLabel = (d: string) => formats.day.format(new Date(`${d}T12:00:00Z`));
 
@@ -45,6 +40,15 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     if (err instanceof ApiError && err.error === "calendar_disconnected") setDisconnected(true);
     else setError("Could not reach Google Calendar. Please try again.");
   }
+
+  useEffect(() => {
+    listServices()
+      .then((r) => {
+        setServices(r.services);
+        setService(r.services[0]?.name ?? "");
+      })
+      .catch(() => setError("Could not load the services. Close the form and try again."));
+  }, []);
 
   useEffect(() => {
     bookingDays()
@@ -59,8 +63,9 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     if (!day) return;
     setSlots(null);
     setStart(null);
-    bookingSlots(day).then((r) => setSlots(r.slots), calendarError);
-  }, [day]);
+    // O tempo do atendimento depende do serviço: trocar o serviço traz os horários dele
+    bookingSlots(day, service || undefined).then((r) => setSlots(r.slots), calendarError);
+  }, [day, service]);
 
   async function checkPhone() {
     setExisting(null);
@@ -104,24 +109,24 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
   if (disconnected) {
     return (
-      <div className="flash bad new-appointment">
+      <Notice layout="box" tone="plain">
         Google Calendar is not connected. <a href="#/calendar">Connect it in Calendar</a> to book appointments.
-        <button className="link" onClick={onCancel}>
+        <Button variant="link" onClick={onCancel}>
           Close
-        </button>
-      </div>
+        </Button>
+      </Notice>
     );
   }
 
-  const canBook = Boolean(phone.trim() && name.trim() && start && !existing && !busy);
+  const canBook = Boolean(services && service && phone.trim() && name.trim() && start && !existing && !busy);
 
   return (
-    <form className="new-appointment" onSubmit={submit}>
-      <h3>New appointment</h3>
-      <div className="fields">
-        <label className="field">
+    <form className="grid gap-4" onSubmit={submit}>
+      <Title level={3}>New appointment</Title>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field>
           Phone
-          <input
+          <Input
             type="tel"
             inputMode="tel"
             placeholder="(71) 99999-9999"
@@ -130,80 +135,82 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
             onBlur={checkPhone}
             aria-invalid={!!phoneError}
           />
-          {phoneError && <span className="error small">{phoneError}</span>}
-        </label>
-        <label className="field">
+          {phoneError && <Muted tone="destructive">{phoneError}</Muted>}
+        </Field>
+        <Field>
           Name
-          <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label className="field">
+          <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field>
           Service
-          <select value={service} onChange={(e) => setService(e.target.value)}>
-            {SERVICES.map((s) => (
-              <option key={s} value={s}>
-                {serviceLabel(s)}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select value={service} onValueChange={setService}>
+            <SelectTrigger>
+              <SelectValue placeholder={services === null ? "Loading services…" : undefined} />
+            </SelectTrigger>
+            <SelectContent>
+              {services?.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
       </div>
 
       {existing && (
-        <div className="flash bad">
+        <Notice layout="box" tone="destructive">
           This customer already has an appointment on {formats.day.format(new Date(existing.startsAt))} at{" "}
           {formats.time.format(new Date(existing.startsAt))}. Only one future appointment per number.
-        </div>
+        </Notice>
       )}
 
-      <div className="field">
-        Day
+      <FieldSet>
+        <FieldLegend variant="label">Day</FieldLegend>
         {days === null ? (
-          <span className="muted small">Loading available days…</span>
+          <Muted>Loading available days…</Muted>
         ) : days.length === 0 ? (
-          <span className="muted small">No available days within the booking window.</span>
+          <Muted>No available days within the booking window.</Muted>
         ) : (
-          <div className="choice-grid">
+          <div className="flex flex-wrap gap-1.5">
             {days.map((d) => (
-              <button type="button" key={d} className={d === day ? "selected" : ""} onClick={() => setDay(d)}>
+              <Choice key={d} selected={d === day} onClick={() => setDay(d)}>
                 {dayLabel(d)}
-              </button>
+              </Choice>
             ))}
           </div>
         )}
-      </div>
+      </FieldSet>
 
       {day && (
-        <div className="field">
-          Time
+        <FieldSet>
+          <FieldLegend variant="label">Time</FieldLegend>
           {slots === null ? (
-            <span className="muted small">Loading times…</span>
+            <Muted>Loading times…</Muted>
           ) : slots.length === 0 ? (
-            <span className="muted small">No free times on this day anymore.</span>
+            <Muted>No free times on this day anymore.</Muted>
           ) : (
-            <div className="choice-grid">
+            <div className="flex flex-wrap gap-1.5">
               {slots.map((s) => (
-                <button type="button" key={s} className={s === start ? "selected" : ""} onClick={() => setStart(s)}>
+                <Choice key={s} selected={s === start} onClick={() => setStart(s)}>
                   {formats.time.format(new Date(s))}
-                </button>
+                </Choice>
               ))}
             </div>
           )}
-        </div>
+        </FieldSet>
       )}
 
-      {error && (
-        <p className="error small" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="form-actions">
-        <button className="primary" type="submit" disabled={!canBook}>
-          {busy ? "Booking…" : "Book"}
-        </button>
-        <button type="button" onClick={onCancel}>
+      {error && <Notice role="alert">{error}</Notice>}
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Muted className="mr-auto">No message is sent to the customer.</Muted>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
-        </button>
-        <span className="muted small">No message is sent to the customer.</span>
+        </Button>
+        <Button type="submit" disabled={!canBook}>
+          {busy ? "Booking…" : "Book"}
+        </Button>
       </div>
     </form>
   );

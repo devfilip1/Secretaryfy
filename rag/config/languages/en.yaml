@@ -1,0 +1,121 @@
+# Language package: the language DATA the assistant uses in English: the answer language, the example
+# conversations, the words of the search, the patterns that clean the answer and the texts it says by itself.
+# The prompt texts are shared by every language, in config/prompts.yaml.
+# Placeholders filled per question: {knowledge}, {conversation}, {ask}, {no_answer}.
+# Placeholders filled from config/clinic.yaml when the profile loads: {clinic_name}, {clinic_name_upper},
+# {clinic_kind}, {example_treatment}, {extra_rules}. A clinic value may not contain braces.
+# The examples may contain {no_answer}, which is filled per question.
+
+# The refusal sentence. The evaluation recognizes it in evaluation/answer_metrics.py.
+no_answer: "I don't have that information right now."
+# Stands in for the brochure text when the search finds nothing.
+no_information: "(no information found for this question)"
+# Stands in for the conversation before the first message.
+no_conversation: "(this is the first message)"
+# Labels of each turn of the conversation, by the role the chat uses.
+conversation_roles: {user: Customer, assistant: Assistant}
+# Between the chunks in the original (baseline) prompt.
+original_separator: "\n\n----\n\n"
+# What the model sometimes writes after the answer, for itself: a "---" line or a "(Note: ...)" paragraph.
+# Compiled with re.IGNORECASE.
+afterthought: '\n\s*(?:-{3,}|\(?\s*note\s*:)'
+# A greeting at the start of the answer ("Hi!", "Hello there,"). Compiled with re.IGNORECASE.
+greeting: '^(?:hi|hello|hey)(?: there)?\b[!.,]*\s*'
+# The offer that follows the refusal sentence. The code writes it, so the model never writes the refusal.
+refusal_offer: "I can help you with our treatments or schedule an assessment for you."
+# A message made only of greetings, thanks and goodbyes (several words allowed, with punctuation or emoji). The whole
+# customer message must match it; anything else is not small talk. Compiled with re.IGNORECASE.
+small_talk: '[\W_]*(?:\b(?:hi|hello|hey|hi there|hello there|hiya|good (?:morning|afternoon|evening|night)|thanks a lot|thank you very much|thank you|thanks|thank u|thx|ty|cheers|bye|goodbye|see you|see ya|have a (?:nice|good|great) day|take care|ok|okay)\b[\W_]*)+'
+
+# The language of the answer: rule 1 of config/prompts.yaml.
+answer_language: "English"
+# The examples of rule 12 (greeting) and rule 11 (thanks) of config/prompts.yaml, as the prompt shows them.
+greeting_examples: '"Hi!", "Hello!"'
+thanks_example: "You're welcome! Have a great day 😊"
+# The example conversations of config/prompts.yaml, in the answer language. They show the output style. The
+# {no_answer} in them is filled per question.
+examples: |-
+  EXAMPLES OF A DIRECT ANSWER (A stands for the plain name of any treatment)
+  Customer: How long does A take?
+  Assistant: A takes [only the duration written in the block of A].
+
+  Customer: Are you open on Sundays?
+  Assistant: We are closed on Sundays.
+
+  Customer: Do you do A?
+  Assistant: Yes, we do! A takes [duration written in the block of A].
+
+  It costs [price range written in the block of A].
+
+  EXAMPLE OF A FOLLOW-UP (the previous message was about A)
+  Customer: how much does it cost?
+  Assistant: A costs [price range written in the block of A].
+
+  EXAMPLE OF A COMPARISON (A and B stand for any treatments)
+  Customer: What is the price difference between A and B?
+  Assistant: Treatment A costs [price range written in the block of A] and treatment B costs [price range written in the block of B].
+
+  If you like, we can schedule an assessment to see what is best for you.
+
+  EXAMPLES OF HOW TO ANSWER WHEN THERE IS NO ANSWER
+  Customer: Do you see children?
+  Assistant: {no_answer} I can help you with our treatments or schedule an assessment for you.
+
+# Words that do not help the word-based search (lowercase, without accents). "much", "long", "where", and "open" are
+# not here on purpose: they carry the intent of "how much", "how long", "where are you", and "are you open".
+stopwords: [
+  "a", "an", "the", "of", "to", "in", "on", "at", "for", "with", "without", "from", "by", "and", "or", "but", "if", "so",
+  "as", "than", "then", "that", "this", "these", "those",
+  "is", "are", "was", "were", "be", "been", "being", "am", "do", "does", "did", "has", "have", "had", "will", "would",
+  "can", "could", "should", "may", "might", "must",
+  "i", "me", "my", "we", "us", "our", "you", "your", "yours", "he", "she", "it", "its", "they", "them", "their", "there",
+  "here",
+  "what", "which", "who", "whom", "how", "why",
+  "not", "no", "yes", "please", "just", "also", "very", "really", "about", "into", "over", "up", "out", "any", "some",
+  "get", "got", "need", "want", "like", "know", "tell", "say",
+]
+# How customers ask -> how the brochure writes it, for the word-based search only. Words that are about the
+# clinic in general are here; the words of the specialty are in config/clinic.yaml.
+query_synonyms:
+  cost: [price]
+  costs: [price]
+  much: [price]
+  fee: [price]
+  fees: [price]
+  charge: [price]
+  expensive: [price]
+  cheap: [price]
+  pay: [price]
+  pricing: [price]
+  prices: [price]
+  long: [duration]
+  take: [duration]
+  takes: [duration]
+  time: [duration]
+  quick: [duration]
+  fast: [duration]
+  where: [location]
+  located: [location]
+  address: [location]
+  directions: [location]
+  open: [hours]
+  close: [hours]
+  closed: [hours]
+  opening: [hours]
+  weekend: [hours, saturday, sunday]
+  weekends: [hours, saturday, sunday]
+  phone: [contact]
+  call: [contact]
+  number: [contact]
+  email: [contact]
+  reach: [contact]
+  hurt: [pain]
+  hurts: [pain]
+  painful: [pain]
+  installments: [payment]
+  financing: [payment]
+  card: [payment]
+  works: [work]
+  done: [works, work]
+  types: [options]
+  kinds: [options]

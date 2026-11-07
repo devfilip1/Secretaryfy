@@ -4,7 +4,7 @@
 |---|---|---|---|
 | Evolution API v2.3.7 | WhatsApp connection: receive, send, read receipts, QR code | REST calls with an API key; webhook to `/webhooks/evolution` | `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`, `EVOLUTION_WEBHOOK_TOKEN`, `WEBHOOK_BASE_URL` |
 | Google Calendar API | Free/busy, create, move, rename and delete events | `googleapis` with OAuth 2 (offline refresh token) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`, `PANEL_URL` |
-| Ollama (`llama3`) | Interpreting patient messages | `POST /api/chat` with a JSON Schema `format` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
+| Ollama (`qwen3:8b`) | Interpreting patient messages | `POST /api/chat` with a JSON Schema `format` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
 | RAG service (`rag/`) | Answering questions from the brochure | `POST /answer` on the local Python service | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` |
 
 Values never go in the docs; see [development](development.md#environment-variables) for what each variable is and where to get it.
@@ -31,14 +31,29 @@ One Google account and one calendar per installation, chosen in the panel ([goog
 - **Failures:** network or API errors become `CalendarUnavailable`. The assistant tells the patient it can't book right now, and the panel gets 502 `calendar_unavailable`. A revoked token sets the connection to `needs_reauth` and the panel asks to reconnect.
 - **One-time Google Cloud setup:** enable the Calendar API; add the redirect URI; add the scopes and the clinic's Gmail as a test user on the consent screen. Steps in [development](development.md#google-calendar-setup).
 - **Tests** use [fake-calendar.ts](../src/test/fake-calendar.ts), an in-memory implementation of the same interface.
+- **Offline mode:** `CALENDAR_MODE=fake` uses that same in-memory calendar in development, with no OAuth and nothing sent to Google. See [development](development.md#offline-calendar).
 
 ## Ollama
 
-Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`nomic-embed-text`), query rewriting and answers (`llama3`).
+Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/modules/scheduling/ollama.ts)), and the RAG service calls it for embeddings (`embeddinggemma`), query rewriting and answers (`qwen3:8b`).
 
 - Interpreter call: `POST {OLLAMA_URL}/api/chat` with `stream: false`, `format: <JSON Schema>`, `temperature: 0`, `keep_alive: "30m"`, and a 20 s timeout. Non-JSON output or any error raises `InterpreterUnavailable`.
-- The model in use is `llama3:latest`: 8.0B parameters, Q4_0 quantization, 8k context. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models.
-- Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times, names and services ([message pipeline](message-pipeline.md#6a-interpret)).
+- The model in use is `qwen3:8b`: 8.2B parameters, Q4_K_M quantization, 40k context, with its thinking turned off (`think: false` in this client, `OLLAMA_THINKING` in the RAG). One chat model serves the RAG and the interpreter, so the GPU holds it and the embedding model together. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models: `qwen3:8b` and `llama3` both pass its 23 scenarios.
+- Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times and names; the model reads the services ([message pipeline](message-pipeline.md#6a-interpret)).
+
+## Knowledge endpoint
+
+The Node server serves the clinic's brochure at `GET /internal/knowledge`, authenticated by `INTERNAL_TOKEN` (bearer token, see [api.md](api.md#internal-routes)). The brochure lives in the `knowledge_sections` table ([data-model.md](data-model.md#knowledge_sections)); the clinic section's HORÁRIO lines are not stored: they are generated from the scheduling rules on every read (BR-KNO-02). Load the brochure once from a Markdown file with `npx tsx --env-file=.env scripts/import-knowledge.ts <file.md>`, which replaces the whole table. The RAG reads this endpoint when `KNOWLEDGE_URL` is set: the Node side is ready, but `rag/` still reads its file (`KNOWLEDGE_PATH`) and does not call the endpoint yet, so the two are not connected until the RAG side changes.
+
+### Publishing the knowledge
+
+The panel edits the sections (see [api.md](api.md#knowledge--panel-knowledgets)) and publishes them when the operator asks. `POST /api/knowledge/publish` calls the RAG's `POST /reindex` with `INTERNAL_TOKEN` as the bearer (`RAG_SERVICE_URL` is the RAG address; [admin.ts](../src/modules/rag/admin.ts)). The RAG reads the sections from `GET /internal/knowledge` and rebuilds the index; the request sends nothing. Without `INTERNAL_TOKEN` the RAG refuses the reindex and publishing answers 502.
+
+The panel compares the version of the current sections with the one the RAG reports on `GET /health` (`knowledge.version`, read only while the RAG's `index.state` is `current`, since the source version is not the indexed one otherwise): equal is `upToDate`, different is `unpublished`, and an unreachable RAG is `unavailable`. The RAG answers `/health` with 503 when it is not ready, and the panel reads that body too. A second publish while the RAG is indexing gets 409.
+
+## Clinic identity endpoint
+
+The RAG reads the clinic's name and kind from `GET /internal/clinic` when `CLINIC_URL` is set (same bearer token, `INTERNAL_TOKEN`; see [api.md](api.md#internal-routes)). The panel edits them in `clinic_settings`, so a rename reaches the next question within a few seconds, without a restart. The reply is `{name, kind, language, treatments}`; `treatments` carries the "Other names patients use" of each treatment (field `otherNames` in the panel), and the RAG adds them to its query synonyms. The prompt's example treatment and rule 5 (treatments with several named prices or durations) are also built from `treatments`, so the clinic needs no YAML for them. Measured with the real model (qwen3:8b, pt, no YAML synonyms): dev 88.2% vs 92.2%, holdout 95.2% vs 95.2%, clean 89.1% vs 85.9%, the same 122 of 136 as the YAML. The RAG keeps its YAML profile (language package, and the YAML values as a fallback) and only checks that the language matches. When the Node server cannot be reached, the YAML name and kind are used.
 
 ## RAG service
 

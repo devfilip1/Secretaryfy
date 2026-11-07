@@ -9,7 +9,7 @@ from evaluation.answer_metrics import (
     ungrounded_values,
 )
 from evaluation.diagnose import classify
-from evaluation.normalize import extract_values
+from evaluation.normalize import extract_values, locale_for
 from evaluation.retrieval_metrics import SOURCES, score_all_sources
 
 # Generation parameters of the evaluation, so the same question gets the same answer.
@@ -53,25 +53,26 @@ def evaluate_item(item, answer_result, answer_key, index, judge_fn=None):
     }
     fused_texts = [chunk["content"] for chunk in retrieved["fused"]]
 
-    facts = check_facts(answer, item.expected_facts)
+    locale = locale_for(answer_key.language)
+    facts = check_facts(answer, item.expected_facts, locale)
     if item.answerable:
         known = index.known_for(item)
         # with a procedure, every value is checked; without one, only the kinds the question asks for
         kinds = None if item.procedure else {fact.type for fact in item.expected_facts if fact.type != "text"}
-        unexpected = unexpected_values(answer, known, kinds)
+        unexpected = unexpected_values(answer, known, kinds, locale)
     else:
         known = []
-        unexpected = unexpected_values(answer, [])
+        unexpected = unexpected_values(answer, [], locale=locale)
 
     known_targets = {target for fact in known for target in fact.targets()}
     foreign = index.other_procedure_targets(item.procedure)
     other_procedure = [
-        value.label for value in extract_values(answer)
+        value.label for value in extract_values(answer, locale)
         if value.label in unexpected and value.key not in known_targets and value.key in foreign
     ]
 
-    abstained = detect_abstention(answer)
-    violations = check_rules(answer)
+    abstained = detect_abstention(answer, locale)
+    violations = check_rules(answer, locale, item.expected_language)
     if item.answerable:
         passed = all(fact["found"] for fact in facts) and not unexpected and not violations
     else:
@@ -84,7 +85,7 @@ def evaluate_item(item, answer_result, answer_key, index, judge_fn=None):
         "retrieval": score_all_sources(item, retrieved, answer_key),
         "facts": facts,
         "unexpected_values": unexpected,
-        "ungrounded_values": ungrounded_values(answer, fused_texts),
+        "ungrounded_values": ungrounded_values(answer, fused_texts, locale),
         "abstained": abstained,
         "rule_violations": violations,
         "judge": None,

@@ -6,10 +6,14 @@ langchain-core==1.6.9
 langchain-ollama==1.1.0
 langchain-text-splitters==1.1.3
 pypdf==6.20.0
+# Opcional: stemmer snowball das opções lexicais (experimentos lex_*). Importado só quando a opção pede.
+PyStemmer==3.1.0
 pytest==9.1.1
 pytest-cov==7.1.0
 python-dotenv==1.2.4
 PyYAML==6.0.3
 rank-bm25==0.2.2
 rich==15.0.0
+# Opcional: stopwords stopwordsiso das opções lexicais (experimentos lex_*). Importado só quando a opção pede.
+stopwordsiso==0.7.1
 uvicorn==0.54.0

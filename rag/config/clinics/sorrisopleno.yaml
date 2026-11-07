@@ -1,0 +1,31 @@
+# Identity of the clinic: what is specific to this clinic and its specialty. The texts the assistant says come from
+# config/languages/<language>.yaml; the values here fill their placeholders. Braces are not allowed in the values.
+name: Sorriso Pleno
+kind: clínica odontológica
+language: pt
+# Words of the specialty for the word-based search: how customers ask -> how the brochure writes it (lowercase, without
+# accents). A word may not be in config/languages/<language>.yaml too.
+query_synonyms:
+  clarear: [clareamento]
+  branquear: [clareamento]
+  branqueamento: [clareamento]
+  alinhador: [aparelho, alinhadores]
+  alinhadores: [aparelho]
+  ortodontia: [ortodontico, aparelho]
+  torto: [aparelho, alinhamento]
+  tortos: [aparelho, alinhamento]
+  tirar: [extracao]
+  arrancar: [extracao]
+  extrair: [extracao]
+  siso: [extracao]
+  carie: [restauracao]
+  caries: [restauracao]
+  obturacao: [restauracao]
+  facetas: [lentes]
+  recuperar: [recuperacao]
+  cicatrizar: [recuperacao]
+
+# The example treatment of rule 3 of the prompt, written the way a customer would say it.
+example_treatment: clareamento dental
+# Rule 5 of the prompt: the rule about treatments with two prices or two durations. The number is written here.
+extra_rules: '5. Some treatments have two prices or two durations. Braces: the "Custo inicial" is paid once and the "Mensalidade" is paid every month. Tooth extraction: "Extração simples" and "Siso" have different prices. Teeth whitening: "No consultório" and "Tratamento completo" have different durations. Give the one the customer asked about; if the question is general, give both, each with its name.'
