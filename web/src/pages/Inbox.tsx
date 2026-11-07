@@ -82,11 +82,13 @@ export function Inbox({ connected }: { connected: boolean }) {
   }
 
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
+  // A conversa aberta já foi lida: o contador some na hora, sem esperar o servidor avisar (o aviso pode atrasar ou não chegar)
+  const shown = conversations.map((c) => (c.id === selectedId && c.unreadCount > 0 ? { ...c, unreadCount: 0 } : c));
 
   return (
     <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
       <ConversationList
-        conversations={conversations}
+        conversations={shown}
         loaded={loaded}
         selectedId={selectedId}
         onSelect={setSelectedId}
