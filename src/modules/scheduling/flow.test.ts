@@ -656,3 +656,11 @@ test("falha ao gravar o cliente não desfaz a marcação", async () => {
   assert.equal(appt.customerId, null);
   assert.equal(fake.events.size, 1);
 });
+
+test("o modelo escolheu a opção mais próxima, mas o horário citado manda", async () => {
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2, time: "10:15" }));
+  assert.match(summary.reply, /10:15 AM/);
+});

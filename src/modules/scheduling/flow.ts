@@ -203,7 +203,12 @@ class Run {
         if (i.intent === "other_day") return this.offerDays();
         break;
       case "choose_slot":
-        if (i.intent === "choose" && i.option !== null) return this.selectSlot(this.slotOption(i.option));
+        if (i.intent === "choose" && i.option !== null) {
+          const slot = this.slotOption(i.option);
+          // O modelo às vezes escolhe a opção mais próxima do horário citado: o horário citado manda
+          if (i.time && DateTime.fromJSDate(slot, { zone: this.tz }).toFormat("HH:mm") !== i.time) return this.askedTime(this.isoDate(slot), i.time);
+          return this.selectSlot(slot);
+        }
         // Um horário citado se confere na grade inteira, no dia da tela ou no dia que o cliente nomeou
         if (i.intent === "choose" && i.time) return this.askedTime(i.date ?? this.isoDate(this.optionSlots(s.options)[0]), i.time);
         if (i.intent === "choose" && i.date) return this.sameDayAsOptions(i.date) ? this.timeNotOffered() : this.offerDay(i.date);
