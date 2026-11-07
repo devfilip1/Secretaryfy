@@ -208,9 +208,11 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
     // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
-    const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot"));
+    const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
     const time = interpretation.time ?? (wantsTime ? await interpreter.mentionedTime?.({ text, log }) ?? null : null);
-    const timed = time ? { ...interpretation, time } : interpretation;
+    // Com os horários na tela, um horário citado é uma escolha, mesmo que o modelo tenha lido "mais" ou "não entendi"
+    const toChoice = time && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
+    const timed = time ? { ...interpretation, time, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: timed, session, knownName: known, mentionedService: interpretation.service ?? mentioned });

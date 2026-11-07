@@ -279,6 +279,15 @@
         "yes"
       ],
       "final": "2026-10-21T14:00"
+    },
+    {
+      "name": "horário citado como pergunta com os horários na tela (ADR 0015)",
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "do you have 10:45?",
+        "yes"
+      ],
+      "final": "2026-10-21T10:45"
     }
   ]
 }
