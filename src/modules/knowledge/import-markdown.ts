@@ -6,6 +6,8 @@ const SECTION_PREFIX = "## ";
 /** Um tratamento tem uma linha de duração; sem ela a seção é uma informação. */
 const DURATION_PREFIXES = ["Duração:", "Duration:"];
 const TAGLINE_SEPARATOR = " — ";
+/** O preço de um tratamento é, quase sempre, uma faixa: entra com o aviso de avaliação ligado (a clínica pode desligar). */
+const PRICE_LABELS = new Set(Object.values(FIELD_LABELS).map((labels) => labels.price));
 
 interface RawSection {
   heading: string;
@@ -76,7 +78,7 @@ function parseTreatmentBody(lines: string[]): TreatmentData | null {
   return {
     ideal,
     howItWorks,
-    facts: facts as LabelledValue[],
+    facts: (facts as LabelledValue[]).map((fact) => (PRICE_LABELS.has(fact.label) ? { ...fact, assessment: true } : fact)),
     result: after[0] ?? undefined,
     recovery: after[1] ?? undefined,
   };

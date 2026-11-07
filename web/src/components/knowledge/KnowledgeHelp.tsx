@@ -104,6 +104,7 @@ const HELP_BLOCKS: HelpBlock[] = [
     list: [
       "Do not invent information. The assistant can only repeat what you write here.",
       "Keep one subject per section.",
+      "Write {clinic_name} where the clinic name goes. It is replaced by the current name, so renaming the clinic updates every text.",
       "Check every number and price before you publish.",
       "Nothing reaches the assistant until you press Publish.",
     ],

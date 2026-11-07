@@ -268,7 +268,7 @@ describe("tratamento: volta do servidor para os valores do formulário (round tr
     assert.equal(defaults.howItWorks.label, "Como funciona");
     assert.equal(defaults.howItWorks.value, "");
     assert.deepEqual(defaults.duration, { label: "Duração", value: "", assessment: false });
-    assert.deepEqual(defaults.price, { label: "Preço", value: "", assessment: false });
+    assert.deepEqual(defaults.price, { label: "Preço", value: "", assessment: true }); // o preço costuma ser faixa: o aviso já vem ligado
     assert.deepEqual(defaults.extras, []);
     assert.equal(defaults.tagline, "");
     assert.deepEqual(defaults.ideal.items, []);

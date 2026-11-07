@@ -65,7 +65,11 @@ for (const [file, language] of [
 ] as const) {
   test(`${file}: importing and rendering gives back the same titles and lines`, () => {
     const markdown = source(file);
-    assert.deepEqual(sectionsOf(parseBrochure(markdown), language), plainSections(markdown));
+    // O importador liga o aviso de avaliação no preço; o texto original não o tem
+    const withoutNotes = parseBrochure(markdown).map((row) =>
+      row.kind === "treatment" ? { ...row, data: { ...row.data, facts: row.data.facts.map(({ label, value }) => ({ label, value })) } } : row,
+    );
+    assert.deepEqual(sectionsOf(withoutNotes, language), plainSections(markdown));
   });
 
   test(`${file}: 8 treatments, one clinic section and 2 info sections`, () => {
@@ -218,4 +222,20 @@ test("the version changes when the assessment flag is toggled, and when the clin
   assert.notEqual(version(plain, "pt"), version(flagged, "pt"));
   assert.notEqual(version(flagged, "pt"), version(flagged, "en"));
   assert.equal(version(plain, "pt"), version(plain, "pt"));
+});
+
+test("the importer turns the assessment note on for price facts only", () => {
+  const treatments = parseBrochure(source("sorrisopleno.md")).filter((row) => row.kind === "treatment");
+  for (const row of treatments) {
+    for (const fact of row.data.facts) assert.equal(fact.assessment === true, fact.label === "Preço", `${row.title}: ${fact.label}`);
+  }
+});
+
+test("{clinic_name} in the brochure text becomes the current clinic name, so a rename updates it", () => {
+  const rows = parseBrochure(source("sorrisopleno.md")).map((row) =>
+    row.kind === "info" ? { ...row, data: { lines: [`Na {clinic_name}, você é bem-vindo.`] } } : row,
+  );
+  const doc = toDocument("Dentes Felizes", rows, "pt", []);
+  assert.ok(doc.sections.some((s) => s.body.includes("Na Dentes Felizes, você é bem-vindo.")));
+  assert.ok(!JSON.stringify(doc.sections).includes("{clinic_name}"));
 });

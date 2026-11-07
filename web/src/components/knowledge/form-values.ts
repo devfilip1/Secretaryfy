@@ -196,7 +196,8 @@ export function treatmentDefaults(labels: KnowledgeLabels, section?: TreatmentRo
     },
     howItWorks: toBlock(data?.howItWorks, labels.howItWorks),
     duration: duration ? toFactValue(duration) : newFact(labels.duration),
-    price: price ? toFactValue(price) : newFact(labels.price),
+    // O preço costuma ser uma faixa: o aviso de avaliação já vem ligado
+    price: price ? toFactValue(price) : { ...newFact(labels.price), assessment: true },
     extras: facts.filter((fact) => fact !== duration && fact !== price).map(toFactValue),
     result: toBlock(data?.result, labels.result),
     recovery: toBlock(data?.recovery, labels.recovery),

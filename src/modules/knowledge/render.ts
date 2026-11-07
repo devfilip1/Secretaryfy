@@ -68,6 +68,9 @@ export function toSections(rows: KnowledgeRow[], language: Language, hours: stri
     }));
 }
 
+/** Marcador que o texto da brochura pode trazer no lugar do nome da clínica. */
+export const CLINIC_NAME_PLACEHOLDER = "{clinic_name}";
+
 /** Versão do conteúdo: muda com qualquer edição de nome, de seção ou do horário das regras. */
 export function versionOf(name: string, sections: KnowledgeSection[]): string {
   return createHash("sha256").update(JSON.stringify({ name, sections })).digest("hex");
@@ -75,6 +78,8 @@ export function versionOf(name: string, sections: KnowledgeSection[]): string {
 
 /** Documento para o RAG, na língua da clínica (os avisos dos fatos com `assessment` saem nela). */
 export function toDocument(name: string, rows: KnowledgeRow[], language: Language, hours: string[]): KnowledgeDocument {
-  const sections = toSections(rows, language, hours);
+  // {clinic_name} no texto vira o nome atual: renomear a clínica no painel atualiza a brochura inteira
+  const fill = (text: string) => text.replaceAll(CLINIC_NAME_PLACEHOLDER, name);
+  const sections = toSections(rows, language, hours).map((s) => ({ title: fill(s.title), body: s.body.map(fill) }));
   return { name, version: versionOf(name, sections), sections };
 }

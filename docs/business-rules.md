@@ -237,6 +237,10 @@ A treatment fact flagged `assessment: true` (a price range, for instance) reache
 The clinic section (intro, address, contact and closing text) is stored with no hours. Its HORÁRIO lines are generated from the weekly hours of the Calendar page: consecutive open days with the same hours become one line ("Segunda a sexta: 9h às 18h"), closed days say "Fechado" ("Closed" in English). So the assistant reads the same hours the bookings use, and a change on the Calendar page makes the brochure `unpublished` until the next publish. An import from Markdown drops the hours lines of the brochure and prints them, so the owner can check them against the rules.
 - **Where:** [hours.ts](../src/modules/knowledge/hours.ts), the texts in [texts.ts](../src/modules/knowledge/texts.ts), [render.ts](../src/modules/knowledge/render.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), the rules in [rules.ts](../src/modules/scheduling/rules.ts)
 
+### BR-KNO-03 · The clinic name and the price note follow the clinic
+Brochure text may write `{clinic_name}` where the clinic name goes; when the document is rendered it becomes the current name, so renaming the clinic in the panel updates every text. Price facts are imported with the assessment note on (a price is almost always a range), and a new price in the form starts with the switch on; the clinic can turn it off.
+- **Where:** [render.ts](../src/modules/knowledge/render.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), [form-values.ts](../web/src/components/knowledge/form-values.ts)
+
 ## Panel access
 
 ### BR-PNL-01 · One shared password
