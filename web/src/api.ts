@@ -136,6 +136,7 @@ export type CalendarConnection =
 export interface CalendarRules {
   weeklyHours: Partial<Record<DayKey, { start: string; end: string }>>;
   slotMinutes: number;
+  gridMinutes: number;
   minNoticeMinutes: number;
   maxDaysAhead: number;
   cancelNoticeMinutes: number;
@@ -219,7 +220,8 @@ export const listAppointments = () => request<{ timeZone: string; appointments: 
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 
 export const bookingDays = () => request<{ timeZone: string; days: string[] }>("GET", "/api/booking/days");
-export const bookingSlots = (date: string) => request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}`);
+export const bookingSlots = (date: string, service?: string) =>
+  request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
 export const lookupPhone = (phone: string) =>
   request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
     "GET",

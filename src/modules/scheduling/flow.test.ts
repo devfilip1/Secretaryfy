@@ -37,6 +37,8 @@ let rules: Rules;
 let now: Date;
 /** Tratamento citado na conversa, como o roteador passa (specs/005); null = nenhum */
 let mentioned: string | null;
+/** Tempo na agenda de tratamentos específicos (ADR 0015); vazio = a duração padrão das regras */
+let catalogMinutes: Record<string, number>;
 
 before(async () => {
   testDb = await createTestDb();
@@ -53,6 +55,7 @@ beforeEach(async () => {
   events = [];
   now = NOW;
   mentioned = "Dental Cleaning";
+  catalogMinutes = {};
   failUpsert = false;
   rules = { ...DEFAULT_RULES };
   conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
@@ -73,7 +76,7 @@ beforeEach(async () => {
     log: { error: () => {} },
     now: () => now,
     replies: testReplies,
-    catalog: testCatalog,
+    catalog: { ...testCatalog, minutes: (name) => catalogMinutes[name] },
   });
 });
 
@@ -496,15 +499,19 @@ async function pickSlot(conv: ConversationRow) {
   return say(conv, I("choose", { option: 2 }));
 }
 
-test("sem tratamento na conversa: lista de serviços antes do resumo; o número escolhe o serviço", async () => {
+test("sem tratamento na conversa: o tratamento vem antes dos dias; o número escolhe o serviço", async () => {
   mentioned = null;
   const conv = await conversation();
-  const list = await pickSlot(conv);
+  const list = await say(conv, I("book"));
   assert.match(list.reply, /^Maria, which service is this appointment for\?/);
   assert.equal((await sessionOf(conv))?.step, "choose_service");
   assert.equal((await sessionOf(conv))?.options.length, 9);
 
-  const summary = await say(conv, I("choose_service", { service: "Teeth Whitening" }));
+  const days = await say(conv, I("choose_service", { service: "Teeth Whitening" }));
+  assert.match(days.reply, /days/i);
+  assert.equal((await sessionOf(conv))?.step, "choose_day");
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2 }));
   assert.match(summary.reply, /👤 Maria\n🦷 Teeth Whitening/);
   assert.equal((await sessionOf(conv))?.step, "confirm_booking");
 });
@@ -512,19 +519,64 @@ test("sem tratamento na conversa: lista de serviços antes do resumo; o número 
 test("'não sei': avaliação geral no resumo e no evento, com o rótulo do catálogo", async () => {
   mentioned = null;
   const conv = await conversation();
-  await pickSlot(conv);
-  const summary = await say(conv, I("choose_service", { service: "Assessment" }));
+  await say(conv, I("book"));
+  await say(conv, I("choose_service", { service: "Assessment" }));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { option: 2 }));
   assert.match(summary.reply, /🦷 General assessment/);
   await say(conv, I("yes"));
   assert.equal([...fake.events.values()][0].summary, "Maria — General assessment");
 });
 
-test("sem nome e sem serviço: nome, depois serviço, depois resumo", async () => {
+test("sem nome e sem serviço: serviço, dias e horário, depois o nome e o resumo", async () => {
   mentioned = null;
   const conv = await conversation("5571999999999", null);
-  assert.match((await pickSlot(conv)).reply, /What name should I put/);
-  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /^Ana, which service/);
-  assert.match((await say(conv, I("choose_service", { service: "Dental Veneers" }))).reply, /👤 Ana\n🦷 Dental Veneers/);
+  assert.match((await say(conv, I("book"))).reply, /Which service/);
+  await say(conv, I("choose_service", { service: "Dental Veneers" }));
+  await say(conv, I("choose", { option: 2 }));
+  assert.match((await say(conv, I("choose", { option: 2 }))).reply, /What name should I put/);
+  assert.match((await say(conv, I("give_name", { name: "Ana" }))).reply, /👤 Ana\n🦷 Dental Veneers/);
+});
+
+test("'não entendi' na lista de serviços repete a lista; o segundo seguido passa para o operador", async () => {
+  mentioned = null;
+  const conv = await conversation();
+  await say(conv, I("book"));
+  assert.match((await say(conv, I("unclear"))).reply, /^Sorry, I didn't get that\. Which service/);
+  assert.equal((await say(conv, I("unclear"))).handoff, true);
+});
+
+test("horário citado e livre na grade de 15 min: vai direto para o resumo", async () => {
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { time: "10:15" }));
+  assert.match(summary.reply, /10:15 AM/);
+  assert.equal((await sessionOf(conv))?.step, "confirm_booking");
+});
+
+test("horário citado e ocupado: avisa e oferece os três mais próximos, sem mostrar o dia inteiro", async () => {
+  const first = await conversation("5571888888888", "Bia");
+  await book(first); // dia 2, 10:00 a 11:00
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const reply = await say(conv, I("choose", { time: "10:30" }));
+  assert.match(reply.reply, /Unfortunately we do not have that time/);
+  const session = await sessionOf(conv);
+  assert.equal(session?.step, "choose_slot");
+  assert.equal(session?.options.length, 3);
+});
+
+test("um tratamento de 30 min ocupa só 30 min: o horário seguinte fica livre", async () => {
+  catalogMinutes = { "Dental Cleaning": 30 };
+  const first = await conversation("5571888888888", "Bia");
+  await book(first); // 10:00 a 10:30
+  const conv = await conversation();
+  await say(conv, I("book"));
+  await say(conv, I("choose", { option: 2 }));
+  const summary = await say(conv, I("choose", { time: "10:30" }));
+  assert.match(summary.reply, /10:30 AM \(30 min\)/);
 });
 
 test("trocar o serviço no resumo mostra o resumo de novo e não cria nada", async () => {
@@ -535,14 +587,6 @@ test("trocar o serviço no resumo mostra o resumo de novo e não cria nada", asy
   assert.equal(fake.calls.createEvent, 0);
   await say(conv, I("yes"));
   assert.equal([...fake.events.values()][0].summary, "Maria — Teeth Whitening");
-});
-
-test("'não entendi' na lista de serviços repete a lista; o segundo seguido passa para o operador", async () => {
-  mentioned = null;
-  const conv = await conversation();
-  await pickSlot(conv);
-  assert.match((await say(conv, I("unclear"))).reply, /^Sorry, I didn't get that\. Which service/);
-  assert.equal((await say(conv, I("unclear"))).handoff, true);
 });
 
 test("remarcar mantém o título do evento", async () => {

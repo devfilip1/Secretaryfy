@@ -115,6 +115,8 @@ export const schedulingRules = pgTable(
     id: smallint("id").primaryKey().default(1),
     weeklyHours: jsonb("weekly_hours").$type<WeeklyHours>().notNull(),
     slotMinutes: integer("slot_minutes").notNull(),
+    /** Passo dos horários de início (ADR 0015); `slotMinutes` é a duração padrão de um atendimento */
+    gridMinutes: integer("grid_minutes").notNull().default(15),
     minNoticeMinutes: integer("min_notice_minutes").notNull(),
     maxDaysAhead: integer("max_days_ahead").notNull(),
     cancelNoticeMinutes: integer("cancel_notice_minutes").notNull(),

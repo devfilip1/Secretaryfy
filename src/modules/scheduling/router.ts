@@ -20,7 +20,7 @@ const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Interpreter;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedTime">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -207,8 +207,13 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // a resposta só vale se a citação do cliente combina com o tratamento (ver mentionedService)
     const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
+    // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
+    const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && interpretation.option === null);
+    const time = interpretation.time ?? (wantsTime ? await interpreter.mentionedTime?.({ text, log }) ?? null : null);
+    const timed = time ? { ...interpretation, time } : interpretation;
+
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
+    const result = await flow.handle({ conversation, interpretation: timed, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura

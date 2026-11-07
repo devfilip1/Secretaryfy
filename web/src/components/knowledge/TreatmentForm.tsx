@@ -47,6 +47,11 @@ export function TreatmentForm({
               label="Patients can book this treatment"
               description="When on, the assistant offers it in the booking list. Turn it off for treatments that are only information."
             />
+            <TextField
+              name="appointmentMinutes"
+              label="Appointment time (minutes)"
+              description="How long this treatment blocks in the calendar, in minutes (a multiple of 5). Leave empty to use the default appointment length of the Calendar page."
+            />
           </FormSection>
 
           <FormSection title="Other names patients use">

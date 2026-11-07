@@ -29,6 +29,8 @@ export interface TreatmentFormValues {
   title: string;
   tagline: string;
   bookable: boolean;
+  /** Minutos bloqueados na agenda (texto do campo); vazio = a duração padrão das regras */
+  appointmentMinutes: string;
   otherNames: ItemFormValue[];
   ideal: { title: string; items: ItemFormValue[] };
   howItWorks: LabelledFormValue;
@@ -99,6 +101,7 @@ export const treatmentFormSchema = z
     title: requiredText,
     tagline: z.string(),
     bookable: z.boolean(),
+    appointmentMinutes: z.string(),
     otherNames: z.array(z.object({ text: z.string() })),
     ideal: z.object({ title: z.string(), items: z.array(z.object({ text: z.string() })) }),
     howItWorks: blockSchema,
@@ -160,6 +163,7 @@ function newFact(label: string): FactFormValue {
 
 export function toTreatmentInput(values: TreatmentFormValues): SectionInput {
   const idealTitle = values.ideal.title.trim();
+  const minutesText = values.appointmentMinutes.trim();
   const otherNames = values.otherNames.map((item) => item.text.trim()).filter((text) => text !== "");
   const items = values.ideal.items.map((item) => item.text.trim()).filter((text) => text !== "");
   return {
@@ -169,6 +173,8 @@ export function toTreatmentInput(values: TreatmentFormValues): SectionInput {
       // Só informação (bookable false) grava false; pode marcar não grava nada, como antes.
       ...(values.bookable ? {} : { bookable: false }),
       ...(otherNames.length > 0 ? { otherNames } : {}),
+      // Texto que não é número segue como NaN: o schema do servidor recusa e o erro aparece no campo
+      ...(minutesText !== "" ? { appointmentMinutes: Number(minutesText) } : {}),
       // A lista de "Ideal para" é obrigatória no servidor: sem linhas, o bloco fica de fora
       ideal: items.length > 0 ? { title: idealTitle, items } : undefined,
       howItWorks: optionalLabelled(values.howItWorks),
@@ -189,6 +195,7 @@ export function treatmentDefaults(labels: KnowledgeLabels, section?: TreatmentRo
     title: section?.title ?? "",
     tagline: section?.tagline ?? "",
     bookable: section?.data.bookable !== false,
+    appointmentMinutes: data?.appointmentMinutes ? String(data.appointmentMinutes) : "",
     otherNames: (data?.otherNames ?? []).map((text) => ({ text })),
     ideal: {
       title: data?.ideal?.title ?? labels.ideal,

@@ -99,3 +99,13 @@ test("o catálogo dos testes cobre todos os tratamentos do folheto", { skip: !ex
   const names = list().map((s) => s.name);
   for (const title of new Set(titles)) assert.ok(names.includes(title), `${title} não está no catálogo`);
 });
+
+test("minutes: o tempo do tratamento, ou undefined para a duração padrão (a avaliação inclusive)", async () => {
+  const repo = fakeRepo([treatment("limpeza", "Limpeza", 0, { appointmentMinutes: 45 }), treatment("canal", "Canal", 1)]);
+  const catalog = createKnowledgeCatalog({ repo });
+  await catalog.refresh();
+  assert.equal(catalog.minutes("limpeza"), 45);
+  assert.equal(catalog.minutes("canal"), undefined);
+  assert.equal(catalog.minutes(ASSESSMENT), undefined);
+  assert.equal(catalog.minutes("não existe"), undefined);
+});

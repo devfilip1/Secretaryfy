@@ -30,6 +30,8 @@ interface Case {
   intent: Interpretation["intent"] | Interpretation["intent"][];
   option?: number;
   date?: string;
+  /** O horário esperado (HH:mm, null = nenhum), quando a frase cita um que não está na lista */
+  time?: string | null;
   urgent?: boolean;
   /** O nome esperado (null = nenhum), logo depois do pedido de nome */
   name?: string | null;
@@ -92,6 +94,11 @@ const cases: Case[] = [
   c("choose_day", "vcs abrem no fim de semana?", ["choose", "availability"], { date: "2026-10-24" }),
   c("choose_day", "e sábado?", ["choose", "availability"], { date: "2026-10-24" }),
   c("choose_slot", "o das 9", "choose", { option: 1 }),
+  c("choose_slot", "pode ser as 9:30", "choose", { time: "09:30" }),
+  c("choose_slot", "as 15h", "choose", { time: "15:00" }),
+  c("choose_slot", "tem as 11 horas?", ["choose", "availability"], { time: "11:00" }),
+  c(null, "quero marcar sexta as 14h", "book", { date: "2026-10-23", time: "14:00" }),
+  c(null, "tem horario no sabado as 10:30?", "availability", { date: "2026-10-24", time: "10:30" }),
   c("choose_slot", "as 10 ta bom", "choose", { option: 2 }),
   c("choose_slot", "pode ser a tarde mesmo", "choose", { option: 3 }),
   c("choose_slot", "quero ver mais horarios", "more"),
@@ -139,11 +146,16 @@ for (const k of cases) {
   const got = await interpreter.interpret({
     text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
+  // Como o roteador: sem o campo do interpretador, uma chamada focada procura o horário citado
+  if (!got.time && (["book", "availability"].includes(got.intent) || (got.intent === "choose" && got.option === null))) {
+    const time = await interpreter.mentionedTime({ text: k.text });
+    if (time) got.time = time;
+  }
   latencies.push(Date.now() - started);
-  const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) &&
+  const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
   if (right) ok++;
-  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
+  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} time=${got.time ?? "-"} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);

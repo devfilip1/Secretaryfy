@@ -297,11 +297,18 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-4">
         <NumberField
-          label="Appointment length (min)"
+          label="Default appointment length (min)"
           value={rules.slotMinutes}
           step={5}
           error={issueAt("slotMinutes")}
           onChange={(v) => setNumber("slotMinutes", v)}
+        />
+        <NumberField
+          label="Time grid (min)"
+          value={rules.gridMinutes}
+          step={5}
+          error={issueAt("gridMinutes")}
+          onChange={(v) => setNumber("gridMinutes", v)}
         />
         <NumberField
           label="Minimum notice to book (h)"

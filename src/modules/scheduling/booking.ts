@@ -71,7 +71,7 @@ interface Deps {
   /** Cadastro de clientes: quem tem um horário confirmado entra nele (specs/005, US3) */
   customers: Pick<CustomerRepository, "upsert">;
   /** O título do tratamento para a agenda, a nota e o histórico: a chave guardada nunca sai (ADR 0014) */
-  catalog: Pick<ServiceCatalog, "label">;
+  catalog: Pick<ServiceCatalog, "label" | "minutes">;
   log?: { error: (obj: object, msg: string) => void };
   now?: () => Date;
   reminderLeadMinutes?: number;
@@ -135,9 +135,10 @@ export function createBooking({
         const existing = await syncAppointment(syncDeps, await store.findFutureBooked(phone, now), { now, timeZone, conversationId });
         if (existing) return { kind: "already_booked", appointment: existing };
 
-        const end = new Date(start.getTime() + rules.slotMinutes * 60_000);
+        const minutes = catalog.minutes(service) ?? rules.slotMinutes;
+        const end = new Date(start.getTime() + minutes * 60_000);
         const busy = await calendar.busy(start, end);
-        if (!isSlotAvailable(start, { rules, busy, now, timeZone })) return { kind: "slot_taken" };
+        if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes })) return { kind: "slot_taken" };
 
         const id = randomUUID();
         const title = catalog.label(service);
@@ -172,7 +173,7 @@ export function createBooking({
         await registerCustomer(appointment.id, phone, name, now);
         if (conversationId) {
           const note = origin === "panel" ? systemNotes.bookedFromPanel : systemNotes.booked;
-          await inbox.recordSystem(conversationId, note(start, rules.slotMinutes, timeZone, title));
+          await inbox.recordSystem(conversationId, note(start, minutes, timeZone, title));
         }
         return { kind: "booked", appointment };
       });

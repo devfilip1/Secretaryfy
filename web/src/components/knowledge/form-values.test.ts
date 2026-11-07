@@ -301,3 +301,20 @@ describe("tratamento: regras dos fatos e schema do formulário", () => {
     assert.equal(parsed.success, true);
   });
 });
+
+describe("tratamento: tempo na agenda", () => {
+  it("vazio não grava nada; um número grava e volta para o formulário", () => {
+    const defaults = treatmentDefaults(LABELS);
+    assert.equal(defaults.appointmentMinutes, "");
+    assert.equal("appointmentMinutes" in toTreatmentInput(defaults).data, false);
+    const input = toTreatmentInput({ ...defaults, appointmentMinutes: " 45 " });
+    assert.equal((input.data as { appointmentMinutes?: number }).appointmentMinutes, 45);
+  });
+
+  it("o schema do formulário recusa o que não é múltiplo de 5 ou não é número", () => {
+    const base = { ...treatmentDefaults(LABELS), title: "Limpeza", duration: { label: "Duração", value: "30 min", assessment: false } };
+    assert.equal(treatmentFormSchema.safeParse({ ...base, appointmentMinutes: "45" }).success, true);
+    assert.equal(treatmentFormSchema.safeParse({ ...base, appointmentMinutes: "47" }).success, false);
+    assert.equal(treatmentFormSchema.safeParse({ ...base, appointmentMinutes: "abc" }).success, false);
+  });
+});

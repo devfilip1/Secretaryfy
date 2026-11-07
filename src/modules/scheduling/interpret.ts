@@ -40,6 +40,8 @@ export interface Interpretation {
   option: number | null;
   /** YYYY-MM-DD no fuso da clínica */
   date: string | null;
+  /** Horário que o cliente citou (HH:mm, 24 h), em choose, book, availability ou reschedule; ausente se não citou */
+  time?: string | null;
   name: string | null;
   /** Nome do serviço do catálogo (a chave do tratamento, ou ASSESSMENT) que o modelo deu, em qualquer intenção; ausente se não deu */
   service?: string | null;
@@ -194,6 +196,7 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
       intent: { type: "string", enum: INTENTS },
       option: { type: ["integer", "null"] },
       date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+      time: { type: ["string", "null"], description: "The clock time the customer names, HH:MM on a 24 hour clock (\"as 14h\" is \"14:00\"); null when none" },
       weekday: { type: ["string", "null"], enum: [null, ...WEEKDAY_NAMES, "weekend"] },
       urgent: { type: "boolean" },
       name: { type: ["string", "null"] },
@@ -210,6 +213,18 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
 /** Saída da pergunta focada: só o tratamento citado, ou null */
 // A citação é o trecho que o cliente escreveu e que menciona o tratamento: o código confere que ele está na conversa
 const mentionOutput = z.object({ quote: z.string().nullable(), service: z.string().nullable() });
+
+const timeOutput = z.object({ quote: z.string().nullable(), time: z.string().nullable() });
+const timeFormat = {
+  type: "object",
+  properties: { quote: { type: ["string", "null"] }, time: { type: ["string", "null"], description: "HH:MM, 24 hour clock" } },
+  required: ["quote", "time"],
+};
+const TIME_PROMPT = [
+  "You read one WhatsApp message of a customer who is booking an appointment at a clinic.",
+  'Answer with the clock time the customer names in this message, as HH:MM on a 24 hour clock ("as 14h" is "14:00", "9:30" is "09:30", "às duas da tarde" is "14:00", "3pm" is "15:00"), or null when the message names no clock time.',
+  'Copy into "quote" the customer\'s own words that name the time (null when there is none). A day, a weekday or a number that is not a clock time is not a time. Do not guess.',
+].join("\n");
 
 /**
  * Os tratamentos para a pergunta focada: sem a avaliação geral, que é o padrão do fluxo quando o cliente não diz nenhum
@@ -245,6 +260,7 @@ const modelOutput = z.object({
   // Campos que o modelo só preenche quando a mensagem os traz: ausente é o mesmo que null
   option: z.number().int().nullable().default(null),
   date: z.string().nullable().default(null),
+  time: z.string().nullable().optional(),
   weekday: z.enum([...WEEKDAY_NAMES, "weekend"]).nullable().optional(),
   urgent: z.boolean().optional(),
   name: z.string().nullable().default(null),
@@ -308,7 +324,7 @@ function systemPrompt(
     "- unclear: anything else, or when you are not sure",
     "",
     'Treatments: whatever the intent, when the customer means one of the treatments, set "service" to it exactly as listed (the one being talked about, even from an earlier message); otherwise null.',
-    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. The weekend ("fim de semana", "final de semana", "weekend") is "weekend"; asking about it is never choosing an offered option. "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
+    'Rules: when the customer names a weekday in any form (Friday, sexta, sabados, sab), set "weekday" to its English name (monday ... sunday) and leave "date" null: never compute a date for a weekday yourself. The weekend ("fim de semana", "final de semana", "weekend") is "weekend"; asking about it is never choosing an offered option. "time" is the clock time the customer names, as HH:MM on a 24 hour clock: "as 14h" is "14:00", "9:30" is "09:30", "às duas da tarde" is "14:00", "3pm" is "15:00". Always fill it when a clock time is named, with any intent. It is null when no clock time is named, and when the time is one of the numbered options on screen (then use "option"). "date" is null unless the customer names "tomorrow" or a calendar date ("the 25th", "dia 10"); then it is YYYY-MM-DD computed from today\'s date. "I want to book an appointment" names no day, so its date is null: today is never a default. Only use "option" with a number from the list above, and never invent one. When in doubt, use unclear.',
     ...(awaitingName ? ["", `The assistant has just asked the customer's name. If the message contains their name, set "name" exactly as written; otherwise leave it null.`] : []),
     ...(awaitingReminder
       ? ["", "The assistant reminded the customer of their appointment and asked them to reply YES to confirm. A confirmation is \"yes\"; a refusal is \"no\"."]
@@ -325,6 +341,8 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   // O fim de semana conta como sábado: a aritmética da data é do código
   const weekday = parsed.data.weekday === "weekend" ? 6 : parsed.data.weekday ? WEEKDAY_NAMES.indexOf(parsed.data.weekday) + 1 : 0;
   let { option, date } = parsed.data;
+  // O horário citado só vale no formato HH:MM de 24 h; um valor que o modelo inventou fora disso some
+  const time = parsed.data.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.data.time) && ["choose", "book", "availability", "reschedule"].includes(parsed.data.intent) ? parsed.data.time : null;
   // O modelo entende o dia da semana em qualquer forma ("sábados", "sab") e devolve só o número; a conta do calendário é do código
   const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
   let fromWeekday = false;
@@ -360,7 +378,7 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   }
   if (intent === "choose") {
     if (option !== null && !options.some((o) => o.n === option)) return result("unclear", { source: "model" });
-    if (option === null && date === null) return result("unclear", { source: "model" });
+    if (option === null && date === null && time === null) return result("unclear", { source: "model" });
   } else if (!["book", "availability", "reschedule"].includes(intent)) {
     date = null;
   }
@@ -385,6 +403,7 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
     intent,
     option: intent === "choose" ? option : null,
     date,
+    ...(time ? { time } : {}),
     name: cleaned,
     ...(service ? { service } : {}),
     ...(intent === "needs_staff" ? { urgent: parsed.data.urgent === true } : {}),
@@ -417,6 +436,29 @@ export function createInterpreter({
         ],
       });
       return validate(raw, input, catalog);
+    },
+
+    /**
+     * O horário que a mensagem cita ("as 14h"), numa chamada focada: o modelo preenche o campo `time` do interpretador só
+     * às vezes, e uma citação que não está na mensagem é chute. Qualquer falha vira null.
+     */
+    async mentionedTime({ text, log }: { text: string; log?: { error: (obj: object, msg: string) => void } }): Promise<string | null> {
+      try {
+        const raw = await ollama.chat({
+          format: timeFormat,
+          messages: [
+            { role: "system", content: TIME_PROMPT },
+            { role: "user", content: text },
+          ],
+        });
+        const parsed = timeOutput.safeParse(raw);
+        if (!parsed.success || !parsed.data.time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.data.time)) return null;
+        const quote = parsed.data.quote ? normalize(parsed.data.quote) : "";
+        return quote.trim() && normalize(text).includes(quote) ? parsed.data.time : null;
+      } catch (err) {
+        log?.error({ err: (err as Error).message }, "horário citado indisponível");
+        return null;
+      }
     },
 
     /**

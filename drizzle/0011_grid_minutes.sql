@@ -1,0 +1,1 @@
+ALTER TABLE "scheduling_rules" ADD COLUMN "grid_minutes" integer DEFAULT 15 NOT NULL;

@@ -12,6 +12,8 @@ export type Fact = z.infer<typeof factSchema>;
 export const treatmentDataSchema = z.object({
   /** `false`: só informação, o cliente não marca por aqui (ADR 0014). Ausente = pode marcar. */
   bookable: z.boolean().optional(),
+  /** Tempo bloqueado na agenda para este tratamento, em minutos (ADR 0015); sem ele vale a duração padrão das regras. */
+  appointmentMinutes: z.number().int().min(5).max(480).multipleOf(5).optional(),
   /** Outros nomes com que o paciente pede este tratamento ("branqueamento"); o RAG os lê como sinônimos da busca. */
   otherNames: z.array(z.string().min(1)).optional(),
   ideal: z.object({ title: z.string().min(1), items: z.array(z.string().min(1)).min(1) }).optional(),

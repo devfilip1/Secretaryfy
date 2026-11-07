@@ -28,7 +28,10 @@ export const rulesSchema = z
     weeklyHours: z
       .partialRecord(z.enum(DAYS), dayHours)
       .refine((w) => Object.keys(w).length > 0, "marque ao menos um dia de atendimento"),
+    /** Duração padrão de um atendimento (o de cada tratamento pode ser outro, ADR 0015) */
     slotMinutes: z.number().int().min(15).max(240).multipleOf(5, "use a multiple of 5 minutes"),
+    /** De quantos em quantos minutos pode começar um atendimento */
+    gridMinutes: z.number().int().min(5).max(60).multipleOf(5, "use a multiple of 5 minutes"),
     minNoticeMinutes: z.number().int().min(0).max(10080),
     maxDaysAhead: z.number().int().min(1).max(180),
     cancelNoticeMinutes: z.number().int().min(0).max(10080),
@@ -52,6 +55,7 @@ const WEEKDAY_HOURS = { start: "09:00", end: "18:00" };
 export const DEFAULT_RULES: Rules = {
   weeklyHours: { "1": WEEKDAY_HOURS, "2": WEEKDAY_HOURS, "3": WEEKDAY_HOURS, "4": WEEKDAY_HOURS, "5": WEEKDAY_HOURS },
   slotMinutes: 60,
+  gridMinutes: 15,
   minNoticeMinutes: 120,
   maxDaysAhead: 30,
   cancelNoticeMinutes: 1440,
@@ -61,6 +65,7 @@ function fromRow(row: SchedulingRulesRow): Rules {
   return {
     weeklyHours: row.weeklyHours,
     slotMinutes: row.slotMinutes,
+    gridMinutes: row.gridMinutes,
     minNoticeMinutes: row.minNoticeMinutes,
     maxDaysAhead: row.maxDaysAhead,
     cancelNoticeMinutes: row.cancelNoticeMinutes,

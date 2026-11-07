@@ -15,6 +15,8 @@ const ASSESSMENT_LABEL: Record<Language, string> = { en: "General assessment", p
 export interface Service {
   name: string;
   label: string;
+  /** Tempo bloqueado na agenda; sem ele vale a duração padrão das regras (ADR 0015) */
+  minutes?: number;
 }
 
 /**
@@ -32,6 +34,8 @@ export interface ServiceCatalog {
   byLabel(text: string): string | null;
   /** Os serviços para a lista do painel */
   panelList(): Service[];
+  /** O tempo do serviço na agenda, ou undefined para a duração padrão */
+  minutes(name: string): number | undefined;
 }
 
 /** Minúsculas, sem acento, e pontuação vira espaço: o que um rótulo e o texto do cliente têm em comum. */
@@ -60,6 +64,7 @@ export function createCatalog(treatments: Service[]): ServiceCatalog {
     },
     byLabel: (text) => byText.get(normalize(text)) ?? null,
     panelList: () => [...services],
+    minutes: (name) => services.find((s) => s.name === name)?.minutes,
   };
 }
 
@@ -80,9 +85,15 @@ export function createKnowledgeCatalog({ repo }: { repo: Pick<KnowledgeRepositor
     label: (name, language) => current.label(name, language),
     byLabel: (text) => current.byLabel(text),
     panelList: () => current.panelList(),
+    minutes: (name) => current.minutes(name),
     async refresh() {
       const rows = await repo.list();
-      current = createCatalog(rows.filter(isBookable).map((row) => ({ name: row.key, label: row.title })));
+      current = createCatalog(rows.filter(isBookable).map((row) => ({
+          name: row.key,
+          label: row.title,
+          ...(row.kind === "treatment" && row.data.appointmentMinutes ? { minutes: row.data.appointmentMinutes } : {}),
+        })),
+      );
     },
   };
 }

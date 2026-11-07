@@ -9,6 +9,8 @@ interface Context {
   busy: Interval[];
   now: Date;
   timeZone: string;
+  /** Duração do atendimento; sem ela vale `rules.slotMinutes` (ADR 0015) */
+  minutes?: number;
 }
 
 /** Dias em que se pode marcar: de hoje até hoje + maxDaysAhead, e o intervalo para consultar a ocupação. */
@@ -26,10 +28,12 @@ export function bookingWindow({ rules, now, timeZone }: Pick<Context, "rules" | 
 const overlaps = (start: Date, end: Date, busy: Interval[]) => busy.some((b) => b.start < end && b.end > start);
 
 /**
- * Horários livres de um dia (YYYY-MM-DD no fuso da clínica): do início ao fim do atendimento, no passo da duração
- * (FR-009), depois da antecedência mínima e sem sobrepor nenhum intervalo ocupado (FR-010).
+ * Horários livres de um dia (YYYY-MM-DD no fuso da clínica): inícios na grade das regras (`gridMinutes`) em que o
+ * atendimento cabe no horário de funcionamento (FR-009), depois da antecedência mínima e sem sobrepor nenhum
+ * intervalo ocupado (FR-010).
  */
-export function slotsForDay(date: string, { rules, busy, now, timeZone }: Context): Date[] {
+export function slotsForDay(date: string, { rules, busy, now, timeZone, minutes }: Context): Date[] {
+  const length = minutes ?? rules.slotMinutes;
   const window = bookingWindow({ rules, now, timeZone });
   if (date < window.firstDate || date > window.lastDate) return [];
 
@@ -43,12 +47,39 @@ export function slotsForDay(date: string, { rules, busy, now, timeZone }: Contex
 
   const slots: Date[] = [];
   // Passo em minutos absolutos: na troca de horário de verão nada se repete nem some
-  for (let start = open; start.plus({ minutes: rules.slotMinutes }) <= close; start = start.plus({ minutes: rules.slotMinutes })) {
+  for (let start = open; start.plus({ minutes: length }) <= close; start = start.plus({ minutes: rules.gridMinutes })) {
     const s = start.toJSDate();
-    const e = start.plus({ minutes: rules.slotMinutes }).toJSDate();
+    const e = start.plus({ minutes: length }).toJSDate();
     if (s.getTime() >= earliest && !overlaps(s, e, busy)) slots.push(s);
   }
   return slots;
+}
+
+/**
+ * Os horários "naturais" do dia, os que se oferecem ao cliente (ADR 0015): o primeiro do dia, o que começa quando um
+ * atendimento acaba, o que termina quando outro começa e os que seguem a duração do tratamento desde a abertura. Assim
+ * a oferta não deixa buracos que ninguém consegue usar. Sem nenhum natural, valem todos os livres.
+ */
+export function naturalSlotsForDay(date: string, ctx: Context): Date[] {
+  const all = slotsForDay(date, ctx);
+  if (all.length === 0) return all;
+  const { rules, busy, timeZone } = ctx;
+  const length = (ctx.minutes ?? rules.slotMinutes) * 60_000;
+  const day = DateTime.fromISO(date, { zone: timeZone });
+  const hours = rules.weeklyHours[String(day.weekday) as keyof Rules["weeklyHours"]]!;
+  const open = DateTime.fromISO(`${date}T${hours.start}`, { zone: timeZone }).toMillis();
+  const close = DateTime.fromISO(`${date}T${hours.end}`, { zone: timeZone }).toMillis();
+  const natural = all.filter((s, i) => {
+    const start = s.getTime();
+    const end = start + length;
+    return (
+      i === 0 ||
+      (start - open) % length === 0 ||
+      end === close ||
+      busy.some((b) => b.end.getTime() === start || b.start.getTime() === end)
+    );
+  });
+  return natural.length > 0 ? natural : all;
 }
 
 /** Dias com ao menos um horário livre, em ordem, a partir de hoje (ou depois de `after`). */

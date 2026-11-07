@@ -63,8 +63,9 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     if (!day) return;
     setSlots(null);
     setStart(null);
-    bookingSlots(day).then((r) => setSlots(r.slots), calendarError);
-  }, [day]);
+    // O tempo do atendimento depende do serviço: trocar o serviço traz os horários dele
+    bookingSlots(day, service || undefined).then((r) => setSlots(r.slots), calendarError);
+  }, [day, service]);
 
   async function checkPhone() {
     setExisting(null);

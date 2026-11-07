@@ -8,7 +8,7 @@ import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gat
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
-import { availableDays, bookingWindow, slotsForDay } from "../modules/scheduling/availability.js";
+import { availableDays, bookingWindow, naturalSlotsForDay } from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
@@ -32,7 +32,7 @@ interface Deps {
 }
 
 const idParams = z.object({ id: z.uuid() });
-const slotsQuery = z.object({ date: z.iso.date() });
+const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
 
 type Group = "today" | "tomorrow" | "week";
@@ -107,9 +107,11 @@ export function panelAppointmentsRoutes({
     return { rules, now, timeZone, busy, window };
   }
 
-  async function slotsOn(date: string, timeZone: string) {
+  /** Os horários oferecidos no dia, para a duração do serviço (ADR 0015), como o assistente os oferece */
+  async function slotsOn(date: string, timeZone: string, service?: string) {
     const ctx = await availabilityContext(timeZone);
-    return slotsForDay(date, ctx).map((s) => s.toISOString());
+    const minutes = service ? catalog.minutes(service) : undefined;
+    return naturalSlotsForDay(date, { ...ctx, minutes }).map((s) => s.toISOString());
   }
 
   /** Erros do Google viram 502; o resto segue. */
@@ -184,7 +186,7 @@ export function panelAppointmentsRoutes({
       if (!query.success) return reply.code(422).send({ error: "invalid_date" });
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
-      return guard(reply, async () => ({ date: query.data.date, slots: await slotsOn(query.data.date, conn.timeZone) }));
+      return guard(reply, async () => ({ date: query.data.date, slots: await slotsOn(query.data.date, conn.timeZone, query.data.service) }));
     });
 
     app.get("/api/booking/lookup", async (req, reply) => {
@@ -232,7 +234,7 @@ export function panelAppointmentsRoutes({
           case "slot_taken": {
             const timeZone = await timeZoneOf();
             const date = DateTime.fromISO(start, { zone: timeZone }).toISODate()!;
-            return reply.code(409).send({ error: "slot_taken", date, slots: await slotsOn(date, timeZone) });
+            return reply.code(409).send({ error: "slot_taken", date, slots: await slotsOn(date, timeZone, service) });
           }
         }
       });

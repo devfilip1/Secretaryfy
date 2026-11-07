@@ -78,6 +78,13 @@
       "when": 1793950860194,
       "tag": "0010_hot_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794011265959,
+      "tag": "0011_grid_minutes",
+      "breakpoints": true
     }
   ]
 }
