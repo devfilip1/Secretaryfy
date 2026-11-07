@@ -19,5 +19,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0012](0012-node-server-toward-many-clinics.md) | The Node server toward many clinics: one clinic context first, the tenant key later | Proposed |
 | [0014](0014-booking-services-are-the-clinics-treatments.md) | Booking services are the clinic's treatments from the knowledge table, stored by key | Accepted |
 | [0015](0015-appointment-length-per-treatment-and-time-grid.md) | Appointment length per treatment and a 15-minute time grid | Accepted |
+| [0016](0016-one-language-setting-for-the-bot-and-the-panel.md) | One language setting for the bot and the panel, panel translated with react-i18next | Proposed |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.
