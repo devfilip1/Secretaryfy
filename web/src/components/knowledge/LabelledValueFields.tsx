@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Muted } from "../Muted";
 
 /** Texto dos campos de rótulo ("Alterar redação"): o rótulo já vem preenchido com a palavra da brochura. */
-export const LABEL_DESCRIPTION = "The word shown before the text. It is filled in for you; change it only if you want other wording.";
 
 /** Linha de leitura: como o assistente vai ler o campo, aparece só quando há valor. `assessmentNote` é a nota da brochura. */
 export function ReadPreview({ name, assessmentNote = "" }: { name: string; assessmentNote?: string }) {

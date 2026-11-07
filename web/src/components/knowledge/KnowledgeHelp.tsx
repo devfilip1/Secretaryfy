@@ -60,7 +60,6 @@ const HELP_BLOCKS: HelpBlock[] = [
     paragraphs: [
       "Duration and Price have one field each. When the price is a range, such as R$ 40 to R$ 85, turn on Final value depends on the assessment, so the assistant says the final value is set at the assessment.",
       "Other facts, such as a monthly fee, go in More details. Give each one a name and a value.",
-      "To use other words before the text, open Change wording at the end of the treatment form.",
     ],
   },
   {

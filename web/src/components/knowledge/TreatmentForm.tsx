@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import type { KnowledgeLabels, TreatmentRow } from "../../api";
 import { treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
-import { ExtraFactFields, FactValueField, LABEL_DESCRIPTION, SwitchField, ValueField } from "./LabelledValueFields";
+import { ExtraFactFields, FactValueField, SwitchField, ValueField } from "./LabelledValueFields";
 import { ItemsField } from "./ItemsField";
 import { FormSection, TextField, type SectionFormProps } from "./FormParts";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { FieldGroup } from "@/components/ui/field";
 
 const NEW_EXTRA = { label: "", value: "", assessment: false };
 
-/** Formulário de um tratamento. Os nomes são os da conversa; os rótulos da brochura ficam em "Change wording". */
+/** Formulário de um tratamento. Os rótulos da brochura ("Preço", "Duração"…) são os do idioma e não se editam: ficam nos dados. */
 export function TreatmentForm({
   section,
   formId,
@@ -106,18 +106,6 @@ export function TreatmentForm({
           <FormSection title="Recovery time">
             <ValueField name="recovery" label="Time" description="How long healing takes afterwards, for example: 3 a 7 dias. Optional." />
           </FormSection>
-
-          <details className="rounded-lg border border-border p-4">
-            <summary className="cursor-pointer text-sm font-semibold">Change wording</summary>
-            <div className="mt-4 grid gap-4">
-              <TextField name="ideal.title" label="Heading for Who it is for" description={LABEL_DESCRIPTION} />
-              <TextField name="howItWorks.label" label="Label for How it works" description={LABEL_DESCRIPTION} />
-              <TextField name="duration.label" label="Label for Duration" description={LABEL_DESCRIPTION} />
-              <TextField name="price.label" label="Label for Price" description={LABEL_DESCRIPTION} />
-              <TextField name="result.label" label="Label for Result" description={LABEL_DESCRIPTION} />
-              <TextField name="recovery.label" label="Label for Recovery time" description={LABEL_DESCRIPTION} />
-            </div>
-          </details>
         </FieldGroup>
       </form>
     </FormProvider>
