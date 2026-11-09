@@ -11,9 +11,8 @@ interface Deps {
   /** Regras de atendimento: o horário da seção da clínica sai delas (BR-KNO-02) */
   rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
   /** Lido a cada pedido: trocar o nome muda a versão do documento */
-  clinic: { name: string };
-  /** Língua da clínica: os avisos dos fatos com `assessment` saem nela */
-  language: Language;
+  /** Nome e língua lidos a cada pedido: a língua da clínica decide os avisos dos fatos com `assessment` */
+  clinic: { name: string; language: Language };
   /** Token do endpoint (INTERNAL_TOKEN); vazio = a rota não existe */
   token: string;
 }
@@ -30,13 +29,13 @@ export function authorized(header: string | undefined, token: string): boolean {
  * GET /internal/knowledge: o conhecimento da clínica para o serviço RAG (docs/integrations.md).
  * Fica fora do login do painel; protegido só pelo token do cabeçalho Authorization.
  */
-export function knowledgeInternalRoutes({ repo, rules, clinic, language, token }: Deps) {
+export function knowledgeInternalRoutes({ repo, rules, clinic, token }: Deps) {
   return async function plugin(app: FastifyInstance): Promise<void> {
     if (!token) return;
     app.get("/internal/knowledge", async (req, reply) => {
       if (!authorized(req.headers.authorization, token)) return reply.code(401).send({ error: "unauthorized" });
       const { weeklyHours } = await rules.get();
-      return toDocument(clinic.name, await repo.list(), language, hoursLines(weeklyHours, language));
+      return toDocument(clinic.name, await repo.list(), clinic.language, hoursLines(weeklyHours, clinic.language));
     });
   };
 }

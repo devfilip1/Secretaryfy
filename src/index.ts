@@ -74,7 +74,7 @@ await catalog.refresh();
 await app.register(healthRoutes);
 // Fora do login do painel: protegido só pelo INTERNAL_TOKEN (sem ele, a rota não existe)
 await app.register(
-  knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinic, language: clinic.language, token: env.INTERNAL_TOKEN ?? "" }),
+  knowledgeInternalRoutes({ repo: knowledge, rules: rulesStore, clinic, token: env.INTERNAL_TOKEN ?? "" }),
 );
 await app.register(clinicInternalRoutes({ clinic, knowledge, token: env.INTERNAL_TOKEN ?? "" }));
 await app.register(
@@ -151,7 +151,6 @@ await app.register(
     rag: createRagAdmin({ url: env.RAG_SERVICE_URL, token: env.INTERNAL_TOKEN ?? "" }),
     rules: rulesStore,
     clinic,
-    language: clinic.language,
     onChange: () => catalog.refresh(),
   }),
 );

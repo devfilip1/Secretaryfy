@@ -65,7 +65,7 @@ const clinic = createClinicContext({
 });
 // A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
 const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
-const replies = createReplies({ language: clinic.language, clinic, catalog });
+const replies = createReplies({ clinic, catalog });
 const interpreter = createInterpreter({ ollama, clinic, catalog });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
 const rules = DEFAULT_RULES;

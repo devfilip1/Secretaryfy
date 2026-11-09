@@ -5,7 +5,7 @@ import { createEnglishReplies } from "./replies.en.js";
 import { createPortugueseReplies } from "./replies.pt.js";
 
 /**
- * Textos enviados ao cliente pelo WhatsApp, na língua da clínica (CLINIC_LANGUAGE, contracts/conversation.md). O modelo
+ * Textos enviados ao cliente pelo WhatsApp, na língua da clínica, lida a cada texto (contracts/conversation.md). O modelo
  * nunca escreve estes textos: "booked" só sai daqui depois de o evento existir na agenda (FR-024).
  */
 export interface Replies {
@@ -76,19 +76,22 @@ export const joinList = (items: string[], and: string) =>
 export const dayPeriod = (hour: number): "morning" | "afternoon" | "evening" =>
   hour >= 5 && hour < 12 ? "morning" : hour >= 12 && hour < 18 ? "afternoon" : "evening";
 
-/** Os textos na língua, com o nome da clínica lido a cada texto (o painel pode trocá-lo) e a lista de tratamentos (catalog.ts). */
+/**
+ * Os textos na língua da clínica, lida a cada texto (o painel pode trocá-la): a mensagem seguinte já sai na nova língua.
+ * Os dois pacotes são montados uma vez; cada método escolhe o pacote no momento da chamada.
+ */
 export function createReplies({
-  language,
   clinic,
   catalog,
 }: {
-  language: "en" | "pt";
-  clinic: Pick<ClinicContext, "name" | "assistantName">;
+  clinic: Pick<ClinicContext, "name" | "assistantName" | "language">;
   catalog: ServiceCatalog;
 }): Replies {
-  return language === "pt"
-    ? createPortugueseReplies({ clinic, catalog })
-    : createEnglishReplies({ clinic, catalog });
+  const packs = { en: createEnglishReplies({ clinic, catalog }), pt: createPortugueseReplies({ clinic, catalog }) };
+  const keys = Object.keys(packs.en) as (keyof Replies)[];
+  if (keys.some((key) => typeof packs.en[key] !== "function")) throw new Error("Replies: todo membro tem de ser função");
+  const live = keys.map((key) => [key, (...args: unknown[]) => (packs[clinic.language][key] as (...args: unknown[]) => unknown)(...args)]);
+  return Object.fromEntries(live) as unknown as Replies;
 }
 
 /** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */

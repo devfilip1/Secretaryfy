@@ -11,6 +11,7 @@ import { RagAlreadyIndexingError } from "../modules/rag/admin.js";
 import { createTestDb } from "../test/db.js";
 import { CLINIC_HOURS } from "../test/hours.js";
 import { panelKnowledgeRoutes } from "./panel-knowledge.js";
+import { createClinicContext } from "../modules/clinic/context.js";
 
 const CLINIC = "Sorriso Pleno";
 const BROCHURE = "## Limpeza Dental — O primeiro passo\nComo funciona: Ultrassom.\nDuração: 30 min   |   Preço: R$ 40\nResultado: Imediato\n\n## Sobre nós\nLinha um\n";
@@ -64,7 +65,7 @@ beforeEach(async () => {
   rag.busy = false;
   rules.weeklyHours = CLINIC_HOURS;
   app = Fastify();
-  await app.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC }, language: "pt" }));
+  await app.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC, language: "pt" } }));
   await app.ready();
 });
 
@@ -249,7 +250,7 @@ test("a fact flagged assessment changes the version, which follows the clinic la
   assert.notEqual(status.version, await versionOf("en"));
 
   const english = Fastify();
-  await english.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC }, language: "en" }));
+  await english.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC, language: "en" } }));
   await english.ready();
   assert.equal((await english.inject({ url: "/api/knowledge/status" })).json().version, await versionOf("en"));
 });
@@ -257,7 +258,7 @@ test("a fact flagged assessment changes the version, which follows the clinic la
 test("onChange roda depois de cada criação, troca, ordem e remoção (o catálogo de tratamentos relê); pedido recusado não roda", async () => {
   let calls = 0;
   const watched = Fastify();
-  await watched.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC }, language: "pt", onChange: async () => void calls++ }));
+  await watched.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC, language: "pt" }, onChange: async () => void calls++ }));
   await watched.ready();
 
   const created = await watched.inject({ method: "POST", url: "/api/knowledge", payload: { ...infoSection, title: "Horários extra" } });
@@ -275,4 +276,18 @@ test("onChange roda depois de cada criação, troca, ordem e remoção (o catál
   await watched.inject({ method: "PUT", url: "/api/knowledge/order", payload: { keys: ["x"] } });
   assert.equal(calls, 4);
   await watched.close();
+});
+
+test("trocar a língua no painel vale no pedido seguinte, sem reiniciar: rótulos e horário mudam", async () => {
+  const clinic = createClinicContext({ name: CLINIC, kind: "dental clinic", language: "pt" });
+  const live = Fastify();
+  await live.register(panelKnowledgeRoutes({ repo, rag, rules, clinic }));
+  await live.ready();
+  assert.equal((await live.inject({ url: "/api/knowledge" })).json().labels.howItWorks, "Como funciona");
+  clinic.update({ language: "en" });
+  const json = (await live.inject({ url: "/api/knowledge" })).json();
+  assert.equal(json.labels.howItWorks, "How it works");
+  assert.equal(json.labels.assessment, "(final value set at the assessment)");
+  assert.deepEqual(json.hours, hoursLines(CLINIC_HOURS, "en"));
+  await live.close();
 });

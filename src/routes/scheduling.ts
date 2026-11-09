@@ -33,13 +33,12 @@ export const knowledge = createKnowledgeRepository(db);
 export const catalog = createKnowledgeCatalog({ repo: knowledge });
 
 /** Textos aos clientes na língua; o nome e o da atendente são lidos da clínica a cada texto. */
-export const schedulingReplies = createReplies({ language: clinic.language, clinic, catalog });
+export const schedulingReplies = createReplies({ clinic, catalog });
 
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES
   ? createHumanizer({
       ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
-      language: clinic.language,
       clinic,
     }).humanize
   : undefined;

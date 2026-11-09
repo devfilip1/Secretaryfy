@@ -14,6 +14,8 @@ import { createInboxRepository, type InboxRepository } from "../inbox/repository
 import { createInboxService, type InboxService } from "../inbox/service.js";
 import { createSchedulingFlow, type SchedulingFlow } from "./flow.js";
 import type { Interpretation } from "./interpret.js";
+import { createReplies, type Replies } from "./replies.js";
+import { createClinicContext } from "../clinic/context.js";
 import { DEFAULT_RULES, type Rules } from "./rules.js";
 import { createSchedulingStore, SESSION_TTL_MS, type SchedulingStore } from "./sessions.js";
 
@@ -61,7 +63,12 @@ beforeEach(async () => {
   conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
   inbox = createInboxService({ repo, publish: (e) => events.push(e), now: () => now.getTime() });
   fake = createFakeCalendar();
-  flow = createSchedulingFlow({
+  flow = makeFlow(testReplies);
+});
+
+/** O fluxo com os textos dados: o teste em português troca só eles. */
+function makeFlow(replies: Replies): SchedulingFlow {
+  return createSchedulingFlow({
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
     rules: { get: async () => rules },
@@ -75,10 +82,10 @@ beforeEach(async () => {
     },
     log: { error: () => {} },
     now: () => now,
-    replies: testReplies,
+    replies,
     catalog: { ...testCatalog, minutes: (name) => catalogMinutes[name] },
   });
-});
+}
 
 /** Conversa com o nome do perfil "." e, se `name` vier, o nome que o cliente disse (specs/005). */
 async function conversation(phone = "5571999999999", name: string | null = "Maria"): Promise<ConversationRow> {
@@ -663,4 +670,17 @@ test("o modelo escolheu a opção mais próxima, mas o horário citado manda", a
   await say(conv, I("choose", { option: 2 }));
   const summary = await say(conv, I("choose", { option: 2, time: "10:15" }));
   assert.match(summary.reply, /10:15 AM/);
+});
+
+// --- Português: os mesmos fluxos, com os textos da clínica em português ---
+
+test("em português: a conversa de marcar sai na língua da clínica, do primeiro texto ao horário marcado", async () => {
+  const clinic = createClinicContext({ name: "Clínica Sorriso", kind: "clínica odontológica", language: "pt" });
+  flow = makeFlow(createReplies({ clinic, catalog: testCatalog }));
+  const conv = await conversation();
+  const offer = await say(conv, I("availability"));
+  assert.match(offer.reply, /Tenho horários livres nestes dias:/);
+  const done = await book(conv);
+  assert.match(done.reply, /seu horário está marcado/);
+  assert.match(done.reply, /Clínica Sorriso/);
 });

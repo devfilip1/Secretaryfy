@@ -18,9 +18,8 @@ interface Deps {
   /** Regras de atendimento: o horário da seção da clínica sai delas (BR-KNO-02) */
   rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
   /** Lido a cada pedido: trocar o nome muda a versão do documento (e o status "não publicado") */
-  clinic: { name: string };
-  /** Língua da clínica: a versão do conteúdo (e o status) muda com ela quando há fatos com `assessment` */
-  language: Language;
+  /** Nome e língua lidos a cada pedido: a língua muda a versão do conteúdo (e o status) quando há fatos com `assessment` */
+  clinic: { name: string; language: Language };
   /** Depois de cada criação, troca, remoção ou ordem: o catálogo de tratamentos que se podem marcar relê a tabela (ADR 0014) */
   onChange?: () => Promise<void>;
 }
@@ -42,7 +41,7 @@ function notFound(reply: FastifyReply) {
 }
 
 /** Rotas do painel para o conhecimento da clínica e a publicação no RAG (docs/integrations.md). */
-export function panelKnowledgeRoutes({ repo, rag, rules, clinic, language, onChange }: Deps) {
+export function panelKnowledgeRoutes({ repo, rag, rules, clinic, onChange }: Deps) {
   /** Primeira chave livre a partir do título: "sobre-nos", "sobre-nos-2", "sobre-nos-3"… */
   async function freeKey(title: string): Promise<string> {
     const base = slugify(title);
@@ -55,7 +54,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, language, onCha
   /** Documento de agora: as seções e o horário das regras (o horário não é guardado nas seções). */
   async function document() {
     const { weeklyHours } = await rules.get();
-    return toDocument(clinic.name, await repo.list(), language, hoursLines(weeklyHours, language));
+    return toDocument(clinic.name, await repo.list(), clinic.language, hoursLines(weeklyHours, clinic.language));
   }
 
   /** Versão dos dados atuais contra a que o RAG tem indexada. */
@@ -73,8 +72,8 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, language, onCha
   return async function (app: FastifyInstance) {
     app.get("/api/knowledge", async () => ({
       sections: await repo.list(),
-      labels: { ...FIELD_LABELS[language], assessment: ASSESSMENT_NOTE[language] },
-      hours: hoursLines((await rules.get()).weeklyHours, language),
+      labels: { ...FIELD_LABELS[clinic.language], assessment: ASSESSMENT_NOTE[clinic.language] },
+      hours: hoursLines((await rules.get()).weeklyHours, clinic.language),
     }));
 
     app.post("/api/knowledge", async (req, reply) => {
