@@ -92,7 +92,7 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
         </FormSection>
         {save.isSuccess && (
           <Notice tone="ok" role="status">
-            Saved. The assistant uses the new name from the next message.
+            Saved. The assistant uses the new settings from the next message.
           </Notice>
         )}
         {save.isError && (
