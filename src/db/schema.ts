@@ -263,9 +263,13 @@ export const clinicSettings = pgTable(
     name: text("name").notNull(),
     assistantName: text("assistant_name"),
     kind: text("kind").notNull(),
+    language: text("language"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [check("clinic_settings_single_row", sql`${t.id} = 1`)],
+  (t) => [
+    check("clinic_settings_single_row", sql`${t.id} = 1`),
+    check("clinic_settings_language", sql`${t.language} in ('en', 'pt')`),
+  ],
 );
 
 export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;

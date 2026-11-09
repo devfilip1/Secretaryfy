@@ -85,6 +85,13 @@
       "when": 1794011265959,
       "tag": "0011_grid_minutes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794262330789,
+      "tag": "0012_clinic_language",
+      "breakpoints": true
     }
   ]
 }
