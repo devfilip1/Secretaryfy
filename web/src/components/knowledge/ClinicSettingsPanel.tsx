@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Controller, FormProvider, useForm, useFormContext } from "react-hook-form";
 import { saveClinicSettings, type ClinicSettings } from "../../api";
 import { clinicSettingsKeys, clinicSettingsQuery } from "../../queries";
 import { clinicSettingsDefaults, clinicSettingsSchema, type ClinicSettingsFormValues } from "./clinic-settings-form";
 import { FormSection, TextField } from "./FormParts";
+import { LanguageChangeDialog } from "./LanguageChangeDialog";
 import { reasonLines } from "./server-reason";
 import { Muted } from "../Muted";
 import { Notice } from "../Notice";
@@ -51,7 +52,7 @@ function LanguageField() {
             </SelectContent>
           </Select>
           <FieldDescription id={descriptionId}>
-            Changing the language changes the assistant and the labels, not the text you wrote in the brochure.
+            The language the assistant uses with patients and in the brochure labels. Write the brochure text in this same language: changing this setting does not translate it.
           </FieldDescription>
           <FieldError errors={[fieldState.error]} />
         </Field>
@@ -70,10 +71,19 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
     mutationFn: saveClinicSettings,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: clinicSettingsKeys.all }),
   });
+  // Valores com língua trocada, esperando a confirmação do diálogo antes do PUT.
+  const [pendingLanguageSave, setPendingLanguageSave] = useState<ClinicSettingsFormValues | null>(null);
+  const pendingLanguageLabel = LANGUAGES.find((language) => language.value === pendingLanguageSave?.language)?.label;
 
   return (
     <FormProvider {...form}>
-      <form className="grid gap-6" onSubmit={form.handleSubmit((input) => save.mutate(input))}>
+      <form
+        className="grid gap-6"
+        onSubmit={form.handleSubmit((input) => {
+          if (input.language === settings.language) save.mutate(input);
+          else setPendingLanguageSave(input);
+        })}
+      >
         <FormSection title="Clinic">
           <FieldGroup className="gap-6">
             <TextField name="name" label="Clinic name" description="The name patients hear, for example: Sorriso Pleno." />
@@ -108,6 +118,16 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
           </Button>
         </div>
       </form>
+      {pendingLanguageSave && pendingLanguageLabel && (
+        <LanguageChangeDialog
+          languageLabel={pendingLanguageLabel}
+          onCancel={() => setPendingLanguageSave(null)}
+          onConfirm={() => {
+            save.mutate(pendingLanguageSave);
+            setPendingLanguageSave(null);
+          }}
+        />
+      )}
     </FormProvider>
   );
 }
