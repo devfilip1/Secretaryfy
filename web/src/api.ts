@@ -295,6 +295,7 @@ export interface ClinicSettingsInput {
   name: string;
   assistantName: string;
   kind: string;
+  language: "pt" | "en";
 }
 export const getClinicSettings = () => request<ClinicSettings>("GET", "/api/clinic-settings");
 export const saveClinicSettings = (input: ClinicSettingsInput) =>
