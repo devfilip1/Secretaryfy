@@ -38,6 +38,14 @@ cd rag && .\run.ps1 test                             # RAG unit tests
 - Many files use CRLF line endings; `router.ts` and some others use LF. Preserve each file's style.
 - Commit messages in English, with no co-author or "generated with" lines.
 
+## How to work in this repo (every session)
+The main agent plans and reviews; Haiku subagents write the code. This is a standing instruction from the owner, so no extra request is needed.
+1. **Plan first.** Read the plan pages in ai-memory (`plans/…`, start with `plans/proximos-passos-2026-11-06.md`) and the docs in "Where to read before changing". Write a short plan and split it into pieces that touch **different files**, so no two writers collide. Use the task list.
+2. **Delegate the coding.** Start one Haiku subagent per piece (Agent tool, `model: "haiku"`, in parallel when the pieces are independent). Each brief names the files, the behavior to build, the tests to write or fix and what "done" means, quotes the rules of this file (CRLF or LF per file, no keyword lists in code, `createX(deps)`, comments and logs in Portuguese, every patient-facing text through `replies`), and says: do not commit, do not push, touch only your files.
+3. **Review everything yourself.** Read each diff before accepting it. Run `npm run typecheck` and `npm test` (and `cd rag && .un.ps1 test` with a clean environment when Python changed); run the evals named in "Commands" when `interpret`, `router`, `flow` or a RAG prompt changed. Send a piece back or fix it when it is wrong. Check the screen in the browser pane, typing in the fake WhatsApp chat like a patient, and the panel on desktop and phone width.
+4. **Only the main agent commits** (English messages, no co-author line) and opens or updates the PR. Decisions, migrations, deletions of data and anything outward-facing stay with the main agent and the owner.
+5. **Spend few tokens.** Short answers, say what you are doing, never stay silent for long, ask before long evaluations and before a new dependency.
+
 ## Where to read before changing
 | Changing | Read |
 |---|---|
