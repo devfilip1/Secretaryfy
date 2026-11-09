@@ -1,10 +1,13 @@
 """Perfil da clínica lido de YAML: config/clinic.yaml (a clínica) e config/languages/<idioma>.yaml (o idioma)."""
+import logging
 import re
 from pathlib import Path
 
 import yaml
 
 from assistant.clinic.profile import ClinicProfile, ClinicProfileError, Lexicon
+
+logger = logging.getLogger(__name__)
 
 LANGUAGE_CODE = re.compile(r"^[a-z][a-z0-9_-]*$")
 CLINIC_FIELDS = ("name", "kind", "language", "example_treatment", "extra_rules")
@@ -122,11 +125,25 @@ def _lexicon(clinic, pack, clinic_path, language_path):
     )
 
 
+def _other_language(clinic, languages_dir, yaml_language):
+    """Idioma vindo do Node, diferente do YAML. Sem pacote, volta ao idioma do YAML. As query_synonyms do YAML são do idioma dele e saem."""
+    language = clinic["language"]
+    if LANGUAGE_CODE.match(language) and (languages_dir / f"{language}.yaml").is_file():
+        return {**clinic, "query_synonyms": {}}
+    logger.warning(
+        'idioma "%s" sem pacote em %s: a clínica usa o idioma do YAML, "%s"', language, languages_dir, yaml_language
+    )
+    return {**clinic, "language": yaml_language}
+
+
 def _build(clinic_path, languages_dir, prompts_path, overrides=None):
     clinic = _read_yaml(clinic_path)
     _check_clinic(clinic, clinic_path)
-    if overrides:  # what the Node server holds replaces the file's values (name, kind, example_treatment, extra_rules)
+    yaml_language = clinic["language"]
+    if overrides:  # what the Node server holds replaces the file's values (name, kind, example_treatment, extra_rules, language)
         clinic = {**clinic, **overrides}
+        if clinic["language"] != yaml_language:
+            clinic = _other_language(clinic, languages_dir, yaml_language)
     language_path = languages_dir / f"{clinic['language']}.yaml"
     if not language_path.is_file():
         raise ClinicProfileError(
@@ -185,9 +202,9 @@ class YamlClinicProfile:
     def load(self):
         return self._load(None)
 
-    def load_as(self, name, kind, example_treatment=None, extra_rules=None):
+    def load_as(self, name, kind, example_treatment=None, extra_rules=None, language=None):
         """The profile with the Node server's values replaced; the file's values are kept for everything else."""
-        values = {"name": name, "kind": kind, "example_treatment": example_treatment, "extra_rules": extra_rules}
+        values = {"name": name, "kind": kind, "example_treatment": example_treatment, "extra_rules": extra_rules, "language": language}
         return self._load({field: value for field, value in values.items() if value})
 
     def _load(self, overrides):
