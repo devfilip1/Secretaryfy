@@ -7,8 +7,8 @@ import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
 import { availableDays, bookingWindow, isSlotAvailable, naturalSlotsForDay, slotsForDay } from "./availability.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
-import type { Interpretation } from "./interpret.js";
-import { systemNotes, type Replies } from "./replies.js";
+import type { DayPeriod, Interpretation } from "./interpret.js";
+import { dayPeriod, systemNotes, type Replies } from "./replies.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { withCalendarLock } from "./lock.js";
 import type { Rules, RulesStore } from "./rules.js";
@@ -179,12 +179,17 @@ class Run {
 
     if (i.intent === "stop") return this.finish(this.replies.stopped());
     if (i.tooFar && ["availability", "choose", "book"].includes(i.intent)) return this.tooFar();
+    // "de tarde" com os horários do dia na tela: a parte do dia desse mesmo dia
+    if (s?.step === "choose_slot" && i.period && i.option === null && !i.date && !i.time && ["choose", "availability"].includes(i.intent)) {
+      return this.periodOfScreen(i.period);
+    }
 
+    const period = i.period ?? null;
     switch (i.intent) {
       case "book":
-        return this.startBook(i.date, i.time ?? null);
+        return this.startBook(i.date, i.time ?? null, period);
       case "availability":
-        return i.date ? this.offerDayOrTime(i.date, i.time ?? null) : this.offerDays();
+        return i.date ? this.offerDayOrTime(i.date, i.time ?? null, period) : this.offerDays();
       case "cancel":
         return this.startCancel();
       case "reschedule":
@@ -197,8 +202,8 @@ class Run {
 
     switch (s?.step) {
       case "choose_day":
-        if (i.intent === "choose" && i.option !== null) return this.offerDay(this.dayOption(i.option));
-        if (i.intent === "choose" && i.date) return this.offerDayOrTime(i.date, i.time ?? null);
+        if (i.intent === "choose" && i.option !== null) return this.offerDay(this.dayOption(i.option), period);
+        if (i.intent === "choose" && i.date) return this.offerDayOrTime(i.date, i.time ?? null, period);
         if (i.intent === "more") return this.offerDays({ after: this.lastOfferedDay() });
         if (i.intent === "other_day") return this.offerDays();
         break;
@@ -211,7 +216,7 @@ class Run {
         }
         // Um horário citado se confere na grade inteira, no dia da tela ou no dia que o cliente nomeou
         if (i.intent === "choose" && i.time) return this.askedTime(i.date ?? this.isoDate(this.optionSlots(s.options)[0]), i.time);
-        if (i.intent === "choose" && i.date) return this.sameDayAsOptions(i.date) ? this.timeNotOffered() : this.offerDay(i.date);
+        if (i.intent === "choose" && i.date) return this.sameDayAsOptions(i.date) && !period ? this.timeNotOffered() : this.offerDay(i.date, period);
         if (i.intent === "more") return this.moreSlots();
         if (i.intent === "other_day") return this.offerDays();
         break;
@@ -373,8 +378,8 @@ class Run {
     return { reply: this.replies.offerDays(days, this.tz) };
   }
 
-  /** Horários de um dia; sem vaga, os dias livres mais próximos (US2, cenário 3). */
-  private async offerDay(date: string): Promise<FlowResult> {
+  /** Horários de um dia (ou só os de uma parte dele); sem vaga, os dias livres mais próximos (US2, cenário 3). */
+  private async offerDay(date: string, period: DayPeriod | null = null): Promise<FlowResult> {
     if (date > this.window.lastDate) return this.tooFar();
     const slots = await this.offerableOn(date);
     if (slots.length === 0) {
@@ -387,13 +392,33 @@ class Run {
       const closedWeekdays = [1, 2, 3, 4, 5, 6, 7].filter(isClosed);
       return { reply: this.replies.closedDay(closedWeekdays, closest, this.tz) };
     }
+    if (period) return this.offerPeriod(date, slots, period);
     return this.offerSlots(date, slots);
+  }
+
+  /** Só os horários da parte do dia pedida; sem nenhum, avisa e oferece os outros horários do mesmo dia. */
+  private async offerPeriod(date: string, slots: Date[], period: DayPeriod): Promise<FlowResult> {
+    const inPeriod = slots.filter((s) => dayPeriod(DateTime.fromJSDate(s, { zone: this.tz }).hour) === period);
+    if (inPeriod.length > 0) return this.offerSlots(date, inPeriod);
+    const page = slots.slice(0, PAGE);
+    await this.saveSlots(page);
+    return { reply: this.replies.periodEmpty(date, period, page, this.tz, slots.length > PAGE) };
+  }
+
+  /** Os horários da tela são do dia que está nela: pedir "de tarde" é a tarde desse dia. */
+  private async periodOfScreen(period: DayPeriod): Promise<FlowResult> {
+    const slots = this.optionSlots(this.session!.options);
+    return this.offerDay(this.isoDate(slots[0]), period);
+  }
+
+  private saveSlots(page: Date[]) {
+    return this.save({ step: "choose_slot", options: page.map((s, i) => ({ n: i + 1, kind: "slot" as const, start: s.toISOString() })) });
   }
 
   /** Primeira página de horários do dia; "taken" quando o horário escolhido acabou de ser ocupado. */
   private async offerSlots(date: string, slots: Date[], kind: "offer" | "taken" = "offer"): Promise<FlowResult> {
     const page = slots.slice(0, PAGE);
-    await this.save({ step: "choose_slot", options: page.map((s, i) => ({ n: i + 1, kind: "slot" as const, start: s.toISOString() })) });
+    await this.saveSlots(page);
     const reply =
       kind === "taken" ? this.replies.slotTaken(date, page, this.tz) : this.replies.offerSlots(date, page, this.tz, slots.length > PAGE);
     return { reply };
@@ -441,7 +466,7 @@ class Run {
 
   // --- Marcar ---
 
-  private async startBook(date: string | null, time: string | null): Promise<FlowResult> {
+  private async startBook(date: string | null, time: string | null, period: DayPeriod | null): Promise<FlowResult> {
     const existing = await this.currentAppointment();
     if (existing) return this.offerReschedule(existing);
     this.carry = { flow: "book", appointmentId: null, customerName: this.carry.customerName, service: this.carry.service };
@@ -449,7 +474,7 @@ class Run {
     if (!this.carry.service) return this.askService();
     this.minutes = await this.lengthFor();
     if (date && time) return this.askedTime(date, time);
-    return date ? this.offerDay(date) : this.offerDays();
+    return date ? this.offerDay(date, period) : this.offerDays();
   }
 
   private async askService(): Promise<FlowResult> {
@@ -458,9 +483,9 @@ class Run {
     return { reply: this.replies.chooseService(this.knownName) };
   }
 
-  /** Dia com horário citado: confere o horário; sem horário, oferece os do dia. */
-  private offerDayOrTime(date: string, time: string | null): Promise<FlowResult> {
-    return time ? this.askedTime(date, time) : this.offerDay(date);
+  /** Dia com horário citado: confere o horário (ele vale mais que a parte do dia); sem horário, oferece os do dia. */
+  private offerDayOrTime(date: string, time: string | null, period: DayPeriod | null): Promise<FlowResult> {
+    return time ? this.askedTime(date, time) : this.offerDay(date, period);
   }
 
   /** O cliente citou um horário: livre na grade, vale; ocupado ou fora da grade, avisa e oferece os mais próximos do dia. */

@@ -14,6 +14,7 @@ function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
   return {
     offerDays: () => r.offerDays(["2026-10-21", "2026-10-22"], tz),
     offerSlots: () => r.offerSlots("2026-10-21", slots, tz, true),
+    periodEmpty: () => r.periodEmpty("2026-10-21", "morning", slots, tz, true),
     dayFull: () => r.dayFull("2026-10-21", ["2026-10-22"], tz),
     tooFar: () => r.tooFar(60, "2026-12-20", ["2026-10-22"], tz),
     noOpenings: () => r.noOpenings(),
@@ -100,6 +101,16 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
   assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
   assert.match(r.closedDay([6, 7], ["2026-10-26"], tz), /^Não atendemos sábado e domingo\./);
   assert.match(r.closedDay([1, 3, 7], ["2026-10-27"], tz), /^Não atendemos segunda, quarta e domingo\./);
+});
+
+test("parte do dia sem horário livre: diz a parte e oferece os outros horários do dia", () => {
+  assert.equal(
+    pt.periodEmpty("2026-10-21", "morning", slots, tz, false),
+    "Não tenho horário livre de manhã na quarta-feira, 21 de outubro, mas tenho estes:\n• 09:00\n• 10:00\nQual prefere? Se preferir outro dia, é só pedir.",
+  );
+  assert.match(pt.periodEmpty("2026-10-21", "afternoon", slots, tz, true), /^Não tenho horário livre à tarde na quarta-feira, 21 de outubro, mas tenho estes:/);
+  assert.match(pt.periodEmpty("2026-10-21", "evening", slots, tz, true), /Se quiser ver mais horários ou outro dia, é só pedir\.$/);
+  assert.match(pt.periodEmpty("2026-10-21", "evening", slots, tz, true), /horário livre à noite/);
 });
 
 test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {

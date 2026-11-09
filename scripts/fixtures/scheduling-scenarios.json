@@ -248,6 +248,25 @@
       "summary": "Maria — Braces and Orthodontic Treatment"
     },
     {
+      "name": "parte do dia: tarde de amanhã só oferece horários da tarde",
+      "messages": [
+        "I want to book an appointment tomorrow afternoon",
+        "1",
+        "yes"
+      ],
+      "final": "2026-10-21T12:00"
+    },
+    {
+      "name": "parte do dia: manhã de amanhã, sem inventar um horário",
+      "messages": [
+        "I want to book an appointment tomorrow morning",
+        "1",
+        "yes"
+      ],
+      "final": "2026-10-21T09:00"
+    },
+
+    {
       "name": "horário citado e livre na grade de 15 min (ADR 0015)",
       "messages": [
         "I want to book an appointment tomorrow",

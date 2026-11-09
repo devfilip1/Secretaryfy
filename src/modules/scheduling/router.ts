@@ -20,7 +20,7 @@ const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedTime">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -209,10 +209,14 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
     const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
-    const time = interpretation.time ?? (wantsTime ? await interpreter.mentionedTime?.({ text, log }) ?? null : null);
+    // O que a frase pede no tempo ("as 14h", "de manhã"): a chamada focada lê a mensagem. A parte do dia vence um horário
+    // que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
+    const when = wantsTime ? (await interpreter.mentionedWhen?.({ text, log })) ?? null : null;
+    const period = when?.period ?? null;
+    const time = period ? null : (when?.time ?? interpretation.time ?? null);
     // Com os horários na tela, um horário citado é uma escolha, mesmo que o modelo tenha lido "mais" ou "não entendi"
     const toChoice = time && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
-    const timed = time ? { ...interpretation, time, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
+    const timed = time || period ? { ...interpretation, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: timed, session, knownName: known, mentionedService: interpretation.service ?? mentioned });

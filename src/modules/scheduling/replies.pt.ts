@@ -4,8 +4,11 @@ import { formatDayLong, formatTime, formatWhen, weekdayNames } from "./dates.js"
 import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
+import type { DayPeriod } from "./interpret.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
+
+const PERIOD_PT: Record<DayPeriod, string> = { morning: "de manhã", afternoon: "à tarde", evening: "à noite" };
 
 /** "na sexta-feira, 6 de novembro" (ou "Na…" no começo da frase): o artigo muda com o gênero do dia da semana. */
 const onDay = (date: string, tz: string, capital = false) => {
@@ -30,6 +33,11 @@ export function createPortugueseReplies({ clinic, catalog }: { clinic: Pick<Clin
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
       const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
       return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
+    },
+
+    periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean) {
+      const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
+      return `Não tenho horário livre ${PERIOD_PT[period]} ${onDay(date, tz)}, mas tenho estes:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
     slotNotOffered(date: string, slots: Date[], tz: string) {

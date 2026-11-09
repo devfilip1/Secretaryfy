@@ -34,6 +34,9 @@ export const INTENTS = [
 
 export type Intent = (typeof INTENTS)[number];
 
+/** Parte do dia que o cliente pediu sem citar um horário ("de manhã", "à tarde", "à noite") */
+export type DayPeriod = "morning" | "afternoon" | "evening";
+
 export interface Interpretation {
   intent: Intent;
   /** Número da opção escolhida (intent = choose) */
@@ -42,6 +45,8 @@ export interface Interpretation {
   date: string | null;
   /** Horário que o cliente citou (HH:mm, 24 h), em choose, book, availability ou reschedule; ausente se não citou */
   time?: string | null;
+  /** Parte do dia que o cliente pediu sem citar um horário ('de manhã', 'à tarde', 'à noite'); ausente se não pediu */
+  period?: DayPeriod | null;
   name: string | null;
   /** Nome do serviço do catálogo (a chave do tratamento, ou ASSESSMENT) que o modelo deu, em qualquer intenção; ausente se não deu */
   service?: string | null;
@@ -196,7 +201,7 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
       intent: { type: "string", enum: INTENTS },
       option: { type: ["integer", "null"] },
       date: { type: ["string", "null"], description: "YYYY-MM-DD" },
-      time: { type: ["string", "null"], description: "The clock time the customer names, HH:MM on a 24 hour clock (\"as 14h\" is \"14:00\"); null when none" },
+      time: { type: ["string", "null"], description: "The clock time the customer names, HH:MM on a 24 hour clock (\"as 14h\" is \"14:00\"); null when none. A part of the day (\"de manhã\", \"à tarde\", \"à noite\", \"morning\", \"afternoon\", \"evening\") is not a clock time: answer null for it." },
       weekday: { type: ["string", "null"], enum: [null, ...WEEKDAY_NAMES, "weekend"] },
       urgent: { type: "boolean" },
       name: { type: ["string", "null"] },
@@ -214,16 +219,32 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
 // A citação é o trecho que o cliente escreveu e que menciona o tratamento: o código confere que ele está na conversa
 const mentionOutput = z.object({ quote: z.string().nullable(), service: z.string().nullable() });
 
-const timeOutput = z.object({ quote: z.string().nullable(), time: z.string().nullable() });
-const timeFormat = {
+const whenOutput = z.object({
+  quote: z.string().nullable(),
+  time: z.string().nullable(),
+  period: z.enum(["morning", "afternoon", "evening"]).nullable(),
+});
+const TIME_FORMAT = /^([01]\d|2[0-3]):[0-5]\d$/;
+/** O que a mensagem pede na chamada focada: um horário ou uma parte do dia, nunca os dois */
+export interface When {
+  time: string | null;
+  period: DayPeriod | null;
+}
+const NO_WHEN: When = { time: null, period: null };
+const whenFormat = {
   type: "object",
-  properties: { quote: { type: ["string", "null"] }, time: { type: ["string", "null"], description: "HH:MM, 24 hour clock" } },
-  required: ["quote", "time"],
+  properties: {
+    quote: { type: ["string", "null"] },
+    time: { type: ["string", "null"], description: "HH:MM, 24 hour clock" },
+    period: { type: ["string", "null"], enum: [null, "morning", "afternoon", "evening"] },
+  },
+  required: ["quote", "time", "period"],
 };
-const TIME_PROMPT = [
+const WHEN_PROMPT = [
   "You read one WhatsApp message of a customer who is booking an appointment at a clinic.",
-  'Answer with the clock time the customer names in this message, as HH:MM on a 24 hour clock ("as 14h" is "14:00", "9:30" is "09:30", "às duas da tarde" is "14:00", "3pm" is "15:00"), or null when the message names no clock time.',
-  'Copy into "quote" the customer\'s own words that name the time (null when there is none). A day, a weekday or a number that is not a clock time is not a time. Do not guess.',
+  'Answer "time" with the clock time the customer names, as HH:MM on a 24 hour clock ("as 14h" is "14:00", "9:30" is "09:30", "às duas da tarde" is "14:00", "3pm" is "15:00"), or null when the message names no clock time.',
+  'Answer "period" with the part of the day the customer asks for when they name no clock time: "de manhã", "pela manhã", "in the morning" is "morning"; "à tarde", "in the afternoon" is "afternoon"; "à noite", "in the evening" is "evening"; otherwise null. A part of the day is never a clock time: "de manhã" is period "morning" and time null.',
+  'Set only one of "time" and "period". Copy into "quote" the customer\'s own words that name the time or the part of the day (null when there is none). A day, a weekday or a number that is not a clock time is not a time. Do not guess.',
 ].join("\n");
 
 /**
@@ -439,25 +460,28 @@ export function createInterpreter({
     },
 
     /**
-     * O horário que a mensagem cita ("as 14h"), numa chamada focada: o modelo preenche o campo `time` do interpretador só
-     * às vezes, e uma citação que não está na mensagem é chute. Qualquer falha vira null.
+     * O horário ou a parte do dia que a mensagem pede ("as 14h", "de manhã"), numa chamada focada: o modelo preenche os campos
+     * do interpretador só às vezes, e uma citação que não está na mensagem é chute. Qualquer falha vira null nos dois.
      */
-    async mentionedTime({ text, log }: { text: string; log?: { error: (obj: object, msg: string) => void } }): Promise<string | null> {
+    async mentionedWhen({ text, log }: { text: string; log?: { error: (obj: object, msg: string) => void } }): Promise<When> {
       try {
         const raw = await ollama.chat({
-          format: timeFormat,
+          format: whenFormat,
           messages: [
-            { role: "system", content: TIME_PROMPT },
+            { role: "system", content: WHEN_PROMPT },
             { role: "user", content: text },
           ],
         });
-        const parsed = timeOutput.safeParse(raw);
-        if (!parsed.success || !parsed.data.time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.data.time)) return null;
+        const parsed = whenOutput.safeParse(raw);
+        if (!parsed.success) return NO_WHEN;
         const quote = parsed.data.quote ? normalize(parsed.data.quote) : "";
-        return quote.trim() && normalize(text).includes(quote) ? parsed.data.time : null;
+        if (!quote.trim() || !normalize(text).includes(quote)) return NO_WHEN;
+        // Um horário válido ganha; a parte do dia só vale quando não há horário
+        if (parsed.data.time && TIME_FORMAT.test(parsed.data.time)) return { time: parsed.data.time, period: null };
+        return { time: null, period: parsed.data.period ?? null };
       } catch (err) {
-        log?.error({ err: (err as Error).message }, "horário citado indisponível");
-        return null;
+        log?.error({ err: (err as Error).message }, "horário ou parte do dia citados indisponível");
+        return NO_WHEN;
       }
     },
 
