@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { EventBus } from "../modules/inbox/events.js";
 
-const HEARTBEAT_MS = 25_000;
+const HEARTBEAT_MS = 15_000;
 
 /**
  * GET /api/events: Server-Sent Events para o painel. Enquanto houver ao menos um painel aberto,
@@ -37,7 +37,8 @@ export function panelEventsRoutes({
       });
       if (wasEmpty) onFirst();
 
-      const heartbeat = setInterval(() => res.write(": ping\n\n"), heartbeatMs);
+      // Evento nomeado (e não comentário): o EventSource do navegador só enxerga eventos, então o painel mede o silêncio por ele.
+      const heartbeat = setInterval(() => res.write("event: ping\ndata: {}\n\n"), heartbeatMs);
       req.raw.on("close", () => {
         clearInterval(heartbeat);
         unsubscribe();
