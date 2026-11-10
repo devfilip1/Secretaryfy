@@ -35,6 +35,8 @@ interface Scenario {
   mention?: string | null;
   /** Título esperado do evento marcado (specs/005 FR-013) */
   summary?: string;
+  /** Textos em português, usados no lugar dos campos acima quando CLINIC_LANGUAGE=pt */
+  pt?: Partial<Pick<Scenario, "messages" | "mention" | "summary">>;
 }
 
 const { values } = parseArgs({ options: { only: { type: "string" } } });
@@ -65,6 +67,9 @@ const clinic = createClinicContext({
 });
 // A lista dos testes (os tratamentos do folheto de referência): o script não lê o banco
 const catalog = clinic.language === "pt" ? ptCatalog : testCatalog;
+// Em pt, a citação padrão e a resposta que a acompanha também saem em português (o bot da clínica responde em pt)
+const DEFAULT_MENTION = clinic.language === "pt" ? "Vocês fazem limpeza dental?" : "Do you do dental cleaning?";
+const DEFAULT_MENTION_REPLY = clinic.language === "pt" ? "Sim, fazemos! A limpeza dental leva de 30 a 50 minutos." : "Yes, we do! A dental cleaning takes 30–50 minutes.";
 const replies = createReplies({ clinic, catalog });
 const interpreter = createInterpreter({ ollama, clinic, catalog });
 const silent = { info: () => {}, warn: () => {}, error: () => {} } as unknown as FastifyBaseLogger;
@@ -78,7 +83,14 @@ let correct = 0;
 let summaries = 0;
 let summariesOk = 0;
 
-const scenarios = fixture.scenarios.filter((s) => !values.only || s.name === values.only);
+/** Em pt, o cenário usa os campos do bloco `pt` por cima dos seus; em en, fica como está. */
+function forLanguage(scenario: Scenario): Scenario {
+  if (clinic.language !== "pt" || !scenario.pt) return scenario;
+  const { pt, ...base } = scenario;
+  return { ...base, ...pt };
+}
+
+const scenarios = fixture.scenarios.filter((s) => !values.only || s.name === values.only).map(forLanguage);
 console.log(`Modelo: ${model} · ${scenarios.length} cenários · hoje: ${fixture.now} (${tz})\n`);
 
 for (const scenario of scenarios) {
@@ -98,11 +110,11 @@ for (const scenario of scenarios) {
   const conversation = await repo.upsertConversation({ phone, name: ".", at: now, preview: "" });
   if (name) await repo.setCustomerName(conversation.id, name);
   // Os cenários da feature 003 marcam sem passar pela lista de serviços: o cliente já citou a limpeza
-  const mention = scenario.mention === undefined ? "Do you do dental cleaning?" : scenario.mention;
+  const mention = scenario.mention === undefined ? DEFAULT_MENTION : scenario.mention;
   if (mention) {
     // Pergunta e resposta, como numa conversa de verdade: uma pergunta sem resposta no histórico confunde o modelo
     await inbox.recordIncoming({ kind: "message", id: "E0", phone, fromMe: false, type: "text", text: mention, sentAt: new Date(now.getTime() - 120_000) });
-    const out = await inbox.startOutgoing({ conversationId: conversation.id, origin: "assistant", text: "Yes, we do! A dental cleaning takes 30–50 minutes." });
+    const out = await inbox.startOutgoing({ conversationId: conversation.id, origin: "assistant", text: DEFAULT_MENTION_REPLY });
     await inbox.finishOutgoing(out.id, { waId: "OUT0" });
   }
 
