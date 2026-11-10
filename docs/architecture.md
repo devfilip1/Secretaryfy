@@ -73,7 +73,7 @@ src/
     inbox/      conversations and messages, pause, event bus, JSON presenters
     rag/        HTTP client of the RAG service
     reminders/  reminder scheduler and the label shown in the panel
-    scheduling/ rules, free-time math, interpreter, router, state machine, booking engine, replies
+    scheduling/ rules, free-time math, interpreter, intents.ts (intent list and predicates for its named groups), understanding/ (focused extractors and the merge rules in resolve.ts, ADR 0017), router, state machine, booking engine, replies
     whatsapp/   Evolution API events parser, sending, instance/QR, message handler
   routes/       Fastify plugins; also where process-wide instances are wired (inbox.ts, calendar.ts, scheduling.ts)
   test/         test setup: env, PGlite database, fake calendar, clock
@@ -129,6 +129,7 @@ The panel is a single-page React app in [`web/src`](../web/src). In development 
 - **Real time:** [useEvents.ts](../web/src/useEvents.ts) opens one `EventSource` on `/api/events` and fans events out through `EventsContext`; pages subscribe with `useInboxEvents`. Events either carry the changed object (`message.created`, `conversation.updated`, `connection.updated`…) or just say "reload" (`appointments.updated`, `customers.updated`). When the stream reconnects after a drop, a synthetic `reconnected` event tells every page to reload, so nothing is missed.
 - **API client:** `fetch` wrappers in [api.ts](../web/src/api.ts) with typed responses and an `ApiError` carrying status and error code. Any 401 calls the handler registered by `App`, which returns to the login page. A `409 risk_confirmation_required` on send opens [RiskDialog.tsx](../web/src/components/RiskDialog.tsx); confirming resends with `confirmRisk`.
 - **Shared components:** [Composer.tsx](../web/src/components/Composer.tsx) (Enter sends on desktop, newline on mobile), [MessageBubble.tsx](../web/src/components/MessageBubble.tsx) (status, block reason, retry), [NewAppointment.tsx](../web/src/components/NewAppointment.tsx) (phone lookup → name → service → day/time grids), [ProtectionBanner.tsx](../web/src/components/ProtectionBanner.tsx). Text helpers in [format.ts](../web/src/format.ts).
+- **Date pick:** the "Other date" field of [NewAppointment.tsx](../web/src/components/NewAppointment.tsx) is a shadcn Calendar ([ui/calendar.tsx](../web/src/components/ui/calendar.tsx), `react-day-picker`) inside a Popover ([ui/popover.tsx](../web/src/components/ui/popover.tsx)).
 - **Layout:** responsive down to 375 px; on phones the conversation list and the open conversation are separate screens and the tab bar scrolls horizontally. All styles are in [styles.css](../web/src/styles.css).
 
 ## Cross-cutting concerns

@@ -39,7 +39,14 @@
         "1",
         "yes"
       ],
-      "final": "2026-10-21T09:00"
+      "final": "2026-10-21T09:00",
+      "pt": {
+        "messages": [
+          "amanhã",
+          "1",
+          "sim"
+        ]
+      }
     },
     {
       "name": "dia da semana na escolha do dia",
@@ -220,7 +227,17 @@
         "yes"
       ],
       "final": "2026-10-21T10:00",
-      "summary": "Maria — Teeth Whitening"
+      "summary": "Maria — Teeth Whitening",
+      "pt": {
+        "messages": [
+          "Quanto custa clareamento dental?",
+          "Queria marcar uma consulta",
+          "2",
+          "2",
+          "sim"
+        ],
+        "summary": "Maria — Clareamento Dental"
+      }
     },
     {
       "name": "serviço escolhido na lista (005)",
@@ -233,7 +250,17 @@
         "yes"
       ],
       "final": "2026-10-21T10:00",
-      "summary": "Maria — Teeth Whitening"
+      "summary": "Maria — Teeth Whitening",
+      "pt": {
+        "messages": [
+          "Queria marcar uma consulta",
+          "2",
+          "2",
+          "2",
+          "sim"
+        ],
+        "summary": "Maria — Clareamento Dental"
+      }
     },
     {
       "name": "serviço trocado no resumo (005)",
@@ -245,8 +272,60 @@
         "yes"
       ],
       "final": "2026-10-21T10:00",
-      "summary": "Maria — Braces and Orthodontic Treatment"
+      "summary": "Maria — Braces and Orthodontic Treatment",
+      "pt": {
+        "messages": [
+          "Queria marcar uma consulta",
+          "2",
+          "2",
+          "Na verdade quero aparelho ortodôntico",
+          "sim"
+        ],
+        "summary": "Maria — Aparelho e Tratamento Ortodôntico"
+      }
     },
+    {
+      "name": "parte do dia: tarde de amanhã só oferece horários da tarde",
+      "messages": [
+        "I want to book an appointment tomorrow afternoon",
+        "1",
+        "yes"
+      ],
+      "final": "2026-10-21T12:00"
+    },
+    {
+      "name": "parte do dia: manhã de amanhã, sem inventar um horário",
+      "messages": [
+        "I want to book an appointment tomorrow morning",
+        "1",
+        "yes"
+      ],
+      "final": "2026-10-21T09:00"
+    },
+
+    {
+      "name": "escolher pela posição: the first one",
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "the first one",
+        "yes"
+      ],
+      "final": "2026-10-21T09:00"
+    },
+
+    {
+      "name": "conversa com trocas de parte do dia e de dia",
+      "messages": [
+        "Meu nome é Carla. Queria marcar uma limpeza amanhã à tarde",
+        "Obrigada, mas prefiro de manhã",
+        "e à noite, tem?",
+        "então quinta de manhã",
+        "pode ser às 10",
+        "sim"
+      ],
+      "final": "2026-10-22T10:00"
+    },
+
     {
       "name": "horário citado e livre na grade de 15 min (ADR 0015)",
       "messages": [

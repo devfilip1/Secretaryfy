@@ -4,8 +4,11 @@ import { formatDayLong, formatTime, formatWhen } from "./dates.js";
 import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { dayPeriod, firstName, joinList, type Replies } from "./replies.js";
+import type { DayPeriod } from "./interpret.js";
 
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
+
+const PERIOD_EN: Record<DayPeriod, string> = { morning: "morning", afternoon: "afternoon", evening: "evening" };
 
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutes`;
@@ -23,6 +26,11 @@ export function createEnglishReplies({ clinic, catalog }: { clinic: Pick<ClinicC
     offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
       const tail = hasMore ? "I can show more times or another day if you like." : "I can also check another day if you like.";
       return `On ${formatDayLong(date, tz)} I have these times:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
+    },
+
+    periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean) {
+      const tail = hasMore ? "I can show more times or another day if you like." : "I can also check another day if you like.";
+      return `I have nothing free in the ${PERIOD_EN[period]} on ${formatDayLong(date, tz)}, but these are open:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
     },
 
     slotNotOffered(date: string, slots: Date[], tz: string) {

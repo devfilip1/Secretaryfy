@@ -13,7 +13,7 @@ const STATUS_BADGE: Record<KnowledgeStatus["state"], { variant: "secondary" | "w
   unavailable: { variant: "warn", text: "Assistant offline", icon: CloudOff },
 };
 
-function publishErrorMessage(err: unknown): string {
+export function publishErrorMessage(err: unknown): string {
   if (err instanceof ApiError && err.status === 409) return "Publishing is already running. Try again in a moment.";
   if (err instanceof ApiError && err.status === 502) return "The assistant service is not reachable.";
   return "Could not publish. Please try again.";

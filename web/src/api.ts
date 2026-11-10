@@ -203,6 +203,8 @@ export interface Appointment {
   id: string;
   startsAt: string;
   endsAt: string;
+  /** Duração do atendimento em minutos */
+  minutes: number;
   group: "today" | "tomorrow" | "week";
   customerName: string;
   service: string | null;
@@ -218,17 +220,31 @@ export interface Appointment {
 
 export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
+/** Cancela o agendamento e remove o evento da agenda; não avisa o cliente. 404 not_found, 409 calendar_disconnected. */
+export const cancelAppointment = (id: string) => request<{ ok: true }>("POST", `/api/appointments/${id}/cancel`, {});
 
-export const bookingDays = () => request<{ timeZone: string; days: string[] }>("GET", "/api/booking/days");
+// `status`: cada dia aberto da janela da equipe, livre ou lotado para a duração do serviço; dia fechado não aparece
+export const bookingDays = (service?: string) =>
+  request<{ timeZone: string; days: string[]; minDate: string; maxDate: string; status: Record<string, "free" | "full"> }>(
+    "GET",
+    `/api/booking/days${service ? `?service=${encodeURIComponent(service)}` : ""}`,
+  );
+/** `slots`: horários sugeridos para a duração do serviço; `minutes`: a duração usada para eles. */
 export const bookingSlots = (date: string, service?: string) =>
-  request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
+  request<{ date: string; slots: string[]; minutes: number }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
+/** Cada início livre do dia, com o tempo livre até o próximo agendamento ou o fechamento (no máximo 480 min). */
+export interface BookingStart {
+  start: string;
+  maxMinutes: number;
+}
+export const bookingStarts = (date: string) => request<{ date: string; starts: BookingStart[] }>("GET", `/api/booking/starts?date=${date}`);
 export const lookupPhone = (phone: string) =>
   request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
     "GET",
     `/api/booking/lookup?phone=${encodeURIComponent(phone)}`,
   );
-/** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. */
-export const createAppointment = (body: { phone: string; name: string; service: string; start: string }) =>
+/** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. `minutes` (5 a 480, múltiplo de 5) é a duração escolhida. */
+export const createAppointment = (body: { phone: string; name: string; service: string; start: string; minutes?: number }) =>
   request<{ appointment: Appointment }>("POST", "/api/appointments", body);
 
 /** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome para o painel. */

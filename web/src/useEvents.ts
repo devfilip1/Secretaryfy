@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { CalendarConnection, Connection, Conversation, Message, Protection } from "./api";
 import { ApiError, getSession } from "./api";
+import { isSilent } from "./stream-watchdog";
 
 export type InboxEvent =
   | { type: "message.created" | "message.updated"; conversationId: string; message: Message }
@@ -32,6 +33,9 @@ const SERVER_EVENTS = [
   "protection.updated",
 ] as const;
 const RETRY_MS = 3000;
+/** Sem evento nem ping por este tempo (3 heartbeats), a conexão é tratada como caída. */
+const SILENCE_MS = 45_000;
+const WATCHDOG_MS = 5000;
 
 /** Abre o SSE (/api/events), reconecta quando cai e repassa os eventos aos assinantes. */
 export function useEventStream(onUnauthenticated: () => void) {
@@ -45,12 +49,15 @@ export function useEventStream(onUnauthenticated: () => void) {
     let retry: ReturnType<typeof setTimeout> | undefined;
     let dropped = false;
     let closed = false;
+    let lastActivity = Date.now();
+    let watchdog: ReturnType<typeof setInterval> | undefined;
     const emit = (event: InboxEvent) => listeners.current.forEach((l) => l(event));
 
     function open() {
       source = new EventSource("/api/events");
       source.onopen = () => {
         setStatus("open");
+        lastActivity = Date.now();
         if (dropped) emit({ type: "reconnected" });
         dropped = false;
       };
@@ -69,15 +76,31 @@ export function useEventStream(onUnauthenticated: () => void) {
             });
         }
       };
+      // O ping não vira evento do painel: só conta como sinal de vida
+      source.addEventListener("ping", () => {
+        lastActivity = Date.now();
+      });
       for (const type of SERVER_EVENTS) {
-        source.addEventListener(type, (e) => emit({ type, ...JSON.parse((e as MessageEvent).data) }));
+        source.addEventListener(type, (e) => {
+          lastActivity = Date.now();
+          emit({ type, ...JSON.parse((e as MessageEvent).data) });
+        });
       }
     }
 
     open();
+    // Conexão presa (proxy segurando o socket ou servidor morto sem fechá-lo): o onerror não dispara, então reconectamos pelo silêncio
+    watchdog = setInterval(() => {
+      if (dropped || closed || !isSilent(Date.now(), lastActivity, SILENCE_MS)) return;
+      dropped = true;
+      setStatus("reconnecting");
+      source?.close();
+      retry = setTimeout(open, RETRY_MS);
+    }, WATCHDOG_MS);
     return () => {
       closed = true;
       clearTimeout(retry);
+      clearInterval(watchdog);
       source?.close();
     };
   }, []);

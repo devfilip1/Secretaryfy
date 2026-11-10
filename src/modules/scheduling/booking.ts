@@ -5,7 +5,7 @@ import type { ConnectionStore } from "../google/connection.js";
 import type { CalendarGateway } from "../google/gateway.js";
 import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
-import { isSlotAvailable } from "./availability.js";
+import { isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
 import type { ServiceCatalog } from "./catalog.js";
 import { systemNotes } from "./replies.js";
@@ -19,6 +19,11 @@ export type BookResult =
   | { kind: "booked"; appointment: AppointmentRow }
   | { kind: "slot_taken" }
   | { kind: "already_booked"; appointment: AppointmentRow }
+  | { kind: "calendar_unavailable" };
+
+export type CancelResult =
+  | { kind: "cancelled"; appointment: AppointmentRow }
+  | { kind: "not_found" }
   | { kind: "calendar_unavailable" };
 
 interface SyncDeps {
@@ -78,8 +83,9 @@ interface Deps {
 }
 
 /**
- * Cria horários na agenda (specs/006 research.md R2). Um motor só, para o assistente e para o painel: mesma trava, mesma
- * regra de um horário futuro por telefone, mesma conferência da ocupação logo antes de criar o evento (FR-014, FR-015).
+ * Cria e cancela horários na agenda (specs/006 research.md R2). Um motor só, para o assistente e para o painel: mesma
+ * trava, mesma regra de um horário futuro por telefone, mesma conferência da ocupação logo antes de criar o evento
+ * (FR-014, FR-015).
  */
 export function createBooking({
   calendar,
@@ -116,6 +122,7 @@ export function createBooking({
       start,
       origin,
       conversationId,
+      minutes: askedMinutes,
     }: {
       phone: string;
       name: string;
@@ -124,6 +131,8 @@ export function createBooking({
       origin: "assistant" | "panel";
       /** Conversa do telefone, se houver: recebe o registro no histórico */
       conversationId: string | null;
+      /** Duração escolhida pela equipe; o assistente sempre usa a do tratamento */
+      minutes?: number;
     }): Promise<BookResult> {
       const conn = await connection.getForUse();
       if (!conn || conn.status !== "connected") return { kind: "calendar_unavailable" };
@@ -135,10 +144,12 @@ export function createBooking({
         const existing = await syncAppointment(syncDeps, await store.findFutureBooked(phone, now), { now, timeZone, conversationId });
         if (existing) return { kind: "already_booked", appointment: existing };
 
-        const minutes = catalog.minutes(service) ?? rules.slotMinutes;
+        const minutes = (origin === "panel" ? askedMinutes : undefined) ?? catalog.minutes(service) ?? rules.slotMinutes;
         const end = new Date(start.getTime() + minutes * 60_000);
         const busy = await calendar.busy(start, end);
-        if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes })) return { kind: "slot_taken" };
+        // A equipe marca além da janela do paciente (até um ano); o assistente segue a janela de maxDaysAhead
+        const maxDaysAhead = origin === "panel" ? STAFF_MAX_DAYS_AHEAD : undefined;
+        if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes, maxDaysAhead })) return { kind: "slot_taken" };
 
         const id = randomUUID();
         const title = catalog.label(service);
@@ -176,6 +187,43 @@ export function createBooking({
           await inbox.recordSystem(conversationId, note(start, minutes, timeZone, title));
         }
         return { kind: "booked", appointment };
+      });
+    },
+
+    /**
+     * Cancela um horário futuro marcado: apaga o evento, grava quem cancelou e, com conversa, registra no histórico. O
+     * Google vem primeiro (FR-018a): quem já apagou o evento lá cancelou, e então o horário vira não encontrado. Sem
+     * mensagem ao cliente; o prazo de aviso do paciente fica no fluxo do WhatsApp, não aqui.
+     */
+    async cancelAppointment({
+      id,
+      by,
+      conversationId,
+    }: {
+      id: string;
+      by: "customer" | "staff";
+      /** Conversa do telefone, se houver: recebe o registro no histórico */
+      conversationId: string | null;
+    }): Promise<CancelResult> {
+      const conn = await connection.getForUse();
+      if (!conn || conn.status !== "connected") return { kind: "calendar_unavailable" };
+
+      return withCalendarLock(async () => {
+        const now = clock();
+        const appt = await syncAppointment(syncDeps, await store.findAppointment(id), {
+          now,
+          timeZone: conn.timeZone,
+          conversationId,
+        });
+        if (!appt) return { kind: "not_found" };
+
+        await calendar.deleteEvent(appt.googleEventId);
+        await store.markCancelled(appt.id, by);
+        if (conversationId) {
+          const note = by === "staff" ? systemNotes.cancelledByStaff : systemNotes.cancelledByCustomer;
+          await inbox.recordSystem(conversationId, note(appt.startsAt, conn.timeZone));
+        }
+        return { kind: "cancelled", appointment: { ...appt, status: "cancelled", cancelledBy: by } };
       });
     },
 

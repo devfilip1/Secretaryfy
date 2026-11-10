@@ -2,11 +2,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Controller, FormProvider, useForm, useFormContext } from "react-hook-form";
-import { saveClinicSettings, type ClinicSettings } from "../../api";
-import { clinicSettingsKeys, clinicSettingsQuery } from "../../queries";
+import { publishKnowledge, saveClinicSettings, type ClinicSettings } from "../../api";
+import { clinicSettingsKeys, clinicSettingsQuery, knowledgeKeys } from "../../queries";
 import { clinicSettingsDefaults, clinicSettingsSchema, type ClinicSettingsFormValues } from "./clinic-settings-form";
 import { FormSection, TextField } from "./FormParts";
 import { LanguageChangeDialog } from "./LanguageChangeDialog";
+import { publishErrorMessage } from "./PublishBar";
 import { reasonLines } from "./server-reason";
 import { Muted } from "../Muted";
 import { Notice } from "../Notice";
@@ -61,6 +62,40 @@ function LanguageField() {
   );
 }
 
+/**
+ * Depois de trocar a língua: os textos automáticos da brochura mudaram e só a publicação leva
+ * o texto novo ao assistente. Usa o mesmo POST e a mesma chave de status da aba Conhecimento.
+ */
+function PublishLanguageOffer({ language }: { language: ClinicSettings["language"] }) {
+  const queryClient = useQueryClient();
+  const publish = useMutation({
+    mutationFn: publishKnowledge,
+    onSuccess: (next) => queryClient.setQueryData(knowledgeKeys.status(), next),
+  });
+  const languageLabel = LANGUAGES.find((option) => option.value === language)?.label ?? language;
+  return (
+    <>
+      {publish.isSuccess ? (
+        <p>Published. The assistant answers from the new text.</p>
+      ) : (
+        <>
+          <p>
+            The brochure&apos;s automatic texts are now in {languageLabel}. Publish so the assistant&apos;s brochure uses them.
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={() => publish.mutate()} disabled={publish.isPending}>
+              {publish.isPending ? "Publishing…" : "Publish now"}
+            </Button>
+          </div>
+        </>
+      )}
+      {publish.isError && (
+        <Notice role="alert">{publishErrorMessage(publish.error)}</Notice>
+      )}
+    </>
+  );
+}
+
 function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
   const queryClient = useQueryClient();
   const form = useForm<ClinicSettingsFormValues>({
@@ -74,13 +109,24 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
   // Valores com língua trocada, esperando a confirmação do diálogo antes do PUT.
   const [pendingLanguageSave, setPendingLanguageSave] = useState<ClinicSettingsFormValues | null>(null);
   const pendingLanguageLabel = LANGUAGES.find((language) => language.value === pendingLanguageSave?.language)?.label;
+  // Língua nova do último salvamento que a trocou (null quando não trocou): oferece publicar a brochura.
+  const [changedLanguage, setChangedLanguage] = useState<ClinicSettings["language"] | null>(null);
+
+  // A língua de antes é a das configurações carregadas quando o formulário foi enviado.
+  function saveInput(input: ClinicSettingsFormValues) {
+    const previousLanguage = settings.language;
+    setChangedLanguage(null);
+    save.mutate(input, {
+      onSuccess: () => setChangedLanguage(input.language !== previousLanguage ? input.language : null),
+    });
+  }
 
   return (
     <FormProvider {...form}>
       <form
         className="grid gap-6"
         onSubmit={form.handleSubmit((input) => {
-          if (input.language === settings.language) save.mutate(input);
+          if (input.language === settings.language) saveInput(input);
           else setPendingLanguageSave(input);
         })}
       >
@@ -102,7 +148,8 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
         </FormSection>
         {save.isSuccess && (
           <Notice tone="ok" role="status">
-            Saved. The assistant uses the new settings from the next message.
+            <p>Saved. The assistant uses the new settings from the next message.</p>
+            {changedLanguage && <PublishLanguageOffer language={changedLanguage} />}
           </Notice>
         )}
         {save.isError && (
@@ -123,7 +170,7 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
           languageLabel={pendingLanguageLabel}
           onCancel={() => setPendingLanguageSave(null)}
           onConfirm={() => {
-            save.mutate(pendingLanguageSave);
+            saveInput(pendingLanguageSave);
             setPendingLanguageSave(null);
           }}
         />

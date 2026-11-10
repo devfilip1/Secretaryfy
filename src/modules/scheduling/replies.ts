@@ -1,6 +1,7 @@
 import { formatDayTime } from "./dates.js";
 import type { ClinicContext } from "../clinic/context.js";
 import type { ServiceCatalog } from "./catalog.js";
+import type { DayPeriod } from "./interpret.js";
 import { createEnglishReplies } from "./replies.en.js";
 import { createPortugueseReplies } from "./replies.pt.js";
 
@@ -11,6 +12,8 @@ import { createPortugueseReplies } from "./replies.pt.js";
 export interface Replies {
   offerDays(days: string[], tz: string, intro?: string): string;
   offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean): string;
+  /** O cliente pediu uma parte do dia sem horário livre nela, mas o dia tem outros: oferece esses (`slots`) */
+  periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean): string;
   dayFull(date: string, closest: string[], tz: string): string;
   /** O dia pedido é um dia em que a clínica não atende (regras semanais do painel) */
   /** A clínica não atende nesses dias da semana (ISO, 1 = segunda): todos de uma vez, para "fim de semana?" também ter resposta */
@@ -103,6 +106,7 @@ export const systemNotes = {
   rescheduled: (from: Date, to: Date, tz: string) =>
     `Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
   cancelledByCustomer: (start: Date, tz: string) => `Cancelled by the customer: ${formatDayTime(start, tz)}`,
+  cancelledByStaff: (start: Date, tz: string) => `Cancelled from the panel: ${formatDayTime(start, tz)}`,
   cancelledInCalendar: (start: Date, tz: string) => `Cancelled in the calendar: ${formatDayTime(start, tz)}`,
   needsStaff: (urgent: boolean) =>
     urgent

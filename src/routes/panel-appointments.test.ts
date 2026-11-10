@@ -210,6 +210,63 @@ test("GET /api/booking/days e /slots: os mesmos horários livres do assistente",
   assert.equal((await app.inject({ url: "/api/booking/days" })).statusCode, 409);
 });
 
+test("GET /api/booking/days: chips da janela do paciente, com minDate e maxDate da equipe (um ano)", async () => {
+  const body = (await app.inject({ url: "/api/booking/days" })).json();
+  assert.equal(body.minDate, "2026-10-20");
+  assert.equal(body.maxDate, "2027-10-20");
+  assert.ok(body.days.length > 0);
+  assert.ok(body.days.every((d: string) => d <= "2026-11-19"));
+});
+
+test("GET /api/booking/days: status cobre a janela da equipe, além dos 30 dias do paciente", async () => {
+  const { status } = (await app.inject({ url: "/api/booking/days" })).json();
+  assert.equal(status["2026-10-21"], "free");
+  // Dia 100, fora da janela do paciente; e o último dia da equipe
+  assert.equal(status["2027-01-28"], "free");
+  assert.equal(status["2027-10-20"], "free");
+  assert.equal(status["2027-10-21"], undefined);
+  // 25/10/2026 é domingo: fechado, fora do mapa
+  assert.equal("2026-10-25" in status, false);
+});
+
+test("GET /api/booking/days?service: a duração do tratamento muda o estado do dia", async () => {
+  // Gaps de 30 min: cabe um tratamento de 30, não um de 60
+  for (let h = 9; h < 18; h++) {
+    const hh = String(h).padStart(2, "0");
+    const next = String(h + 1).padStart(2, "0");
+    fake.block(at(`2026-10-21T${hh}:30`), at(`2026-10-21T${next}:00`));
+  }
+  const timed = await panelWith(
+    createCatalog([
+      { name: "Dental Cleaning", label: "Dental Cleaning", minutes: 30 },
+      { name: "Dental Implants", label: "Dental Implants", minutes: 60 },
+    ]),
+  );
+  const short = (await timed.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Cleaning")}` })).json();
+  const long = (await timed.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Implants")}` })).json();
+  const none = (await app.inject({ url: "/api/booking/days" })).json();
+  await timed.close();
+  assert.equal(short.status["2026-10-21"], "free");
+  assert.equal(long.status["2026-10-21"], "full");
+  // Sem service, vale a duração padrão (60 min) do catálogo de testes
+  assert.equal(none.status["2026-10-21"], "full");
+});
+
+test("GET /api/booking/days: a forma de days não muda com o service", async () => {
+  const plain = (await app.inject({ url: "/api/booking/days" })).json();
+  const withService = (await app.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Cleaning")}` })).json();
+  assert.deepEqual(Object.keys(plain).sort(), ["days", "maxDate", "minDate", "status", "timeZone"]);
+  assert.deepEqual(Object.keys(withService).sort(), ["days", "maxDate", "minDate", "status", "timeZone"]);
+  assert.deepEqual(withService.days, plain.days);
+});
+
+test("GET /api/booking/slots: a equipe vê os horários até maxDate; antes de hoje e depois dele, lista vazia", async () => {
+  const later = (await app.inject({ url: "/api/booking/slots?date=2027-01-28" })).json();
+  assert.equal(later.slots[0], at("2027-01-28T09:00").toISOString());
+  assert.deepEqual((await app.inject({ url: "/api/booking/slots?date=2027-10-21" })).json().slots, []);
+  assert.deepEqual((await app.inject({ url: "/api/booking/slots?date=2026-10-19" })).json().slots, []);
+});
+
 test("GET /api/booking/lookup: telefone normalizado, nome conhecido e horário futuro", async () => {
   const conv = await conversation();
   await repo.setCustomerName(conv.id, "Maria");
@@ -270,4 +327,112 @@ test("confirmar horário inexistente, passado ou cancelado: 404", async () => {
   const { appointment } = (await book(VALID)).json();
   now = at("2026-10-23T10:00");
   assert.equal((await app.inject({ method: "POST", url: `/api/appointments/${appointment.id}/confirm` })).statusCode, 404);
+});
+
+// --- Duração escolhida pela equipe, inícios com a duração máxima e cancelamento pela equipe ---
+
+const cancel = (id: string) => app.inject({ method: "POST", url: `/api/appointments/${id}/cancel` });
+const startsOn = (date: string) => app.inject({ url: `/api/booking/starts?date=${date}` });
+
+test("GET /api/appointments: endsAt e minutes, o tempo que o horário bloqueia de verdade", async () => {
+  await book(VALID);
+  await book({ ...VALID, phone: "71 98888-7777", name: "João", start: at("2026-10-21T09:00").toISOString(), minutes: 20 });
+  const body = (await app.inject({ url: "/api/appointments" })).json();
+  assert.deepEqual(
+    body.appointments.map((a: { customerName: string; startsAt: string; endsAt: string; minutes: number }) => [a.customerName, a.startsAt, a.endsAt, a.minutes]),
+    [
+      ["João", at("2026-10-21T09:00").toISOString(), at("2026-10-21T09:20").toISOString(), 20],
+      ["Maria Souza", at("2026-10-22T10:00").toISOString(), at("2026-10-22T11:00").toISOString(), 60],
+    ],
+  );
+});
+
+test("GET /api/booking/slots: minutes é a duração usada, a do tratamento ou a padrão", async () => {
+  const short = await panelWith(createCatalog([{ name: "limpeza-dental", label: "Limpeza dental", minutes: 30 }]));
+  const withService = (await short.inject({ url: "/api/booking/slots?date=2026-10-22&service=limpeza-dental" })).json();
+  assert.equal(withService.minutes, 30);
+  const plain = (await app.inject({ url: "/api/booking/slots?date=2026-10-22" })).json();
+  assert.deepEqual([plain.date, plain.minutes], ["2026-10-22", 60]);
+  assert.equal(plain.slots.includes(at("2026-10-22T10:00").toISOString()), true);
+});
+
+test("GET /api/booking/starts: inícios livres com a duração máxima de cada um", async () => {
+  fake.block(at("2026-10-21T11:00"), at("2026-10-21T12:00"));
+  const body = (await startsOn("2026-10-21")).json();
+  assert.equal(body.date, "2026-10-21");
+  const maxOf = (local: string) => body.starts.find((s: { start: string }) => s.start === at(local).toISOString())?.maxMinutes ?? null;
+  assert.equal(maxOf("2026-10-21T09:00"), 120); // até o 11:00 ocupado
+  assert.equal(maxOf("2026-10-21T10:00"), 60);
+  assert.equal(maxOf("2026-10-21T11:00"), null); // ocupado
+  assert.equal(maxOf("2026-10-21T12:00"), 360); // até o fechamento das 18:00
+  assert.deepEqual(Object.keys(body.starts[0]), ["start", "maxMinutes"]);
+  // Dia com a agenda livre: o teto de 480 min
+  assert.equal((await startsOn("2026-10-22")).json().starts.find((s: { start: string }) => s.start === at("2026-10-22T09:00").toISOString()).maxMinutes, 480);
+  // Antes de hoje, e depois da janela da equipe, não há inícios
+  assert.deepEqual((await startsOn("2026-10-19")).json().starts, []);
+  assert.deepEqual((await startsOn("2027-10-21")).json().starts, []);
+});
+
+test("GET /api/booking/starts: data inválida, 422; agenda desconectada, 409", async () => {
+  const bad = await startsOn("quinta");
+  assert.equal(bad.statusCode, 422);
+  assert.equal(bad.json().error, "invalid_date");
+  conn = null;
+  const off = await startsOn("2026-10-21");
+  assert.equal(off.statusCode, 409);
+  assert.equal(off.json().error, "calendar_disconnected");
+});
+
+test("POST /api/appointments com minutes: a duração vale; fora de 5 a 480 ou sem múltiplo de 5, 422", async () => {
+  const res = await book({ ...VALID, minutes: 20 });
+  assert.equal(res.statusCode, 201);
+  assert.deepEqual([res.json().appointment.minutes, res.json().appointment.endsAt], [20, at("2026-10-22T10:20").toISOString()]);
+  assert.equal([...fake.events.values()][0].end.getTime(), at("2026-10-22T10:20").getTime());
+
+  for (const minutes of [0, 3, 22, 485, "20", null]) {
+    const bad = await book({ ...VALID, phone: "71 97777-6666", minutes });
+    assert.equal(bad.statusCode, 422, `minutes=${JSON.stringify(minutes)}`);
+    assert.equal(bad.json().error, "invalid_body");
+  }
+});
+
+test("POST com minutes além da folga até a próxima ocupação: 409 slot_taken, com os horários dessa duração", async () => {
+  fake.block(at("2026-10-22T10:30"), at("2026-10-22T11:00"));
+  const res = await book({ ...VALID, minutes: 45 });
+  assert.equal(res.statusCode, 409);
+  const body = res.json();
+  assert.deepEqual([body.error, body.date], ["slot_taken", "2026-10-22"]);
+  assert.equal(body.slots.includes(at("2026-10-22T10:00").toISOString()), false);
+  assert.equal(fake.events.size, 0);
+});
+
+test("POST /api/appointments/:id/cancel: 200, o horário sai da lista, a aba é avisada e o cliente não recebe nada", async () => {
+  const { appointment } = (await book(VALID)).json();
+  events = [];
+  const res = await cancel(appointment.id);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), { ok: true });
+  assert.equal(fake.events.size, 0);
+  assert.ok(events.some((e) => e.type === "appointments.updated"));
+  assert.deepEqual((await app.inject({ url: "/api/appointments" })).json().appointments, []);
+  assert.deepEqual(sent, []);
+});
+
+test("POST cancel: 404 para inexistente, não uuid, já cancelado e já passado; 409 com a agenda desconectada", async () => {
+  assert.equal((await cancel("nao-e-uuid")).statusCode, 404);
+  assert.equal((await cancel("00000000-0000-4000-8000-000000000000")).json().error, "not_found");
+
+  const passed = (await book(VALID)).json().appointment;
+  now = at("2026-10-22T10:30");
+  assert.equal((await cancel(passed.id)).json().error, "not_found");
+  now = NOW;
+
+  assert.equal((await cancel(passed.id)).statusCode, 200);
+  assert.equal((await cancel(passed.id)).statusCode, 404);
+
+  const kept = (await book({ ...VALID, phone: "71 98888-7777", name: "João" })).json().appointment;
+  conn = null;
+  const off = await cancel(kept.id);
+  assert.equal(off.statusCode, 409);
+  assert.equal(off.json().error, "calendar_disconnected");
 });

@@ -7,20 +7,20 @@ import type { IncomingMessage } from "../whatsapp/evolution.js";
 import { splitReply, type Reply } from "../whatsapp/handle-message.js";
 import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
-import type { Intent, Interpreter } from "./interpret.js";
+import type { Interpreter } from "./interpret.js";
+import { startsScheduling } from "./intents.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
+import { applyPick, applyWhen, needsPick, wantsWhen } from "./understanding/resolve.js";
 
-/** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
-const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedTime">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -200,22 +200,22 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       if (interpretation.intent === "give_name" && !session) return { text: replies.nameReceived(name) };
     }
 
-    const scheduling = session ? interpretation.intent !== "question" : STARTERS.includes(interpretation.intent);
+    const scheduling = session ? interpretation.intent !== "question" : startsScheduling(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
     // Sem tratamento na interpretação nem na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra);
     // a resposta só vale se a citação do cliente combina com o tratamento (ver mentionedService)
     const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
-    // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
-    const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
-    const time = interpretation.time ?? (wantsTime ? await interpreter.mentionedTime?.({ text, log }) ?? null : null);
-    // Com os horários na tela, um horário citado é uma escolha, mesmo que o modelo tenha lido "mais" ou "não entendi"
-    const toChoice = time && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
-    const timed = time ? { ...interpretation, time, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
+    // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
+    const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
+    const timed = applyWhen(interpretation, when, session?.step);
+    const count = session?.options?.length ?? 0;
+    const pick = needsPick(timed, count) ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
+    const chosen = applyPick(timed, pick);
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation: timed, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
+    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura

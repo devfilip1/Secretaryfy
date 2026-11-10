@@ -12,6 +12,11 @@ export class EvolutionError extends Error {
   }
 }
 
+/** A Evolution API responde 404 quando a instância não existe: para a aplicação, isso é desconectado. */
+function isMissingInstance(err: unknown): boolean {
+  return err instanceof EvolutionError && err.status === 404;
+}
+
 export class AlreadyConnected extends Error {
   constructor() {
     super("o WhatsApp já está conectado");
@@ -94,12 +99,30 @@ export function createInstanceManager({
 
   const instance = encodeURIComponent(evolution.instance);
 
+  /** Lê o estado na Evolution API; instância inexistente (404) lança EvolutionError com status 404. */
+  async function readState(): Promise<ConnectionJson> {
+    const res = await call<{ instance?: { state?: string } }>("GET", `/instance/connectionState/${instance}`);
+    const raw = res.instance?.state;
+    const current = raw === "open" || raw === "connecting" ? raw : "close";
+    let number: string | null = null;
+    if (current === "open") {
+      const list = await call<Array<{ ownerJid?: string; owner?: string }>>(
+        "GET",
+        `/instance/fetchInstances?instanceName=${instance}`,
+      );
+      const jid = list[0]?.ownerJid ?? list[0]?.owner;
+      number = jid ? jid.split("@")[0].split(":")[0] : null;
+    }
+    update({ state: current, number });
+    return manager.getState();
+  }
+
   async function requestQr(): Promise<ConnectionJson> {
     try {
-      const current = await manager.refresh();
+      const current = await readState();
       if (current.state === "open") throw new AlreadyConnected();
     } catch (err) {
-      if (!(err instanceof EvolutionError && err.status === 404)) throw err;
+      if (!isMissingInstance(err)) throw err;
       await call("POST", "/instance/create", {
         instanceName: evolution.instance,
         integration: "WHATSAPP-BAILEYS",
@@ -135,22 +158,15 @@ export function createInstanceManager({
       else update({ state: event.state, number: event.state === "open" ? (event.number ?? state.number) : null });
     },
 
-    /** Lê o estado atual na Evolution API. */
+    /** Lê o estado atual na Evolution API; instância inexistente (404) é desconectado. */
     async refresh(): Promise<ConnectionJson> {
-      const res = await call<{ instance?: { state?: string } }>("GET", `/instance/connectionState/${instance}`);
-      const raw = res.instance?.state;
-      const current = raw === "open" || raw === "connecting" ? raw : "close";
-      let number: string | null = null;
-      if (current === "open") {
-        const list = await call<Array<{ ownerJid?: string; owner?: string }>>(
-          "GET",
-          `/instance/fetchInstances?instanceName=${instance}`,
-        );
-        const jid = list[0]?.ownerJid ?? list[0]?.owner;
-        number = jid ? jid.split("@")[0].split(":")[0] : null;
+      try {
+        return await readState();
+      } catch (err) {
+        if (!isMissingInstance(err)) throw err;
+        update({ state: "close", number: null, qr: null });
+        return manager.getState();
       }
-      update({ state: current, number });
-      return manager.getState();
     },
 
     /** Garante a instância e o webhook e pede um QR code novo. Pedidos simultâneos compartilham a mesma chamada. */
@@ -168,7 +184,12 @@ export function createInstanceManager({
     },
 
     async logout(): Promise<void> {
-      await call("DELETE", `/instance/logout/${instance}`);
+      try {
+        await call("DELETE", `/instance/logout/${instance}`);
+      } catch (err) {
+        // Instância já inexistente: o efeito desejado (desconectado) já está valendo
+        if (!isMissingInstance(err)) throw err;
+      }
       update({ state: "close", number: null, qr: null });
     },
 

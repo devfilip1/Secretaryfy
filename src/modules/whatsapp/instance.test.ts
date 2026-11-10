@@ -69,6 +69,19 @@ test("refresh lê o estado e o número, com a apikey", async () => {
   assert.equal(m.isKnown(), true);
 });
 
+test("refresh com a instância inexistente (404) fica desconectado, sem erro", async () => {
+  const { m } = manager({
+    [STATE]: () => ({ status: 404, body: { message: 'The "secretaryfy" instance does not exist' } }),
+  });
+  m.applyEvent({ kind: "connection", state: "open", number: "5511988887777" });
+  assert.deepEqual(await m.refresh(), { state: "close", number: null, qr: null });
+});
+
+test("refresh com erro 500 continua lançando", async () => {
+  const { m } = manager({ [STATE]: () => ({ status: 500, body: { error: "boom" } }) });
+  await assert.rejects(m.refresh(), (err) => err instanceof EvolutionError && err.status === 500);
+});
+
 test("prepareQr cria a instância se não existir, configura o webhook e pede o QR code", async () => {
   const { m, evo } = manager({
     "POST /instance/create": () => ({ status: 201 }),
@@ -138,6 +151,18 @@ test("logout desconecta e limpa o estado", async () => {
   await m.logout();
   assert.equal(evo.calls.at(-1)?.method, "DELETE");
   assert.deepEqual(m.getState(), { state: "close", number: null, qr: null });
+});
+
+test("logout com a instância inexistente (404) fica desconectado, sem erro", async () => {
+  const { m } = manager({ "DELETE /instance/logout/secretaryfy": () => ({ status: 404 }) });
+  m.applyEvent({ kind: "connection", state: "open", number: "5511988887777" });
+  await m.logout();
+  assert.deepEqual(m.getState(), { state: "close", number: null, qr: null });
+});
+
+test("logout com erro 500 continua lançando", async () => {
+  const { m } = manager({ "DELETE /instance/logout/secretaryfy": () => ({ status: 500, body: { error: "boom" } }) });
+  await assert.rejects(m.logout(), (err) => err instanceof EvolutionError && err.status === 500);
 });
 
 test("polling a cada 10 s, só uma vez, e para quando pedido", () => {

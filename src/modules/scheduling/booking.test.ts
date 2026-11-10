@@ -37,7 +37,7 @@ before(async () => {
 after(() => testDb.close());
 
 /** O motor de marcação com este catálogo (os títulos vêm dele) */
-const engine = (catalog: ServiceCatalog) =>
+const engine = (catalog: ServiceCatalog, clock: Date = NOW) =>
   createBooking({
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
@@ -46,7 +46,7 @@ const engine = (catalog: ServiceCatalog) =>
     inbox: createInboxService({ repo, publish: () => {}, now: () => NOW.getTime() }),
     customers,
     log: { error: () => {} },
-    now: () => NOW,
+    now: () => clock,
     catalog,
   });
 
@@ -132,8 +132,116 @@ test("um nome que não está no catálogo vai para o evento como está", async (
   assert.equal([...fake.events.values()][0].summary, "Maria — Teeth Whitening");
 });
 
+test("a equipe marca até um ano à frente; o assistente segue a janela de 30 dias, e nem a equipe passa de um ano", async () => {
+  // 2027-01-28 é 100 dias depois de hoje; 2027-10-20 é o dia 365; 2027-10-21 é o dia 366
+  assert.equal((await slot("2027-01-28T10:00")).kind, "booked");
+  assert.equal((await slot("2027-01-28T11:00", { phone: "5571988887777", origin: "assistant" })).kind, "slot_taken");
+  assert.equal((await slot("2027-10-20T10:00", { phone: "5571977776666" })).kind, "booked");
+  assert.equal((await slot("2027-10-21T10:00", { phone: "5571966665555" })).kind, "slot_taken");
+  assert.equal(fake.events.size, 2);
+});
+
 test("menos de 24 h de antecedência: lembrete não necessário", async () => {
   await slot("2026-10-21T10:00");
   const [appt] = await testDb.db.select().from(appointments);
   assert.equal(appt.reminderStatus, "not_needed");
+});
+
+// --- Duração escolhida pela equipe (painel) ---
+
+test("painel com minutes: a duração vale para o evento, o fim do agendamento e a nota", async () => {
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const result = await slot("2026-10-22T10:00", { minutes: 20, conversationId: conv.id });
+  assert.equal(result.kind, "booked");
+  const [event] = [...fake.events.values()];
+  assert.equal(event.end.getTime(), at("2026-10-22T10:20").getTime());
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.equal(appt.endsAt.getTime(), at("2026-10-22T10:20").getTime());
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
+  assert.deepEqual(notes, ["Booked from the panel: Thu, Oct 22 at 10:00 AM (20 min), Teeth Whitening"]);
+});
+
+test("painel com minutes além da folga até a próxima ocupação: slot_taken; dentro dela: booked", async () => {
+  fake.block(at("2026-10-22T10:30"), at("2026-10-22T11:00"));
+  assert.equal((await slot("2026-10-22T10:00", { minutes: 45 })).kind, "slot_taken");
+  assert.equal(fake.events.size, 0);
+  assert.equal((await slot("2026-10-22T10:00", { minutes: 30 })).kind, "booked");
+});
+
+test("o assistente ignora minutes: sempre a duração do tratamento", async () => {
+  const result = await slot("2026-10-22T10:00", { origin: "assistant", minutes: 20 });
+  assert.equal(result.kind, "booked");
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.equal(appt.endsAt.getTime(), at("2026-10-22T11:00").getTime());
+});
+
+// --- Cancelar (cancelAppointment) ---
+
+test("cancelamento: apaga o evento e grava quem cancelou; com conversa, registra a nota certa", async () => {
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const booked = await slot("2026-10-22T10:00", { conversationId: conv.id });
+  assert.equal(booked.kind, "booked");
+  const id = booked.kind === "booked" ? booked.appointment.id : "";
+
+  const result = await booking.cancelAppointment({ id, by: "staff", conversationId: conv.id });
+  assert.equal(result.kind, "cancelled");
+  assert.equal(fake.events.size, 0);
+  assert.equal(fake.calls.deleteEvent, 1);
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.deepEqual([appt.status, appt.cancelledBy], ["cancelled", "staff"]);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
+  assert.deepEqual(notes.at(-1), "Cancelled from the panel: Thu, Oct 22 at 10:00 AM");
+});
+
+test("cancelamento pelo cliente: a nota é a de cliente; sem conversa, nenhuma nota", async () => {
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const booked = await slot("2026-10-22T10:00", { conversationId: conv.id });
+  const id = booked.kind === "booked" ? booked.appointment.id : "";
+  assert.equal((await booking.cancelAppointment({ id, by: "customer", conversationId: conv.id })).kind, "cancelled");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
+  assert.equal(notes.at(-1), "Cancelled by the customer: Thu, Oct 22 at 10:00 AM");
+
+  const other = await slot("2026-10-23T10:00", { phone: "5571988887777" });
+  const otherId = other.kind === "booked" ? other.appointment.id : "";
+  const before = (await testDb.db.select().from(messages)).length;
+  assert.equal((await booking.cancelAppointment({ id: otherId, by: "staff", conversationId: null })).kind, "cancelled");
+  assert.equal((await testDb.db.select().from(messages)).length, before);
+});
+
+test("cancelamento: não encontrado para horário já passado, já cancelado, inexistente ou que não é mais agendado", async () => {
+  const booked = await slot("2026-10-22T10:00");
+  const id = booked.kind === "booked" ? booked.appointment.id : "";
+  // Depois do horário: o motor vê o horário como passado
+  const late = engine(testCatalog, at("2026-10-22T10:30"));
+  assert.deepEqual(await late.cancelAppointment({ id, by: "staff", conversationId: null }), { kind: "not_found" });
+  assert.equal(fake.events.size, 1);
+
+  assert.equal((await booking.cancelAppointment({ id, by: "staff", conversationId: null })).kind, "cancelled");
+  assert.deepEqual(await booking.cancelAppointment({ id, by: "staff", conversationId: null }), { kind: "not_found" });
+  const unknown = "00000000-0000-4000-8000-000000000000";
+  assert.deepEqual(await booking.cancelAppointment({ id: unknown, by: "staff", conversationId: null }), { kind: "not_found" });
+});
+
+test("cancelamento com a agenda desconectada: calendar_unavailable, nada apagado", async () => {
+  const booked = await slot("2026-10-22T10:00");
+  const id = booked.kind === "booked" ? booked.appointment.id : "";
+  conn = { ...conn!, status: "needs_reauth" };
+  assert.deepEqual(await booking.cancelAppointment({ id, by: "staff", conversationId: null }), { kind: "calendar_unavailable" });
+  conn = null;
+  assert.deepEqual(await booking.cancelAppointment({ id, by: "staff", conversationId: null }), { kind: "calendar_unavailable" });
+  assert.equal(fake.calls.deleteEvent, 0);
+  assert.equal(fake.events.size, 1);
+});
+
+test("evento apagado no Google antes do cancelamento: not_found, o horário fica cancelado pelo calendário e registra a nota", async () => {
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const booked = await slot("2026-10-22T10:00", { conversationId: conv.id });
+  const id = booked.kind === "booked" ? booked.appointment.id : "";
+  fake.events.clear();
+
+  assert.deepEqual(await booking.cancelAppointment({ id, by: "staff", conversationId: conv.id }), { kind: "not_found" });
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.deepEqual([appt.status, appt.cancelledBy], ["cancelled", "calendar"]);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
+  assert.equal(notes.at(-1), "Cancelled in the calendar: Thu, Oct 22 at 10:00 AM");
 });

@@ -29,6 +29,16 @@ test("confirmação mostra dia, hora, duração, nome e serviço; booked só com
   assert.match(replies.tooLateToChange(90), /less than 90 minutes/);
 });
 
+test("parte do dia sem horário livre: diz a parte e oferece os outros horários do dia", () => {
+  const slots = [new Date("2026-10-21T12:00:00Z"), new Date("2026-10-21T13:00:00Z")];
+  assert.equal(
+    replies.periodEmpty("2026-10-21", "morning", slots, tz, false),
+    "I have nothing free in the morning on Wednesday, October 21, but these are open:\n• 9:00 AM\n• 10:00 AM\nWhich one would you like? I can also check another day if you like.",
+  );
+  assert.match(replies.periodEmpty("2026-10-21", "afternoon", slots, tz, true), /^I have nothing free in the afternoon on /);
+  assert.match(replies.periodEmpty("2026-10-21", "evening", slots, tz, true), /I can show more times or another day if you like\.$/);
+});
+
 test("registros do painel em inglês", () => {
   const start = new Date("2026-10-21T13:00:00Z");
   const later = new Date("2026-10-23T17:00:00Z");

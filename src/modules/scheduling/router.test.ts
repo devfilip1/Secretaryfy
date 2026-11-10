@@ -5,7 +5,7 @@ import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../.
 import type { IncomingMessage } from "../whatsapp/evolution.js";
 import { testReplies as replies, testTexts } from "../../test/clinic.js";
 import type { SchedulingFlow } from "./flow.js";
-import type { Interpretation, InterpretInput, Interpreter } from "./interpret.js";
+import type { DayPeriod, Interpretation, InterpretInput, Interpreter } from "./interpret.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { createSchedulingRouter } from "./router.js";
 import { DEFAULT_RULES } from "./rules.js";
@@ -43,6 +43,10 @@ function setup({
   history,
   service = null,
   mentioned = null,
+  time = null,
+  date = null,
+  when = null,
+  pick = null,
 }: {  intent?: Interpretation["intent"];
   /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
   service?: string | null;
@@ -67,6 +71,14 @@ function setup({
   /** Horário cujo lembrete saiu e espera a resposta (specs/006) */
   reminded?: AppointmentRow | null;
   messagesSinceReminder?: number;
+  /** Horário que o interpretador devolve junto da intenção */
+  time?: string | null;
+  /** Data que o interpretador devolve junto da intenção (o modelo às vezes a inventa) */
+  date?: string | null;
+  /** O que a chamada focada mentionedWhen acha (horário ou parte do dia); o padrão é nada */
+  when?: { time: string | null; period: DayPeriod | null; namesDay?: boolean | null } | null;
+  /** Opção que a chamada focada acha na mensagem (mentionedOption) */
+  pick?: number | null;
   humanize?: (reply: string, customerText: string) => Promise<string>;
   /** A conversa ainda não tem resposta nossa */
   firstMessage?: boolean;
@@ -81,6 +93,7 @@ function setup({
   const handled: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }[] = [];
   const asked: string[] = [];
   const mentionCalls: Parameters<Interpreter["mentionedService"]>[0][] = [];
+  const whenCalls: Parameters<Interpreter["mentionedWhen"]>[0][] = [];
   const histories: unknown[] = [];
   const savedNames: string[] = [];
   const askedAt: Date[] = [];
@@ -93,8 +106,13 @@ function setup({
     interpret: async (input) => {
       inputs.push(input);
       if (unavailable) throw new InterpreterUnavailable("Ollama fora do ar");
-      return { intent: intent!, option: null, date: null, name, urgent, service, source: "model" };
+      return { intent: intent!, option: null, date, name, urgent, service, source: "model", ...(time ? { time } : {}) };
     },
+    mentionedWhen: async (input) => {
+      whenCalls.push(input);
+      return when ?? { time: null, period: null };
+    },
+    mentionedOption: async () => pick,
     mentionedService: async (input) => {
       mentionCalls.push(input);
       return mentioned;
@@ -162,7 +180,7 @@ function setup({
     },
     humanize,
   });
-  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, mentionCalls, savedNames, askedAt, confirmed, notes, flagged, cleared };
+  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, mentionCalls, whenCalls, savedNames, askedAt, confirmed, notes, flagged, cleared };
 }
 
 test("sem etapa, dúvida vai para o folheto", async () => {
@@ -546,4 +564,93 @@ test("só uma parte da resposta do folheto é repetida: a parte repetida fica de
   const r = setup({ intent: "question", assistantSaid: "Convite final.", brochureAnswer: "Custa R$ 10.\n\nConvite final." });
   const out = await r.reply();
   assert.equal(out!.text, "Custa R$ 10.");
+});
+
+test("parte do dia pedida: a chamada focada manda, o horário inventado pelo modelo some e o fluxo recebe a parte do dia", async () => {
+  const r = setup({ intent: "availability", time: "09:00", when: { time: null, period: "morning" }, text: "amanhã de manhã, tem horário?" });
+  await r.reply();
+  assert.equal(r.whenCalls.length, 1);
+  assert.equal(r.handled[0].interpretation.period, "morning");
+  assert.equal(r.handled[0].interpretation.time, null);
+});
+
+test("remarcar: a chamada focada roda para a intenção e a parte do dia que ela acha chega ao fluxo", async () => {
+  const r = setup({ intent: "reschedule", when: { time: null, period: "afternoon", namesDay: true }, text: "Preciso remarcar, pode ser na sexta à tarde?" });
+  await r.reply();
+  assert.equal(r.whenCalls.length, 1);
+  assert.equal(r.handled[0].interpretation.period, "afternoon");
+});
+
+test("horário citado: a chamada focada devolve o horário e o fluxo o recebe, sem parte do dia", async () => {
+  const r = setup({ intent: "availability", when: { time: "15:00", period: null }, text: "amanhã às 15h" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.time, "15:00");
+  assert.equal(r.handled[0].interpretation.period ?? null, null);
+});
+
+test("sem a chamada focada achar nada, o horário do próprio interpretador vale", async () => {
+  const r = setup({ intent: "book", time: "14:00", when: null, text: "quero marcar sexta as 14h" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.time, "14:00");
+});
+
+const SLOTS_ON_SCREEN = { ...SESSION, step: "choose_slot", options: [{ n: 1, kind: "slot", start: "2026-10-21T12:00:00.000Z" }] } as SchedulingSessionRow;
+
+test("com os horários na tela, a parte do dia lida como \"mais\", \"não entendi\" ou \"outro dia\" vira escolha e o fluxo recebe a parte do dia", async () => {
+  for (const intent of ["more", "unclear", "availability", "other_day"] as const) {
+    const r = setup({ intent, session: SLOTS_ON_SCREEN, when: { time: null, period: "evening" }, text: "prefiro à noite" });
+    await r.reply();
+    assert.equal(r.handled[0].interpretation.intent, "choose");
+    assert.equal(r.handled[0].interpretation.period, "evening");
+  }
+});
+
+test("sem os horários na tela, a parte do dia não muda a intenção lida", async () => {
+  const r = setup({ intent: "other_day", session: SESSION, when: { time: null, period: "evening" }, text: "outro dia, à noite" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.intent, "other_day");
+});
+
+test("a data que o modelo deu sem a mensagem citar um dia é chute: some, e o dia da tela vale", async () => {
+  const r = setup({ intent: "choose", session: SLOTS_ON_SCREEN, date: "2026-11-14", when: { time: null, period: "evening", namesDay: false }, text: "e à noite, tem?" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.date, null);
+  assert.equal(r.handled[0].interpretation.period, "evening");
+});
+
+test("a data fica quando a mensagem cita um dia, ou quando a chamada focada não soube dizer", async () => {
+  for (const namesDay of [true, null]) {
+    const r = setup({ intent: "availability", date: "2026-11-12", when: { time: null, period: "morning", namesDay }, text: "então quinta de manhã" });
+    await r.reply();
+    assert.equal(r.handled[0].interpretation.date, "2026-11-12");
+  }
+});
+
+test("com opções na tela e nenhuma lida, a chamada focada acha a posição escolhida", async () => {
+  const r = setup({ intent: "choose", session: SLOTS_ON_SCREEN, pick: 1, date: "2026-10-21", when: { time: null, period: null, namesDay: false }, text: "the first one" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.option, 1);
+  assert.equal(r.handled[0].interpretation.date, null);
+});
+
+test("sem posição achada, a escolha continua sem opção; com horário citado, a chamada focada nem é usada", async () => {
+  const none = setup({ intent: "choose", session: SLOTS_ON_SCREEN, pick: null, text: "hmm" });
+  await none.reply();
+  assert.equal(none.handled[0].interpretation.option, null);
+  const timed = setup({ intent: "choose", session: SLOTS_ON_SCREEN, pick: 2, time: "10:00", text: "pode ser as 10" });
+  await timed.reply();
+  assert.equal(timed.handled[0].interpretation.option, null);
+});
+
+test("a chamada focada que rodou e não achou horário vale mais que o horário inventado pelo modelo principal", async () => {
+  const r = setup({ intent: "availability", time: "10:00", when: { time: null, period: null, namesDay: true }, text: "Do you have anything tomorrow?" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.time ?? null, null);
+});
+
+test("uma escolha lida como \"não entendi\" com a posição na mensagem vira escolha dessa opção", async () => {
+  const r = setup({ intent: "unclear", session: SLOTS_ON_SCREEN, pick: 2, text: "o segundo" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.intent, "choose");
+  assert.equal(r.handled[0].interpretation.option, 2);
 });

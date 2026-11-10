@@ -43,6 +43,7 @@ Booking rules are stored in `scheduling_rules` and edited in the panel (**Calend
 ### BR-SCH-01 · Free times come from the rules and the calendar
 A time is offered only if it falls within that weekday's opening hours, on the time grid (`grid_minutes`, 15 by default) with room for the treatment's appointment length (ADR 0015), after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
 - **Where:** `slotsForDay`, `bookingWindow` in [availability.ts](../src/modules/scheduling/availability.ts)
+- **Booking window:** the patient (WhatsApp assistant) books only within `maxDaysAhead` (30 by default). The clinic staff (panel, "New appointment") can book up to 365 days ahead (`STAFF_MAX_DAYS_AHEAD`), because a patient who phones may ask for a date months away. Everything else (opening hours, minimum notice, busy calendar, appointment length, grid) is the same for both. The panel calendar shows that whole staff window: a green dot for an open day with free times for the chosen treatment, a red dot for an open day that is fully booked, and no dot when the clinic is closed.
 - **Validation of the rules:** at least one open day; start before end; length 15–240 min in multiples of 5; each open day at least one appointment long. `rulesSchema` in [rules.ts](../src/modules/scheduling/rules.ts)
 
 ### BR-SCH-02 · Options are bullets, at most 6 per message
@@ -62,7 +63,7 @@ A phone with a future appointment can't book a second one; the assistant offers 
 - **Where:** `findFutureBooked` in [sessions.ts](../src/modules/scheduling/sessions.ts), used by `bookSlot` in [booking.ts](../src/modules/scheduling/booking.ts)
 
 ### BR-SCH-06 · Cancel and reschedule only until the cancellation notice
-Within `cancelNoticeMinutes` (24 h) of the appointment, the assistant refuses to cancel or move it and tells the patient the deadline.
+Within `cancelNoticeMinutes` (24 h) of the appointment, the assistant refuses to cancel or move it and tells the patient the deadline. This notice binds the patient only: the team can cancel at any time (BR-SCH-18).
 - **Where:** `tooLate` in [flow.ts](../src/modules/scheduling/flow.ts)
 
 ### BR-SCH-07 · Google Calendar is the source of truth
@@ -160,6 +161,11 @@ The reminder goes out only if the patient wrote in the last 24 h. Otherwise, and
 ### BR-REM-03 · The reminder passes the anti-ban gate
 It's an ordinary assistant message: all [anti-ban rules](#anti-ban-protection) apply. A patient who opted out never gets it (status `not_sent`); a temporary block (paused, limit) makes it wait and retry. It also waits while the patient has an unanswered message or a booking dialogue is open. If 2 h before the appointment it still hasn't gone out, it's marked `not_sent` with the last reason.
 - **Where:** `assistantBlockReason` in [gate.ts](../src/modules/antiban/gate.ts); [scheduler.ts](../src/modules/reminders/scheduler.ts)
+
+### BR-SCH-18 · The team sets the length and cancels at any time
+The panel can book a length other than the treatment's: `minutes`, an integer from 5 to 480 in steps of 5. The longest it can be is the time from the start to the **start of the next busy interval** on the calendar (an appointment or any other event) or to the closing time of that day, whichever comes first, and never more than 480 minutes. `GET /api/booking/starts` gives that maximum for each start, rounded down to 5. The assistant never changes the length: it always uses the treatment's.
+
+The team can cancel an appointment at any time, with no notice limit (BR-SCH-06 binds the patient only) and without messaging the customer. The row is marked `cancelled_by = staff`, and the conversation history gets "Cancelled from the panel: …". The same cancel function serves the assistant (`cancelled_by = customer`) and the panel, in `booking.ts`.
 
 ### BR-REM-04 · YES confirms, NO offers to reschedule
 Right after a reminder (no booking dialogue open, at most one patient message since), YES or phrases like "see you then" confirm the appointment; NO starts the reschedule offer. Staff can also confirm from the panel.

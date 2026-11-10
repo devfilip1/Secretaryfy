@@ -3,7 +3,8 @@
 import type { SessionOption } from "../src/db/schema.js";
 import { createClinicContext } from "../src/modules/clinic/context.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
-import { createInterpreter, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
+import { createInterpreter, type DayPeriod, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
+import { applyPick, applyWhen, needsPick, wantsWhen } from "../src/modules/scheduling/understanding/resolve.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
 // Terça, 20/10/2026, 15:00 em Salvador
@@ -32,6 +33,8 @@ interface Case {
   date?: string;
   /** O horário esperado (HH:mm, null = nenhum), quando a frase cita um que não está na lista */
   time?: string | null;
+  /** A parte do dia esperada (null = nenhuma), quando a frase pede uma sem citar horário */
+  period?: DayPeriod | null;
   urgent?: boolean;
   /** O nome esperado (null = nenhum), logo depois do pedido de nome */
   name?: string | null;
@@ -57,7 +60,7 @@ const cases: Case[] = [
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
   c(null, "vocês atendem no fim de semana?", "availability", { date: "2026-10-24" }),
-  c(null, "quero marcar uma limpeza", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
+  c(null, PT ? "quero marcar uma limpeza" : "I would like to book a cleaning", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
   c(null, "preciso cancelar minha consulta", "cancel"),
   c(null, "quanto custa o clareamento?", "question"),
   c(null, "obrigada, tchau!", "goodbye"),
@@ -99,6 +102,20 @@ const cases: Case[] = [
   c("choose_slot", "tem as 11 horas?", ["choose", "availability"], { time: "11:00" }),
   c(null, "quero marcar sexta as 14h", "book", { date: "2026-10-23", time: "14:00" }),
   c(null, "tem horario no sabado as 10:30?", "availability", { date: "2026-10-24", time: "10:30" }),
+  c(null, "amanhã de manhã, tem horário?", "availability", { date: "2026-10-21", period: "morning", time: null }),
+  c(null, "quero marcar terça de manhã", "book", { period: "morning", time: null }),
+  c(null, "prefiro à tarde", ["availability", "book", "choose"], { period: "afternoon", time: null }),
+  c(null, "amanhã à noite pode?", "availability", { date: "2026-10-21", period: "evening", time: null }),
+  c(null, "tem horário de manhã?", "availability", { period: "morning", time: null }),
+  c(null, "amanhã às 9h", ["availability", "book"], { date: "2026-10-21", time: "09:00", period: null }),
+  c(null, "Meu nome é Carla. Queria marcar uma limpeza amanhã à tarde", ["book", "give_name"], { period: "afternoon", time: null }),
+  c(null, "Quero marcar um clareamento amanhã de manhã", "book", { date: "2026-10-21", period: "morning", time: null }),
+  c(null, "pode ser meio-dia?", ["availability", "book"], { time: "12:00", period: null }),
+  c("choose_slot", "the first one", "choose", { option: 1 }),
+  c("choose_slot", "o último", "choose", { option: 3 }),
+  c("choose_day", "o segundo", "choose", { option: 2 }),
+  c("choose_slot", "e à noite, tem?", ["choose", "availability", "more", "unclear", "other_day"], { date: null, period: "evening", time: null }),
+  c("choose_slot", "Obrigada, mas prefiro à noite", ["choose", "availability", "more", "unclear", "other_day"], { period: "evening", time: null }),
   c("choose_slot", "as 10 ta bom", "choose", { option: 2 }),
   c("choose_slot", "pode ser a tarde mesmo", "choose", { option: 3 }),
   c("choose_slot", "quero ver mais horarios", "more"),
@@ -143,19 +160,20 @@ const latencies: number[] = [];
 for (const k of cases) {
   const options = k.step === "choose_day" ? days : k.step === "choose_slot" ? slots : [];
   const started = Date.now();
-  const got = await interpreter.interpret({
+  const first = await interpreter.interpret({
     text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
-  // Como o roteador: sem o campo do interpretador, uma chamada focada procura o horário citado
-  if (!got.time && (["book", "availability"].includes(got.intent) || (got.intent === "choose" && got.option === null))) {
-    const time = await interpreter.mentionedTime({ text: k.text });
-    if (time) got.time = time;
-  }
+  // Como o roteador: a chamada focada lê a frase (horário ou parte do dia), e a posição da opção quando o modelo não a leu
+  const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
+  const timed = applyWhen(first, when, k.step);
+  const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
+  const pick = needsPick(timed, shown) ? ((await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : null;
+  const got = applyPick(timed, pick);
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
-    (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
+    (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
   if (right) ok++;
-  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} time=${got.time ?? "-"} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
+  console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} time=${got.time ?? "-"} period=${got.period ?? "-"} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);

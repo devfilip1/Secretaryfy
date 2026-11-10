@@ -48,3 +48,24 @@ test("SSE: entrega os eventos, exige sessão e libera a assinatura ao fechar", a
     await app.close();
   }
 });
+
+test("SSE: o heartbeat é um evento nomeado (ping), visível para o EventSource", async () => {
+  const bus = createEventBus();
+  const app = Fastify();
+  await app.register(panelEventsRoutes({ bus, heartbeatMs: 10 }));
+  await app.listen({ port: 0, host: "127.0.0.1" });
+  const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+  const controller = new AbortController();
+
+  try {
+    const res = await fetch(`${base}/api/events`, { signal: controller.signal });
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    while (!text.includes("event: ping\ndata: {}\n\n")) text += decoder.decode((await reader.read()).value);
+    assert.ok(text.startsWith(": connected\n\n"));
+    controller.abort();
+  } finally {
+    await app.close();
+  }
+});
