@@ -208,7 +208,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
     // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
-    const wantsTime = ["book", "availability"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
+    const wantsTime = ["book", "availability", "reschedule"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
     // O que a frase pede no tempo ("as 14h", "de manhã"): a chamada focada lê a mensagem. A parte do dia vence um horário
     // que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
     const when = wantsTime ? (await interpreter.mentionedWhen?.({ text, log })) ?? null : null;

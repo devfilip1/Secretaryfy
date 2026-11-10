@@ -574,6 +574,13 @@ test("parte do dia pedida: a chamada focada manda, o horário inventado pelo mod
   assert.equal(r.handled[0].interpretation.time, null);
 });
 
+test("remarcar: a chamada focada roda para a intenção e a parte do dia que ela acha chega ao fluxo", async () => {
+  const r = setup({ intent: "reschedule", when: { time: null, period: "afternoon", namesDay: true }, text: "Preciso remarcar, pode ser na sexta à tarde?" });
+  await r.reply();
+  assert.equal(r.whenCalls.length, 1);
+  assert.equal(r.handled[0].interpretation.period, "afternoon");
+});
+
 test("horário citado: a chamada focada devolve o horário e o fluxo o recebe, sem parte do dia", async () => {
   const r = setup({ intent: "availability", when: { time: "15:00", period: null }, text: "amanhã às 15h" });
   await r.reply();

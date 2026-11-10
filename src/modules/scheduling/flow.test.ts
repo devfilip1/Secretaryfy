@@ -649,6 +649,43 @@ test("remarcar mantém o título do evento", async () => {
   assert.equal(fake.calls.moveEvent, 1);
 });
 
+test("remarcar com dia e parte do dia: só os horários da tarde desse dia, e a remarcação segue até mover o evento", async () => {
+  // Marcado com 1 h: a remarcação usa a duração do horário atual, não a do tratamento padrão (30 min)
+  rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  catalogMinutes = { "Dental Cleaning": 60 };
+  const conv = await conversation();
+  await book(conv);
+  catalogMinutes = {};
+  const { reply } = await say(conv, I("reschedule", { date: "2026-10-21", period: "afternoon" }));
+  assert.match(reply, /^On Wednesday, October 21 I have these times:\n• 12:00 PM\n• 1:00 PM\n• 2:00 PM\n• 3:00 PM\n/);
+  const s = await sessionOf(conv);
+  assert.equal(s?.flow, "reschedule");
+  assert.equal(s?.step, "choose_slot");
+  assert.match((await say(conv, I("choose", { option: 1 }))).reply, /^Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Wednesday, October 21 at 12:00 PM\?/);
+  assert.equal((await say(conv, I("yes"))).reply, "Done! Your appointment is now on Wednesday, October 21 at 12:00 PM.");
+  assert.equal(fake.calls.moveEvent, 1);
+  const [appt] = await allAppointments();
+  assert.equal(appt.startsAt.toISOString(), at("2026-10-21T12:00").toISOString());
+  assert.equal(appt.endsAt.toISOString(), at("2026-10-21T13:00").toISOString());
+});
+
+test("remarcar com dia e horário livre vai direto à confirmação", async () => {
+  rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  const conv = await conversation();
+  await book(conv);
+  const { reply } = await say(conv, I("reschedule", { date: "2026-10-21", time: "15:00" }));
+  assert.equal(reply, "Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Wednesday, October 21 at 3:00 PM?");
+  assert.equal((await sessionOf(conv))?.step, "confirm_reschedule");
+});
+
+test("remarcar sem dia continua oferecendo os dias", async () => {
+  rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  const conv = await conversation();
+  await book(conv);
+  assert.match((await say(conv, I("reschedule"))).reply, /^Sure! These days have openings/);
+  assert.equal((await sessionOf(conv))?.step, "choose_day");
+});
+
 // --- specs/005, US3: cadastro de clientes ---
 
 const allCustomers = () => testDb.db.select().from(customers);

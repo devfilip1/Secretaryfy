@@ -193,7 +193,7 @@ class Run {
       case "cancel":
         return this.startCancel();
       case "reschedule":
-        return this.startReschedule();
+        return this.startReschedule(i.date, i.time ?? null, period);
       case "my_appointment": {
         const appt = await this.currentAppointment();
         return { reply: appt ? this.replies.myAppointment(appt.startsAt, this.tz) : this.replies.noAppointment() };
@@ -235,7 +235,7 @@ class Run {
         if (i.intent === "no") return this.offerDay(this.isoDate(s.selectedStart!));
         break;
       case "offer_reschedule":
-        if (i.intent === "yes") return this.startReschedule();
+        if (i.intent === "yes") return this.startReschedule(null, null, null);
         if (i.intent === "no") return this.keep();
         break;
       case "confirm_cancel":
@@ -511,8 +511,9 @@ class Run {
   }
 
   private async selectSlot(start: Date): Promise<FlowResult> {
-    if (this.session?.flow === "reschedule") {
-      const appt = this.session.appointmentId ? await this.store.findAppointment(this.session.appointmentId) : null;
+    // Pelo fluxo da própria vez: um horário citado na primeira mensagem de remarcação ainda não tem sessão salva
+    if (this.carry.flow === "reschedule") {
+      const appt = this.carry.appointmentId ? await this.store.findAppointment(this.carry.appointmentId) : null;
       if (!appt) return this.finish(this.replies.noAppointment());
       await this.save({ step: "confirm_reschedule", selectedStart: start });
       return { reply: this.replies.confirmReschedule(appt.startsAt, start, this.tz) };
@@ -652,11 +653,16 @@ class Run {
 
   // --- Remarcar ---
 
-  private async startReschedule(): Promise<FlowResult> {
+  /** Com dia (e horário ou parte do dia) pedidos, oferece esses horários; sem dia, oferece os dias. */
+  private async startReschedule(date: string | null, time: string | null, period: DayPeriod | null): Promise<FlowResult> {
     const appt = this.session?.step === "offer_reschedule" ? await this.refreshSessionAppointment() : await this.currentAppointment();
     if (!appt) return this.finish(this.replies.noAppointment());
     if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
     this.carry = { ...this.carry, flow: "reschedule", appointmentId: appt.id };
+    // O horário que se remarca tem o próprio tempo: os horários oferecidos nesta mesma vez contam com ele
+    this.minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / 60_000);
+    if (date && time) return this.askedTime(date, time);
+    if (date) return this.offerDay(date, period);
     return this.offerDays();
   }
 
