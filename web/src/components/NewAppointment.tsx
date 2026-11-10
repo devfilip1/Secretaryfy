@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clinicFormats } from "../format";
 import { toDate, toYmd } from "./date-string";
-import { defaultDuration, endOfRoom, formatMinutes, validateDuration } from "./duration";
+import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration } from "./duration";
 import { durationPresets, groupByDayPart } from "./time-groups";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
@@ -146,12 +146,13 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const chosen = start ? starts?.find((s) => s.start === start) : undefined;
   const maxMinutes = start ? (chosen?.maxMinutes ?? slotMinutes) : 0;
   const durationError = start ? validateDuration(duration, maxMinutes) : null;
+  const parsed = parseDuration(duration);
 
   // Escolher um horário (chip ou lista) põe a duração padrão dele
   function pickStart(next: string) {
     const found = starts?.find((s) => s.start === next);
     setStart(next);
-    setDuration(String(defaultDuration(slotMinutes, found?.maxMinutes ?? slotMinutes)));
+    setDuration(formatMinutes(defaultDuration(slotMinutes, found?.maxMinutes ?? slotMinutes)));
   }
 
   async function checkPhone() {
@@ -174,7 +175,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     setBusy(true);
     setError(null);
     try {
-      const { appointment } = await createAppointment({ phone, name, service, start, minutes: Number(duration) });
+      const { appointment } = await createAppointment({ phone, name, service, start, minutes: parseDuration(duration) ?? 0 });
       onBooked(appointment);
     } catch (err) {
       if (err instanceof ApiError && err.error === "slot_taken") {
@@ -363,34 +364,32 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       )}
 
       {start && (
-        <Field>
-          Duration (minutes)
+        <FieldSet>
+          <FieldLegend variant="label">Duration</FieldLegend>
           <div className="flex flex-wrap items-center gap-1.5">
             {durationPresets(maxMinutes).map((m) => (
-              <Choice key={m} selected={duration === String(m)} onClick={() => setDuration(String(m))}>
+              <Choice key={m} selected={parsed === m} onClick={() => setDuration(formatMinutes(m))}>
                 {formatMinutes(m)}
               </Choice>
             ))}
             <Input
-              className="w-24"
-              type="number"
-              inputMode="numeric"
-              min={5}
-              max={maxMinutes}
-              step={5}
+              className="w-32"
+              aria-label="Duration"
+              placeholder="e.g. 2h or 1h30"
+              inputMode="text"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
               aria-invalid={!!durationError}
             />
           </div>
           <Muted>
-            {durationError
+            {durationError || parsed === null
               ? null
-              : `${formats.time.format(new Date(start))} to ${formats.time.format(new Date(Date.parse(start) + Number(duration) * 60_000))}. `}
+              : `${formats.time.format(new Date(start))} to ${formats.time.format(new Date(Date.parse(start) + parsed * 60_000))} (${formatMinutes(parsed)}). `}
             {`Free until ${formats.time.format(new Date(endOfRoom(start, maxMinutes)))} (up to ${formatMinutes(maxMinutes)}).`}
           </Muted>
           {durationError && <Muted tone="destructive">{durationError}</Muted>}
-        </Field>
+        </FieldSet>
       )}
 
       {error && <Notice role="alert">{error}</Notice>}

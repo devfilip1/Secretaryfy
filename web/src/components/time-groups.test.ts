@@ -19,6 +19,6 @@ describe("time-groups", () => {
   it("oferece só as durações rápidas que cabem", () => {
     assert.deepEqual(durationPresets(45), [15, 30, 45]);
     assert.deepEqual(durationPresets(10), []);
-    assert.deepEqual(durationPresets(480), [15, 30, 45, 60, 90]);
+    assert.deepEqual(durationPresets(480), [15, 30, 45, 60, 90, 120, 240]);
   });
 });

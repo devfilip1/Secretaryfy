@@ -17,5 +17,5 @@ export function groupByDayPart<T>(items: T[], iso: (item: T) => string, timeZone
 
 /** Durações rápidas que cabem no espaço livre */
 export function durationPresets(maxMinutes: number): number[] {
-  return [15, 30, 45, 60, 90].filter((m) => m <= maxMinutes);
+  return [15, 30, 45, 60, 90, 120, 240].filter((m) => m <= maxMinutes);
 }

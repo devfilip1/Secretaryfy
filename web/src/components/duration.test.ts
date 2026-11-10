@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { defaultDuration, endOfRoom, formatMinutes, validateDuration } from "./duration";
+import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration } from "./duration";
 
 describe("validateDuration", () => {
   it("aceita múltiplos de 5 de 5 até o máximo", () => {
@@ -57,5 +57,21 @@ describe("endOfRoom", () => {
   it("soma o tempo livre ao início, em ISO", () => {
     assert.equal(endOfRoom("2026-11-14T12:00:00.000Z", 90), "2026-11-14T13:30:00.000Z");
     assert.equal(endOfRoom("2026-11-14T12:00:00.000Z", 0), "2026-11-14T12:00:00.000Z");
+  });
+});
+
+describe("parseDuration", () => {
+  it("lê minutos, horas e os dois juntos", () => {
+    assert.equal(parseDuration("90"), 90);
+    assert.equal(parseDuration("45 min"), 45);
+    assert.equal(parseDuration("2h"), 120);
+    assert.equal(parseDuration("1h30"), 90);
+    assert.equal(parseDuration("1 h 30 min"), 90);
+    assert.equal(parseDuration("1:30"), 90);
+    assert.equal(parseDuration(" 2 H "), 120);
+  });
+
+  it("devolve null para o que não é duração", () => {
+    for (const text of ["", "abc", "h", "7.5", "-5", "1h x"]) assert.equal(parseDuration(text), null, text);
   });
 });
