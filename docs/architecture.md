@@ -73,7 +73,7 @@ src/
     inbox/      conversations and messages, pause, event bus, JSON presenters
     rag/        HTTP client of the RAG service
     reminders/  reminder scheduler and the label shown in the panel
-    scheduling/ rules, free-time math, interpreter, router, state machine, booking engine, replies
+    scheduling/ rules, free-time math, interpreter, understanding/ (focused extractors and the merge rules in resolve.ts, ADR 0017), router, state machine, booking engine, replies
     whatsapp/   Evolution API events parser, sending, instance/QR, message handler
   routes/       Fastify plugins; also where process-wide instances are wired (inbox.ts, calendar.ts, scheduling.ts)
   test/         test setup: env, PGlite database, fake calendar, clock
