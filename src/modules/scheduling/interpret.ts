@@ -5,6 +5,11 @@ import type { ClinicContext } from "../clinic/context.js";
 import { findDatesInText, formatDay, formatTime, minutesOfDay, parseSimpleDate, parseTimeOfDay, type Language } from "./dates.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
+import { createOptionExtractor } from "./understanding/option.js";
+import { normalize } from "./understanding/quote.js";
+import { createWhenExtractor, type DayPeriod } from "./understanding/when.js";
+
+export type { DayPeriod, When } from "./understanding/when.js";
 
 /** Intenções que o agendamento entende (contracts/interpreter.md). */
 export const INTENTS = [
@@ -34,8 +39,6 @@ export const INTENTS = [
 
 export type Intent = (typeof INTENTS)[number];
 
-/** Parte do dia que o cliente pediu sem citar um horário ("de manhã", "à tarde", "à noite") */
-export type DayPeriod = "morning" | "afternoon" | "evening";
 
 export interface Interpretation {
   intent: Intent;
@@ -111,14 +114,6 @@ export function cleanName(raw: string | null | undefined): string | null {
   const words = text.split(" ");
   return words.map((w) => w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase()).join(" ");
 }
-
-const normalize = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize("NFD").replace(/\p{M}/gu, "")
-    .replace(/[^\p{L}\p{N}/ ]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 
 /** O nome tem de estar escrito na mensagem do cliente: o modelo às vezes inventa ou tira de uma pergunta. Compara sem acento e sem caixa. */
 export function nameInText(name: string, text: string): boolean {
@@ -218,55 +213,6 @@ function formatFor(catalog: ServiceCatalog, language: Language) {
 /** Saída da pergunta focada: só o tratamento citado, ou null */
 // A citação é o trecho que o cliente escreveu e que menciona o tratamento: o código confere que ele está na conversa
 const mentionOutput = z.object({ quote: z.string().nullable(), service: z.string().nullable() });
-
-const pickOutput = z.object({ quote: z.string().nullable(), option: z.number().int().nullable() });
-const pickFormat = {
-  type: "object",
-  properties: { quote: { type: ["string", "null"] }, option: { type: ["integer", "null"] } },
-  required: ["quote", "option"],
-};
-const pickPrompt = (count: number) =>
-  [
-    `The customer is choosing one of ${count} numbered options the assistant just showed in the chat.`,
-    `Answer "option" with the number of the option the customer picks, counting from 1 ("the first one" and "the earliest" are 1, "the second" is 2, "o último" and "the last one" are ${count}), or null when the message does not pick one of them by its position or number.`,
-    'The pick must be written as a position or a number ("first", "second", "last", "primeiro", "último", "the 2"). Copy those words into "quote" (null when there are none).',
-    'These are NOT picks, answer null: another day ("outro dia", "another day"), more options ("mais horários", "more times"), a part of the day ("à tarde", "in the morning"), a weekday, a clock time, a question, a name, yes or no. Do not guess.',
-  ].join("\n");
-
-const whenOutput = z.object({
-  period_quote: z.string().nullable(),
-  period: z.enum(["morning", "afternoon", "evening"]).nullable(),
-  hour_quote: z.string().nullable(),
-  time: z.string().nullable(),
-  day_quote: z.string().nullable(),
-});
-const TIME_FORMAT = /^([01]\d|2[0-3]):[0-5]\d$/;
-/** O que a mensagem pede na chamada focada: um horário ou uma parte do dia, nunca os dois; e se ela cita um dia (null = não deu para saber) */
-export interface When {
-  time: string | null;
-  period: DayPeriod | null;
-  namesDay?: boolean | null;
-}
-const NO_WHEN: When = { time: null, period: null, namesDay: null };
-// A parte do dia e o horário têm campos e citações separados: com uma citação só, o modelo lia "à tarde" como um horário
-const whenFormat = {
-  type: "object",
-  properties: {
-    period_quote: { type: ["string", "null"] },
-    period: { type: ["string", "null"], enum: [null, "morning", "afternoon", "evening"] },
-    hour_quote: { type: ["string", "null"] },
-    time: { type: ["string", "null"], description: "HH:MM, 24 hour clock" },
-    day_quote: { type: ["string", "null"] },
-  },
-  required: ["period_quote", "period", "hour_quote", "time", "day_quote"],
-};
-const WHEN_PROMPT = [
-  "You read one WhatsApp message of a customer who is booking an appointment at a clinic.",
-  'Step 1, "period": the part of the day the customer asks for ("de manhã", "in the morning" is "morning"; "à tarde", "in the afternoon" is "afternoon"; "à noite", "in the evening" is "evening"), or null. Copy the words into "period_quote".',
-  'Step 2, "time": a clock time exists only when the message writes an hour NUMBER, in digits or in words ("14h", "9:30", "às duas", "3pm", "10 da manhã", "meio-dia" is 12:00, "noon" is 12:00). Copy those words, including the number, into "hour_quote" and answer HH:MM on a 24 hour clock. A part of the day alone ("à tarde", "de manhã", "in the morning") has no hour number, so "hour_quote" and "time" are null for it. A day, a weekday or the name of a treatment is not a time.',
-  'Step 3, "day_quote": the customer\'s own words that name a day ("hoje", "amanhã", "tomorrow", "sexta", "sab", "domingo", "fim de semana", "weekend", "dia 25", "the 12th", "12/11"), or null when the message names no day. A part of the day, a clock time, an option ("the first one", "o primeiro") and the name of a treatment are not days.',
-  "Do not guess.",
-].join("\n");
 
 /**
  * Os tratamentos para a pergunta focada: sem a avaliação geral, que é o padrão do fluxo quando o cliente não diz nenhum
@@ -463,6 +409,8 @@ export function createInterpreter({
   clinic: Pick<ClinicContext, "name" | "kind" | "language">;
   catalog: ServiceCatalog;
 }) {
+  const when = createWhenExtractor({ ollama });
+  const pick = createOptionExtractor({ ollama });
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -479,62 +427,8 @@ export function createInterpreter({
       });
       return validate(raw, input, catalog);
     },
-
-    /**
-     * O horário ou a parte do dia que a mensagem pede ("as 14h", "de manhã"), numa chamada focada: o modelo preenche os campos
-     * do interpretador só às vezes, e uma citação que não está na mensagem é chute. Qualquer falha vira null nos dois.
-     */
-    async mentionedWhen({ text, log }: { text: string; log?: { error: (obj: object, msg: string) => void } }): Promise<When> {
-      try {
-        const raw = await ollama.chat({
-          format: whenFormat,
-          messages: [
-            { role: "system", content: WHEN_PROMPT },
-            { role: "user", content: text },
-          ],
-        });
-        const parsed = whenOutput.safeParse(raw);
-        if (!parsed.success) return NO_WHEN;
-        // Cada resposta só vale com a citação do próprio cliente na mensagem (uma citação inventada é chute)
-        const quoted = (quote: string | null) => {
-          const q = quote ? normalize(quote) : "";
-          return q.trim() !== "" && normalize(text).includes(q);
-        };
-        // Se a mensagem cita um dia: sem citação, a data que o modelo deu é chute (o router a descarta)
-        const namesDay = quoted(parsed.data.day_quote);
-        // Um horário válido ganha; a parte do dia só vale quando não há horário
-        if (parsed.data.time && TIME_FORMAT.test(parsed.data.time) && quoted(parsed.data.hour_quote)) return { time: parsed.data.time, period: null, namesDay };
-        return { time: null, period: parsed.data.period && quoted(parsed.data.period_quote) ? parsed.data.period : null, namesDay };
-      } catch (err) {
-        log?.error({ err: (err as Error).message }, "horário ou parte do dia citados indisponível");
-        return NO_WHEN;
-      }
-    },
-
-    /**
-     * Qual das opções numeradas da tela o cliente escolheu pela posição ("the first one", "o último"), numa chamada focada:
-     * o modelo às vezes devolve o dia no lugar da opção. A citação tem de estar na mensagem e o número tem de existir. Qualquer falha vira null.
-     */
-    async mentionedOption({ text, count, log }: { text: string; count: number; log?: { error: (obj: object, msg: string) => void } }): Promise<number | null> {
-      try {
-        const raw = await ollama.chat({
-          format: pickFormat,
-          messages: [
-            { role: "system", content: pickPrompt(count) },
-            { role: "user", content: text },
-          ],
-        });
-        const parsed = pickOutput.safeParse(raw);
-        if (!parsed.success) return null;
-        const { quote, option } = parsed.data;
-        const q = quote ? normalize(quote) : "";
-        if (option === null || option < 1 || option > count || !q.trim() || !normalize(text).includes(q)) return null;
-        return option;
-      } catch (err) {
-        log?.error({ err: (err as Error).message }, "opção escolhida indisponível");
-        return null;
-      }
-    },
+    mentionedWhen: when,
+    mentionedOption: pick,
 
     /**
      * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha

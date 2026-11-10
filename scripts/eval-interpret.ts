@@ -4,6 +4,7 @@ import type { SessionOption } from "../src/db/schema.js";
 import { createClinicContext } from "../src/modules/clinic/context.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createInterpreter, type DayPeriod, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
+import { applyPick, applyWhen, needsPick, wantsWhen } from "../src/modules/scheduling/understanding/resolve.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
 // Terça, 20/10/2026, 15:00 em Salvador
@@ -59,7 +60,7 @@ const cases: Case[] = [
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
   c(null, "vocês atendem no fim de semana?", "availability", { date: "2026-10-24" }),
-  c(null, "quero marcar uma limpeza", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
+  c(null, PT ? "quero marcar uma limpeza" : "I would like to book a cleaning", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
   c(null, "preciso cancelar minha consulta", "cancel"),
   c(null, "quanto custa o clareamento?", "question"),
   c(null, "obrigada, tchau!", "goodbye"),
@@ -162,21 +163,12 @@ for (const k of cases) {
   const first = await interpreter.interpret({
     text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
-  // Como o roteador: a chamada focada lê a frase (horário ou parte do dia); a parte do dia vence o horário que o modelo inventou
-  const wantsTime = ["book", "availability"].includes(first.intent) || (first.intent === "choose" && (first.option === null || k.step === "choose_slot")) || k.step === "choose_slot";
-  const when = wantsTime ? await interpreter.mentionedWhen({ text: k.text }) : null;
-  const period = when?.period ?? null;
-  const focused = typeof when?.namesDay === "boolean";
-  const time = period ? null : focused ? (when?.time ?? null) : (when?.time ?? first.time ?? null);
-  // A data que o modelo deu sem a mensagem citar nenhum dia é descartada, como no roteador
-  const invented = when?.namesDay === false && first.date !== null;
-  let got = { ...first, ...(invented ? { date: null } : {}), time, period };
-  // Opção pela posição ("the first one"): como no roteador, a chamada focada acha a opção quando o modelo não a leu
+  // Como o roteador: a chamada focada lê a frase (horário ou parte do dia), e a posição da opção quando o modelo não a leu
+  const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
+  const timed = applyWhen(first, when, k.step);
   const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
-  if (shown > 0 && (got.intent === "choose" || got.intent === "unclear") && got.option === null && !got.time && !got.period && !got.date) {
-    const option = await interpreter.mentionedOption({ text: k.text, count: shown });
-    if (option) got = { ...got, intent: "choose" as const, option };
-  }
+  const pick = needsPick(timed, shown) ? ((await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : null;
+  const got = applyPick(timed, pick);
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);

@@ -12,6 +12,7 @@ import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
+import { applyPick, applyWhen, needsPick, wantsWhen } from "./understanding/resolve.js";
 
 /** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
 const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
@@ -207,29 +208,12 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // a resposta só vale se a citação do cliente combina com o tratamento (ver mentionedService)
     const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
-    // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
-    const wantsTime = ["book", "availability", "reschedule"].includes(interpretation.intent) || (interpretation.intent === "choose" && (interpretation.option === null || session?.step === "choose_slot")) || session?.step === "choose_slot";
-    // O que a frase pede no tempo ("as 14h", "de manhã"): a chamada focada lê a mensagem. A parte do dia vence um horário
-    // que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
-    const when = wantsTime ? (await interpreter.mentionedWhen?.({ text, log })) ?? null : null;
-    const period = when?.period ?? null;
-    // A chamada focada confere a citação no texto, então vale mais que o campo do modelo principal (que às vezes inventa um horário);
-    // se ela falhou (namesDay não é verdadeiro nem falso), o campo do modelo vale
-    const focused = typeof when?.namesDay === "boolean";
-    const time = period ? null : focused ? (when?.time ?? null) : (when?.time ?? interpretation.time ?? null);
-    // A data que o modelo deu sem a mensagem citar nenhum dia é chute ("e à noite, tem?" virou um sábado): some, e o dia da tela vale
-    const invented = when?.namesDay === false && interpretation.date !== null;
-    const read = invented ? { ...interpretation, date: null, tooFar: undefined } : interpretation;
-    // Com os horários na tela, um horário citado é uma escolha, mesmo que o modelo tenha lido "mais" ou "não entendi"
-    // Com os horários na tela, um horário ou uma parte do dia ("prefiro à noite") é uma escolha dentro do dia da tela, mesmo que o modelo tenha lido "mais", "não entendi" ou "outro dia"
-    const toChoice = (time || period) && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
-    const timed = time !== (interpretation.time ?? null) || period || invented ? { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
-
-    // "the first one": com opções na tela e nenhuma lida, uma chamada focada acha a posição que o cliente escolheu
+    // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
+    const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
+    const timed = applyWhen(interpretation, when, session?.step);
     const count = session?.options?.length ?? 0;
-    const needsPick = count > 0 && (timed.intent === "choose" || timed.intent === "unclear") && timed.option === null && !timed.time && !timed.period && !timed.date;
-    const pick = needsPick ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
-    const chosen = pick ? { ...timed, intent: "choose" as const, option: pick } : timed;
+    const pick = needsPick(timed, count) ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
+    const chosen = applyPick(timed, pick);
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
