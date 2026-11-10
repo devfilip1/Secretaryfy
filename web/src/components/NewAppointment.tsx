@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { clinicFormats } from "../format";
 import { toDate, toYmd } from "./date-string";
 import { defaultDuration, endOfRoom, formatMinutes, validateDuration } from "./duration";
+import { durationPresets, groupByDayPart } from "./time-groups";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
@@ -45,6 +46,8 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [start, setStart] = useState<string | null>(null);
   // Texto do campo "Duration (minutes)"; começa em branco e é preenchido quando um horário é escolhido
   const [duration, setDuration] = useState("");
+  // Os inícios de 15 em 15 minutos ficam recolhidos; os horários sugeridos já cobrem o comum
+  const [showAll, setShowAll] = useState(false);
   const [existing, setExisting] = useState<Appointment | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -327,21 +330,32 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
                 </div>
               )}
               {starts.length > 0 && (
-                <Field>
-                  All times
-                  <Select value={start ?? ""} onValueChange={pickStart}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pick any free time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {starts.map((s) => (
-                        <SelectItem key={s.start} value={s.start}>
-                          {`${formats.time.format(new Date(s.start))}, up to ${formatMinutes(s.maxMinutes)}`}
-                        </SelectItem>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    className="self-start text-sm text-primary underline-offset-4 hover:underline"
+                    aria-expanded={showAll}
+                    onClick={() => setShowAll((v) => !v)}
+                  >
+                    {showAll ? "Hide other start times" : "Other start times"}
+                  </button>
+                  {showAll && (
+                    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                      {groupByDayPart(starts, (s) => s.start, timeZone).map(({ part, items }) => (
+                        <div key={part} className="flex flex-col gap-1.5">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{part}</span>
+                          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                            {items.map((s) => (
+                              <Choice key={s.start} selected={s.start === start} onClick={() => pickStart(s.start)}>
+                                {formats.time.format(new Date(s.start))}
+                              </Choice>
+                            ))}
+                          </div>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                    </div>
+                  )}
+                </div>
               )}
             </>
           )}
@@ -351,18 +365,29 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       {start && (
         <Field>
           Duration (minutes)
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={5}
-            max={maxMinutes}
-            step={5}
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            aria-invalid={!!durationError}
-          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            {durationPresets(maxMinutes).map((m) => (
+              <Choice key={m} selected={duration === String(m)} onClick={() => setDuration(String(m))}>
+                {formatMinutes(m)}
+              </Choice>
+            ))}
+            <Input
+              className="w-24"
+              type="number"
+              inputMode="numeric"
+              min={5}
+              max={maxMinutes}
+              step={5}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              aria-invalid={!!durationError}
+            />
+          </div>
           <Muted>
-            {`Free until ${formats.time.format(new Date(endOfRoom(start, maxMinutes)))} (up to ${formatMinutes(maxMinutes)})`}
+            {durationError
+              ? null
+              : `${formats.time.format(new Date(start))} to ${formats.time.format(new Date(Date.parse(start) + Number(duration) * 60_000))}. `}
+            {`Free until ${formats.time.format(new Date(endOfRoom(start, maxMinutes)))} (up to ${formatMinutes(maxMinutes)}).`}
           </Muted>
           {durationError && <Muted tone="destructive">{durationError}</Muted>}
         </Field>
