@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from "react";
 import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
+import { useInboxEvents } from "../useEvents";
 import { Button } from "@/components/ui/button";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [error, setError] = useState<string | null>(null);
   const [disconnected, setDisconnected] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [slotsReload, setSlotsReload] = useState(0);
 
   const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
   // Dias vêm como YYYY-MM-DD no fuso da clínica: o meio-dia UTC cai no mesmo dia em qualquer fuso do Brasil
@@ -41,23 +43,43 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     else setError("Could not reach Google Calendar. Please try again.");
   }
 
-  useEffect(() => {
+  // Serviços e dias são recarregados também ao reconectar: se o formulário abriu sem conexão, não pode ficar sem dados
+  function loadServices() {
     listServices()
       .then((r) => {
         setServices(r.services);
-        setService(r.services[0]?.name ?? "");
+        // Mantém o serviço já escolhido se ele ainda existir; senão começa pelo primeiro
+        setService((current) => (r.services.some((s) => s.name === current) ? current : (r.services[0]?.name ?? "")));
       })
       .catch(() => setError("Could not load the services. Close the form and try again."));
-  }, []);
+  }
 
-  useEffect(() => {
+  function loadDays() {
     bookingDays()
       .then((r) => {
         setTimeZone(r.timeZone);
         setDays(r.days);
       })
       .catch(calendarError);
+  }
+
+  useEffect(() => {
+    loadServices();
   }, []);
+
+  useEffect(() => {
+    loadDays();
+  }, []);
+
+  // Ao reconectar, limpa o erro e recarrega; o contador faz o effect de horários rodar de novo
+  useInboxEvents((event) => {
+    if (event.type !== "reconnected") return;
+    setError(null);
+    setDisconnected(false);
+    loadServices();
+    loadDays();
+    setSlotsReload((n) => n + 1);
+  });
 
   useEffect(() => {
     if (!day) return;
@@ -65,7 +87,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     setStart(null);
     // O tempo do atendimento depende do serviço: trocar o serviço traz os horários dele
     bookingSlots(day, service || undefined).then((r) => setSlots(r.slots), calendarError);
-  }, [day, service]);
+  }, [day, service, slotsReload]);
 
   async function checkPhone() {
     setExisting(null);
