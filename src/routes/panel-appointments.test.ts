@@ -218,6 +218,48 @@ test("GET /api/booking/days: chips da janela do paciente, com minDate e maxDate 
   assert.ok(body.days.every((d: string) => d <= "2026-11-19"));
 });
 
+test("GET /api/booking/days: status cobre a janela da equipe, além dos 30 dias do paciente", async () => {
+  const { status } = (await app.inject({ url: "/api/booking/days" })).json();
+  assert.equal(status["2026-10-21"], "free");
+  // Dia 100, fora da janela do paciente; e o último dia da equipe
+  assert.equal(status["2027-01-28"], "free");
+  assert.equal(status["2027-10-20"], "free");
+  assert.equal(status["2027-10-21"], undefined);
+  // 25/10/2026 é domingo: fechado, fora do mapa
+  assert.equal("2026-10-25" in status, false);
+});
+
+test("GET /api/booking/days?service: a duração do tratamento muda o estado do dia", async () => {
+  // Gaps de 30 min: cabe um tratamento de 30, não um de 60
+  for (let h = 9; h < 18; h++) {
+    const hh = String(h).padStart(2, "0");
+    const next = String(h + 1).padStart(2, "0");
+    fake.block(at(`2026-10-21T${hh}:30`), at(`2026-10-21T${next}:00`));
+  }
+  const timed = await panelWith(
+    createCatalog([
+      { name: "Dental Cleaning", label: "Dental Cleaning", minutes: 30 },
+      { name: "Dental Implants", label: "Dental Implants", minutes: 60 },
+    ]),
+  );
+  const short = (await timed.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Cleaning")}` })).json();
+  const long = (await timed.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Implants")}` })).json();
+  const none = (await app.inject({ url: "/api/booking/days" })).json();
+  await timed.close();
+  assert.equal(short.status["2026-10-21"], "free");
+  assert.equal(long.status["2026-10-21"], "full");
+  // Sem service, vale a duração padrão (60 min) do catálogo de testes
+  assert.equal(none.status["2026-10-21"], "full");
+});
+
+test("GET /api/booking/days: a forma de days não muda com o service", async () => {
+  const plain = (await app.inject({ url: "/api/booking/days" })).json();
+  const withService = (await app.inject({ url: `/api/booking/days?service=${encodeURIComponent("Dental Cleaning")}` })).json();
+  assert.deepEqual(Object.keys(plain).sort(), ["days", "maxDate", "minDate", "status", "timeZone"]);
+  assert.deepEqual(Object.keys(withService).sort(), ["days", "maxDate", "minDate", "status", "timeZone"]);
+  assert.deepEqual(withService.days, plain.days);
+});
+
 test("GET /api/booking/slots: a equipe vê os horários até maxDate; antes de hoje e depois dele, lista vazia", async () => {
   const later = (await app.inject({ url: "/api/booking/slots?date=2027-01-28" })).json();
   assert.equal(later.slots[0], at("2027-01-28T09:00").toISOString());

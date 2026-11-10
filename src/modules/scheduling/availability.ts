@@ -99,6 +99,25 @@ export function availableDays(ctx: Context & { after?: string }): string[] {
   return days;
 }
 
+/** Estado de um dia aberto na agenda: livre (há horário) ou lotado (a agenda ocupada tira todos os horários). */
+export type DayStatus = "free" | "full";
+
+/**
+ * Estado de cada dia aberto do intervalo que se pode marcar (o do `ctx`). Fora do mapa, o dia está fechado ou sem
+ * horário só por causa da antecedência mínima ou da hora que já passou: não é dia lotado.
+ */
+export function dayStatuses(ctx: Context): Record<string, DayStatus> {
+  const window = bookingWindow(ctx);
+  const status: Record<string, DayStatus> = {};
+  for (let d = DateTime.fromISO(window.firstDate, { zone: ctx.timeZone }); d.toISODate()! <= window.lastDate; d = d.plus({ days: 1 })) {
+    const date = d.toISODate()!;
+    if (slotsForDay(date, ctx).length > 0) status[date] = "free";
+    // Com a agenda vazia o dia teria horários: a ocupação é que os tirou
+    else if (slotsForDay(date, { ...ctx, busy: [] }).length > 0) status[date] = "full";
+  }
+  return status;
+}
+
 /** O horário escolhido continua livre e dentro das regras? (FR-015) */
 export function isSlotAvailable(start: Date, ctx: Context): boolean {
   const date = DateTime.fromJSDate(start, { zone: ctx.timeZone }).toISODate()!;

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+import { DayButton, DayPicker, getDefaultClassNames, labelDayButton, type Modifiers } from "react-day-picker"
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -9,6 +9,13 @@ import { buttonVariants } from "@/components/ui/button"
 // Calendário shadcn sobre react-day-picker v9. Célula de 32px; no toque (pointer-coarse) 44px.
 // Dia escolhido em primary, hoje com fundo accent, dias de outro mês esmaecidos, desabilitados apagados.
 // As cores de estado ficam no botão do dia (CalendarDayButton), que tem o modificador de cada dia.
+
+/** Estado do dia em texto para o leitor de tela: a cor do pontinho sozinha não basta. */
+function statusSuffix(modifiers: Modifiers) {
+  if (modifiers.free) return ", free times"
+  if (modifiers.full) return ", fully booked"
+  return ""
+}
 
 function Calendar({
   className,
@@ -58,6 +65,10 @@ function Calendar({
         hidden: cn("invisible", defaultClassNames.hidden),
         ...classNames,
       }}
+      labels={{
+        labelDayButton: (date, modifiers, options, dateLib) =>
+          `${labelDayButton(date, modifiers, options, dateLib)}${statusSuffix(modifiers)}`,
+      }}
       components={{
         Chevron: ({ className, orientation }) => {
           if (orientation === "left") return <ChevronLeftIcon className={cn("size-4", className)} />
@@ -72,7 +83,10 @@ function Calendar({
   )
 }
 
-/** Botão de um dia. `hasSlots` (usado pelo painel) põe um pontinho embaixo do número. */
+/**
+ * Botão de um dia. Os modificadores `free` (há horário livre, pontinho verde) e `full` (aberto mas lotado, pontinho
+ * vermelho) vêm do painel; dia fechado não tem nenhum. Com o dia escolhido, o pontinho segue a cor do texto.
+ */
 function CalendarDayButton({
   className,
   day,
@@ -91,6 +105,8 @@ function CalendarDayButton({
       ref={ref}
       type="button"
       data-slot="calendar-day"
+      aria-label={`${labelDayButton(day.date, modifiers)}${statusSuffix(modifiers)}`}
+      title={modifiers.free ? "Free times" : modifiers.full ? "Fully booked" : undefined}
       className={cn(
         "relative flex aspect-square size-(--cell-size) w-full min-w-(--cell-size) flex-col items-center justify-center gap-1 rounded-md text-sm leading-none font-normal outline-hidden hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
         modifiers.today && !modifiers.selected && "bg-accent font-semibold text-accent-foreground",
@@ -102,8 +118,14 @@ function CalendarDayButton({
       {...props}
     >
       {children}
-      {modifiers.hasSlots && (
-        <span aria-hidden="true" className="absolute bottom-1 size-1 rounded-full bg-current" />
+      {modifiers.free && (
+        <span aria-hidden="true" className={cn("absolute bottom-1 size-1 rounded-full", modifiers.selected ? "bg-current" : "bg-ok")} />
+      )}
+      {modifiers.full && (
+        <span
+          aria-hidden="true"
+          className={cn("absolute bottom-1 size-1 rounded-full", modifiers.selected ? "bg-current" : "bg-destructive")}
+        />
       )}
     </button>
   )

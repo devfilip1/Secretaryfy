@@ -219,8 +219,12 @@ export interface Appointment {
 export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 
-export const bookingDays = () =>
-  request<{ timeZone: string; days: string[]; minDate: string; maxDate: string }>("GET", "/api/booking/days");
+// `status`: cada dia aberto da janela da equipe, livre ou lotado para a duração do serviço; dia fechado não aparece
+export const bookingDays = (service?: string) =>
+  request<{ timeZone: string; days: string[]; minDate: string; maxDate: string; status: Record<string, "free" | "full"> }>(
+    "GET",
+    `/api/booking/days${service ? `?service=${encodeURIComponent(service)}` : ""}`,
+  );
 export const bookingSlots = (date: string, service?: string) =>
   request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
 export const lookupPhone = (phone: string) =>

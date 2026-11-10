@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { availableDays, bookingWindow, naturalSlotsForDay, slotsForDay, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
+import type { Interval } from "../google/gateway.js";
+import { availableDays, bookingWindow, dayStatuses, naturalSlotsForDay, slotsForDay, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { DEFAULT_RULES, type Rules } from "./rules.js";
 
 const timeZone = "America/Bahia";
@@ -136,4 +137,38 @@ test("sem nenhum horário natural, todos os livres valem", () => {
   const r = rules({ gridMinutes: 15, weeklyHours: { "3": { start: "09:00", end: "10:00" } } });
   const busy = [{ start: at("2026-10-21T09:00"), end: at("2026-10-21T09:15") }];
   assert.deepEqual(naturalSlotsForDay("2026-10-21", { rules: r, busy, now, timeZone, minutes: 30 }).length > 0, true);
+});
+
+test("dayStatuses: dia com horário livre é free; com a agenda ocupada o dia inteiro, full", () => {
+  const allDay = [{ start: at("2026-10-21T00:00"), end: at("2026-10-22T00:00") }];
+  const status = dayStatuses({ rules: rules({ maxDaysAhead: 7 }), busy: allDay, now, timeZone });
+  assert.equal(status["2026-10-21"], "full");
+  assert.equal(status["2026-10-22"], "free");
+});
+
+test("dayStatuses: dia fechado fica fora do mapa", () => {
+  // 25/10/2026 é domingo, sem horário de funcionamento
+  const status = dayStatuses({ rules: rules({ maxDaysAhead: 7 }), busy: [], now, timeZone });
+  assert.equal("2026-10-25" in status, false);
+  assert.equal(status["2026-10-26"], "free");
+});
+
+test("dayStatuses: sem horário só por antecedência mínima, o dia sai do mapa e não vira full", () => {
+  // Hoje (20/10, 15:00) com 3 h de antecedência: a grade já acaba às 18:00, nenhum horário cabe
+  const status = dayStatuses({ rules: rules({ maxDaysAhead: 2, minNoticeMinutes: 180 }), busy: [], now, timeZone });
+  assert.equal("2026-10-20" in status, false);
+  assert.equal(status["2026-10-21"], "free");
+});
+
+test("dayStatuses: a duração muda o estado; gaps de 30 min são full para 60 e free para 30", () => {
+  // Terça das 09:00 às 18:00; a agenda deixa livre só meia hora no início de cada hora
+  const busy: Interval[] = [];
+  for (let h = 9; h < 18; h++) {
+    const hh = String(h).padStart(2, "0");
+    const next = String(h + 1).padStart(2, "0");
+    busy.push({ start: at(`2026-10-21T${hh}:30`), end: at(`2026-10-21T${next}:00`) });
+  }
+  const base = { rules: rules({ maxDaysAhead: 7 }), busy, now, timeZone };
+  assert.equal(dayStatuses({ ...base, minutes: 60 })["2026-10-21"], "full");
+  assert.equal(dayStatuses({ ...base, minutes: 30 })["2026-10-21"], "free");
 });

@@ -8,7 +8,7 @@ import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gat
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
-import { availableDays, bookingWindow, naturalSlotsForDay, STAFF_MAX_DAYS_AHEAD } from "../modules/scheduling/availability.js";
+import { availableDays, bookingWindow, dayStatuses, naturalSlotsForDay, STAFF_MAX_DAYS_AHEAD } from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
@@ -33,6 +33,7 @@ interface Deps {
 
 const idParams = z.object({ id: z.uuid() });
 const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional() });
+const daysQuery = z.object({ service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
 
 type Group = "today" | "tomorrow" | "week";
@@ -175,18 +176,23 @@ export function panelAppointmentsRoutes({
     // Lista de serviços do painel: a mesma do assistente, com o rótulo em inglês
     app.get("/api/services", async () => ({ services: catalog.panelList() }));
 
-    app.get("/api/booking/days", async (_req, reply) => {
+    // Com `service`, os dias valem para a duração do tratamento; sem ele, a duração padrão
+    app.get("/api/booking/days", async (req, reply) => {
+      const query = daysQuery.safeParse(req.query);
+      if (!query.success) return reply.code(422).send({ error: "invalid_query" });
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
       return guard(reply, async () => {
         const ctx = await availabilityContext(conn.timeZone);
-        // Os dias do chip são os da janela do paciente; a data livre do painel cobre até maxDate
+        const minutes = query.data.service ? catalog.minutes(query.data.service) : undefined;
+        // Os dias do chip são os da janela do paciente; o estado de cada dia cobre até maxDate
         const { window } = ctx;
         return {
           timeZone: conn.timeZone,
-          days: availableDays({ ...ctx, maxDaysAhead: undefined }),
+          days: availableDays({ ...ctx, minutes, maxDaysAhead: undefined }),
           minDate: window.firstDate,
           maxDate: window.lastDate,
+          status: dayStatuses({ ...ctx, minutes }),
         };
       });
     });

@@ -30,6 +30,9 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [timeZone, setTimeZone] = useState<string | undefined>();
   const [days, setDays] = useState<string[] | null>(null);
   const [range, setRange] = useState<{ minDate: string; maxDate: string } | null>(null);
+  // Estado de cada dia aberto (até um ano) para o serviço escolhido: livre (verde) ou lotado (vermelho)
+  const [status, setStatus] = useState<Record<string, "free" | "full">>({});
+  const [daysReload, setDaysReload] = useState(0);
   const [day, setDay] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const otherDateId = useId();
@@ -45,8 +48,14 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
   // Dias vêm como YYYY-MM-DD no fuso da clínica: o meio-dia UTC cai no mesmo dia em qualquer fuso do Brasil
   const dayLabel = (d: string) => formats.day.format(new Date(`${d}T12:00:00Z`));
-  // Dias com horário livre: o calendário marca cada um com um pontinho
-  const chipDates = useMemo(() => (days ?? []).map(toDate), [days]);
+  // Dias do calendário com pontinho: verde se há horário livre, vermelho se está lotado; fechado não tem pontinho
+  const statusDates = useMemo(() => {
+    const entries = Object.entries(status);
+    return {
+      free: entries.filter(([, s]) => s === "free").map(([d]) => toDate(d)),
+      full: entries.filter(([, s]) => s === "full").map(([d]) => toDate(d)),
+    };
+  }, [status]);
 
   function calendarError(err: unknown) {
     if (err instanceof ApiError && err.error === "calendar_disconnected") setDisconnected(true);
@@ -64,31 +73,39 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       .catch(() => setError("Could not load the services. Close the form and try again."));
   }
 
-  function loadDays() {
-    bookingDays()
-      .then((r) => {
-        setTimeZone(r.timeZone);
-        setDays(r.days);
-        setRange({ minDate: r.minDate, maxDate: r.maxDate });
-      })
-      .catch(calendarError);
-  }
-
   useEffect(() => {
     loadServices();
   }, []);
 
+  // Os dias dependem do serviço (a duração do atendimento). Espera a lista de serviços: o padrão já está escolhido
+  // nessa hora, então carrega uma vez só. Reconectar recarrega pelo contador `daysReload`.
+  const servicesReady = services !== null;
   useEffect(() => {
-    loadDays();
-  }, []);
+    if (!servicesReady) return;
+    let stale = false;
+    bookingDays(service || undefined)
+      .then((r) => {
+        if (stale) return;
+        setTimeZone(r.timeZone);
+        setDays(r.days);
+        setRange({ minDate: r.minDate, maxDate: r.maxDate });
+        setStatus(r.status);
+      })
+      .catch((err) => {
+        if (!stale) calendarError(err);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [servicesReady, service, daysReload]);
 
-  // Ao reconectar, limpa o erro e recarrega; o contador faz o effect de horários rodar de novo
+  // Ao reconectar, limpa o erro e recarrega; os contadores fazem os effects de dias e horários rodar de novo
   useInboxEvents((event) => {
     if (event.type !== "reconnected") return;
     setError(null);
     setDisconnected(false);
     loadServices();
-    loadDays();
+    setDaysReload((n) => n + 1);
     setSlotsReload((n) => n + 1);
   });
 
@@ -232,13 +249,23 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
                   startMonth={toDate(range.minDate)}
                   endMonth={toDate(range.maxDate)}
                   disabled={[{ before: toDate(range.minDate) }, { after: toDate(range.maxDate) }]}
-                  modifiers={{ hasSlots: chipDates }}
+                  modifiers={{ free: statusDates.free, full: statusDates.full }}
                   onSelect={(picked) => {
                     if (!picked) return;
                     setDay(toYmd(picked));
                     setPickerOpen(false);
                   }}
                 />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 border-t px-3 py-2">
+                  <Muted className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-1.5 rounded-full bg-ok" />
+                    Free times
+                  </Muted>
+                  <Muted className="flex items-center gap-1.5">
+                    <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" />
+                    Fully booked
+                  </Muted>
+                </div>
               </PopoverContent>
             </Popover>
           </div>

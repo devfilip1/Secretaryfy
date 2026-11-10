@@ -55,7 +55,9 @@ O operador confirma o horário (por exemplo, depois de ligar para o cliente).
 
 Dias com ao menos um horário livre, pelas regras de atendimento e pela ocupação do Google (as mesmas funções do assistente). Os `days` são os da janela do paciente (`maxDaysAhead`), para os chips rápidos; a equipe escolhe qualquer data entre `minDate` e `maxDate` (um ano) pelo campo de data do painel.
 
-- **200** `{ "timeZone": "America/Bahia", "days": ["2026-10-26", "2026-10-27"], "minDate": "2026-10-20", "maxDate": "2027-10-20" }`.
+- Query `service` (opcional, a chave do tratamento): os dias valem para a duração desse tratamento; sem ele, a duração padrão. Um serviço desconhecido cai na duração padrão, como em `slots`.
+- `status`: cada dia aberto da janela da equipe é `"free"` (há horário livre) ou `"full"` (aberto, mas a agenda ocupada tira todos os horários). Dia fechado, ou sem horário só por antecedência mínima ou hora passada, não aparece. O painel usa isso para o pontinho do calendário.
+- **200** `{ "timeZone": "America/Bahia", "days": ["2026-10-26", "2026-10-27"], "minDate": "2026-10-20", "maxDate": "2027-10-20", "status": { "2026-10-20": "full", "2026-10-21": "free", "…": "…" } }`.
 - **409** `calendar_disconnected`: agenda desconectada ou precisando de reconexão.
 - **502** `calendar_unavailable`: o Google não respondeu.
 
