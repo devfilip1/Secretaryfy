@@ -12,6 +12,7 @@ const buttonVariants = cva(
       variant: {
         default: "border border-transparent bg-primary font-semibold text-primary-foreground hover:bg-primary/90",
         secondary: "border border-border bg-secondary text-foreground hover:bg-border",
+        outline: "border border-border bg-card text-foreground hover:bg-secondary",
         destructive: "border border-transparent bg-destructive text-white hover:bg-destructive/90",
         ghost: "border border-transparent bg-transparent text-foreground hover:bg-secondary",
         // Excluir: neutro até o toque ou o foco, quando ganha a cor de perigo

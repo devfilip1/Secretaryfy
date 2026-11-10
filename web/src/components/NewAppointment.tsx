@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type ComponentProps, type FormEvent } from "react";
 import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
 import { useInboxEvents } from "../useEvents";
+import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clinicFormats } from "../format";
+import { toDate, toYmd } from "./date-string";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
@@ -26,6 +31,8 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [days, setDays] = useState<string[] | null>(null);
   const [range, setRange] = useState<{ minDate: string; maxDate: string } | null>(null);
   const [day, setDay] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const otherDateId = useId();
   const [slots, setSlots] = useState<string[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [existing, setExisting] = useState<Appointment | null>(null);
@@ -38,6 +45,8 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
   // Dias vêm como YYYY-MM-DD no fuso da clínica: o meio-dia UTC cai no mesmo dia em qualquer fuso do Brasil
   const dayLabel = (d: string) => formats.day.format(new Date(`${d}T12:00:00Z`));
+  // Dias com horário livre: o calendário marca cada um com um pontinho
+  const chipDates = useMemo(() => (days ?? []).map(toDate), [days]);
 
   function calendarError(err: unknown) {
     if (err instanceof ApiError && err.error === "calendar_disconnected") setDisconnected(true);
@@ -205,20 +214,34 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
           </div>
         )}
         {range && (
-          // Outra data (até um ano à frente): o mesmo `day` dos chips, então o chip e o campo mostram sempre o mesmo dia
-          <Field>
-            Other date
-            <Input
-              type="date"
-              min={range.minDate}
-              max={range.maxDate}
-              value={day ?? ""}
-              onChange={(e) => {
-                const picked = e.target.value;
-                if (picked >= range.minDate && picked <= range.maxDate) setDay(picked);
-              }}
-            />
-          </Field>
+          // Outra data (até um ano à frente): o mesmo `day` dos chips, então o chip e o calendário mostram sempre o mesmo dia
+          <div className="grid gap-1">
+            <Label htmlFor={otherDateId}>Other date</Label>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button id={otherDateId} variant="outline" className="w-full justify-start font-normal sm:w-auto">
+                  <CalendarIcon />
+                  {day ? dayLabel(day) : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={day ? toDate(day) : undefined}
+                  defaultMonth={day ? toDate(day) : toDate(range.minDate)}
+                  startMonth={toDate(range.minDate)}
+                  endMonth={toDate(range.maxDate)}
+                  disabled={[{ before: toDate(range.minDate) }, { after: toDate(range.maxDate) }]}
+                  modifiers={{ hasSlots: chipDates }}
+                  onSelect={(picked) => {
+                    if (!picked) return;
+                    setDay(toYmd(picked));
+                    setPickerOpen(false);
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         )}
       </FieldSet>
 
