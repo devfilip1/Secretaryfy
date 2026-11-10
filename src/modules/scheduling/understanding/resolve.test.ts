@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { SchedulingStep } from "../../../db/schema.js";
 import type { Intent, Interpretation, When } from "../interpret.js";
 import { applyPick, applyWhen, needsPick, wantsWhen } from "./resolve.js";
 
@@ -7,7 +8,7 @@ const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: 
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
 
 test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => {
-  const cases: [Intent, string | null, boolean][] = [
+  const cases: [Intent, SchedulingStep | null, boolean][] = [
     ["book", null, true],
     ["availability", null, true],
     ["reschedule", null, true],
@@ -17,7 +18,7 @@ test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => 
 });
 
 test("wantsWhen: choose pede a chamada sem opção ou na etapa choose_slot", () => {
-  const cases: [number | null, string | null, boolean][] = [
+  const cases: [number | null, SchedulingStep | null, boolean][] = [
     [null, "choose_day", true],
     [null, null, true],
     [2, "choose_slot", true],

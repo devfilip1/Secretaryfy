@@ -7,15 +7,14 @@ import type { IncomingMessage } from "../whatsapp/evolution.js";
 import { splitReply, type Reply } from "../whatsapp/handle-message.js";
 import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
-import type { Intent, Interpreter } from "./interpret.js";
+import type { Interpreter } from "./interpret.js";
+import { startsScheduling } from "./intents.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
 import { applyPick, applyWhen, needsPick, wantsWhen } from "./understanding/resolve.js";
 
-/** Intenções que começam um fluxo quando não há etapa em andamento (research.md R3). */
-const STARTERS: Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
@@ -201,7 +200,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       if (interpretation.intent === "give_name" && !session) return { text: replies.nameReceived(name) };
     }
 
-    const scheduling = session ? interpretation.intent !== "question" : STARTERS.includes(interpretation.intent);
+    const scheduling = session ? interpretation.intent !== "question" : startsScheduling(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
     // Sem tratamento na interpretação nem na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra);

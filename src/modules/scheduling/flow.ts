@@ -8,6 +8,7 @@ import { initialReminderStatus } from "../reminders/status.js";
 import { availableDays, bookingWindow, isSlotAvailable, naturalSlotsForDay, slotsForDay } from "./availability.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES, syncAppointment, type Booking } from "./booking.js";
 import type { DayPeriod, Interpretation } from "./interpret.js";
+import { asksPeriodOfScreen, isTooFar } from "./intents.js";
 import { dayPeriod, systemNotes, type Replies } from "./replies.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { withCalendarLock } from "./lock.js";
@@ -178,9 +179,9 @@ class Run {
     this.minutes = await this.lengthFor();
 
     if (i.intent === "stop") return this.finish(this.replies.stopped());
-    if (i.tooFar && ["availability", "choose", "book"].includes(i.intent)) return this.tooFar();
+    if (i.tooFar && isTooFar(i.intent)) return this.tooFar();
     // "de tarde" com os horários do dia na tela: a parte do dia desse mesmo dia
-    if (s?.step === "choose_slot" && i.period && i.option === null && !i.date && !i.time && ["choose", "availability"].includes(i.intent)) {
+    if (s?.step === "choose_slot" && i.period && i.option === null && !i.date && !i.time && asksPeriodOfScreen(i.intent)) {
       return this.periodOfScreen(i.period);
     }
 
