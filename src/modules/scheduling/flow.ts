@@ -640,16 +640,20 @@ class Run {
     return { reply: this.replies.confirmCancel(appt.startsAt, this.tz) };
   }
 
-  private cancel(): Promise<FlowResult> {
-    return withCalendarLock(async () => {
-      const appt = await this.refreshSessionAppointment();
-      if (!appt) return this.finish(this.replies.noAppointment());
-      if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
-      await this.calendar.deleteEvent(appt.googleEventId);
-      await this.store.markCancelled(appt.id, "customer");
-      await this.inbox.recordSystem(this.conversation.id, systemNotes.cancelledByCustomer(appt.startsAt, this.tz));
-      return this.finish(this.replies.cancelled(appt.startsAt, this.tz));
-    });
+  private async cancel(): Promise<FlowResult> {
+    // Sem a trava aqui: o cancelamento do motor de marcação a pega, e ela não aceita aninhamento
+    const appt = await this.refreshSessionAppointment();
+    if (!appt) return this.finish(this.replies.noAppointment());
+    if (this.tooLate(appt)) return this.finish(this.replies.tooLateToChange(this.rules.cancelNoticeMinutes));
+    const result = await this.booking.cancelAppointment({ id: appt.id, by: "customer", conversationId: this.conversation.id });
+    switch (result.kind) {
+      case "cancelled":
+        return this.finish(this.replies.cancelled(appt.startsAt, this.tz));
+      case "not_found":
+        return this.finish(this.replies.noAppointment());
+      case "calendar_unavailable":
+        throw new CalendarUnavailable("agenda desconectada durante o cancelamento");
+    }
   }
 
   // --- Remarcar ---

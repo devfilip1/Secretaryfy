@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Interval } from "../google/gateway.js";
-import { availableDays, bookingWindow, dayStatuses, naturalSlotsForDay, slotsForDay, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
+import {
+  availableDays,
+  bookingWindow,
+  dayStatuses,
+  naturalSlotsForDay,
+  slotsForDay,
+  startsWithRoom,
+  STAFF_MAX_DAYS_AHEAD,
+} from "./availability.js";
 import { DEFAULT_RULES, type Rules } from "./rules.js";
 
 const timeZone = "America/Bahia";
@@ -11,6 +19,46 @@ const at = (local: string) => new Date(`${local}-03:00`);
 const times = (slots: Date[]) => slots.map((s) => s.toISOString());
 // Grade de 60 min: os testes antigos contam um horário por hora; a grade de 15 min tem os seus testes mais abaixo
 const rules = (patch: Partial<Rules> = {}): Rules => ({ ...DEFAULT_RULES, gridMinutes: 60, ...patch });
+
+// Tabela da duração máxima por início (painel): a grade de 15 min deixa ver os inícios entre as horas
+const roomCases: {
+  name: string;
+  start: string;
+  /** Dia do teste; sem ele, terça, 21/10 */
+  date?: string;
+  busy?: Interval[];
+  rules?: Partial<Rules>;
+  now?: Date;
+  /** Duração máxima esperada; null quando o início não está livre */
+  maxMinutes: number | null;
+}[] = [
+  { name: "limitado pelo próximo horário ocupado", start: "09:00", busy: [{ start: at("2026-10-21T11:00"), end: at("2026-10-21T12:00") }], rules: { gridMinutes: 15 }, maxMinutes: 120 },
+  { name: "ocupação anterior ao início não limita (cap de 480 min)", start: "09:00", busy: [{ start: at("2026-10-21T08:00"), end: at("2026-10-21T08:30") }], rules: { gridMinutes: 15 }, maxMinutes: 480 },
+  { name: "fechamento do dia limita", start: "17:00", rules: { gridMinutes: 15 }, maxMinutes: 60 },
+  { name: "teto de 480 min mesmo com o dia todo livre", start: "09:00", rules: { gridMinutes: 15, weeklyHours: { "3": { start: "06:00", end: "20:00" } } }, maxMinutes: 480 },
+  { name: "início dentro de um horário ocupado não aparece", start: "10:00", busy: [{ start: at("2026-10-21T10:00"), end: at("2026-10-21T11:00") }], rules: { gridMinutes: 15 }, maxMinutes: null },
+  { name: "início logo antes da ocupação cabe só até ela", start: "09:45", busy: [{ start: at("2026-10-21T10:00"), end: at("2026-10-21T11:00") }], rules: { gridMinutes: 15 }, maxMinutes: 15 },
+  { name: "a folga arredonda para baixo a múltiplos de 5", start: "09:45", busy: [{ start: at("2026-10-21T10:07"), end: at("2026-10-21T11:00") }], rules: { gridMinutes: 15 }, maxMinutes: 20 },
+  { name: "antecedência mínima: início antes do primeiro horário possível não aparece", date: "2026-10-20", start: "16:45", rules: { gridMinutes: 15 }, maxMinutes: null },
+  { name: "antecedência mínima: primeiro início possível de hoje tem a folga até o fechamento", date: "2026-10-20", start: "17:00", rules: { gridMinutes: 15 }, maxMinutes: 60 },
+];
+
+for (const c of roomCases) {
+  test(`duração máxima por início: ${c.name}`, () => {
+    const date = c.date ?? "2026-10-21";
+    const found = startsWithRoom(date, { rules: rules(c.rules), busy: c.busy ?? [], now: c.now ?? now, timeZone }).find(
+      (s) => s.start.getTime() === at(`${date}T${c.start}`).getTime(),
+    );
+    assert.equal(found?.maxMinutes ?? null, c.maxMinutes);
+  });
+}
+
+test("duração máxima: os inícios são os da grade e os livres de slotsForDay, com a mesma ordem", () => {
+  const ctx = { rules: rules({ gridMinutes: 15 }), busy: [{ start: at("2026-10-21T11:00"), end: at("2026-10-21T12:00") }], now, timeZone };
+  const starts = startsWithRoom("2026-10-21", ctx).map((s) => s.start.toISOString());
+  assert.deepEqual(starts, slotsForDay("2026-10-21", { ...ctx, minutes: 5 }).map((s) => s.toISOString()));
+  assert.equal(startsWithRoom("2026-10-25", ctx).length, 0); // domingo
+});
 
 test("horários do dia: do início ao fim, no passo da duração", () => {
   const slots = slotsForDay("2026-10-21", { rules: rules(), busy: [], now, timeZone });

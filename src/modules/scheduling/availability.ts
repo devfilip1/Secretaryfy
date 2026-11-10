@@ -123,3 +123,30 @@ export function isSlotAvailable(start: Date, ctx: Context): boolean {
   const date = DateTime.fromJSDate(start, { zone: ctx.timeZone }).toISODate()!;
   return slotsForDay(date, ctx).some((s) => s.getTime() === start.getTime());
 }
+
+/** Duração máxima que a equipe pode dar a um horário (painel, ADR 0015): nunca mais que isto. */
+export const MAX_APPOINTMENT_MINUTES = 480;
+/** A duração escolhida pela equipe anda de 5 em 5 minutos, e o mínimo é um passo. */
+export const MINUTES_STEP = 5;
+
+/**
+ * Os inícios livres do dia, cada um com quanto a equipe pode dar a ele: até o início do próximo horário ocupado, até o
+ * fechamento do dia e no máximo `MAX_APPOINTMENT_MINUTES`, arredondado para baixo a múltiplos de `MINUTES_STEP`.
+ * Um início é livre se cabe pelo menos um passo (a mesma regra de `slotsForDay`, com a duração de um passo).
+ */
+export function startsWithRoom(date: string, ctx: Context): { start: Date; maxMinutes: number }[] {
+  const { rules, busy, timeZone } = ctx;
+  const day = DateTime.fromISO(date, { zone: timeZone });
+  const hours = rules.weeklyHours[String(day.weekday) as keyof Rules["weeklyHours"]];
+  if (!day.isValid || !hours) return [];
+  const closeMs = DateTime.fromISO(`${date}T${hours.end}`, { zone: timeZone }).toMillis();
+
+  return slotsForDay(date, { ...ctx, minutes: MINUTES_STEP }).map((start) => {
+    const fromMs = start.getTime();
+    // Só o próximo horário ocupado que começa depois deste início limita a duração
+    const nextBusyMs = busy.reduce((first, b) => (b.start.getTime() >= fromMs && b.start.getTime() < first ? b.start.getTime() : first), Infinity);
+    const untilMs = Math.min(nextBusyMs, closeMs, fromMs + MAX_APPOINTMENT_MINUTES * 60_000);
+    const steps = Math.floor((untilMs - fromMs) / 60_000 / MINUTES_STEP);
+    return { start, maxMinutes: steps * MINUTES_STEP };
+  });
+}

@@ -140,7 +140,7 @@ export function createSchedulingStore(db: Db) {
       await db.update(appointments).set({ customerName, updatedAt: new Date() }).where(eq(appointments.id, appointmentId));
     },
 
-    async markCancelled(id: string, by: "customer" | "calendar"): Promise<void> {
+    async markCancelled(id: string, by: "customer" | "calendar" | "staff"): Promise<void> {
       await db
         .update(appointments)
         .set({ status: "cancelled", cancelledBy: by, updatedAt: new Date() })

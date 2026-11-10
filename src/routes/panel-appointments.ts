@@ -8,7 +8,16 @@ import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gat
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
-import { availableDays, bookingWindow, dayStatuses, naturalSlotsForDay, STAFF_MAX_DAYS_AHEAD } from "../modules/scheduling/availability.js";
+import {
+  availableDays,
+  bookingWindow,
+  dayStatuses,
+  MAX_APPOINTMENT_MINUTES,
+  MINUTES_STEP,
+  naturalSlotsForDay,
+  startsWithRoom,
+  STAFF_MAX_DAYS_AHEAD,
+} from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
@@ -24,7 +33,7 @@ interface Deps {
   calendar: Pick<CalendarGateway, "busy">;
   connection: Pick<ConnectionStore, "getForUse">;
   rules: Pick<RulesStore, "get">;
-  booking: Pick<Booking, "bookSlot" | "currentAppointment">;
+  booking: Pick<Booking, "bookSlot" | "currentAppointment" | "cancelAppointment">;
   reminderLeadMinutes: number;
   /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
   catalog: ServiceCatalog;
@@ -33,6 +42,7 @@ interface Deps {
 
 const idParams = z.object({ id: z.uuid() });
 const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional() });
+const startsQuery = z.object({ date: z.iso.date() });
 const daysQuery = z.object({ service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
 
@@ -65,6 +75,8 @@ export function panelAppointmentsRoutes({
       id: appt.id,
       startsAt: appt.startsAt.toISOString(),
       endsAt: appt.endsAt.toISOString(),
+      // O tempo bloqueado de verdade na agenda, em minutos
+      minutes: (appt.endsAt.getTime() - appt.startsAt.getTime()) / 60_000,
       group,
       customerName: "registeredName" in appt && appt.registeredName ? appt.registeredName : appt.customerName,
       // O título do tratamento; sem serviço guardado é avaliação geral, como no fluxo
@@ -111,11 +123,14 @@ export function panelAppointmentsRoutes({
     return { rules, now, timeZone, busy, window, maxDaysAhead: STAFF_MAX_DAYS_AHEAD };
   }
 
-  /** Os horários oferecidos no dia, para a duração do serviço (ADR 0015), como o assistente os oferece */
-  async function slotsOn(date: string, timeZone: string, service?: string) {
+  /**
+   * Os horários oferecidos no dia, na duração pedida: a do tratamento, a padrão, ou a escolhida pela equipe (ADR 0015),
+   * como o assistente os oferece. Devolve a duração usada.
+   */
+  async function slotsOn(date: string, timeZone: string, { service, minutes: asked }: { service?: string; minutes?: number } = {}) {
     const ctx = await availabilityContext(timeZone);
-    const minutes = service ? catalog.minutes(service) : undefined;
-    return naturalSlotsForDay(date, { ...ctx, minutes }).map((s) => s.toISOString());
+    const minutes = asked ?? (service ? catalog.minutes(service) : undefined) ?? ctx.rules.slotMinutes;
+    return { minutes, slots: naturalSlotsForDay(date, { ...ctx, minutes }).map((s) => s.toISOString()) };
   }
 
   /** Erros do Google viram 502; o resto segue. */
@@ -138,6 +153,8 @@ export function panelAppointmentsRoutes({
     name: z.string().trim().min(1, "enter the customer's name").max(120),
     service: z.string().refine((v) => catalog.list().some((s) => s.name === v), "choose one of the clinic's services"),
     start: z.iso.datetime({ offset: true }),
+    // Só a equipe escolhe a duração: de 5 em 5 minutos, até 480
+    minutes: z.number().int().min(MINUTES_STEP).max(MAX_APPOINTMENT_MINUTES).multipleOf(MINUTES_STEP).optional(),
   });
 
   return async function (app: FastifyInstance) {
@@ -202,7 +219,25 @@ export function panelAppointmentsRoutes({
       if (!query.success) return reply.code(422).send({ error: "invalid_date" });
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
-      return guard(reply, async () => ({ date: query.data.date, slots: await slotsOn(query.data.date, conn.timeZone, query.data.service) }));
+      return guard(reply, async () => {
+        const { minutes, slots } = await slotsOn(query.data.date, conn.timeZone, { service: query.data.service });
+        return { date: query.data.date, slots, minutes };
+      });
+    });
+
+    // Inícios do dia com a duração máxima de cada um, para o painel oferecer a duração livre (até o próximo horário)
+    app.get("/api/booking/starts", async (req, reply) => {
+      const query = startsQuery.safeParse(req.query);
+      if (!query.success) return reply.code(422).send({ error: "invalid_date" });
+      const conn = await usableCalendar(reply);
+      if (!conn) return reply;
+      return guard(reply, async () => {
+        const starts = startsWithRoom(query.data.date, await availabilityContext(conn.timeZone));
+        return {
+          date: query.data.date,
+          starts: starts.map(({ start, maxMinutes }) => ({ start: start.toISOString(), maxMinutes })),
+        };
+      });
     });
 
     app.get("/api/booking/lookup", async (req, reply) => {
@@ -228,7 +263,7 @@ export function panelAppointmentsRoutes({
         const issues = body.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
         return reply.code(422).send({ error: "invalid_body", issues });
       }
-      const { phone, name, service, start } = body.data;
+      const { phone, name, service, start, minutes } = body.data;
       const conversation = await inboxRepo.findConversationByPhone(phone);
 
       return guard(reply, async () => {
@@ -239,6 +274,7 @@ export function panelAppointmentsRoutes({
           start: new Date(start),
           origin: "panel",
           conversationId: conversation?.id ?? null,
+          minutes,
         });
         switch (result.kind) {
           case "booked":
@@ -250,10 +286,31 @@ export function panelAppointmentsRoutes({
           case "slot_taken": {
             const timeZone = await timeZoneOf();
             const date = DateTime.fromISO(start, { zone: timeZone }).toISODate()!;
-            return reply.code(409).send({ error: "slot_taken", date, slots: await slotsOn(date, timeZone, service) });
+            const { slots } = await slotsOn(date, timeZone, { service, minutes });
+            return reply.code(409).send({ error: "slot_taken", date, slots });
           }
         }
       });
     });
+
+    // Cancelamento pela equipe: sem prazo e sem mensagem ao cliente; a aba recebe o aviso pelo SSE (withAppointmentEvents)
+    app.post("/api/appointments/:id/cancel", async (req, reply) => {
+      const params = idParams.safeParse(req.params);
+      if (!params.success) return reply.code(404).send({ error: "not_found" });
+      const current = await store.findAppointment(params.data.id);
+      const conversation = current ? await inboxRepo.findConversationByPhone(current.phone) : null;
+
+      return guard(reply, async () => {
+        const result = await booking.cancelAppointment({ id: params.data.id, by: "staff", conversationId: conversation?.id ?? null });
+        switch (result.kind) {
+          case "cancelled":
+            return { ok: true };
+          case "not_found":
+            return reply.code(404).send({ error: "not_found" });
+          case "calendar_unavailable":
+            return reply.code(409).send({ error: "calendar_disconnected" });
+        }
+      });
+    });
   };
-}
+}

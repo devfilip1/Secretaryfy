@@ -106,6 +106,7 @@ export const systemNotes = {
   rescheduled: (from: Date, to: Date, tz: string) =>
     `Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
   cancelledByCustomer: (start: Date, tz: string) => `Cancelled by the customer: ${formatDayTime(start, tz)}`,
+  cancelledByStaff: (start: Date, tz: string) => `Cancelled from the panel: ${formatDayTime(start, tz)}`,
   cancelledInCalendar: (start: Date, tz: string) => `Cancelled in the calendar: ${formatDayTime(start, tz)}`,
   needsStaff: (urgent: boolean) =>
     urgent
