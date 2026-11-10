@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { testCatalog } from "../../test/catalog.js";
 import { createReplies, type Replies } from "./replies.js";
+import { createClinicContext } from "../clinic/context.js";
 
 const tz = "America/Bahia";
 const start = new Date("2026-10-21T13:00:00Z");
@@ -47,7 +48,7 @@ function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
   };
 }
 
-const pt = createReplies({ language: "pt", clinic: { name: "Clínica Sorriso" }, catalog: testCatalog });
+const pt = createReplies({ clinic: { name: "Clínica Sorriso", language: "pt" }, catalog: testCatalog });
 
 test("todo método de Replies devolve texto não vazio em português", () => {
   for (const [name, call] of Object.entries(everyCall(pt))) {
@@ -83,7 +84,7 @@ test("confirmação e lembrete pedem confirmação", () => {
 });
 
 test("clínica em inglês continua com o nome configurado", () => {
-  const en = createReplies({ language: "en", clinic: { name: "Smile Clinic" }, catalog: testCatalog });
+  const en = createReplies({ clinic: { name: "Smile Clinic", language: "en" }, catalog: testCatalog });
   assert.equal(en.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at Smile Clinic.");
 });
 
@@ -94,7 +95,7 @@ test("horas de antecedência em pt", () => {
 });
 
 test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
-  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  const r = createReplies({ clinic: { name: "Sorriso Pleno", language: "pt" }, catalog: testCatalog });
   assert.ok(r.offerSlots("2026-10-21", slots, tz, false).startsWith("Na quarta-feira, 21 de outubro, tenho estes horários:\n• 09:00\n• 10:00\n"));
   assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
   assert.match(r.closedDay([6, 7], ["2026-10-26"], tz), /^Não atendemos sábado e domingo\./);
@@ -102,7 +103,7 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
 });
 
 test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
-  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  const r = createReplies({ clinic: { name: "Sorriso Pleno", language: "pt" }, catalog: testCatalog });
   assert.match(r.booked(start, tz, "Paulo Lima"), /^Tudo certo, Paulo, seu horário está marcado!/);
   assert.match(r.booked(start, tz), /^Tudo certo, seu horário está marcado!/);
   assert.match(r.chooseService("Paulo Lima"), /^Paulo, para qual serviço é este agendamento\?/);
@@ -110,11 +111,19 @@ test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
 });
 
 test("nameReceived usa só o primeiro nome", () => {
-  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  const r = createReplies({ clinic: { name: "Sorriso Pleno", language: "pt" }, catalog: testCatalog });
   assert.match(r.nameReceived("Carla Souza", () => 0), /^Prazer, Carla! /);
 });
 
 test("a saudação segue o período do dia, e de madrugada ainda é noite", () => {
-  const r = createReplies({ language: "pt", clinic: { name: "Sorriso Pleno" }, catalog: testCatalog });
+  const r = createReplies({ clinic: { name: "Sorriso Pleno", language: "pt" }, catalog: testCatalog });
   assert.deepEqual([1, 8, 14, 20].map((h) => r.greeting(h).split("!")[0]), ["Boa noite", "Bom dia", "Boa tarde", "Boa noite"]);
+});
+
+test("o mesmo Replies troca de língua quando a clínica troca: inglês, depois português", () => {
+  const clinic = createClinicContext({ name: "Smile Clinic", kind: "dental clinic", language: "en" });
+  const r = createReplies({ clinic, catalog: testCatalog });
+  assert.equal(r.booked(start, tz), "You're booked! 📅 Wednesday, October 21 at 10:00 AM. See you at Smile Clinic.");
+  clinic.update({ language: "pt", name: "Clínica Sorriso" });
+  assert.match(r.booked(start, tz), /^Tudo certo, seu horário está marcado! .* Até lá, na Clínica Sorriso\.$/);
 });

@@ -90,7 +90,7 @@ function systemPrompt(language: "en" | "pt", clinicName: string): string {
   ].join("\n");
 }
 
-export function createHumanizer({ ollama, language, clinic }: { ollama: Pick<OllamaClient, "chat">; language: "en" | "pt"; clinic: Pick<ClinicContext, "name"> }) {
+export function createHumanizer({ ollama, clinic }: { ollama: Pick<OllamaClient, "chat">; clinic: Pick<ClinicContext, "name" | "language"> }) {
 
   return {
     /** Devolve a reescrita se passar na guarda; senão, ou em qualquer erro, o texto original. Nunca lança. */
@@ -107,7 +107,7 @@ export function createHumanizer({ ollama, language, clinic }: { ollama: Pick<Oll
             format: FORMAT,
             temperature: HUMANIZE_TEMPERATURE,
             messages: [
-              { role: "system", content: systemPrompt(language, clinic.name) },
+              { role: "system", content: systemPrompt(clinic.language, clinic.name) },
               { role: "user", content: `Customer said: ${customerText}
 
 Message to rewrite: ${reply}` },

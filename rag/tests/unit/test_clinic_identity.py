@@ -4,6 +4,7 @@ import logging
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from assistant import config
 from assistant.clinic.identity import ClinicIdentity, HttpClinicIdentity, IdentityClinicProfile, Treatment, example_treatment, extra_rules
@@ -108,9 +109,24 @@ def test_the_yaml_values_are_used_when_the_node_server_cannot_give_a_valid_ident
     assert len([r for r in caplog.records if r.levelno == logging.WARNING]) == 1  # at most once
 
 
-def test_a_language_that_differs_from_the_yaml_is_warned_and_not_switched(caplog):
+def test_a_language_that_differs_from_the_yaml_switches_the_language_pack():
     other = {**NODE_IDENTITY, "language": OTHER_LANGUAGE}
     identity = HttpClinicIdentity(URL, TOKEN, fetch=FakeFetch((200, json.dumps(other))))
+    profile = IdentityClinicProfile(yaml_profile(), identity).load()
+    pack = yaml.safe_load((LANGUAGES_DIR / f"{OTHER_LANGUAGE}.yaml").read_text(encoding="utf-8"))
+
+    assert profile.name == "Clínica Nova"
+    assert profile.language == OTHER_LANGUAGE
+    assert profile.no_answer == pack["no_answer"]
+    assert profile.refusal_offer == pack["refusal_offer"]
+    assert pack["answer_language"] in profile.system_prompt
+    assert YAML.lexicon.stopwords != profile.lexicon.stopwords
+    assert "whiten" not in profile.lexicon.synonyms  # a query synonym of the YAML language is not applied
+
+
+@pytest.mark.parametrize("language", ["xx", "../en"])
+def test_a_language_without_a_pack_falls_back_to_the_yaml_language_with_a_warning(language, caplog):
+    identity = HttpClinicIdentity(URL, TOKEN, fetch=FakeFetch((200, json.dumps({**NODE_IDENTITY, "language": language}))))
     source = IdentityClinicProfile(yaml_profile(), identity)
 
     with caplog.at_level(logging.WARNING):
@@ -118,7 +134,19 @@ def test_a_language_that_differs_from_the_yaml_is_warned_and_not_switched(caplog
 
     assert profile.name == "Clínica Nova"
     assert profile.language == YAML.language
-    assert any("language" in r.getMessage() for r in caplog.records)
+    assert profile.no_answer == YAML.no_answer
+    assert profile.lexicon.synonyms == YAML.lexicon.synonyms
+    assert any(language in r.getMessage() for r in caplog.records if r.levelno == logging.WARNING)
+
+
+def test_the_version_changes_with_the_language_so_the_index_is_rebuilt():
+    same = ClinicIdentity("Clínica Nova", "clínica", YAML.language)
+    other = ClinicIdentity("Clínica Nova", "clínica", OTHER_LANGUAGE)
+
+    version_same = IdentityClinicProfile(yaml_profile(), FakeIdentity(same)).version()
+    version_other = IdentityClinicProfile(yaml_profile(), FakeIdentity(other)).version()
+
+    assert version_same != version_other
 
 
 def test_the_identity_is_fetched_once_within_the_ttl_and_again_after_it():

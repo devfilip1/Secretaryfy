@@ -171,26 +171,21 @@ class IdentityClinicProfile:
     def __init__(self, profile: YamlClinicProfile, identity: IdentitySource):
         self._profile = profile
         self._identity = identity
-        self._warned_language = False
 
     def version(self) -> str:
         identity = self._identity.current()
         names = treatment_synonyms(identity.treatments) if identity else {}
-        return f"{self._profile.version()};names:{sorted(names.items())}"  # a changed name list rebuilds the word index
+        language = identity.language if identity else ""
+        # a changed name list or language rebuilds the word index
+        return f"{self._profile.version()};language:{language};names:{sorted(names.items())}"
 
     def load(self) -> ClinicProfile:
         identity = self._identity.current()
         if identity is None:
             return self._profile.load()
         profile = self._profile.load_as(
-            identity.name, identity.kind, example_treatment(identity.treatments), extra_rules(identity.treatments)
+            identity.name, identity.kind, example_treatment(identity.treatments), extra_rules(identity.treatments), identity.language
         )
-        if identity.language != profile.language and not self._warned_language:
-            self._warned_language = True
-            logger.warning(
-                "the clinic language is %s in the Node server and %s in the YAML profile: the profile keeps %s",
-                identity.language, profile.language, profile.language,
-            )
         names = treatment_synonyms(identity.treatments)
         if not names:
             return profile

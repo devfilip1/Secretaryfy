@@ -29,6 +29,18 @@ test("update com assistantName undefined tira o nome da atendente (o banco pode 
   assert.equal(clinic.name, "Smile Clinic");
 });
 
+test("trocar a língua pelo update vale na hora", () => {
+  const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "en" });
+  clinic.update({ name: "DentalSafe", assistantName: undefined, kind: "dental clinic", language: "pt" });
+  assert.equal(clinic.language, "pt");
+});
+
+test("update sem language mantém a língua atual", () => {
+  const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "pt" });
+  clinic.update({ name: "Smile Clinic" });
+  assert.equal(clinic.language, "pt");
+});
+
 test("a troca de nome chega à próxima saudação e ao prompt do interpretador, sem recriar nada", async () => {
   const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "en" });
   const replies = createReplies({ language: "en", clinic, catalog: testCatalog });

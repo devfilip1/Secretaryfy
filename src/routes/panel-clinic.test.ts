@@ -39,22 +39,51 @@ test("PUT grava no repositório, troca a identidade na hora e responde no mesmo 
   const res = await app.inject({
     method: "PUT",
     url: "/api/clinic-settings",
-    payload: { name: "  Sorriso Pleno  ", assistantName: "", kind: "physiotherapy clinic" },
+    payload: { name: "  Sorriso Pleno  ", assistantName: "", kind: "physiotherapy clinic", language: "pt" },
   });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json(), { name: "Sorriso Pleno", assistantName: null, kind: "physiotherapy clinic", language: "pt", restartRequired: false });
-  assert.deepEqual(saved, [{ name: "Sorriso Pleno", assistantName: undefined, kind: "physiotherapy clinic" }]);
+  assert.deepEqual(saved, [{ name: "Sorriso Pleno", assistantName: undefined, kind: "physiotherapy clinic", language: "pt" }]);
   assert.equal(clinic.name, "Sorriso Pleno");
   assert.equal(clinic.assistantName, undefined);
 });
 
+test("PUT com language troca a língua na hora, e o GET mostra a nova", async () => {
+  const { clinic, saved, repo } = setup();
+  const app = await appFor(clinic, repo);
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/clinic-settings",
+    payload: { name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "en" },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(clinic.language, "en");
+  assert.deepEqual(saved, [{ name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "en" }]);
+  assert.equal((await app.inject({ method: "GET", url: "/api/clinic-settings" })).json().language, "en");
+});
+
+test("PUT com language fora de en/pt é 400 e não muda a língua nem grava", async () => {
+  const { clinic, saved, repo } = setup();
+  const app = await appFor(clinic, repo);
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/clinic-settings",
+    payload: { name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "fr" },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(clinic.language, "pt");
+  assert.deepEqual(saved, []);
+});
+
 test("PUT inválido é 400 invalid_body com o campo, e não grava nada", async () => {
   const cases: Array<[Record<string, unknown>, string]> = [
-    [{ name: "", assistantName: "Ana", kind: "dental clinic" }, "name"],
-    [{ name: "x".repeat(121), assistantName: "", kind: "dental clinic" }, "name"],
-    [{ name: "DentalSafe", assistantName: "x".repeat(61), kind: "dental clinic" }, "assistantName"],
-    [{ name: "DentalSafe", assistantName: "", kind: "" }, "kind"],
-    [{ name: "DentalSafe", kind: "dental clinic" }, "assistantName"],
+    [{ name: "", assistantName: "Ana", kind: "dental clinic", language: "pt" }, "name"],
+    [{ name: "x".repeat(121), assistantName: "", kind: "dental clinic", language: "pt" }, "name"],
+    [{ name: "DentalSafe", assistantName: "x".repeat(61), kind: "dental clinic", language: "pt" }, "assistantName"],
+    [{ name: "DentalSafe", assistantName: "", kind: "", language: "pt" }, "kind"],
+    [{ name: "DentalSafe", kind: "dental clinic", language: "pt" }, "assistantName"],
+    [{ name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "fr" }, "language"],
+    [{ name: "DentalSafe", assistantName: "Ana", kind: "dental clinic" }, "language"],
   ];
   for (const [payload, field] of cases) {
     const { clinic, saved, repo } = setup();

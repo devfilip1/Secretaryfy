@@ -71,7 +71,7 @@ export type Replier = (
 /** Resposta do folheto; com o assistente fora do ar, a mensagem de indisponibilidade. */
 export function createRagAnswerer(
   ask: (question: string, history?: ConversationTurn[]) => Promise<RagAnswer>,
-  { unavailable }: { unavailable: string },
+  options: { readonly unavailable: string },
 ) {
   return async function answerQuestion(
     question: string,
@@ -85,7 +85,8 @@ export function createRagAnswerer(
       return result.answer;
     } catch (err) {
       log.error({ phone, err }, "assistente indisponível");
-      return unavailable;
+      // Lido no erro, não na criação: a troca de língua pelo painel vale na próxima falha
+      return options.unavailable;
     }
   };
 }

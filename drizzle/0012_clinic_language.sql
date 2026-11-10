@@ -1,0 +1,2 @@
+ALTER TABLE "clinic_settings" ADD COLUMN "language" text;--> statement-breakpoint
+ALTER TABLE "clinic_settings" ADD CONSTRAINT "clinic_settings_language" CHECK ("clinic_settings"."language" in ('en', 'pt'));

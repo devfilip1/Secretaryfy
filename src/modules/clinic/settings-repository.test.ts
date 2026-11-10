@@ -22,19 +22,26 @@ beforeEach(async () => {
 test("get devolve null antes da primeira gravação, e depois a identidade gravada", async () => {
   assert.equal(await repo.get(), null);
   await repo.save({ name: "Sorriso Pleno", assistantName: "Ana", kind: "dental clinic" });
-  assert.deepEqual(await repo.get(), { name: "Sorriso Pleno", assistantName: "Ana", kind: "dental clinic" });
+  assert.deepEqual(await repo.get(), { name: "Sorriso Pleno", assistantName: "Ana", kind: "dental clinic", language: undefined });
 });
 
 test("sem nome da atendente, guarda null e devolve undefined", async () => {
   await repo.save({ name: "DentalSafe", kind: "dental clinic" });
-  assert.deepEqual(await repo.get(), { name: "DentalSafe", assistantName: undefined, kind: "dental clinic" });
+  assert.deepEqual(await repo.get(), { name: "DentalSafe", assistantName: undefined, kind: "dental clinic", language: undefined });
+});
+
+test("grava e lê a língua; com a coluna vazia, devolve undefined", async () => {
+  await repo.save({ name: "DentalSafe", kind: "dental clinic", language: "pt" });
+  assert.equal((await repo.get())?.language, "pt");
+  await testDb.db.execute(sql`update clinic_settings set language = null`);
+  assert.equal((await repo.get())?.language, undefined);
 });
 
 test("gravar de novo troca a linha: a tabela continua com uma linha só", async () => {
   await repo.save({ name: "DentalSafe", kind: "dental clinic" });
   await repo.save({ name: "Smile Clinic", assistantName: "Bia", kind: "physiotherapy clinic" });
   assert.equal((await testDb.db.select().from(clinicSettings)).length, 1);
-  assert.deepEqual(await repo.get(), { name: "Smile Clinic", assistantName: "Bia", kind: "physiotherapy clinic" });
+  assert.deepEqual(await repo.get(), { name: "Smile Clinic", assistantName: "Bia", kind: "physiotherapy clinic", language: undefined });
 });
 
 test("o banco recusa uma segunda linha (id = 1)", async () => {

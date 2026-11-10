@@ -25,7 +25,7 @@ async function appWith(
 ): Promise<FastifyInstance> {
   const app = Fastify();
   await app.register(
-    knowledgeInternalRoutes({ repo: { list: async () => sections }, rules: { get: async () => ({ weeklyHours }) }, clinic: { name: CLINIC }, language, token }),
+    knowledgeInternalRoutes({ repo: { list: async () => sections }, rules: { get: async () => ({ weeklyHours }) }, clinic: { name: CLINIC, language }, token }),
   );
   await app.ready();
   return app;
@@ -35,7 +35,7 @@ test("the name is read when the request comes: renaming the clinic changes the v
   const clinic = createClinicContext({ name: CLINIC, kind: "dental clinic", language: "pt" });
   const app = Fastify();
   await app.register(
-    knowledgeInternalRoutes({ repo: { list: async () => rows }, rules: { get: async () => ({ weeklyHours: CLINIC_HOURS }) }, clinic, language: "pt", token: TOKEN }),
+    knowledgeInternalRoutes({ repo: { list: async () => rows }, rules: { get: async () => ({ weeklyHours: CLINIC_HOURS }) }, clinic, token: TOKEN }),
   );
   await app.ready();
   const fetchDocument = async () => (await app.inject({ method: "GET", url: "/internal/knowledge", headers: { authorization: `Bearer ${TOKEN}` } })).json();

@@ -5,7 +5,7 @@ export interface ClinicContext {
   readonly name: string;
   /** Nome da atendente; ausente = a saudação cita só a clínica */
   readonly assistantName?: string;
-  /** A língua vem do env no boot: trocá-la exige reiniciar (ADR 0012, passo 2) */
+  /** A língua vem do banco e muda ao vivo pelo painel; o env CLINIC_LANGUAGE só semeia enquanto o banco não tem valor (ADR 0016) */
   readonly language: Language;
   /** O que a clínica é, em inglês, para a prompt do interpretador ("dental clinic") */
   readonly kind: string;
@@ -18,6 +18,8 @@ export interface ClinicIdentity {
   name: string;
   assistantName?: string;
   kind: string;
+  /** Ausente = o banco ainda não tem língua; o env semeia */
+  language?: Language;
 }
 
 /** Os campos são lidos a cada uso, nunca copiados na criação: é assim que a troca pelo painel chega aos textos. */
@@ -34,13 +36,14 @@ export function createClinicContext(initial: ClinicIdentity & { language: Langua
       return state.kind;
     },
     get language() {
-      return initial.language;
+      return state.language;
     },
     update(patch) {
       if (patch.name !== undefined) state.name = patch.name;
       // Presente com undefined também vale: é "sem nome da atendente", que o banco pode guardar
       if ("assistantName" in patch) state.assistantName = patch.assistantName || undefined;
       if (patch.kind !== undefined) state.kind = patch.kind;
+      if (patch.language !== undefined) state.language = patch.language;
     },
   };
 }

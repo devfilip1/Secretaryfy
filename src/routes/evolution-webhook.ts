@@ -12,10 +12,20 @@ import { createMessageHandler, createRagAnswerer } from "../modules/whatsapp/han
 import { connectionStore, rulesStore } from "./calendar.js";
 import { antibanConfig, antibanRepo, breaker, gate, inbox, inboxRepo, instance } from "./inbox.js";
 import { catalog, clinic, humanize, schedulingFlow, schedulingReplies, schedulingStore } from "./scheduling.js";
-import { fixedTextsFor } from "../modules/antiban/texts.js";
+import { fixedTextsFor, type FixedTexts } from "../modules/antiban/texts.js";
 
-// Textos fixos na língua da clínica
-const texts = fixedTextsFor(clinic.language);
+// Textos fixos na língua da clínica, lidos a cada uso: a troca pelo painel vale sem reiniciar
+const texts: FixedTexts = {
+  get unavailable() {
+    return fixedTextsFor(clinic.language).unavailable;
+  },
+  get optOutConfirmation() {
+    return fixedTextsFor(clinic.language).optOutConfirmation;
+  },
+  get optIn() {
+    return fixedTextsFor(clinic.language).optIn;
+  },
+};
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001
 const reply = createSchedulingRouter({
@@ -31,7 +41,7 @@ const reply = createSchedulingRouter({
   inbox,
   connection: connectionStore,
   rules: rulesStore,
-  answerQuestion: createRagAnswerer(createRagClient({ baseUrl: env.RAG_SERVICE_URL, timeoutMs: env.RAG_TIMEOUT_MS }).ask, { unavailable: texts.unavailable[0] }),
+  answerQuestion: createRagAnswerer(createRagClient({ baseUrl: env.RAG_SERVICE_URL, timeoutMs: env.RAG_TIMEOUT_MS }).ask, { get unavailable() { return texts.unavailable[0]; } }),
 });
 
 const handleMessage = createMessageHandler({
