@@ -11,12 +11,17 @@ interface Context {
   timeZone: string;
   /** Duração do atendimento; sem ela vale `rules.slotMinutes` (ADR 0015) */
   minutes?: number;
+  /** Janela em dias; sem ele vale `rules.maxDaysAhead` */
+  maxDaysAhead?: number;
 }
 
+/** A equipe marca até um ano à frente (painel, para quem liga); o paciente, só dentro de `maxDaysAhead`. */
+export const STAFF_MAX_DAYS_AHEAD = 365;
+
 /** Dias em que se pode marcar: de hoje até hoje + maxDaysAhead, e o intervalo para consultar a ocupação. */
-export function bookingWindow({ rules, now, timeZone }: Pick<Context, "rules" | "now" | "timeZone">) {
+export function bookingWindow({ rules, now, timeZone, maxDaysAhead }: Pick<Context, "rules" | "now" | "timeZone" | "maxDaysAhead">) {
   const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
-  const last = today.plus({ days: rules.maxDaysAhead });
+  const last = today.plus({ days: maxDaysAhead ?? rules.maxDaysAhead });
   return {
     firstDate: today.toISODate()!,
     lastDate: last.toISODate()!,
@@ -32,9 +37,9 @@ const overlaps = (start: Date, end: Date, busy: Interval[]) => busy.some((b) => 
  * atendimento cabe no horário de funcionamento (FR-009), depois da antecedência mínima e sem sobrepor nenhum
  * intervalo ocupado (FR-010).
  */
-export function slotsForDay(date: string, { rules, busy, now, timeZone, minutes }: Context): Date[] {
+export function slotsForDay(date: string, { rules, busy, now, timeZone, minutes, maxDaysAhead }: Context): Date[] {
   const length = minutes ?? rules.slotMinutes;
-  const window = bookingWindow({ rules, now, timeZone });
+  const window = bookingWindow({ rules, now, timeZone, maxDaysAhead });
   if (date < window.firstDate || date > window.lastDate) return [];
 
   const day = DateTime.fromISO(date, { zone: timeZone });

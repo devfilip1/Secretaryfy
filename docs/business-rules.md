@@ -43,6 +43,7 @@ Booking rules are stored in `scheduling_rules` and edited in the panel (**Calend
 ### BR-SCH-01 · Free times come from the rules and the calendar
 A time is offered only if it falls within that weekday's opening hours, on the time grid (`grid_minutes`, 15 by default) with room for the treatment's appointment length (ADR 0015), after the minimum notice, within the days-ahead limit, and doesn't overlap **any** busy event on the selected Google Calendar (not just Secretaryfy's own).
 - **Where:** `slotsForDay`, `bookingWindow` in [availability.ts](../src/modules/scheduling/availability.ts)
+- **Booking window:** the patient (WhatsApp assistant) books only within `maxDaysAhead` (30 by default). The clinic staff (panel, "New appointment") can book up to 365 days ahead (`STAFF_MAX_DAYS_AHEAD`), because a patient who phones may ask for a date months away. Everything else (opening hours, minimum notice, busy calendar, appointment length, grid) is the same for both.
 - **Validation of the rules:** at least one open day; start before end; length 15–240 min in multiples of 5; each open day at least one appointment long. `rulesSchema` in [rules.ts](../src/modules/scheduling/rules.ts)
 
 ### BR-SCH-02 · Options are bullets, at most 6 per message

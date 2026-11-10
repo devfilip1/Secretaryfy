@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { availableDays, bookingWindow, naturalSlotsForDay, slotsForDay } from "./availability.js";
+import { availableDays, bookingWindow, naturalSlotsForDay, slotsForDay, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { DEFAULT_RULES, type Rules } from "./rules.js";
 
 const timeZone = "America/Bahia";
@@ -64,6 +64,19 @@ test("janela de agendamento: de hoje até maxDaysAhead", () => {
   assert.equal(w.to.toISOString(), at("2026-10-31T00:00").toISOString());
   // Fora da janela não há horários
   assert.deepEqual(slotsForDay("2026-11-02", { rules: rules({ maxDaysAhead: 10 }), busy: [], now, timeZone }), []);
+});
+
+test("maxDaysAhead no contexto: a equipe alcança um ano, o paciente segue a janela de 30 dias", () => {
+  // 2027-01-28 é uma quinta, 100 dias depois de `now`; 2027-10-20 é uma quarta, dia 365; 2027-10-21 é o dia 366
+  const day100 = "2027-01-28";
+  assert.deepEqual(slotsForDay(day100, { rules: rules(), busy: [], now, timeZone }), []);
+  const staff = { rules: rules(), busy: [], now, timeZone, maxDaysAhead: STAFF_MAX_DAYS_AHEAD };
+  assert.ok(slotsForDay(day100, staff).length > 0);
+  assert.ok(slotsForDay("2027-10-20", staff).length > 0);
+  assert.deepEqual(slotsForDay("2027-10-21", staff), []);
+  assert.equal(bookingWindow({ rules: rules(), now, timeZone, maxDaysAhead: STAFF_MAX_DAYS_AHEAD }).lastDate, "2027-10-20");
+  // Sem o contexto, a janela é a do paciente
+  assert.equal(bookingWindow({ rules: rules(), now, timeZone }).lastDate, "2026-11-19");
 });
 
 test("availableDays: só dias com ao menos um horário livre, em ordem, a partir de hoje", () => {

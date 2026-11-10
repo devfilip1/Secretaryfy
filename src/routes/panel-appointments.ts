@@ -8,7 +8,7 @@ import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gat
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
-import { availableDays, bookingWindow, naturalSlotsForDay } from "../modules/scheduling/availability.js";
+import { availableDays, bookingWindow, naturalSlotsForDay, STAFF_MAX_DAYS_AHEAD } from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import { systemNotes } from "../modules/scheduling/replies.js";
@@ -98,13 +98,16 @@ export function panelAppointmentsRoutes({
     return conn;
   }
 
-  /** Regras, ocupação e janela para calcular horários livres, como o assistente (FR-013). */
+  /**
+   * Regras, ocupação e janela para calcular horários livres, como o assistente (FR-013), com a janela da equipe
+   * (um ano): a ocupação cobre os dias que o painel pode marcar.
+   */
   async function availabilityContext(timeZone: string) {
     const rules = await rulesStore.get();
     const now = clock();
-    const window = bookingWindow({ rules, now, timeZone });
+    const window = bookingWindow({ rules, now, timeZone, maxDaysAhead: STAFF_MAX_DAYS_AHEAD });
     const busy = await calendar.busy(window.from, window.to);
-    return { rules, now, timeZone, busy, window };
+    return { rules, now, timeZone, busy, window, maxDaysAhead: STAFF_MAX_DAYS_AHEAD };
   }
 
   /** Os horários oferecidos no dia, para a duração do serviço (ADR 0015), como o assistente os oferece */
@@ -177,7 +180,14 @@ export function panelAppointmentsRoutes({
       if (!conn) return reply;
       return guard(reply, async () => {
         const ctx = await availabilityContext(conn.timeZone);
-        return { timeZone: conn.timeZone, days: availableDays(ctx) };
+        // Os dias do chip são os da janela do paciente; a data livre do painel cobre até maxDate
+        const { window } = ctx;
+        return {
+          timeZone: conn.timeZone,
+          days: availableDays({ ...ctx, maxDaysAhead: undefined }),
+          minDate: window.firstDate,
+          maxDate: window.lastDate,
+        };
       });
     });
 

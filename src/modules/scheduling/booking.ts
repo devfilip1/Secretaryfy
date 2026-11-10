@@ -5,7 +5,7 @@ import type { ConnectionStore } from "../google/connection.js";
 import type { CalendarGateway } from "../google/gateway.js";
 import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
-import { isSlotAvailable } from "./availability.js";
+import { isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
 import type { ServiceCatalog } from "./catalog.js";
 import { systemNotes } from "./replies.js";
@@ -138,7 +138,9 @@ export function createBooking({
         const minutes = catalog.minutes(service) ?? rules.slotMinutes;
         const end = new Date(start.getTime() + minutes * 60_000);
         const busy = await calendar.busy(start, end);
-        if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes })) return { kind: "slot_taken" };
+        // A equipe marca além da janela do paciente (até um ano); o assistente segue a janela de maxDaysAhead
+        const maxDaysAhead = origin === "panel" ? STAFF_MAX_DAYS_AHEAD : undefined;
+        if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes, maxDaysAhead })) return { kind: "slot_taken" };
 
         const id = randomUUID();
         const title = catalog.label(service);

@@ -210,6 +210,21 @@ test("GET /api/booking/days e /slots: os mesmos horários livres do assistente",
   assert.equal((await app.inject({ url: "/api/booking/days" })).statusCode, 409);
 });
 
+test("GET /api/booking/days: chips da janela do paciente, com minDate e maxDate da equipe (um ano)", async () => {
+  const body = (await app.inject({ url: "/api/booking/days" })).json();
+  assert.equal(body.minDate, "2026-10-20");
+  assert.equal(body.maxDate, "2027-10-20");
+  assert.ok(body.days.length > 0);
+  assert.ok(body.days.every((d: string) => d <= "2026-11-19"));
+});
+
+test("GET /api/booking/slots: a equipe vê os horários até maxDate; antes de hoje e depois dele, lista vazia", async () => {
+  const later = (await app.inject({ url: "/api/booking/slots?date=2027-01-28" })).json();
+  assert.equal(later.slots[0], at("2027-01-28T09:00").toISOString());
+  assert.deepEqual((await app.inject({ url: "/api/booking/slots?date=2027-10-21" })).json().slots, []);
+  assert.deepEqual((await app.inject({ url: "/api/booking/slots?date=2026-10-19" })).json().slots, []);
+});
+
 test("GET /api/booking/lookup: telefone normalizado, nome conhecido e horário futuro", async () => {
   const conv = await conversation();
   await repo.setCustomerName(conv.id, "Maria");

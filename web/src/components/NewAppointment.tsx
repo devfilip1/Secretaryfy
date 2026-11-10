@@ -24,6 +24,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [service, setService] = useState("");
   const [timeZone, setTimeZone] = useState<string | undefined>();
   const [days, setDays] = useState<string[] | null>(null);
+  const [range, setRange] = useState<{ minDate: string; maxDate: string } | null>(null);
   const [day, setDay] = useState<string | null>(null);
   const [slots, setSlots] = useState<string[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       .then((r) => {
         setTimeZone(r.timeZone);
         setDays(r.days);
+        setRange({ minDate: r.minDate, maxDate: r.maxDate });
       })
       .catch(calendarError);
   }
@@ -201,6 +203,22 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
               </Choice>
             ))}
           </div>
+        )}
+        {range && (
+          // Outra data (até um ano à frente): o mesmo `day` dos chips, então o chip e o campo mostram sempre o mesmo dia
+          <Field>
+            Other date
+            <Input
+              type="date"
+              min={range.minDate}
+              max={range.maxDate}
+              value={day ?? ""}
+              onChange={(e) => {
+                const picked = e.target.value;
+                if (picked >= range.minDate && picked <= range.maxDate) setDay(picked);
+              }}
+            />
+          </Field>
         )}
       </FieldSet>
 

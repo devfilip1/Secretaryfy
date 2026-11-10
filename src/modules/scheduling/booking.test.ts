@@ -132,6 +132,15 @@ test("um nome que não está no catálogo vai para o evento como está", async (
   assert.equal([...fake.events.values()][0].summary, "Maria — Teeth Whitening");
 });
 
+test("a equipe marca até um ano à frente; o assistente segue a janela de 30 dias, e nem a equipe passa de um ano", async () => {
+  // 2027-01-28 é 100 dias depois de hoje; 2027-10-20 é o dia 365; 2027-10-21 é o dia 366
+  assert.equal((await slot("2027-01-28T10:00")).kind, "booked");
+  assert.equal((await slot("2027-01-28T11:00", { phone: "5571988887777", origin: "assistant" })).kind, "slot_taken");
+  assert.equal((await slot("2027-10-20T10:00", { phone: "5571977776666" })).kind, "booked");
+  assert.equal((await slot("2027-10-21T10:00", { phone: "5571966665555" })).kind, "slot_taken");
+  assert.equal(fake.events.size, 2);
+});
+
 test("menos de 24 h de antecedência: lembrete não necessário", async () => {
   await slot("2026-10-21T10:00");
   const [appt] = await testDb.db.select().from(appointments);

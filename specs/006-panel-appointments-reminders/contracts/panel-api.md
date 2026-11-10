@@ -53,9 +53,9 @@ O operador confirma o horário (por exemplo, depois de ligar para o cliente).
 
 ### `GET /api/booking/days`
 
-Dias com ao menos um horário livre, pelas regras de atendimento e pela ocupação do Google (as mesmas funções do assistente).
+Dias com ao menos um horário livre, pelas regras de atendimento e pela ocupação do Google (as mesmas funções do assistente). Os `days` são os da janela do paciente (`maxDaysAhead`), para os chips rápidos; a equipe escolhe qualquer data entre `minDate` e `maxDate` (um ano) pelo campo de data do painel.
 
-- **200** `{ "timeZone": "America/Bahia", "days": ["2026-10-26", "2026-10-27"] }`.
+- **200** `{ "timeZone": "America/Bahia", "days": ["2026-10-26", "2026-10-27"], "minDate": "2026-10-20", "maxDate": "2027-10-20" }`.
 - **409** `calendar_disconnected`: agenda desconectada ou precisando de reconexão.
 - **502** `calendar_unavailable`: o Google não respondeu.
 
@@ -63,7 +63,7 @@ Dias com ao menos um horário livre, pelas regras de atendimento e pela ocupaç�
 
 Horários livres do dia.
 
-- **200** `{ "date": "2026-10-26", "slots": ["2026-10-26T12:00:00.000Z", "…"] }`. A lista é vazia num dia fechado, cheio ou fora da janela.
+- **200** `{ "date": "2026-10-26", "slots": ["2026-10-26T12:00:00.000Z", "…"] }`. Vale a janela da equipe: qualquer data até `maxDate` (um ano). A lista é vazia num dia fechado, cheio, antes de hoje ou depois de `maxDate`.
 - **422** `invalid_date`.
 - **409** `calendar_disconnected` e **502** `calendar_unavailable`, como acima.
 

@@ -219,7 +219,8 @@ export interface Appointment {
 export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 
-export const bookingDays = () => request<{ timeZone: string; days: string[] }>("GET", "/api/booking/days");
+export const bookingDays = () =>
+  request<{ timeZone: string; days: string[]; minDate: string; maxDate: string }>("GET", "/api/booking/days");
 export const bookingSlots = (date: string, service?: string) =>
   request<{ date: string; slots: string[] }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
 export const lookupPhone = (phone: string) =>
