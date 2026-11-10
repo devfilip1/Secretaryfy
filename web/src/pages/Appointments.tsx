@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StickyNote } from "lucide-react";
 import { confirmAppointment, listAppointments, type Appointment, type ReminderLabel } from "../api";
+import { CancelAppointmentDialog } from "../components/CancelAppointmentDialog";
 import { NewAppointment } from "../components/NewAppointment";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export function AppointmentsPage() {
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<Appointment | null>(null);
 
   const load = useCallback(() => {
     listAppointments()
@@ -79,6 +81,9 @@ export function AppointmentsPage() {
 
   if (!data) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
 
+  // O horário inteiro: "9:00 AM – 10:00 AM"
+  const range = (a: Appointment) => `${formats.time.format(new Date(a.startsAt))} – ${formats.time.format(new Date(a.endsAt))}`;
+
   return (
     <Page>
       <div className="w-[min(860px,100%)]">
@@ -103,6 +108,25 @@ export function AppointmentsPage() {
             </Notice>
           )}
           {error && <Notice role="alert">{error}</Notice>}
+
+          {cancelling && (
+            <CancelAppointmentDialog
+              appointment={cancelling}
+              formats={formats}
+              onKeep={() => setCancelling(null)}
+              onCancelled={() => {
+                setNotice(`Cancelled the appointment of ${cancelling.customerName}, ${formats.day.format(new Date(cancelling.startsAt))} at ${formats.time.format(new Date(cancelling.startsAt))}.`);
+                setError(null);
+                setData((d) => d && { ...d, appointments: d.appointments.filter((x) => x.id !== cancelling.id) });
+                setCancelling(null);
+              }}
+              onGone={() => {
+                setError("This appointment is no longer booked.");
+                setCancelling(null);
+                load();
+              }}
+            />
+          )}
 
           {creating && (
             <NewAppointment
@@ -134,13 +158,16 @@ export function AppointmentsPage() {
                         <li
                           key={a.id}
                           className={cn(
-                            "grid grid-cols-[92px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-1.5 py-2.5 max-md:grid-cols-[64px_minmax(0,1fr)] max-md:gap-x-2.5 max-md:gap-y-1",
+                            "grid grid-cols-[150px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-1.5 py-2.5 max-md:grid-cols-[120px_minmax(0,1fr)] max-md:gap-x-2.5 max-md:gap-y-1",
                             a.reminder.label === "remind_manually" && "shadow-stripe-warn",
                           )}
                         >
                           <div className="flex flex-col tabular-nums">
-                            <strong>{formats.time.format(start)}</strong>
-                            {key === "week" && <Muted>{formats.day.format(start)}</Muted>}
+                            <strong>{range(a)}</strong>
+                            <Muted>
+                              {key === "week" && `${formats.day.format(start)} · `}
+                              {a.minutes} min
+                            </Muted>
                           </div>
                           <div className="flex min-w-0 flex-col gap-0.5">
                             <span className="truncate font-semibold">{a.customerName}</span>
@@ -176,6 +203,9 @@ export function AppointmentsPage() {
                                   {confirming === a.id ? "Confirming…" : "Confirm"}
                                 </Button>
                               )}
+                              <Button variant="outline" className="text-destructive" onClick={() => setCancelling(a)}>
+                                Cancel
+                              </Button>
                               {a.conversationId && <a href={`#/?c=${a.conversationId}`}>Open conversation</a>}
                             </div>
                           </div>

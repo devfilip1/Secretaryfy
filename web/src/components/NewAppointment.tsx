@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ComponentProps, type FormEvent } from "react";
-import { ApiError, bookingDays, bookingSlots, createAppointment, listServices, lookupPhone, type Appointment } from "../api";
+import { ApiError, bookingDays, bookingSlots, bookingStarts, createAppointment, listServices, lookupPhone, type Appointment, type BookingStart } from "../api";
 import { useInboxEvents } from "../useEvents";
 import { CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clinicFormats } from "../format";
 import { toDate, toYmd } from "./date-string";
+import { defaultDuration, endOfRoom, formatMinutes, validateDuration } from "./duration";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
@@ -37,7 +38,13 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [pickerOpen, setPickerOpen] = useState(false);
   const otherDateId = useId();
   const [slots, setSlots] = useState<string[] | null>(null);
+  // Duração usada para os horários sugeridos (a do serviço)
+  const [slotMinutes, setSlotMinutes] = useState(0);
+  // Todos os inícios livres do dia, com o tempo livre de cada um
+  const [starts, setStarts] = useState<BookingStart[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  // Texto do campo "Duration (minutes)"; começa em branco e é preenchido quando um horário é escolhido
+  const [duration, setDuration] = useState("");
   const [existing, setExisting] = useState<Appointment | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,11 +118,38 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
   useEffect(() => {
     if (!day) return;
+    let stale = false;
     setSlots(null);
+    setStarts(null);
     setStart(null);
-    // O tempo do atendimento depende do serviço: trocar o serviço traz os horários dele
-    bookingSlots(day, service || undefined).then((r) => setSlots(r.slots), calendarError);
+    // O tempo do atendimento depende do serviço: trocar o serviço traz os horários dele. Os inícios livres vêm junto.
+    Promise.all([bookingSlots(day, service || undefined), bookingStarts(day)]).then(
+      ([suggested, all]) => {
+        if (stale) return;
+        setSlots(suggested.slots);
+        setSlotMinutes(suggested.minutes);
+        setStarts(all.starts);
+      },
+      (err) => {
+        if (!stale) calendarError(err);
+      },
+    );
+    return () => {
+      stale = true;
+    };
   }, [day, service, slotsReload]);
+
+  // Tempo livre do início escolhido. Um início fora da lista não existe; se acontecer, vale a duração do serviço.
+  const chosen = start ? starts?.find((s) => s.start === start) : undefined;
+  const maxMinutes = start ? (chosen?.maxMinutes ?? slotMinutes) : 0;
+  const durationError = start ? validateDuration(duration, maxMinutes) : null;
+
+  // Escolher um horário (chip ou lista) põe a duração padrão dele
+  function pickStart(next: string) {
+    const found = starts?.find((s) => s.start === next);
+    setStart(next);
+    setDuration(String(defaultDuration(slotMinutes, found?.maxMinutes ?? slotMinutes)));
+  }
 
   async function checkPhone() {
     setExisting(null);
@@ -137,13 +171,15 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     setBusy(true);
     setError(null);
     try {
-      const { appointment } = await createAppointment({ phone, name, service, start });
+      const { appointment } = await createAppointment({ phone, name, service, start, minutes: Number(duration) });
       onBooked(appointment);
     } catch (err) {
       if (err instanceof ApiError && err.error === "slot_taken") {
         setError("That time was just taken. Pick another one.");
         setStart(null);
         setSlots(err.body.slots as string[]);
+        // Recarrega também a lista completa: o horário ocupado e o tempo livre dos outros mudaram
+        setSlotsReload((n) => n + 1);
       } else if (err instanceof ApiError && err.error === "already_booked") {
         setExisting(err.body.appointment as Appointment);
       } else if (err instanceof ApiError && err.error === "invalid_body") {
@@ -168,7 +204,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     );
   }
 
-  const canBook = Boolean(services && service && phone.trim() && name.trim() && start && !existing && !busy);
+  const canBook = Boolean(services && service && phone.trim() && name.trim() && start && !durationError && !existing && !busy);
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
@@ -275,20 +311,61 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       {day && (
         <FieldSet>
           <FieldLegend variant="label">Time</FieldLegend>
-          {slots === null ? (
+          {slots === null || starts === null ? (
             <Muted>Loading times…</Muted>
-          ) : slots.length === 0 ? (
+          ) : slots.length === 0 && starts.length === 0 ? (
             <Muted>No free times on this day anymore.</Muted>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {slots.map((s) => (
-                <Choice key={s} selected={s === start} onClick={() => setStart(s)}>
-                  {formats.time.format(new Date(s))}
-                </Choice>
-              ))}
-            </div>
+            <>
+              {slots.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {slots.map((s) => (
+                    <Choice key={s} selected={s === start} onClick={() => pickStart(s)}>
+                      {formats.time.format(new Date(s))}
+                    </Choice>
+                  ))}
+                </div>
+              )}
+              {starts.length > 0 && (
+                <Field>
+                  All times
+                  <Select value={start ?? ""} onValueChange={pickStart}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick any free time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {starts.map((s) => (
+                        <SelectItem key={s.start} value={s.start}>
+                          {`${formats.time.format(new Date(s.start))}, up to ${formatMinutes(s.maxMinutes)}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </>
           )}
         </FieldSet>
+      )}
+
+      {start && (
+        <Field>
+          Duration (minutes)
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={5}
+            max={maxMinutes}
+            step={5}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            aria-invalid={!!durationError}
+          />
+          <Muted>
+            {`Free until ${formats.time.format(new Date(endOfRoom(start, maxMinutes)))} (up to ${formatMinutes(maxMinutes)})`}
+          </Muted>
+          {durationError && <Muted tone="destructive">{durationError}</Muted>}
+        </Field>
       )}
 
       {error && <Notice role="alert">{error}</Notice>}
