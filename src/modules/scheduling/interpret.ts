@@ -349,6 +349,8 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   // O nome tem de estar escrito na mensagem e nunca vem de uma pergunta ("Qual seu nome?" e "voces aceitam cartão?" não são nomes)
   let cleaned = keepsName ? cleanName(name) : null;
   if (cleaned && (!nameInText(cleaned, text) || text.includes("?"))) cleaned = null;
+  // "sim" e "não" respondem a uma pergunta, não são um nome (o modelo as devolve como nome logo depois do pedido)
+  if (cleaned && (YES.has(normalize(cleaned)) || NO.has(normalize(cleaned)))) cleaned = null;
   if (intent === "give_name" && !cleaned) return result("unclear", { source: "model" });
   // O serviço tem de ser do catálogo: o rótulo que o modelo devolveu vira o nome guardado (byLabel, sem busca aproximada)
   const service = parsed.data.service ? catalog.byLabel(parsed.data.service) : null;

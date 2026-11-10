@@ -34,19 +34,27 @@ export function applyWhen(interpretation: Interpretation, when: When | null, ste
   return { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) };
 }
 
-/** "the first one": com opções na tela e nenhuma lida, vale perguntar a posição que o cliente escolheu */
+/**
+ * "the first one": com opções na tela e sem horário, período ou dia na frase, quem acha a posição é a chamada focada, que confere a citação
+ * no texto. Isso vale também quando o modelo principal já trouxe uma opção: ele a inventa para "sim, pode ser" (virou a "quinta").
+ */
 export function needsPick(interpretation: Interpretation, optionCount: number): boolean {
   return (
     optionCount > 0 &&
     (interpretation.intent === "choose" || interpretation.intent === "unclear") &&
-    interpretation.option === null &&
+    // Uma opção da regra (o cliente digitou "2") já é fato; só a do modelo principal precisa de conferência
+    (interpretation.option === null || interpretation.source === "model") &&
     !interpretation.time &&
     !interpretation.period &&
     !interpretation.date
   );
 }
 
-/** Preenche a opção achada (a intenção vira choose); sem posição, devolve o mesmo objeto */
+/**
+ * Preenche a opção achada (a intenção vira choose). Sem posição citada, uma opção que só o modelo principal deu não vale: vira "não entendi".
+ * Sem opção nenhuma, devolve o mesmo objeto.
+ */
 export function applyPick(interpretation: Interpretation, pick: number | null): Interpretation {
-  return pick ? { ...interpretation, intent: "choose" as const, option: pick } : interpretation;
+  if (pick) return { ...interpretation, intent: "choose" as const, option: pick };
+  return interpretation.option === null ? interpretation : { ...interpretation, intent: "unclear" as const, option: null };
 }

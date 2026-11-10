@@ -104,12 +104,12 @@ test("applyWhen: nada muda devolve o mesmo objeto", () => {
   assert.equal(applyWhen(base(), null, "choose_slot").intent, "book");
 });
 
-test("needsPick: só com opções na tela, intenção de escolha ou não entendida, e sem horário, período ou data", () => {
+test("needsPick: com opções na tela, intenção de escolha ou não entendida (mesmo com opção do modelo), e sem horário, período ou data", () => {
   const cases: [Interpretation, number, boolean][] = [
     [base({ intent: "choose" }), 3, true],
     [base({ intent: "unclear" }), 3, true],
     [base({ intent: "choose" }), 0, false],
-    [base({ intent: "choose", option: 2 }), 3, false],
+    [base({ intent: "choose", option: 2 }), 3, true],
     [base({ intent: "choose", time: "10:00" }), 3, false],
     [base({ intent: "choose", period: "morning" }), 3, false],
     [base({ intent: "unclear", date: "2026-10-21" }), 3, false],
@@ -128,4 +128,14 @@ test("applyPick: a posição achada vira escolha", () => {
 test("applyPick: sem posição devolve o mesmo objeto", () => {
   const interpretation = base({ intent: "unclear" });
   assert.equal(applyPick(interpretation, null), interpretation);
+});
+
+test("applyPick: uma opção que só o modelo deu, sem citação no texto, vira não entendi", () => {
+  const result = applyPick(base({ intent: "choose", option: 3 }), null);
+  assert.equal(result.intent, "unclear");
+  assert.equal(result.option, null);
+});
+
+test("applyPick: a posição citada vence a opção do modelo", () => {
+  assert.equal(applyPick(base({ intent: "choose", option: 3 }), 1).option, 1);
 });

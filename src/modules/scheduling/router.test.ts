@@ -79,7 +79,7 @@ function setup({
   when?: { time: string | null; period: DayPeriod | null; namesDay?: boolean | null } | null;
   /** Opção que a chamada focada acha na mensagem (mentionedOption) */
   pick?: number | null;
-  humanize?: (reply: string, customerText: string) => Promise<string>;
+  humanize?: (reply: string) => Promise<string>;
   /** A conversa ainda não tem resposta nossa */
   firstMessage?: boolean;
   /** Texto que o assistente já mandou nesta conversa */

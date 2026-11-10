@@ -38,7 +38,7 @@ interface Deps {
   /** Textos na língua da clínica (replies.ts, createReplies) */
   replies: Replies;
   /** Reescrita opcional da resposta do fluxo (humanize.ts); só o texto do fluxo passa por ela */
-  humanize?: (reply: string, customerText: string, log: FastifyBaseLogger) => Promise<string>;
+  humanize?: (reply: string, log: FastifyBaseLogger) => Promise<string>;
 }
 
 /** Decide se a mensagem vai para o agendamento ou para o folheto, e devolve o texto da resposta. */
@@ -211,13 +211,14 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
     const timed = applyWhen(interpretation, when, session?.step);
     const count = session?.options?.length ?? 0;
-    const pick = needsPick(timed, count) ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
-    const chosen = applyPick(timed, pick);
+    // A posição só vale com a citação no texto (o modelo principal a inventa para "sim, pode ser"): quando a chamada focada roda, ela decide
+    const picking = needsPick(timed, count);
+    const chosen = picking ? applyPick(timed, (await interpreter.mentionedOption?.({ text, count, log })) ?? null) : timed;
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
-    let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
+    let out = result.handoff ? result.reply : await humanize(result.reply, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura
     if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out)) out = `${replies.again()}\n\n${out}`;
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };

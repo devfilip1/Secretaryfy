@@ -84,13 +84,13 @@ test("humanize: cai no original quando o modelo lança erro", async () => {
     ollama: { chat: async () => Promise.reject(new InterpreterUnavailable("fora do ar")) },
     clinic: { name: "DentalSafe", language: "en" },
   });
-  assert.equal(await humanizer.humanize(en, "hi"), en);
+  assert.equal(await humanizer.humanize(en), en);
 });
 
 test("humanize: cai no original quando o modelo devolve null ou fora do formato", async () => {
   for (const raw of [null, { other: 1 }]) {
     const humanizer = createHumanizer({ ollama: { chat: async () => raw }, clinic: { name: "DentalSafe", language: "en" }, catalog: testCatalog });
-    assert.equal(await humanizer.humanize(en, "hi"), en);
+    assert.equal(await humanizer.humanize(en), en);
   }
 });
 
@@ -99,13 +99,13 @@ test("humanize: cai no original quando a reescrita falha na guarda", async () =>
     ollama: { chat: async () => ({ message: "Sure! Pick 1 or 2 for 99 o'clock." }) },
     clinic: { name: "DentalSafe", language: "en" },
   });
-  assert.equal(await humanizer.humanize(en, "hi"), en);
+  assert.equal(await humanizer.humanize(en), en);
 });
 
 test("humanize: devolve a reescrita quando passa na guarda", async () => {
   const rewrite = faithful(en);
   const humanizer = createHumanizer({ ollama: { chat: async () => ({ message: rewrite }) }, clinic: { name: "DentalSafe", language: "en" }, catalog: testCatalog });
-  assert.equal(await humanizer.humanize(en, "hi"), rewrite);
+  assert.equal(await humanizer.humanize(en), rewrite);
 });
 
 test("humanize: o prompt leva o nome da clínica e a língua certa", async () => {
@@ -114,12 +114,12 @@ test("humanize: o prompt leva o nome da clínica e a língua certa", async () =>
     seen.push(messages);
     return { message: pt };
   };
-  await createHumanizer({ ollama: { chat }, clinic: { name: "Clínica Sorriso", language: "pt" } }).humanize(pt, "oi, tudo bem?");
+  await createHumanizer({ ollama: { chat }, clinic: { name: "Clínica Sorriso", language: "pt" } }).humanize(pt);
   const [system, user] = seen[0];
   assert.equal(system.role, "system");
   assert.match(system.content, /Clínica Sorriso/);
   assert.match(system.content, /Brazilian Portuguese/);
-  assert.match(user.content, /Customer said: oi, tudo bem\?/);
+  assert.doesNotMatch(user.content, /Customer said/);
   assert.match(user.content, /Message to rewrite:/);
 });
 
@@ -135,9 +135,9 @@ test("humanize: o prompt segue a língua trocada pelo painel, sem reiniciar", as
     },
     clinic,
   });
-  await humanizer.humanize(en, "hi");
+  await humanizer.humanize(en);
   clinic.update({ language: "pt" });
-  await humanizer.humanize(pt, "oi");
+  await humanizer.humanize(pt);
   assert.match(seen[0][0].content, /in English\./);
   assert.match(seen.at(-1)![0].content, /Brazilian Portuguese/);
 });

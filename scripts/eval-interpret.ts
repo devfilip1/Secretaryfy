@@ -167,8 +167,7 @@ for (const k of cases) {
   const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
   const timed = applyWhen(first, when, k.step);
   const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
-  const pick = needsPick(timed, shown) ? ((await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : null;
-  const got = applyPick(timed, pick);
+  const got = needsPick(timed, shown) ? applyPick(timed, (await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : timed;
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);

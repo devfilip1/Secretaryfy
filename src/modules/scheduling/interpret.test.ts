@@ -223,6 +223,15 @@ test("give_name do modelo sem um nome válido vira unclear", async () => {
   assert.equal((await interpreter.interpret(input({ text: "why do you ask?", awaitingName: true }))).intent, "unclear");
 });
 
+test("um sim ou um não depois do pedido de nome não é o nome", async () => {
+  for (const [text, name] of [["sim", "Sim"], ["Sim", "Sim"], ["não", "Não"], ["yes", "Yes"], ["ok", "Ok"]]) {
+    const { interpreter } = fakeOllama({ intent: "give_name", option: null, date: null, name });
+    const r = await interpreter.interpret(input({ text, step: "ask_name", awaitingName: true }));
+    assert.notEqual(r.intent, "give_name", text);
+    assert.equal(r.name, null, text);
+  }
+});
+
 // --- specs/005, US2: serviço ---
 
 test("etapa choose_service: o número da lista vale sem o modelo; o nome do tratamento é o modelo que lê, pelo rótulo", async () => {
