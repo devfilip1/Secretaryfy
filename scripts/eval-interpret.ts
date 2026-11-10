@@ -107,6 +107,14 @@ const cases: Case[] = [
   c(null, "amanhã à noite pode?", "availability", { date: "2026-10-21", period: "evening", time: null }),
   c(null, "tem horário de manhã?", "availability", { period: "morning", time: null }),
   c(null, "amanhã às 9h", ["availability", "book"], { date: "2026-10-21", time: "09:00", period: null }),
+  c(null, "Meu nome é Carla. Queria marcar uma limpeza amanhã à tarde", ["book", "give_name"], { period: "afternoon", time: null }),
+  c(null, "Quero marcar um clareamento amanhã de manhã", "book", { date: "2026-10-21", period: "morning", time: null }),
+  c(null, "pode ser meio-dia?", ["availability", "book"], { time: "12:00", period: null }),
+  c("choose_slot", "the first one", "choose", { option: 1 }),
+  c("choose_slot", "o último", "choose", { option: 3 }),
+  c("choose_day", "o segundo", "choose", { option: 2 }),
+  c("choose_slot", "e à noite, tem?", ["choose", "availability", "more", "unclear", "other_day"], { date: null, period: "evening", time: null }),
+  c("choose_slot", "Obrigada, mas prefiro à noite", ["choose", "availability", "more", "unclear", "other_day"], { period: "evening", time: null }),
   c("choose_slot", "as 10 ta bom", "choose", { option: 2 }),
   c("choose_slot", "pode ser a tarde mesmo", "choose", { option: 3 }),
   c("choose_slot", "quero ver mais horarios", "more"),
@@ -158,8 +166,17 @@ for (const k of cases) {
   const wantsTime = ["book", "availability"].includes(first.intent) || (first.intent === "choose" && (first.option === null || k.step === "choose_slot")) || k.step === "choose_slot";
   const when = wantsTime ? await interpreter.mentionedWhen({ text: k.text }) : null;
   const period = when?.period ?? null;
-  const time = period ? null : (when?.time ?? first.time ?? null);
-  const got = { ...first, time, period };
+  const focused = typeof when?.namesDay === "boolean";
+  const time = period ? null : focused ? (when?.time ?? null) : (when?.time ?? first.time ?? null);
+  // A data que o modelo deu sem a mensagem citar nenhum dia é descartada, como no roteador
+  const invented = when?.namesDay === false && first.date !== null;
+  let got = { ...first, ...(invented ? { date: null } : {}), time, period };
+  // Opção pela posição ("the first one"): como no roteador, a chamada focada acha a opção quando o modelo não a leu
+  const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
+  if (shown > 0 && (got.intent === "choose" || got.intent === "unclear") && got.option === null && !got.time && !got.period && !got.date) {
+    const option = await interpreter.mentionedOption({ text: k.text, count: shown });
+    if (option) got = { ...got, intent: "choose" as const, option };
+  }
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);

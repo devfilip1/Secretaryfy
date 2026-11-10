@@ -20,7 +20,7 @@ const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -213,13 +213,26 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
     const when = wantsTime ? (await interpreter.mentionedWhen?.({ text, log })) ?? null : null;
     const period = when?.period ?? null;
-    const time = period ? null : (when?.time ?? interpretation.time ?? null);
+    // A chamada focada confere a citação no texto, então vale mais que o campo do modelo principal (que às vezes inventa um horário);
+    // se ela falhou (namesDay não é verdadeiro nem falso), o campo do modelo vale
+    const focused = typeof when?.namesDay === "boolean";
+    const time = period ? null : focused ? (when?.time ?? null) : (when?.time ?? interpretation.time ?? null);
+    // A data que o modelo deu sem a mensagem citar nenhum dia é chute ("e à noite, tem?" virou um sábado): some, e o dia da tela vale
+    const invented = when?.namesDay === false && interpretation.date !== null;
+    const read = invented ? { ...interpretation, date: null, tooFar: undefined } : interpretation;
     // Com os horários na tela, um horário citado é uma escolha, mesmo que o modelo tenha lido "mais" ou "não entendi"
-    const toChoice = time && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
-    const timed = time || period ? { ...interpretation, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
+    // Com os horários na tela, um horário ou uma parte do dia ("prefiro à noite") é uma escolha dentro do dia da tela, mesmo que o modelo tenha lido "mais", "não entendi" ou "outro dia"
+    const toChoice = (time || period) && session?.step === "choose_slot" && ["more", "unclear", "other_day", "availability"].includes(interpretation.intent);
+    const timed = time !== (interpretation.time ?? null) || period || invented ? { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) } : interpretation;
+
+    // "the first one": com opções na tela e nenhuma lida, uma chamada focada acha a posição que o cliente escolheu
+    const count = session?.options?.length ?? 0;
+    const needsPick = count > 0 && (timed.intent === "choose" || timed.intent === "unclear") && timed.option === null && !timed.time && !timed.period && !timed.date;
+    const pick = needsPick ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
+    const chosen = pick ? { ...timed, intent: "choose" as const, option: pick } : timed;
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation: timed, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
+    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura

@@ -78,7 +78,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 
 ### Real-time events — [panel-events.ts](../src/routes/panel-events.ts)
 
-`GET /api/events` is a Server-Sent Events stream with a heartbeat every 25 s. While at least one panel is connected, the server polls the WhatsApp connection state. Event types ([events.ts](../src/modules/inbox/events.ts)):
+`GET /api/events` is a Server-Sent Events stream with a heartbeat every 15 s, sent as a named `ping` event (a comment would be invisible to the browser's `EventSource`); the panel reconnects and reloads its data when it hears nothing for 45 s, which also covers a proxy that keeps the connection open after the server died. While at least one panel is connected, the server polls the WhatsApp connection state. Event types ([events.ts](../src/modules/inbox/events.ts)):
 
 | Event | Payload |
 |---|---|

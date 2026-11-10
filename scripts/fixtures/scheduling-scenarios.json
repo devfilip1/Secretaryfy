@@ -267,6 +267,29 @@
     },
 
     {
+      "name": "escolher pela posição: the first one",
+      "messages": [
+        "I want to book an appointment tomorrow",
+        "the first one",
+        "yes"
+      ],
+      "final": "2026-10-21T09:00"
+    },
+
+    {
+      "name": "conversa com trocas de parte do dia e de dia",
+      "messages": [
+        "Meu nome é Carla. Queria marcar uma limpeza amanhã à tarde",
+        "Obrigada, mas prefiro de manhã",
+        "e à noite, tem?",
+        "então quinta de manhã",
+        "pode ser às 10",
+        "sim"
+      ],
+      "final": "2026-10-22T10:00"
+    },
+
+    {
       "name": "horário citado e livre na grade de 15 min (ADR 0015)",
       "messages": [
         "I want to book an appointment tomorrow",
