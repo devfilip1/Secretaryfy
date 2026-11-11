@@ -1,0 +1,41 @@
+{
+  "loading": "Loading…",
+  "signOut": "Sign out",
+  "panelLanguage": "Panel language",
+  "reconnecting": "Reconnecting to the server…",
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "retry": "Try again",
+  "close": "Close",
+  "back": "Back",
+  "yes": "Yes",
+  "no": "No",
+  "nav": {
+    "conversations": "Conversations",
+    "appointments": "Appointments",
+    "connection": "Connection",
+    "calendar": "Calendar",
+    "customers": "Customers",
+    "knowledge": "Knowledge",
+    "short": {
+      "chats": "Chats",
+      "appointments": "Bookings",
+      "whatsapp": "WhatsApp",
+      "calendar": "Calendar",
+      "customers": "Customers",
+      "knowledge": "Knowledge"
+    }
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting…",
+    "disconnected": "Disconnected",
+    "title": "WhatsApp connected",
+    "titleNumber": "WhatsApp connected · {{phone}}"
+  },
+  "disabled": {
+    "title": "Panel disabled",
+    "body": "Set <code>OPERATOR_PASSWORD</code> (12 characters or more) in the server <code>.env</code> and restart it."
+  }
+}

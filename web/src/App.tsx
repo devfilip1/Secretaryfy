@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   getConnection,
@@ -20,7 +21,8 @@ import { KnowledgePage } from "./pages/Knowledge";
 import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
-import type { LucideIcon } from "lucide-react";
+import { PanelLanguage } from "./i18n/PanelLanguage";
+import { usePanelLanguage } from "./i18n/usePanelLanguage";
 import { BookOpen, Calendar, CalendarCheck, MessageSquare, Smartphone, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EventsContext, useEventStream, useInboxEvents } from "./useEvents";
@@ -29,15 +31,15 @@ type Session = "loading" | "login" | "disabled" | "ready";
 type View = "inbox" | "appointments" | "connection" | "calendar" | "customers" | "knowledge";
 
 /** Os seis destinos: a barra de baixo (celular) e os links de cima (md para cima) saem desta lista. */
-/** `short`: o rótulo curto da barra de baixo, que tem uma célula de 1/6 da largura. */
-const NAV_LINKS: { label: string; short: string; hash: string; view: View; icon: LucideIcon }[] = [
-  { label: "Conversations", short: "Chats", hash: "#/", view: "inbox", icon: MessageSquare },
-  { label: "Appointments", short: "Bookings", hash: "#/appointments", view: "appointments", icon: CalendarCheck },
-  { label: "Connection", short: "WhatsApp", hash: "#/connection", view: "connection", icon: Smartphone },
-  { label: "Calendar", short: "Calendar", hash: "#/calendar", view: "calendar", icon: Calendar },
-  { label: "Customers", short: "Customers", hash: "#/customers", view: "customers", icon: Users },
-  { label: "Knowledge", short: "Knowledge", hash: "#/knowledge", view: "knowledge", icon: BookOpen },
-];
+/** `labelKey` e `shortKey` são chaves do common.json; `shortKey` é o rótulo da barra de baixo, que tem uma célula de 1/6 da largura. */
+const NAV_LINKS = [
+  { labelKey: "nav.conversations", shortKey: "nav.short.chats", hash: "#/", view: "inbox", icon: MessageSquare },
+  { labelKey: "nav.appointments", shortKey: "nav.short.appointments", hash: "#/appointments", view: "appointments", icon: CalendarCheck },
+  { labelKey: "nav.connection", shortKey: "nav.short.whatsapp", hash: "#/connection", view: "connection", icon: Smartphone },
+  { labelKey: "nav.calendar", shortKey: "nav.short.calendar", hash: "#/calendar", view: "calendar", icon: Calendar },
+  { labelKey: "nav.customers", shortKey: "nav.short.customers", hash: "#/customers", view: "customers", icon: Users },
+  { labelKey: "nav.knowledge", shortKey: "nav.short.knowledge", hash: "#/knowledge", view: "knowledge", icon: BookOpen },
+] as const;
 
 function viewFromHash(): View {
   const path = window.location.hash.split("?")[0];
@@ -56,7 +58,9 @@ function navLinkClass(active: boolean): string {
 }
 
 export function App() {
+  const { t } = useTranslation();
   const [session, setSession] = useState<Session>("loading");
+  usePanelLanguage(session === "ready");
 
   const check = useCallback(() => {
     getSession()
@@ -69,7 +73,7 @@ export function App() {
     check();
   }, [check]);
 
-  if (session === "loading") return <CenterPage className="text-muted-foreground">Loading…</CenterPage>;
+  if (session === "loading") return <CenterPage className="text-muted-foreground">{t("loading")}</CenterPage>;
   if (session === "disabled") return <Disabled />;
   if (session === "login") return <Login onLoggedIn={() => setSession("ready")} />;
   return <Shell onLoggedOut={() => setSession("login")} />;
@@ -77,6 +81,7 @@ export function App() {
 
 /** Painel logado: barra superior com a conexão, navegação e tempo real. */
 function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
+  const { t } = useTranslation();
   const { status, subscribe } = useEventStream(onLoggedOut);
   const [view, setView] = useState<View>(viewFromHash);
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -124,21 +129,22 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
           <div className="mx-auto flex w-full max-w-5xl items-center gap-4.5 px-4 py-2.5 md:px-6 max-lg:flex-wrap max-lg:gap-x-3 max-lg:gap-y-1.5 md:max-lg:pt-2 md:max-lg:pb-0">
             <span className="font-bold max-lg:flex-1">Secretaryfy</span>
             <nav className="max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:grid max-md:grid-cols-6 max-md:border-t max-md:border-border max-md:bg-card max-md:pb-[env(safe-area-inset-bottom)] md:flex md:flex-1 md:gap-3.5 md:max-lg:order-3 md:max-lg:min-w-0 md:max-lg:basis-full md:max-lg:justify-between md:max-lg:gap-0.5">
-              {NAV_LINKS.map(({ label, short, hash, view: target, icon: Icon }) => (
+              {NAV_LINKS.map(({ labelKey, shortKey, hash, view: target, icon: Icon }) => (
                 <a key={hash} href={hash} className={navLinkClass(view === target)} aria-current={view === target ? "page" : undefined}>
                   <Icon className="size-5 shrink-0 md:hidden" aria-hidden />
-                  <span className="max-w-full truncate md:hidden">{short}</span>
-                  <span className="max-w-full truncate max-md:hidden">{label}</span>
+                  <span className="max-w-full truncate md:hidden">{t(shortKey)}</span>
+                  <span className="max-w-full truncate max-md:hidden">{t(labelKey)}</span>
                 </a>
               ))}
             </nav>
             <ConnectionBadge connection={connection} />
+            <PanelLanguage />
             <Button variant="link" onClick={leave}>
-              Sign out
+              {t("signOut")}
             </Button>
           </div>
         </header>
-        {status === "reconnecting" && <div className="bg-warn p-1 text-center text-sm text-warn-foreground">Reconnecting to the server…</div>}
+        {status === "reconnecting" && <div className="bg-warn p-1 text-center text-sm text-warn-foreground">{t("reconnecting")}</div>}
         <ProtectionBanner protection={protection} />
         {view === "inbox" && <Inbox connected={connection?.state === "open"} />}
         {view === "appointments" && <AppointmentsPage />}

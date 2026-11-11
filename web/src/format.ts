@@ -38,10 +38,10 @@ export const formatDate = (iso: string) => shortDateFmt.format(new Date(iso));
 
 /** Formatadores de dia e hora no fuso da clínica (agenda, agendamento e clientes). */
 export type ClinicFormats = ReturnType<typeof clinicFormats>;
-export function clinicFormats(timeZone: string | undefined) {
+export function clinicFormats(timeZone: string | undefined, locale = "en-US") {
   return {
-    day: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short", month: "short", day: "numeric" }),
-    time: new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }),
+    day: new Intl.DateTimeFormat(locale, { timeZone, weekday: "short", month: "short", day: "numeric" }),
+    time: new Intl.DateTimeFormat(locale, { timeZone, hour: "numeric", minute: "2-digit" }),
   };
 }
 
