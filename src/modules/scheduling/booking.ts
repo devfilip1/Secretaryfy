@@ -8,7 +8,7 @@ import { initialReminderStatus } from "../reminders/status.js";
 import { isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
 import type { ServiceCatalog } from "./catalog.js";
-import { systemNotes } from "./replies.js";
+import type { SystemNote } from "../inbox/system-note.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
 
@@ -47,7 +47,7 @@ export async function syncAppointment(
   const event = await calendar.getEvent(appt.googleEventId);
   if (!event) {
     await store.markCancelled(appt.id, "calendar");
-    if (conversationId) await inbox.recordSystem(conversationId, systemNotes.cancelledInCalendar(appt.startsAt, timeZone));
+    if (conversationId) await inbox.recordSystem(conversationId, { kind: "cancelled_in_calendar", start: appt.startsAt.toISOString(), timeZone });
     return null;
   }
   if (event.start.getTime() !== appt.startsAt.getTime() || event.end.getTime() !== appt.endsAt.getTime()) {
@@ -183,8 +183,12 @@ export function createBooking({
 
         await registerCustomer(appointment.id, phone, name, now);
         if (conversationId) {
-          const note = origin === "panel" ? systemNotes.bookedFromPanel : systemNotes.booked;
-          await inbox.recordSystem(conversationId, note(start, minutes, timeZone, title));
+          const at = start.toISOString();
+          const note: SystemNote =
+            origin === "panel"
+              ? { kind: "booked_from_panel", start: at, minutes, service: title, timeZone }
+              : { kind: "booked", start: at, minutes, service: title, timeZone };
+          await inbox.recordSystem(conversationId, note);
         }
         return { kind: "booked", appointment };
       });
@@ -220,8 +224,12 @@ export function createBooking({
         await calendar.deleteEvent(appt.googleEventId);
         await store.markCancelled(appt.id, by);
         if (conversationId) {
-          const note = by === "staff" ? systemNotes.cancelledByStaff : systemNotes.cancelledByCustomer;
-          await inbox.recordSystem(conversationId, note(appt.startsAt, conn.timeZone));
+          const startsAt = appt.startsAt.toISOString();
+          const note: SystemNote =
+            by === "staff"
+              ? { kind: "cancelled_by_staff", start: startsAt, timeZone: conn.timeZone }
+              : { kind: "cancelled_by_customer", start: startsAt, timeZone: conn.timeZone };
+          await inbox.recordSystem(conversationId, note);
         }
         return { kind: "cancelled", appointment: { ...appt, status: "cancelled", cancelledBy: by } };
       });

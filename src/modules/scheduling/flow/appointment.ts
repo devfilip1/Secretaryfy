@@ -5,7 +5,6 @@ import { isSlotAvailable } from "../availability.js";
 import type { FlowResult } from "../flow.js";
 import type { DayPeriod } from "../interpret.js";
 import { withCalendarLock } from "../lock.js";
-import { systemNotes } from "../replies.js";
 import { askedTime, offerDay, offerDays, slotTaken } from "./offers.js";
 import type { Run } from "./run.js";
 
@@ -92,7 +91,12 @@ export function move(run: Run): Promise<FlowResult> {
       await run.calendar.moveEvent(appt.googleEventId, appt.startsAt, appt.endsAt).catch(() => {});
       return slotTaken(run, start);
     }
-    await run.inbox.recordSystem(run.conversation.id, systemNotes.rescheduled(appt.startsAt, start, run.tz));
+    await run.inbox.recordSystem(run.conversation.id, {
+      kind: "rescheduled",
+      from: appt.startsAt.toISOString(),
+      to: start.toISOString(),
+      timeZone: run.tz,
+    });
     return run.finish(run.replies.rescheduled(start, run.tz));
   });
 }

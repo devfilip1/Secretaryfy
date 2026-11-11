@@ -84,5 +84,30 @@
     "sendFailed": "Não foi possível enviar. Tente de novo.",
     "loadConversation": "Não foi possível carregar a conversa.",
     "deleteAll": "Não foi possível apagar as conversas. Tente de novo."
+  },
+  "systemNote": {
+    "at": "{{day}} às {{time}}",
+    "booked": "Agendado pelo assistente: {{when}} ({{minutes}} min), {{service}}",
+    "booked_from_panel": "Agendado pelo painel: {{when}} ({{minutes}} min), {{service}}",
+    "rescheduled": "Remarcado pelo assistente: {{from}} → {{to}}",
+    "cancelled_by_customer": "Cancelado pelo cliente: {{when}}",
+    "cancelled_by_staff": "Cancelado pelo painel: {{when}}",
+    "cancelled_in_calendar": "Cancelado na agenda: {{when}}",
+    "needs_staff": "O cliente precisa de alguém da equipe (uma pessoa, um desconto ou condição especial, uma reclamação ou orientação médica). O assistente foi pausado nesta conversa",
+    "needs_staff_urgent": "Urgente: o cliente precisa da equipe (dor, inchaço ou outro problema de saúde). O assistente foi pausado nesta conversa",
+    "handoff": "O assistente não entendeu o cliente e foi pausado nesta conversa",
+    "reminder_sent": "Lembrete enviado para {{when}}",
+    "reminder_not_sent": "Lembrete não enviado para {{when}}: {{reason}}",
+    "confirmed_by_customer": "Consulta confirmada pelo cliente: {{when}}",
+    "confirmed_by_operator": "Consulta confirmada pelo operador: {{when}}",
+    "protection_blocked": {
+      "loop": "Possivelmente falando com outro robô: o assistente foi pausado",
+      "daily_conversations": "Limite diário de conversas atingido: o assistente não respondeu",
+      "rate_limited": "A resposta esperou tempo demais na fila e não foi enviada",
+      "paused": "Envio automático pausado pela proteção: o assistente não respondeu"
+    },
+    "opted_out": "O cliente pediu para não receber mensagens",
+    "opted_in": "O cliente voltou a aceitar mensagens",
+    "reactivated_by_operator": "Mensagens reativadas pelo operador"
   }
 }

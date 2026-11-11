@@ -10,7 +10,7 @@ import type { SchedulingFlow } from "./flow.js";
 import type { Interpreter } from "./interpret.js";
 import { startsScheduling } from "./intents.js";
 import { InterpreterUnavailable } from "./ollama.js";
-import { systemNotes, type Replies } from "./replies.js";
+import type { Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
 import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
@@ -168,7 +168,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       const urgent = interpretation.urgent === true;
       await store.clearSession(conversationId);
       await inbox.flagNeedsAttention(conversationId);
-      await inbox.recordSystem(conversationId, systemNotes.needsStaff(urgent));
+      await inbox.recordSystem(conversationId, { kind: "needs_staff", urgent });
       return { text: replies.staff(urgent), ignorePause: true };
     }
 
@@ -189,7 +189,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       // YES confirma o horário; NO leva à pergunta de remarcação, que já existe (o "book" com horário marcado)
       if (interpretation.intent === "yes") {
         await store.confirm(reminded.id, "customer", at);
-        await inbox.recordSystem(conversationId, systemNotes.confirmedByCustomer(reminded.startsAt, timeZone));
+        await inbox.recordSystem(conversationId, { kind: "confirmed_by_customer", start: reminded.startsAt.toISOString(), timeZone });
         return { text: replies.reminderConfirmed(reminded.startsAt, known, timeZone) };
       }
       if (interpretation.intent === "no") interpretation = { ...interpretation, intent: "book" as const };

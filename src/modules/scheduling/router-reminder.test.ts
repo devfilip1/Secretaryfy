@@ -18,7 +18,7 @@ test("lembrete enviado + YES: confirma, registra e agradece pelo nome, sem abrir
   });
   assert.equal(r.inputs[0].awaitingReminder, true);
   assert.deepEqual(r.confirmed, ["a1"]);
-  assert.deepEqual(r.notes, ["Appointment confirmed by the customer: Wed, Oct 21 at 10:00 AM"]);
+  assert.deepEqual(r.notes, [{ kind: "confirmed_by_customer", start: "2026-10-21T13:00:00.000Z", timeZone: "America/Bahia" }]);
   assert.equal(r.handled.length, 0);
 });
 

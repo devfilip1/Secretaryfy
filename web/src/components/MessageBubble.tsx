@@ -7,6 +7,7 @@ import { useFormats } from "../i18n/formats";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Muted } from "./Muted";
+import { useSystemNoteText } from "./system-note";
 
 const STATUS_ICON: Partial<Record<Message["status"], LucideIcon>> = {
   sending: Clock,
@@ -30,6 +31,7 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
   const blockReasonText = useBlockReasonText();
   const label = message.type === "text" ? null : t(`media.${message.type}`);
   const mine = message.origin !== "customer";
+  const systemText = useSystemNoteText(message);
 
   // Registro do Secretaryfy (ex.: agendamento feito pelo assistente): linha centralizada, sem balão
   if (message.origin === "system") {
@@ -40,7 +42,7 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
       >
         <Info className="size-3.5 shrink-0" aria-hidden />
         <span>
-          {message.text} · {formatTime(message.sentAt)}
+          {systemText} · {formatTime(message.sentAt)}
         </span>
       </div>
     );

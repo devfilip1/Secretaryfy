@@ -1,7 +1,8 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Gate } from "../antiban/gate.js";
 import { matchCommand } from "../antiban/opt-out.js";
-import { protectionNotes, type FixedTexts } from "../antiban/texts.js";
+import type { FixedTexts } from "../antiban/texts.js";
+import type { SystemNote } from "../inbox/system-note.js";
 import type { ConversationTurn, RagAnswer } from "../rag/client.js";
 import type { IncomingMessage } from "./evolution.js";
 
@@ -104,7 +105,7 @@ interface Deps {
   inbox: {
     isPaused(conversationId: string): Promise<boolean>;
     isOptedOut(phone: string): Promise<boolean>;
-    setOptedOut(conversationId: string, optedOut: boolean, note: string): Promise<unknown>;
+    setOptedOut(conversationId: string, optedOut: boolean, note: SystemNote): Promise<unknown>;
   };
   /** Há um agendamento em andamento? Nele, "cancelar" é do agendamento e não um pedido de saída */
   /** Textos fixos na língua da clínica */
@@ -138,14 +139,14 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
 
       if (command === "opt_out") {
         if (optedOut) return;
-        await inbox.setOptedOut(conversationId, true, protectionNotes.optedOut);
+        await inbox.setOptedOut(conversationId, true, { kind: "opted_out" });
         // Uma única confirmação, mesmo com a conversa pausada pelo operador
         const text = await gate.pickVariant(conversationId, texts.optOutConfirmation);
         if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true, bypass: ["opted_out", "unanswered"] });
         return;
       }
       if (command === "opt_in" && optedOut) {
-        await inbox.setOptedOut(conversationId, false, protectionNotes.optedIn);
+        await inbox.setOptedOut(conversationId, false, { kind: "opted_in" });
         const text = await gate.pickVariant(conversationId, texts.optIn);
         if (text) await gate.sendAssistant({ conversationId, phone, text, ignorePause: true });
         return;

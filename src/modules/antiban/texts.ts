@@ -39,14 +39,3 @@ const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
 
 /** Os textos fixos na língua da clínica. */
 export const fixedTextsFor = (language: "en" | "pt"): FixedTexts => FIXED_TEXTS[language];
-
-/** Registros no histórico do painel (origin = system). */
-export const protectionNotes = {
-  optedOut: "The customer asked not to receive messages",
-  optedIn: "The customer accepts messages again",
-  reactivated: "Messages reactivated by the operator",
-  loop: "Possibly talking to another bot: the assistant was paused",
-  dailyConversations: "Daily conversation limit reached: the assistant did not reply",
-  rateLimited: "The reply waited too long in the queue and was not sent",
-  paused: "Automatic sending paused by protection: the assistant did not reply",
-};

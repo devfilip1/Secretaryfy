@@ -148,8 +148,8 @@ test("POST /api/appointments: cria o evento, o agendamento e o cadastro, sem man
 test("POST /api/appointments com conversa no telefone: registro no histórico", async () => {
   const conv = await conversation();
   await book(VALID);
-  const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.deepEqual(notes, ["Booked from the panel: Thu, Oct 22 at 10:00 AM (60 min), Dental Cleaning"]);
+  const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "booked_from_panel", start: "2026-10-22T13:00:00.000Z", minutes: 60, service: "Dental Cleaning", timeZone: "America/Bahia" }]);
 });
 
 test("POST /api/appointments: um horário futuro por telefone, como o assistente", async () => {
@@ -317,8 +317,8 @@ test("POST /api/appointments/:id/confirm: confirma, o lembrete pendente deixa de
   assert.ok(events.some((e) => e.type === "appointments.updated"));
 
   await app.inject({ method: "POST", url: `/api/appointments/${appointment.id}/confirm` });
-  const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.text);
-  assert.equal(notes.filter((t) => t?.startsWith("Appointment confirmed by the operator")).length, 1);
+  const notes = (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conv.id).map((m) => m.note);
+  assert.equal(notes.filter((n) => n?.kind === "confirmed_by_operator").length, 1);
 });
 
 test("confirmar horário inexistente, passado ou cancelado: 404", async () => {

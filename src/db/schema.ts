@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { KnowledgeData, KnowledgeKind } from "../modules/knowledge/types.js";
+import type { SystemNote } from "../modules/inbox/system-note.js";
 import {
   boolean,
   check,
@@ -71,6 +72,8 @@ export const messages = pgTable(
     text: text("text"),
     status: messageStatus("status").notNull(),
     error: text("error"),
+    // Registro tipado do histórico (origin = system); null nas mensagens comuns e nas linhas anteriores à coluna
+    note: jsonb("note").$type<SystemNote>(),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

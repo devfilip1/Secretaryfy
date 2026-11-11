@@ -153,6 +153,8 @@ test("PUT /api/calendar/rules valida e salva", async () => {
   assert.equal(bad.statusCode, 422);
   assert.equal(bad.json().error, "invalid_rules");
   assert.deepEqual(bad.json().issues.map((i: { path: string }) => i.path), ["weeklyHours.1.end"]);
+  assert.equal(bad.json().issues[0].code, "end_before_start");
+  assert.deepEqual(bad.json().issues[0].params, {});
 
   const rules = { ...DEFAULT_RULES, slotMinutes: 30, weeklyHours: { "6": { start: "08:00", end: "12:00" } } };
   const ok = await send("PUT", "/api/calendar/rules", rules);

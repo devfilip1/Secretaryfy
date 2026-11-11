@@ -5,6 +5,7 @@ import type { IncomingMessage } from "../whatsapp/evolution.js";
 import type { Publish } from "./events.js";
 import { presentConversation, presentMessage, previewOf } from "./presenters.js";
 import type { InboxRepository } from "./repository.js";
+import { systemNoteText, type SystemNote } from "./system-note.js";
 
 /** Janela em que o eco de um envio do sistema é casado pelo texto (research.md R6). */
 export const ECHO_WINDOW_MS = 60_000;
@@ -185,7 +186,7 @@ export function createInboxService({
      * O cliente pediu para sair (`optedOut`) ou voltou a aceitar mensagens, registrado pelo telefone para sobreviver
      * à limpeza das conversas (specs/004 FR-020 a FR-022). `note` vai para o histórico do painel.
      */
-    async setOptedOut(conversationId: string, optedOut: boolean, note: string) {
+    async setOptedOut(conversationId: string, optedOut: boolean, note: SystemNote) {
       const conversation = await repo.findConversation(conversationId);
       if (!conversation) return null;
       await repo.setOptedOut(conversation.phone, optedOut ? new Date(now()) : null);
@@ -230,12 +231,13 @@ export function createInboxService({
      * Registro do Secretaryfy no histórico (ex.: agendamento feito), não enviado ao WhatsApp. Não mexe na prévia
      * nem nas não lidas (specs/003, research.md R10).
      */
-    async recordSystem(conversationId: string, text: string) {
+    async recordSystem(conversationId: string, note: SystemNote) {
       const message = await repo.insertMessage({
         conversationId,
         origin: "system",
         type: "text",
-        text,
+        text: systemNoteText(note),
+        note,
         status: "received",
         sentAt: new Date(now()),
       });
