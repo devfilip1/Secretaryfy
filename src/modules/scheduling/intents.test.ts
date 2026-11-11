@@ -12,6 +12,7 @@ const EXPECTED: Record<keyof typeof INTENT_GROUPS, Intent[]> = {
   CHOICE_LIKE: ["more", "unclear", "other_day", "availability"],
   TOO_FAR: ["availability", "choose", "book"],
   ASKS_PERIOD_OF_SCREEN: ["choose", "availability"],
+  MAY_BE_NOISE: ["rude", "manipulation", "off_topic"],
 };
 
 test("INTENTS não tem duplicados", () => {

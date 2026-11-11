@@ -47,6 +47,7 @@ function setup({
   date = null,
   when = null,
   pick = null,
+  sense = null,
 }: {  intent?: Interpretation["intent"];
   /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
   service?: string | null;
@@ -79,6 +80,8 @@ function setup({
   when?: { time: string | null; period: DayPeriod | null; namesDay?: boolean | null } | null;
   /** Opção que a chamada focada acha na mensagem (mentionedOption) */
   pick?: number | null;
+  /** Palavras sem sentido: a chamada de sentido (mentionedSense) acha que a mensagem não tem sentido; o padrão é não */
+  sense?: boolean | null;
   humanize?: (reply: string) => Promise<string>;
   /** A conversa ainda não tem resposta nossa */
   firstMessage?: boolean;
@@ -113,6 +116,7 @@ function setup({
       return when ?? { time: null, period: null };
     },
     mentionedOption: async () => pick,
+    mentionedSense: async () => sense,
     mentionedService: async (input) => {
       mentionCalls.push(input);
       return mentioned;
@@ -653,4 +657,13 @@ test("uma escolha lida como \"não entendi\" com a posição na mensagem vira es
   await r.reply();
   assert.equal(r.handled[0].interpretation.intent, "choose");
   assert.equal(r.handled[0].interpretation.option, 2);
+});
+
+test("palavras sem sentido lidas como grosseria viram não entendi; uma grosseria de verdade continua", async () => {
+  const gibberish = setup({ intent: "rude", session: SESSION, sense: true, text: "macaco roxo lava louça" });
+  await gibberish.reply();
+  assert.equal(gibberish.handled[0].interpretation.intent, "unclear");
+  const insult = setup({ intent: "rude", session: SESSION, sense: false, text: "vai se ferrar, robô inútil" });
+  await insult.reply();
+  assert.equal(insult.handled.length, 0, "a grosseria de verdade segue para a resposta fixa, sem o fluxo");
 });

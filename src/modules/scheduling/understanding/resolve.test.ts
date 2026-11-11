@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { Intent, Interpretation, When } from "../interpret.js";
-import { applyPick, applyWhen, needsPick, wantsWhen } from "./resolve.js";
+import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./resolve.js";
 
 const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: "book", option: null, date: null, name: null, source: "model", ...over });
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
@@ -138,4 +138,26 @@ test("applyPick: uma opção que só o modelo deu, sem citação no texto, vira 
 
 test("applyPick: a posição citada vence a opção do modelo", () => {
   assert.equal(applyPick(base({ intent: "choose", option: 3 }), 1).option, 1);
+});
+
+test("wantsSense: só rude, manipulation e off_topic pedem a chamada de sentido", () => {
+  const intents: Intent[] = ["rude", "manipulation", "off_topic"];
+  for (const intent of intents) assert.equal(wantsSense(base({ intent })), true, intent);
+  const others: Intent[] = ["book", "unclear", "choose", "question", "cancel", "stop"];
+  for (const intent of others) assert.equal(wantsSense(base({ intent })), false, intent);
+});
+
+test("applySense: sem sentido vira não entendi e os outros campos ficam", () => {
+  const result = applySense(base({ intent: "rude", date: "2026-10-21", name: "Ana" }), true);
+  assert.equal(result.intent, "unclear");
+  assert.equal(result.date, "2026-10-21");
+  assert.equal(result.name, "Ana");
+});
+
+test("applySense: com sentido, nulo ou intenção fora do grupo, devolve o mesmo objeto", () => {
+  const rude = base({ intent: "rude" });
+  assert.equal(applySense(rude, false), rude);
+  assert.equal(applySense(rude, null), rude);
+  const book = base({ intent: "book" });
+  assert.equal(applySense(book, true), book);
 });

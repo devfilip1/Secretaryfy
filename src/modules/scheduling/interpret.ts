@@ -7,6 +7,7 @@ import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { createOptionExtractor } from "./understanding/option.js";
 import { normalize } from "./understanding/quote.js";
+import { createSenseReader } from "./understanding/sense.js";
 import { createWhenExtractor, type DayPeriod } from "./understanding/when.js";
 import { INTENTS, canCarryAWhen, asksForWhen, isStepOnly, picksOfferedDay, type Intent } from "./intents.js";
 
@@ -387,6 +388,7 @@ export function createInterpreter({
 }) {
   const when = createWhenExtractor({ ollama });
   const pick = createOptionExtractor({ ollama });
+  const sense = createSenseReader({ ollama });
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -405,6 +407,7 @@ export function createInterpreter({
     },
     mentionedWhen: when,
     mentionedOption: pick,
+    mentionedSense: sense,
 
     /**
      * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha

@@ -13,14 +13,14 @@ import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
-import { applyPick, applyWhen, needsPick, wantsWhen } from "./understanding/resolve.js";
+import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
 
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -153,6 +153,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       { phone: message.phone, intent: interpretation.intent, source: interpretation.source, step: session?.step ?? null, latency_ms: Date.now() - started },
       "mensagem interpretada",
     );
+
+    // Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas abaixo (ver understanding/sense.ts)
+    if (wantsSense(interpretation)) interpretation = applySense(interpretation, (await interpreter.mentionedSense?.({ text, log })) ?? null);
 
     // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
     if (interpretation.intent === "manipulation" || interpretation.intent === "off_topic") return { text: replies.stayOnTopic() };

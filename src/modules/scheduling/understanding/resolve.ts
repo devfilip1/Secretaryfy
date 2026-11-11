@@ -1,6 +1,6 @@
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { Interpretation, When } from "../interpret.js";
-import { asksForWhen, isChoiceLike } from "../intents.js";
+import { asksForWhen, isChoiceLike, mayBeNoise } from "../intents.js";
 
 /** Quando a chamada focada de horário/parte do dia/dia deve rodar */
 export function wantsWhen(interpretation: Interpretation, step: SchedulingStep | null | undefined): boolean {
@@ -57,4 +57,18 @@ export function needsPick(interpretation: Interpretation, optionCount: number): 
 export function applyPick(interpretation: Interpretation, pick: number | null): Interpretation {
   if (pick) return { ...interpretation, intent: "choose" as const, option: pick };
   return interpretation.option === null ? interpretation : { ...interpretation, intent: "unclear" as const, option: null };
+}
+
+/** Quando a chamada de sentido deve rodar: só para intenções que podem ser palavras sem sentido (ver mayBeNoise) */
+export function wantsSense(interpretation: Interpretation): boolean {
+  return mayBeNoise(interpretation.intent);
+}
+
+/**
+ * Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi; o resto fica.
+ * Só rebaixa: nunca troca outra intenção, e devolve o mesmo objeto quando nada muda.
+ */
+export function applySense(interpretation: Interpretation, makesNoSense: boolean | null): Interpretation {
+  if (makesNoSense !== true || !mayBeNoise(interpretation.intent)) return interpretation;
+  return { ...interpretation, intent: "unclear" as const };
 }
