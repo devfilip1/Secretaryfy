@@ -1,6 +1,7 @@
 import "i18next";
 import type appointments from "../locales/en/appointments.json";
 import type calendar from "../locales/en/calendar.json";
+import type clinic from "../locales/en/clinic.json";
 import type common from "../locales/en/common.json";
 import type connection from "../locales/en/connection.json";
 import type customers from "../locales/en/customers.json";
@@ -18,6 +19,7 @@ declare module "i18next" {
       inbox: typeof inbox;
       appointments: typeof appointments;
       calendar: typeof calendar;
+      clinic: typeof clinic;
       customers: typeof customers;
       connection: typeof connection;
       knowledge: typeof knowledge;
