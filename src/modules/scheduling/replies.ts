@@ -1,4 +1,3 @@
-import { formatDayTime } from "./dates.js";
 import type { ClinicContext } from "../clinic/context.js";
 import type { ServiceCatalog } from "./catalog.js";
 import type { DayPeriod } from "./interpret.js";
@@ -96,46 +95,3 @@ export function createReplies({
   const live = keys.map((key) => [key, (...args: unknown[]) => (packs[clinic.language][key] as (...args: unknown[]) => unknown)(...args)]);
   return Object.fromEntries(live) as unknown as Replies;
 }
-
-/** Registros no histórico do painel, em inglês como o resto do painel (origin = system). */
-export const systemNotes = {
-  booked: (start: Date, minutes: number, tz: string, service: string) =>
-    `Booked by the assistant: ${formatDayTime(start, tz)} (${minutes} min), ${service}`,
-  bookedFromPanel: (start: Date, minutes: number, tz: string, service: string) =>
-    `Booked from the panel: ${formatDayTime(start, tz)} (${minutes} min), ${service}`,
-  rescheduled: (from: Date, to: Date, tz: string) =>
-    `Rescheduled by the assistant: ${formatDayTime(from, tz)} → ${formatDayTime(to, tz)}`,
-  cancelledByCustomer: (start: Date, tz: string) => `Cancelled by the customer: ${formatDayTime(start, tz)}`,
-  cancelledByStaff: (start: Date, tz: string) => `Cancelled from the panel: ${formatDayTime(start, tz)}`,
-  cancelledInCalendar: (start: Date, tz: string) => `Cancelled in the calendar: ${formatDayTime(start, tz)}`,
-  needsStaff: (urgent: boolean) =>
-    urgent
-      ? "Urgent: the customer needs the team (pain, swelling or another health problem). The assistant was paused in this conversation"
-      : "The customer needs someone from the team (a person, a discount or special condition, a complaint or medical advice). The assistant was paused in this conversation",
-  handoff: () => "The assistant did not understand the customer and was paused in this conversation",
-  reminderSent: (start: Date, tz: string) => `Reminder sent for ${formatDayTime(start, tz)}`,
-  reminderNotSent: (start: Date, reason: string, tz: string) => `Reminder not sent for ${formatDayTime(start, tz)}: ${reason}`,
-  confirmedByCustomer: (start: Date, tz: string) => `Appointment confirmed by the customer: ${formatDayTime(start, tz)}`,
-  confirmedByOperator: (start: Date, tz: string) => `Appointment confirmed by the operator: ${formatDayTime(start, tz)}`,
-};
-
-/** Por que o lembrete não saiu, no histórico do painel (os mesmos textos dos bloqueios da proteção, specs/004). */
-export const REMINDER_REASONS: Record<string, string> = {
-  outside_window: "the customer has not written in over 24 h",
-  disconnected: "WhatsApp is disconnected",
-  no_conversation: "no WhatsApp conversation with this number",
-  opted_out: "the customer asked not to receive messages",
-  paused: "automatic sending paused by protection",
-  daily_conversations: "daily conversation limit reached",
-  unanswered: "too many messages in a row without a customer reply",
-  loop: "possibly talking to another bot",
-  duplicate: "repeated text",
-  rate_limited: "waited too long in the queue",
-  superseded: "the operator replied first",
-  restart: "server restarted before sending",
-  failed: "WhatsApp send failed",
-  blocked: "blocked by number protection",
-  too_late: "less than 2 hours before the appointment",
-};
-
-export const reminderReasonText = (reason: string | null) => (reason && REMINDER_REASONS[reason]) ?? reason ?? "unknown reason";

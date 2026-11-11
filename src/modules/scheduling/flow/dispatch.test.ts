@@ -6,7 +6,7 @@ import { testCatalog } from "../../../test/catalog.js";
 import { useFlowHarness } from "../../../test/flow-harness.js";
 
 const h = useFlowHarness();
-const { say, conversation, I, sessionOf, systemTexts, book, makeFlow } = h;
+const { say, conversation, I, sessionOf, systemNotes, hasNote, book, makeFlow } = h;
 
 test("duas respostas não entendidas seguidas: handoff, pausa e destaque (FR-024a)", async () => {
   const conv = await conversation();
@@ -27,7 +27,7 @@ test("duas respostas não entendidas seguidas: handoff, pausa e destaque (FR-024
   assert.equal(after.assistantPaused, true);
   assert.equal(after.needsAttention, true);
   assert.equal(await sessionOf(conv), null);
-  assert.ok((await systemTexts(conv)).includes("The assistant did not understand the customer and was paused in this conversation"));
+  assert.ok(hasNote(await systemNotes(conv), { kind: "handoff" }));
 });
 
 test("yes fora de uma pergunta de sim ou não conta como não entendido", async () => {

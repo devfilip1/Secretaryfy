@@ -65,7 +65,7 @@ Salva as regras de atendimento (FR-007, FR-008).
 
 - **Corpo**: o objeto `rules` acima, completo.
 - **200**: o mesmo corpo de `GET /api/calendar`.
-- **422**: `{"error":"invalid_rules","issues":[{"path":"weeklyHours.1.end","message":"..."}]}`.
+- **422**: `{"error":"invalid_rules","issues":[{"path":"weeklyHours.1.end","message":"...","code":"end_before_start","params":{}}]}`. `code` é estável e o painel traduz por ele (`rules.issue.<código>`); `message` é o texto em inglês de fallback. Códigos e parâmetros: `RULES_ISSUE_CODES` e `rulesIssueView` em `src/modules/scheduling/rules.ts`.
 
 | Campo | Regra |
 |---|---|

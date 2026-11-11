@@ -79,8 +79,8 @@ test("com conversa: registro no histórico; pelo assistente, a descrição não 
   const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
   await slot("2026-10-22T10:00", { origin: "assistant", conversationId: conv.id });
   assert.match([...fake.events.values()][0].description, /Marcado pelo Secretaryfy\.$/);
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.deepEqual(notes, ["Booked by the assistant: Thu, Oct 22 at 10:00 AM (60 min), Teeth Whitening"]);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "booked", start: "2026-10-22T13:00:00.000Z", minutes: 60, service: "Teeth Whitening", timeZone: "America/Bahia" }]);
 });
 
 test("um horário futuro por telefone: already_booked com o horário atual", async () => {
@@ -122,8 +122,8 @@ test("a chave guardada sai como o título do tratamento no evento, na nota e na 
   assert.match(event.description, /Serviço: Limpeza dental\n/);
   const [appt] = await testDb.db.select().from(appointments);
   assert.equal(appt.service, "limpeza-dental");
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.deepEqual(notes, ["Booked by the assistant: Thu, Oct 22 at 10:00 AM (60 min), Limpeza dental"]);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "booked", start: "2026-10-22T13:00:00.000Z", minutes: 60, service: "Limpeza dental", timeZone: "America/Bahia" }]);
 });
 
 test("um nome que não está no catálogo vai para o evento como está", async () => {
@@ -157,8 +157,8 @@ test("painel com minutes: a duração vale para o evento, o fim do agendamento e
   assert.equal(event.end.getTime(), at("2026-10-22T10:20").getTime());
   const [appt] = await testDb.db.select().from(appointments);
   assert.equal(appt.endsAt.getTime(), at("2026-10-22T10:20").getTime());
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.deepEqual(notes, ["Booked from the panel: Thu, Oct 22 at 10:00 AM (20 min), Teeth Whitening"]);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "booked_from_panel", start: "2026-10-22T13:00:00.000Z", minutes: 20, service: "Teeth Whitening", timeZone: "America/Bahia" }]);
 });
 
 test("painel com minutes além da folga até a próxima ocupação: slot_taken; dentro dela: booked", async () => {
@@ -189,8 +189,8 @@ test("cancelamento: apaga o evento e grava quem cancelou; com conversa, registra
   assert.equal(fake.calls.deleteEvent, 1);
   const [appt] = await testDb.db.select().from(appointments);
   assert.deepEqual([appt.status, appt.cancelledBy], ["cancelled", "staff"]);
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.deepEqual(notes.at(-1), "Cancelled from the panel: Thu, Oct 22 at 10:00 AM");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes.at(-1), { kind: "cancelled_by_staff", start: "2026-10-22T13:00:00.000Z", timeZone: "America/Bahia" });
 });
 
 test("cancelamento pelo cliente: a nota é a de cliente; sem conversa, nenhuma nota", async () => {
@@ -198,8 +198,8 @@ test("cancelamento pelo cliente: a nota é a de cliente; sem conversa, nenhuma n
   const booked = await slot("2026-10-22T10:00", { conversationId: conv.id });
   const id = booked.kind === "booked" ? booked.appointment.id : "";
   assert.equal((await booking.cancelAppointment({ id, by: "customer", conversationId: conv.id })).kind, "cancelled");
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.equal(notes.at(-1), "Cancelled by the customer: Thu, Oct 22 at 10:00 AM");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes.at(-1), { kind: "cancelled_by_customer", start: "2026-10-22T13:00:00.000Z", timeZone: "America/Bahia" });
 
   const other = await slot("2026-10-23T10:00", { phone: "5571988887777" });
   const otherId = other.kind === "booked" ? other.appointment.id : "";
@@ -242,6 +242,6 @@ test("evento apagado no Google antes do cancelamento: not_found, o horário fica
   assert.deepEqual(await booking.cancelAppointment({ id, by: "staff", conversationId: conv.id }), { kind: "not_found" });
   const [appt] = await testDb.db.select().from(appointments);
   assert.deepEqual([appt.status, appt.cancelledBy], ["cancelled", "calendar"]);
-  const notes = (await testDb.db.select().from(messages)).map((m) => m.text);
-  assert.equal(notes.at(-1), "Cancelled in the calendar: Thu, Oct 22 at 10:00 AM");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes.at(-1), { kind: "cancelled_in_calendar", start: "2026-10-22T13:00:00.000Z", timeZone: "America/Bahia" });
 });

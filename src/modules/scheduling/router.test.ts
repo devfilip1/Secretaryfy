@@ -131,7 +131,7 @@ test("precisa da equipe (doutor, desconto, saúde): aviso e pausa, sem resposta 
   assert.equal(out!.ignorePause, true);
   assert.deepEqual(r.flagged, ["c1"]);
   assert.deepEqual(r.cleared, ["c1"]);
-  assert.match(r.notes[0], /needs someone from the team/);
+  assert.deepEqual(r.notes[0], { kind: "needs_staff", urgent: false });
   assert.equal(r.asked.length, 0);
   assert.equal(r.handled.length, 0);
 });
@@ -139,7 +139,7 @@ test("precisa da equipe (doutor, desconto, saúde): aviso e pausa, sem resposta 
 test("urgência de saúde: o texto manda procurar pronto atendimento se piorar", async () => {
   const r = setup({ intent: "needs_staff", urgent: true, text: "estou com dor e o rosto inchado" });
   assert.match((await r.reply())!.text, /emergency room/);
-  assert.match(r.notes[0], /^Urgent/);
+  assert.deepEqual(r.notes[0], { kind: "needs_staff", urgent: true });
 });
 
 test("resposta do folheto igual a uma que já demos vai numa mensagem só, com abertura (senão a proteção a descarta)", async () => {

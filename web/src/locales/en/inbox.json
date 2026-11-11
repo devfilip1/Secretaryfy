@@ -93,5 +93,30 @@
     "sendFailed": "Could not send. Please try again.",
     "loadConversation": "Could not load the conversation.",
     "deleteAll": "Could not delete the conversations. Please try again."
+  },
+  "systemNote": {
+    "at": "{{day}} at {{time}}",
+    "booked": "Booked by the assistant: {{when}} ({{minutes}} min), {{service}}",
+    "booked_from_panel": "Booked from the panel: {{when}} ({{minutes}} min), {{service}}",
+    "rescheduled": "Rescheduled by the assistant: {{from}} → {{to}}",
+    "cancelled_by_customer": "Cancelled by the customer: {{when}}",
+    "cancelled_by_staff": "Cancelled from the panel: {{when}}",
+    "cancelled_in_calendar": "Cancelled in the calendar: {{when}}",
+    "needs_staff": "The customer needs someone from the team (a person, a discount or special condition, a complaint or medical advice). The assistant was paused in this conversation",
+    "needs_staff_urgent": "Urgent: the customer needs the team (pain, swelling or another health problem). The assistant was paused in this conversation",
+    "handoff": "The assistant did not understand the customer and was paused in this conversation",
+    "reminder_sent": "Reminder sent for {{when}}",
+    "reminder_not_sent": "Reminder not sent for {{when}}: {{reason}}",
+    "confirmed_by_customer": "Appointment confirmed by the customer: {{when}}",
+    "confirmed_by_operator": "Appointment confirmed by the operator: {{when}}",
+    "protection_blocked": {
+      "loop": "Possibly talking to another bot: the assistant was paused",
+      "daily_conversations": "Daily conversation limit reached: the assistant did not reply",
+      "rate_limited": "The reply waited too long in the queue and was not sent",
+      "paused": "Automatic sending paused by protection: the assistant did not reply"
+    },
+    "opted_out": "The customer asked not to receive messages",
+    "opted_in": "The customer accepts messages again",
+    "reactivated_by_operator": "Messages reactivated by the operator"
   }
 }

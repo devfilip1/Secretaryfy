@@ -20,7 +20,6 @@ import {
 } from "../modules/scheduling/availability.js";
 import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
-import { systemNotes } from "../modules/scheduling/replies.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
 import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
@@ -183,7 +182,12 @@ export function panelAppointmentsRoutes({
       const confirmed = (await store.confirm(current.id, "operator", now))!;
       if (!current.confirmedAt) {
         const conversation = await inboxRepo.findConversationByPhone(current.phone);
-        if (conversation) await inbox.recordSystem(conversation.id, systemNotes.confirmedByOperator(current.startsAt, await timeZoneOf()));
+        if (conversation)
+          await inbox.recordSystem(conversation.id, {
+            kind: "confirmed_by_operator",
+            start: current.startsAt.toISOString(),
+            timeZone: await timeZoneOf(),
+          });
       }
       return { appointment: await presentOne(confirmed) };
     });

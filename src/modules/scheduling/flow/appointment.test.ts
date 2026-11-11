@@ -4,7 +4,7 @@ import { DEFAULT_RULES } from "../rules.js";
 import { at, useFlowHarness } from "../../../test/flow-harness.js";
 
 const h = useFlowHarness();
-const { say, conversation, I, sessionOf, systemTexts, allAppointments, book } = h;
+const { say, conversation, I, sessionOf, systemNotes, hasNote, allAppointments, book } = h;
 
 // --- US5: consultar, cancelar e remarcar ---
 
@@ -31,7 +31,7 @@ test("cancelar: confirmação, evento apagado, cancelado pelo cliente e registro
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "customer");
-  assert.ok((await systemTexts(conv)).includes("Cancelled by the customer: Wed, Oct 21 at 10:00 AM"));
+  assert.ok(hasNote(await systemNotes(conv), { kind: "cancelled_by_customer", start: "2026-10-21T13:00:00.000Z", timeZone: "America/Bahia" }));
 });
 
 test("no na confirmação do cancelamento mantém o horário", async () => {
@@ -60,7 +60,7 @@ test("remarcar: escolhe dia e horário, confirma e o evento é movido", async ()
   assert.equal(event.start.toISOString(), at("2026-10-23T14:00").toISOString());
   const [appt] = await allAppointments();
   assert.equal(appt.startsAt.toISOString(), at("2026-10-23T14:00").toISOString());
-  assert.ok((await systemTexts(conv)).includes("Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"));
+  assert.ok(hasNote(await systemNotes(conv), { kind: "rescheduled", from: "2026-10-21T13:00:00.000Z", to: "2026-10-23T17:00:00.000Z", timeZone: "America/Bahia" }));
 });
 
 test("yes na oferta de remarcar entra no fluxo de remarcação", async () => {
@@ -97,7 +97,7 @@ test("evento apagado no Google antes do yes do cancelamento: no_appointment e re
   await say(conv, I("cancel"));
   h.fake.events.clear();
   assert.equal((await say(conv, I("yes"))).reply, "I couldn't find an appointment for this number.");
-  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok(hasNote(await systemNotes(conv), { kind: "cancelled_in_calendar", start: "2026-10-21T13:00:00.000Z", timeZone: "America/Bahia" }));
 });
 
 test("remarcar mantém o título do evento", async () => {

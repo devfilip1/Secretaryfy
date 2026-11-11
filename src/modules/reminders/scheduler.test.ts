@@ -122,8 +122,8 @@ async function appointment(local = "2026-10-21T10:00", phone = PHONE): Promise<A
 }
 
 const reload = async (a: AppointmentRow) => (await store.findAppointment(a.id))!;
-const systemTexts = async (conversationId: string) =>
-  (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conversationId && m.origin === "system").map((m) => m.text);
+const systemNotes = async (conversationId: string) =>
+  (await testDb.db.select().from(messages)).filter((m) => m.conversationId === conversationId && m.origin === "system").map((m) => m.note);
 
 test("dentro da janela, com a conversa aberta: um lembrete só, com nome, dia, hora e serviço", async () => {
   const conv = await conversation();
@@ -134,7 +134,7 @@ test("dentro da janela, com a conversa aberta: um lembrete só, com nome, dia, h
   assert.match(sent[0].text, /^Hi Maria! Just a reminder of your appointment at DentalSafe on Wednesday, October 21 at 10:00 AM \(Dental Cleaning\)\. Can you confirm\?$/);
   const after = await reload(appt);
   assert.deepEqual([after.reminderStatus, after.reminderSentAt?.getTime()], ["sent", NOW.getTime()]);
-  assert.deepEqual(await systemTexts(conv.id), ["Reminder sent for Wed, Oct 21 at 10:00 AM"]);
+  assert.deepEqual(await systemNotes(conv.id), [{ kind: "reminder_sent", start: "2026-10-21T13:00:00.000Z", timeZone: tz }]);
 });
 
 test("antes da janela: nada; quando ela abre, o lembrete sai", async () => {
@@ -157,7 +157,7 @@ test("fora da janela de 24 h do cliente ou sem conversa: lembrar manualmente, se
   await scheduler.tick();
   assert.equal(sent.length, 0);
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["pending", "outside_window"]);
-  assert.deepEqual(await systemTexts(conv.id), []);
+  assert.deepEqual(await systemNotes(conv.id), []);
 
   const lonely = await appointment("2026-10-21T11:00", "5571977776666");
   await scheduler.tick();
@@ -202,8 +202,8 @@ test("cliente pediu para sair: não enviado na hora, com o motivo no histórico"
   blockReason = "opted_out";
   await scheduler.tick();
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["not_sent", "opted_out"]);
-  assert.deepEqual(await systemTexts(conv.id), [
-    "Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer asked not to receive messages",
+  assert.deepEqual(await systemNotes(conv.id), [
+    { kind: "reminder_not_sent", start: "2026-10-21T13:00:00.000Z", reason: "opted_out", timeZone: tz },
   ]);
 });
 
@@ -243,7 +243,7 @@ test("apagado no Google: cancelado, sem lembrete; movido para longe: espera o ho
   fake.events.delete(gone.googleEventId);
   await scheduler.tick();
   assert.equal((await reload(gone)).status, "cancelled");
-  assert.ok((await systemTexts(conv.id)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.deepEqual((await systemNotes(conv.id)).at(-1), { kind: "cancelled_in_calendar", start: "2026-10-21T13:00:00.000Z", timeZone: tz });
 
   const moved = await appointment("2026-10-21T11:00");
   const event = fake.events.get(moved.googleEventId)!;
@@ -264,8 +264,8 @@ test("menos de 2 h antes: não enviado com o último motivo; uma vez só no hist
   await scheduler.tick();
   await scheduler.tick();
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["not_sent", "outside_window"]);
-  assert.deepEqual(await systemTexts(conv.id), [
-    "Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer has not written in over 24 h",
+  assert.deepEqual(await systemNotes(conv.id), [
+    { kind: "reminder_not_sent", start: "2026-10-21T13:00:00.000Z", reason: "outside_window", timeZone: tz },
   ]);
 });
 
@@ -323,7 +323,7 @@ test("conversa pausada pela equipe: o lembrete sai mesmo assim, uma vez só", as
   assert.equal(sent.length, 1);
   assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["sent", null]);
   assert.equal((await testDb.db.select().from(messages)).filter((m) => m.status === "blocked").length, 0);
-  assert.deepEqual(await systemTexts(conv.id), ["Reminder sent for Wed, Oct 21 at 10:00 AM"]);
+  assert.deepEqual(await systemNotes(conv.id), [{ kind: "reminder_sent", start: "2026-10-21T13:00:00.000Z", timeZone: tz }]);
 });
 
 test("conversa pausada: as outras regras da proteção continuam valendo", async () => {

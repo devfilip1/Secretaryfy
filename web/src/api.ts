@@ -22,6 +22,31 @@ export interface Conversation {
   optedOut: boolean;
 }
 
+/**
+ * Registro tipado do histórico (origin = system). Espelha src/modules/inbox/system-note.ts: o painel traduz o `kind`
+ * com os dados; `text` continua com o texto em inglês do servidor (linhas antigas, logs).
+ */
+export type SystemNote =
+  | { kind: "booked"; start: string; minutes: number; service: string; timeZone: string }
+  | { kind: "booked_from_panel"; start: string; minutes: number; service: string; timeZone: string }
+  | { kind: "rescheduled"; from: string; to: string; timeZone: string }
+  | { kind: "cancelled_by_customer"; start: string; timeZone: string }
+  | { kind: "cancelled_by_staff"; start: string; timeZone: string }
+  | { kind: "cancelled_in_calendar"; start: string; timeZone: string }
+  | { kind: "needs_staff"; urgent: boolean }
+  | { kind: "handoff" }
+  | { kind: "reminder_sent"; start: string; timeZone: string }
+  /** `reason` é o código do motivo (o mesmo do blockReason do common.json), não o texto */
+  | { kind: "reminder_not_sent"; start: string; reason: string; timeZone: string }
+  | { kind: "confirmed_by_customer"; start: string; timeZone: string }
+  | { kind: "confirmed_by_operator"; start: string; timeZone: string }
+  | { kind: "protection_blocked"; reason: ProtectionReason }
+  | { kind: "opted_out" }
+  | { kind: "opted_in" }
+  | { kind: "reactivated_by_operator" };
+
+export type ProtectionReason = "loop" | "daily_conversations" | "rate_limited" | "paused";
+
 export interface Message {
   id: string;
   origin: Origin;
@@ -29,6 +54,8 @@ export interface Message {
   text: string | null;
   status: MessageStatus;
   error: string | null;
+  /** Registro tipado (origin = system); null nas demais mensagens e nas linhas anteriores à coluna */
+  note: SystemNote | null;
   sentAt: string;
 }
 
@@ -158,7 +185,11 @@ export interface CalendarOption {
 
 export interface RulesIssue {
   path: string;
+  /** Texto em inglês do servidor, usado quando o código não tem tradução */
   message: string;
+  /** Código estável (rules.issue.<código> no calendar.json) */
+  code: string;
+  params?: Record<string, unknown>;
 }
 
 export const getCalendar = () => request<CalendarState>("GET", "/api/calendar");

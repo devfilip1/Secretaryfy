@@ -12,7 +12,6 @@ import { createGate, type Gate } from "./gate.js";
 import type { AntibanConfig } from "./limits.js";
 import { LINK_PLACEHOLDER } from "./links.js";
 import { createAntibanRepository, type AntibanRepository } from "./repository.js";
-import { protectionNotes } from "./texts.js";
 import { typingDelay } from "./typing.js";
 
 const QUIET = { info: () => {}, warn: () => {}, error: () => {} } as never;
@@ -94,7 +93,7 @@ async function lastMessage(conversationId: string) {
 }
 
 async function systemNotes(conversationId: string) {
-  return (await repo.listMessages(conversationId)).messages.filter((m) => m.origin === "system").map((m) => m.text);
+  return (await repo.listMessages(conversationId)).messages.filter((m) => m.origin === "system").map((m) => m.note);
 }
 
 test("resposta normal sai com tempo de digitação dentro dos limites", async () => {
@@ -124,7 +123,7 @@ test("conversas por dia: a 3ª conversa nova passa do limite 2, e uma já atendi
   const blocked = await lastMessage(c.id);
   assert.deepEqual([blocked.status, blocked.error], ["blocked", "daily_conversations"]);
   assert.equal((await repo.findConversation(c.id))?.needsAttention, true);
-  assert.deepEqual(await systemNotes(c.id), [protectionNotes.dailyConversations]);
+  assert.deepEqual(await systemNotes(c.id), [{ kind: "protection_blocked", reason: "daily_conversations" }]);
 
   await customerSays("5511900000001", "e mais uma coisa");
   assert.equal(await ask(gate, a), "sent");
@@ -161,7 +160,7 @@ test("laço com outro robô: não envia, pausa e destaca com o motivo (FR-014, F
   assert.equal((await lastMessage(conv.id)).error, "loop");
   const row = await repo.findConversation(conv.id);
   assert.deepEqual([row?.assistantPaused, row?.needsAttention], [true, true]);
-  assert.deepEqual(await systemNotes(conv.id), [protectionNotes.loop]);
+  assert.deepEqual(await systemNotes(conv.id), [{ kind: "protection_blocked", reason: "loop" }]);
   assert.deepEqual(sent, []);
 });
 
@@ -224,7 +223,7 @@ test("a resposta que ficaria tempo demais na fila não sai e destaca a conversa 
   assert.equal(await ask(gate, a), "sent");
   assert.equal(await ask(gate, b), "blocked");
   assert.equal((await lastMessage(b.id)).error, "rate_limited");
-  assert.deepEqual(await systemNotes(b.id), [protectionNotes.rateLimited]);
+  assert.deepEqual(await systemNotes(b.id), [{ kind: "protection_blocked", reason: "rate_limited" }]);
 });
 
 test("5 falhas de envio ligam o freio: nada mais sai, e o operador é avisado do risco (FR-026, FR-027)", async () => {
@@ -238,7 +237,7 @@ test("5 falhas de envio ligam o freio: nada mais sai, e o operador é avisado do
   const conv = await customerSays("5511900000099");
   assert.equal(await ask(gate, conv), "blocked");
   assert.equal((await lastMessage(conv.id)).error, "paused");
-  assert.deepEqual(await systemNotes(conv.id), [protectionNotes.paused]);
+  assert.deepEqual(await systemNotes(conv.id), [{ kind: "protection_blocked", reason: "paused" }]);
   assert.deepEqual(await gate.operatorRisks(conv), ["protection_paused"]);
   assert.equal((await gate.protectionStatus()).state, "paused");
   assert.ok(events.some((e) => e.type === "protection.updated" && e.state === "paused"));

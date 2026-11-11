@@ -73,6 +73,7 @@ Every individual message sent or received by the connected number, plus internal
 | `status` | `received`, `sending`, `sent`, `failed`, `blocked` |
 | `wa_message_id` | WhatsApp id, unique; null only while `sending`. Makes webhook delivery idempotent |
 | `error` | Failure message, or the gate's block reason when `blocked` (`outside_window`, `duplicate`, `restart`…) |
+| `note` | Typed system note (origin `system`): a `kind` and its data, which the panel translates. `text` keeps the English fallback. `null` on other messages and on rows from before migration 0013, which are not backfilled. Kinds in [system-note.ts](../src/modules/inbox/system-note.ts) |
 | `sent_at` | WhatsApp time (seconds); `created_at` breaks ties |
 
 ### customers

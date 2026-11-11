@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reminderReasonText, systemNotes } from "./replies.js";
 import { testReplies as replies } from "../../test/clinic.js";
 
 const tz = "America/Bahia";
@@ -39,16 +38,6 @@ test("parte do dia sem horário livre: diz a parte e oferece os outros horários
   assert.match(replies.periodEmpty("2026-10-21", "evening", slots, tz, true), /I can show more times or another day if you like\.$/);
 });
 
-test("registros do painel em inglês", () => {
-  const start = new Date("2026-10-21T13:00:00Z");
-  const later = new Date("2026-10-23T17:00:00Z");
-  assert.equal(
-    systemNotes.booked(start, 60, tz, "Dental Cleaning"),
-    "Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning",
-  );
-  assert.equal(systemNotes.rescheduled(start, later, tz), "Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM");
-});
-
 test("pedido de nome e nome recebido: textos do contrato, sem convite para agendar", () => {
   const asks = [0, 0.4, 0.9].map((r) => replies.askNameFollowUp(() => r));
   assert.deepEqual(new Set(asks), new Set(["By the way, may I have your name?", "By the way, what's your name?", "Before I forget, may I have your name?"]));
@@ -82,17 +71,8 @@ test("lembrete (specs/006): três variações diferentes, com dia, hora, serviç
   assert.match(anonymous[1], /^Hello, your General assessment appointment/);
 });
 
-test("resposta ao YES e registros do lembrete no painel", () => {
+test("resposta ao YES", () => {
   const start = new Date("2026-10-21T13:00:00Z");
   assert.equal(replies.reminderConfirmed(start, "Maria", tz), "Thank you, Maria! Your appointment on Wednesday, October 21 at 10:00 AM is confirmed. See you at DentalSafe.");
   assert.equal(replies.reminderConfirmed(start, null, tz), "Thank you! Your appointment on Wednesday, October 21 at 10:00 AM is confirmed. See you at DentalSafe.");
-  assert.equal(systemNotes.reminderSent(start, tz), "Reminder sent for Wed, Oct 21 at 10:00 AM");
-  assert.equal(
-    systemNotes.reminderNotSent(start, reminderReasonText("outside_window"), tz),
-    "Reminder not sent for Wed, Oct 21 at 10:00 AM: the customer has not written in over 24 h",
-  );
-  assert.equal(systemNotes.confirmedByCustomer(start, tz), "Appointment confirmed by the customer: Wed, Oct 21 at 10:00 AM");
-  assert.equal(systemNotes.confirmedByOperator(start, tz), "Appointment confirmed by the operator: Wed, Oct 21 at 10:00 AM");
-  assert.equal(systemNotes.bookedFromPanel(start, 60, tz, "Dental Cleaning"), "Booked from the panel: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning");
-  assert.equal(reminderReasonText("weird"), "weird");
 });

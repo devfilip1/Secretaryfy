@@ -6,7 +6,7 @@ import { FALLBACK_TIME_ZONE, type CalendarGateway } from "../google/gateway.js";
 import type { InboxRepository } from "../inbox/repository.js";
 import type { InboxService } from "../inbox/service.js";
 import { syncAppointment } from "../scheduling/booking.js";
-import { reminderReasonText, systemNotes, type Replies } from "../scheduling/replies.js";
+import type { Replies } from "../scheduling/replies.js";
 import { ASSESSMENT } from "../scheduling/catalog.js";
 import type { SchedulingStore } from "../scheduling/sessions.js";
 
@@ -62,7 +62,7 @@ export function createReminderScheduler({
     // Só registra quem de fato mudou o lembrete: dois passos não registram duas vezes
     if (!(await store.markReminderNotSent(appt.id, reason))) return;
     log.info({ appointmentId: appt.id, reason }, "lembrete não enviado");
-    if (conversationId) await inbox.recordSystem(conversationId, systemNotes.reminderNotSent(appt.startsAt, reminderReasonText(reason), timeZone));
+    if (conversationId) await inbox.recordSystem(conversationId, { kind: "reminder_not_sent", start: appt.startsAt.toISOString(), reason, timeZone });
   }
 
   /** Guarda o motivo da espera, sem escrever de novo o mesmo motivo a cada passo. */
@@ -113,7 +113,7 @@ export function createReminderScheduler({
     if (outcome !== "sent") return waiting(current, outcome === "failed" ? "failed" : "blocked");
     if (await store.markReminderSent(current.id, clock())) {
       log.info({ appointmentId: current.id, conversationId: conversation.id }, "lembrete enviado");
-      await inbox.recordSystem(conversation.id, systemNotes.reminderSent(current.startsAt, timeZone));
+      await inbox.recordSystem(conversation.id, { kind: "reminder_sent", start: current.startsAt.toISOString(), timeZone });
     }
   }
 

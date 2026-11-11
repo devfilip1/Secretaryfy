@@ -100,8 +100,8 @@ Apaga uma conversa, com as mensagens e as sessões de agendamento dela. Os agend
 {
   "conversation": { "id": "uuid", "phone": "...", "name": "...", "assistantPaused": false, "unreadCount": 0, "lastMessageAt": "...", "lastMessagePreview": "..." },
   "messages": [
-    { "id": "uuid", "origin": "customer", "type": "text", "text": "How much are braces?", "status": "received", "error": null, "sentAt": "..." },
-    { "id": "uuid", "origin": "assistant", "type": "text", "text": "Braces cost ...", "status": "sent", "error": null, "sentAt": "..." }
+    { "id": "uuid", "origin": "customer", "type": "text", "text": "How much are braces?", "status": "received", "error": null, "note": null, "sentAt": "..." },
+    { "id": "uuid", "origin": "assistant", "type": "text", "text": "Braces cost ...", "status": "sent", "error": null, "note": null, "sentAt": "..." }
   ],
   "hasMore": false
 }
