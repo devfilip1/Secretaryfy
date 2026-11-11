@@ -18,7 +18,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 |---|---|---|
 | 401 | `unauthenticated` | No or expired session; the panel goes back to login |
 | 415 | `unsupported_media_type` | POST/PUT/PATCH without `application/json` |
-| 422 | `invalid_body`, `invalid_rules`, … | Validation failed; some include `issues: [{ path, message }]` |
+| 422 | `invalid_body`, `invalid_rules`, … | Validation failed; some include `issues: [{ path, message, code, params? }]`; `code` is stable, `message` is English fallback |
 | 503 | `panel_disabled` | `OPERATOR_PASSWORD` not set |
 
 ### Session — [panel-session.ts](../src/routes/panel-session.ts)
@@ -38,7 +38,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `DELETE /api/connection` | Logs the number out (which deletes all conversations) |
 | `GET /api/conversations?q=` | List, newest first; searches name, said name and phone |
 | `DELETE /api/conversations` | Deletes all conversations and messages; returns `{deleted}` |
-| `GET /api/conversations/:id/messages?before=&limit=` | Page of messages (max 100), newest first, with `hasMore` |
+| `GET /api/conversations/:id/messages?before=&limit=` | Page of messages (max 100), newest first, with `hasMore`. Each message has `note`: the typed system note (`{kind, …}`, kinds in [system-note.ts](../src/modules/inbox/system-note.ts)) for origin `system`, `null` otherwise |
 | `POST /api/conversations/:id/read` | Clears the unread count |
 | `PATCH /api/conversations/:id` | `{assistantPaused: bool}` to pause/resume, or `{optedOut: false}` to reactivate an opted-out patient. Opting a patient out from the panel is not allowed. |
 | `POST /api/conversations/:id/messages` | `{text, confirmRisk?}` operator message. 201 sent; 502 failed; 409 `whatsapp_disconnected` or `risk_confirmation_required` with `risks: [cold_contact\|opted_out\|protection_paused]` |
@@ -53,7 +53,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `POST /api/calendar/connect` | `{url}` of the Google consent screen; 503 `google_not_configured` |
 | `GET /api/calendar/calendars` | The account's calendars; 409 `calendar_disconnected`, 502 `calendar_unavailable` |
 | `PUT /api/calendar/selection` | `{calendarId}` |
-| `PUT /api/calendar/rules` | Booking rules ([BR-SCH-01](business-rules.md#br-sch-01--free-times-come-from-the-rules-and-the-calendar)); 422 `invalid_rules` with `issues` |
+| `PUT /api/calendar/rules` | Booking rules ([BR-SCH-01](business-rules.md#br-sch-01--free-times-come-from-the-rules-and-the-calendar)); 422 `invalid_rules` with `issues` (codes: `no_open_day`, `end_before_start`, `day_shorter_than_appointment` with `params.minutes`, `invalid_format`, `invalid_type`, `too_small` with `params.min`, `too_big` with `params.max`, `not_multiple_of` with `params.divisor`, `unrecognized_keys`, `invalid`) |
 | `DELETE /api/calendar` | Disconnects and revokes the token |
 
 ### Appointments and panel booking — [panel-appointments.ts](../src/routes/panel-appointments.ts)

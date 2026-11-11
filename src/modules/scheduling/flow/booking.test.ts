@@ -5,7 +5,7 @@ import { CalendarUnavailable } from "../../google/gateway.js";
 import { at, useFlowHarness } from "../../../test/flow-harness.js";
 
 const h = useFlowHarness();
-const { say, conversation, I, sessionOf, systemTexts, allAppointments, book } = h;
+const { say, conversation, I, sessionOf, systemNotes, hasNote, allAppointments, book } = h;
 
 // --- US1: marcar ---
 
@@ -33,7 +33,7 @@ test("marcar: confirmação com dia, hora, duração e nome; yes cria o evento e
   assert.equal(event.properties.secretaryfy_appointment, appt.id);
   assert.equal(await sessionOf(conv), null);
   // US4: registro no histórico
-  assert.deepEqual(await systemTexts(conv), ["Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning"]);
+  assert.deepEqual(await systemNotes(conv), [{ kind: "booked", start: "2026-10-21T13:00:00.000Z", minutes: 60, service: "Dental Cleaning", timeZone: "America/Bahia" }]);
   assert.equal(appt.service, "Dental Cleaning");
 });
 
@@ -113,7 +113,7 @@ test("um horário futuro por número; evento apagado no Google libera para marca
   const [appt] = await allAppointments();
   assert.equal(appt.status, "cancelled");
   assert.equal(appt.cancelledBy, "calendar");
-  assert.ok((await systemTexts(conv)).includes("Cancelled in the calendar: Wed, Oct 21 at 10:00 AM"));
+  assert.ok(hasNote(await systemNotes(conv), { kind: "cancelled_in_calendar", start: "2026-10-21T13:00:00.000Z", timeZone: "America/Bahia" }));
 });
 
 test("o horário é do telefone: sobrevive à limpeza das conversas e vale numa conversa nova (specs/006 R1)", async () => {

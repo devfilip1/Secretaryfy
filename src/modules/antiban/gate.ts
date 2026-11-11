@@ -3,13 +3,13 @@ import type { ConversationRow, MessageRow } from "../../db/schema.js";
 import type { Publish } from "../inbox/events.js";
 import type { InboxRepository } from "../inbox/repository.js";
 import type { InboxService, SendRisk } from "../inbox/service.js";
+import type { SystemNote } from "../inbox/system-note.js";
 import { assessConversation } from "./assess.js";
 import type { Breaker, BreakerState } from "./breaker.js";
 import { warmupLimits, type AntibanConfig, type ProtectionJson } from "./limits.js";
 import { stripLinks } from "./links.js";
 import { createSendQueue, type BlockReason } from "./queue.js";
 import type { AntibanRepository } from "./repository.js";
-import { protectionNotes } from "./texts.js";
 import { gapDelay, readDelay, thinkDelay, typingDelay } from "./typing.js";
 
 const MINUTE = 60_000;
@@ -18,11 +18,11 @@ const DAY = 24 * HOUR;
 const CONNECTED_CACHE_MS = 60_000;
 
 /** Motivos que destacam a conversa para o operador, com o registro no histórico (contracts/conversation.md). */
-const FLAGGED: Partial<Record<BlockReason, string>> = {
-  loop: protectionNotes.loop,
-  daily_conversations: protectionNotes.dailyConversations,
-  rate_limited: protectionNotes.rateLimited,
-  paused: protectionNotes.paused,
+const FLAGGED: Partial<Record<BlockReason, SystemNote>> = {
+  loop: { kind: "protection_blocked", reason: "loop" },
+  daily_conversations: { kind: "protection_blocked", reason: "daily_conversations" },
+  rate_limited: { kind: "protection_blocked", reason: "rate_limited" },
+  paused: { kind: "protection_blocked", reason: "paused" },
 };
 
 export type SendOutcome = "sent" | "failed" | "blocked";

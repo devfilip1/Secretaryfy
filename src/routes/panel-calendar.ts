@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { ConnectionStore } from "../modules/google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gateway.js";
-import { rulesSchema, type Rules, type RulesStore } from "../modules/scheduling/rules.js";
+import { rulesIssueView, rulesSchema, type Rules, type RulesStore } from "../modules/scheduling/rules.js";
 
 interface Deps {
   connection: ConnectionStore;
@@ -72,7 +72,7 @@ export function panelCalendarRoutes({ connection, calendar, rules, buildConnectU
       if (!parsed.success) {
         return reply.code(422).send({
           error: "invalid_rules",
-          issues: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+          issues: parsed.error.issues.map(rulesIssueView),
         });
       }
       await rules.save(parsed.data as Rules);

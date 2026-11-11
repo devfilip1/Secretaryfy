@@ -15,6 +15,8 @@ import type { Interpretation } from "../modules/scheduling/interpret.js";
 import type { Replies } from "../modules/scheduling/replies.js";
 import { DEFAULT_RULES, type Rules } from "../modules/scheduling/rules.js";
 import { createSchedulingStore, type SchedulingStore } from "../modules/scheduling/sessions.js";
+import type { SystemNote } from "../modules/inbox/system-note.js";
+import { isDeepStrictEqual } from "node:util";
 
 export const tz = "America/Bahia";
 // Terça, 20/10/2026, 15:00 em Salvador
@@ -53,7 +55,8 @@ export function useFlowHarness() {
     I,
     say,
     sessionOf,
-    systemTexts,
+    systemNotes,
+    hasNote,
     allAppointments,
     allCustomers,
     book,
@@ -139,10 +142,16 @@ export function useFlowHarness() {
     return h.store.getSession(conv.id, h.now);
   }
 
-  async function systemTexts(conv: ConversationRow) {
+  /** Registros do histórico (origin = system), tipados */
+  async function systemNotes(conv: ConversationRow): Promise<(SystemNote | null)[]> {
     return (await h.testDb.db.select().from(messages))
       .filter((m) => m.conversationId === conv.id && m.origin === "system")
-      .map((m) => m.text);
+      .map((m) => m.note);
+  }
+
+  /** Há um registro igual a este (tipo e dados), na ordem que tiver */
+  function hasNote(notes: (SystemNote | null)[], note: SystemNote) {
+    return notes.some((n) => isDeepStrictEqual(n, note));
   }
 
   function allAppointments() {

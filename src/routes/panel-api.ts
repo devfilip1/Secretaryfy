@@ -3,7 +3,6 @@ import { z } from "zod";
 import { presentConversation, presentMessage } from "../modules/inbox/presenters.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import { InboxError, type InboxService, type OperatorSendDeps } from "../modules/inbox/service.js";
-import { protectionNotes } from "../modules/antiban/texts.js";
 import { AlreadyConnected, EvolutionError, TooManyAttempts, type InstanceManager } from "../modules/whatsapp/instance.js";
 
 interface Deps {
@@ -131,7 +130,7 @@ export function panelApiRoutes({ inbox, repo, instance, send, risks, onOperatorM
       if (!body.success) return reply.code(422).send({ error: "invalid_body" });
       const row =
         "optedOut" in body.data
-          ? await inbox.setOptedOut(params.data.id, false, protectionNotes.reactivated)
+          ? await inbox.setOptedOut(params.data.id, false, { kind: "reactivated_by_operator" })
           : await inbox.setAssistantPaused(params.data.id, body.data.assistantPaused);
       if (!row) return notFound(reply);
       return inbox.present(row);

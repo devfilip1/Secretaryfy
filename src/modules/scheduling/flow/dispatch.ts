@@ -3,7 +3,6 @@ import type { SchedulingSessionRow } from "../../../db/schema.js";
 import { asksPeriodOfScreen, isTooFar } from "../intents.js";
 import type { FlowResult } from "../flow.js";
 import type { Interpretation } from "../interpret.js";
-import { systemNotes } from "../replies.js";
 import { currentAppointment, cancel, keep, move, startCancel, startReschedule } from "./appointment.js";
 import { book, nameGiven, serviceChosen, startBook } from "./booking.js";
 import {
@@ -109,7 +108,7 @@ async function misunderstood(run: Run): Promise<FlowResult> {
   if (count >= MAX_MISUNDERSTOOD) {
     await run.store.clearSession(run.conversation.id);
     await run.inbox.flagNeedsAttention(run.conversation.id);
-    await run.inbox.recordSystem(run.conversation.id, systemNotes.handoff());
+    await run.inbox.recordSystem(run.conversation.id, { kind: "handoff" });
     return { reply: run.replies.handoff(), handoff: true };
   }
   await run.store.saveSession(

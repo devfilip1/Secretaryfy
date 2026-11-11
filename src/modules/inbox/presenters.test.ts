@@ -60,7 +60,7 @@ test("formato do contrato", () => {
       sentAt: at,
       createdAt: at,
     }),
-    { id: "m1", origin: "customer", type: "text", text: "Oi", status: "received", error: null, sentAt: "2026-10-16T13:05:00.000Z" },
+    { id: "m1", origin: "customer", type: "text", text: "Oi", status: "received", error: null, note: null, sentAt: "2026-10-16T13:05:00.000Z" },
   );
 });
 
@@ -82,4 +82,12 @@ test("o nome dito pelo cliente aparece no lugar do nome do perfil", () => {
   };
   assert.equal(presentConversation(row).name, ".");
   assert.equal(presentConversation({ ...row, customerName: "Maria" }).name, "Maria");
+});
+
+test("mensagem: note vai junto no formato do painel; linhas sem registro (antigas ou comuns) ficam null", () => {
+  const row = { id: "m1", origin: "system", type: "text", text: "Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning", status: "received", error: null, sentAt: new Date("2026-10-21T13:00:00Z") };
+  const note = { kind: "booked", start: "2026-10-21T13:00:00.000Z", minutes: 60, service: "Dental Cleaning", timeZone: "America/Bahia" } as const;
+  assert.deepEqual(presentMessage({ ...row, note } as never).note, note);
+  assert.equal(presentMessage({ ...row, note: null } as never).note, null);
+  assert.equal(presentMessage({ ...row, origin: "customer", note: null } as never).note, null);
 });

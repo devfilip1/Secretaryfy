@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_RULES, rulesSchema, type Rules } from "./rules.js";
+import { DEFAULT_RULES, RULES_ISSUE_CODES, rulesIssueView, rulesSchema, type Rules, type RulesIssueCode } from "./rules.js";
 
 function issuesOf(rules: unknown): string[] {
   const parsed = rulesSchema.safeParse(rules);
@@ -43,4 +43,37 @@ test("limites de antecedência, dias à frente e prazo de cancelamento", () => {
   assert.deepEqual(issuesOf(withRules({ cancelNoticeMinutes: -1 })), ["cancelNoticeMinutes"]);
   assert.deepEqual(issuesOf(withRules({ minNoticeMinutes: 20000 })), ["minNoticeMinutes"]);
   assert.deepEqual(issuesOf(withRules({ minNoticeMinutes: 0, cancelNoticeMinutes: 0 })), []);
+});
+
+// Cada caso gera um problema; o código e os parâmetros são o que o painel traduz.
+const CODE_CASES: { rules: unknown; path: string; code: RulesIssueCode; params: Record<string, unknown> }[] = [
+  { rules: withRules({ weeklyHours: { "1": { start: "18:00", end: "09:00" } } }), path: "weeklyHours.1.end", code: "end_before_start", params: {} },
+  { rules: withRules({ weeklyHours: { "1": { start: "9:00", end: "18:00" } } }), path: "weeklyHours.1.start", code: "invalid_format", params: {} },
+  { rules: withRules({ weeklyHours: {} }), path: "weeklyHours", code: "no_open_day", params: {} },
+  { rules: withRules({ slotMinutes: 120, weeklyHours: { "6": { start: "09:00", end: "10:00" } } }), path: "weeklyHours.6", code: "day_shorter_than_appointment", params: { minutes: 120 } },
+  { rules: withRules({ slotMinutes: 10 }), path: "slotMinutes", code: "too_small", params: { min: 15 } },
+  { rules: withRules({ slotMinutes: 17 }), path: "slotMinutes", code: "not_multiple_of", params: { divisor: 5 } },
+  { rules: withRules({ slotMinutes: 60.5 }), path: "slotMinutes", code: "invalid_type", params: {} },
+  { rules: withRules({ minNoticeMinutes: 20000 }), path: "minNoticeMinutes", code: "too_big", params: { max: 10080 } },
+  { rules: withRules({ cancelNoticeMinutes: -1 }), path: "cancelNoticeMinutes", code: "too_small", params: { min: 0 } },
+  { rules: withRules({ weeklyHours: { "8": { start: "09:00", end: "18:00" } } }), path: "weeklyHours", code: "unrecognized_keys", params: {} },
+];
+
+test("todo problema das regras sai com um código da lista fixa, com os parâmetros que o painel usa", () => {
+  const produced = new Set<string>();
+  for (const { rules, path, code, params } of CODE_CASES) {
+    const views = (rulesSchema.safeParse(rules).error?.issues ?? []).map(rulesIssueView);
+    const found = views.find((v) => v.path === path);
+    assert.ok(found, `sem problema em ${path}`);
+    assert.equal(found.code, code);
+    assert.deepEqual(found.params, params);
+    assert.ok(found.message.length > 0, "a mensagem em inglês fica como fallback");
+    assert.ok((RULES_ISSUE_CODES as readonly string[]).includes(found.code), `código fora da lista: ${found.code}`);
+    produced.add(found.code);
+  }
+  // Tudo da lista sai dos casos, exceto "invalid", o fallback para o que o zod não mapeia
+  assert.deepEqual(
+    [...produced].sort(),
+    RULES_ISSUE_CODES.filter((c) => c !== "invalid").sort(),
+  );
 });

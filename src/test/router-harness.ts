@@ -1,3 +1,4 @@
+import type { SystemNote } from "../modules/inbox/system-note.js";
 import type { FastifyBaseLogger } from "fastify";
 import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../db/schema.js";
 import type { IncomingMessage } from "../modules/whatsapp/evolution.js";
@@ -99,7 +100,7 @@ export function setup({
   const savedNames: string[] = [];
   const askedAt: Date[] = [];
   const confirmed: string[] = [];
-  const notes: string[] = [];
+  const notes: SystemNote[] = [];
   const flagged: string[] = [];
   const cleared: string[] = [];
   const conversation = { id: "c1", phone: MESSAGE.phone, name: ".", customerName, nameAskedAt, nameAsks } as ConversationRow;
@@ -167,8 +168,8 @@ export function setup({
         askedAt.push(at);
       },
       customerMessagesSince: async (_id, since) => (since === reminded?.reminderSentAt ? messagesSinceReminder : messagesSinceAsk),
-      recordSystem: async (_id, text) => {
-        notes.push(text);
+      recordSystem: async (_id, note) => {
+        notes.push(note);
         return null as never;
       },
       recentHistory: async () => seenHistory,

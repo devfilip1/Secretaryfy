@@ -1,4 +1,5 @@
 import type { ConversationRow, MessageRow, MessageType } from "../../db/schema.js";
+import type { SystemNote } from "./system-note.js";
 
 /** Formatos do contrato: specs/002-whatsapp-web-inbox/contracts/panel-api.md */
 export interface ConversationJson {
@@ -21,6 +22,8 @@ export interface MessageJson {
   text: string | null;
   status: MessageRow["status"];
   error: string | null;
+  /** Registro tipado do histórico (origin = system); null nas demais mensagens e nas linhas anteriores à coluna */
+  note: SystemNote | null;
   sentAt: string;
 }
 
@@ -71,6 +74,7 @@ export function presentMessage(row: MessageRow): MessageJson {
     text: row.text,
     status: row.status,
     error: row.error,
+    note: row.note ?? null,
     sentAt: row.sentAt.toISOString(),
   };
 }
