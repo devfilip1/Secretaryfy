@@ -12,6 +12,9 @@
   "back": "Voltar",
   "yes": "Sim",
   "no": "Não",
+  "team": "Equipe",
+  "accountMenu": "Conta",
+  "toggleSidebar": "Alternar barra lateral",
   "nav": {
     "conversations": "Conversas",
     "appointments": "Agendamentos",
@@ -26,6 +29,11 @@
       "calendar": "Calendário",
       "customers": "Clientes",
       "knowledge": "Folheto"
+    },
+    "groups": {
+      "service": "Atendimento",
+      "clinic": "Clínica",
+      "system": "Sistema"
     }
   },
   "connection": {

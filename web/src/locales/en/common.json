@@ -12,6 +12,9 @@
   "back": "Back",
   "yes": "Yes",
   "no": "No",
+  "team": "Team",
+  "accountMenu": "Account",
+  "toggleSidebar": "Toggle sidebar",
   "nav": {
     "conversations": "Conversations",
     "appointments": "Appointments",
@@ -26,6 +29,11 @@
       "calendar": "Calendar",
       "customers": "Customers",
       "knowledge": "Knowledge"
+    },
+    "groups": {
+      "service": "Front desk",
+      "clinic": "Clinic",
+      "system": "System"
     }
   },
   "connection": {

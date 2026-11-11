@@ -6,21 +6,22 @@ import { setPanelLanguage } from "./index";
 import { isPanelLanguage, PANEL_LANGUAGES, writeStoredLanguage, type PanelLanguage } from "./language";
 
 /** Cada idioma com o próprio nome: nunca traduzido. */
-const NATIVE_NAMES: Record<PanelLanguage, string> = { en: "English", pt: "Português" };
+export const NATIVE_NAMES: Record<PanelLanguage, string> = { en: "English", pt: "Português" };
 
-/** Seletor do idioma do painel: no cabeçalho e na tela de login (é a única forma de trocar antes de entrar). */
+/** Guarda a escolha e troca o idioma do painel. Valores fora de en/pt são ignorados. Usado pelo seletor e pelo menu da conta. */
+export function choosePanelLanguage(value: string): void {
+  if (!isPanelLanguage(value)) return;
+  writeStoredLanguage(value);
+  setPanelLanguage(value);
+}
+
+/** Seletor do idioma do painel: na tela de login (é a única forma de trocar antes de entrar). Logado, fica no menu da conta. */
 export function PanelLanguage({ className }: { className?: string }) {
   const { t, i18n } = useTranslation();
   const current: PanelLanguage = isPanelLanguage(i18n.language) ? i18n.language : "en";
 
-  function choose(value: string) {
-    if (!isPanelLanguage(value)) return;
-    writeStoredLanguage(value);
-    setPanelLanguage(value);
-  }
-
   return (
-    <Select value={current} onValueChange={choose}>
+    <Select value={current} onValueChange={choosePanelLanguage}>
       <SelectTrigger aria-label={t("panelLanguage")} className={cn("w-auto gap-1.5 px-2", className)}>
         <Globe aria-hidden />
         <SelectValue>
