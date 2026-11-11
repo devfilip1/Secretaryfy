@@ -94,6 +94,7 @@ cd rag && .\run.ps1 test   # RAG unit tests, no Ollama needed
 ```
 
 - Tests live next to the code (`*.test.ts`) and are excluded from `tsc`. [setup-env.ts](../src/test/setup-env.ts) fills required env vars with fake values; [db.ts](../src/test/db.ts) creates a PGlite database with the migrations applied; [fake-calendar.ts](../src/test/fake-calendar.ts) and [clock.ts](../src/test/clock.ts) replace Google and time.
+- The scheduling tests follow the code: one file per journey in [`flow/`](../src/modules/scheduling/flow) (`offers`, `booking`, `booking-details`, `appointment`, `dispatch`) with the shared setup in [flow-harness.ts](../src/test/flow-harness.ts) (`useFlowHarness()` registers the hooks and returns one object `h` with the state, so tests read `h.rules`, `h.fake`, ...), and the router tests split by area (`router`, `router-name`, `router-reminder`, `router-reading`) with [router-harness.ts](../src/test/router-harness.ts).
 - Covered: every module and route, including the webhook, the router, the state machine, the gate and the reminder scheduler. Not covered: the panel UI (checked by hand), real Evolution/Google calls.
 
 ### Evaluating with the real model
