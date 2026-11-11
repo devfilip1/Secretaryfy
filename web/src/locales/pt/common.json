@@ -2,6 +2,12 @@
   "loading": "Carregando…",
   "signOut": "Sair",
   "panelLanguage": "Idioma do painel",
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  },
   "reconnecting": "Reconectando ao servidor…",
   "save": "Salvar",
   "cancel": "Cancelar",

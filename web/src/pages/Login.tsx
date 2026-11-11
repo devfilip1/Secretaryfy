@@ -9,6 +9,7 @@ import { Field } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { Title } from "../components/Title";
 import { PanelLanguage } from "../i18n/PanelLanguage";
+import { ThemeSelect } from "../theme/ThemeSelect";
 
 export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   const { t } = useTranslation("login");
@@ -42,7 +43,10 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   return (
     <CenterPage>
       <Card as="form" className="flex w-[min(420px,100%)] flex-col gap-3.5" onSubmit={submit}>
-        <PanelLanguage className="self-end" />
+        <div className="flex items-center gap-2 self-end">
+          <ThemeSelect />
+          <PanelLanguage />
+        </div>
         <Title level={1} className="mb-1">
           Secretaryfy
         </Title>

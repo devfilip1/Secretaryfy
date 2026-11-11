@@ -1,50 +1,105 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Fonte do painel: pacote npm já instalado (define "Schibsted Grotesk Variable", pesos 100 a 900). Nada vai à rede. */
+@import "@fontsource-variable/schibsted-grotesk/wght.css";
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
-
-/* Paleta do painel, claro e escuro conforme o sistema. Os componentes shadcn leem estas variáveis (ver @theme abaixo). */
-:root {
-  --radius: 0.5rem;
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #e1e4e8;
-  --text: #1c1e21;
-  --muted: #65676b;
-  --accent: #128c7e;
-  --accent-text: #ffffff;
-  --selected: #e7f3f1;
-  --ok: #1f9d55;
-  --warn: #c88a04;
-  --bad: #d64545;
-  --bubble-customer: #ffffff;
-  --bubble-assistant: #dcf8c6;
-  --bubble-operator: #d6ecff;
-  --bubble-phone: #ece5f6;
-  --chat-bg: #efeae2;
-  color-scheme: light;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+/* `dark:` segue o mesmo critério das variáveis: o sistema, salvo quando data-theme na raiz diz outra coisa. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme="dark"] *) {
+    @slot;
+  }
 }
 
+/* Paleta Porcelana, modo claro (padrão). Os componentes shadcn leem estas variáveis (ver @theme abaixo). */
+:root {
+  --radius: 0.5rem;
+  --bg: #f3f6f6;
+  --surface: #fbfcfc;
+  --surface-2: #e7eeee;
+  --border: #d9e2e2;
+  --text: #0e2a2b;
+  --muted: #5c7575;
+  --accent: #0e6f6b;
+  --accent-text: #ffffff;
+  --selected: #d5e6e4;
+  --ok: #0e6f6b;
+  --warn: #8a5a00;
+  --bad: #ba3d29;
+  --bubble-customer: #ffffff;
+  --bubble-assistant: #d5e6e4;
+  --bubble-operator: #dce8f4;
+  --bubble-phone: #e6eaf2;
+  --chat-bg: #eef3f3;
+  --rail: #0e2a2b;
+  --rail-ink: #b9cfcf;
+  --rail-on: #14464a;
+  --alert-bg: #fbe3de;
+  color-scheme: light;
+  font-family: "Schibsted Grotesk Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Modo escuro pelo sistema, enquanto a escolha do painel não for "claro". */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111b21;
-    --surface: #1f2c33;
-    --surface-2: #2a3942;
-    --border: #2f3b43;
-    --text: #e9edef;
-    --muted: #8696a0;
-    --accent: #00a884;
-    --accent-text: #111b21;
-    --selected: #2a3942;
-    --bubble-customer: #202c33;
-    --bubble-assistant: #005c4b;
-    --bubble-operator: #1d4a6e;
-    --bubble-phone: #3f3554;
-    --chat-bg: #0b141a;
+  :root:not([data-theme="light"]) {
+    --bg: #0c1517;
+    --surface: #111d20;
+    --surface-2: #17262a;
+    --border: #223033;
+    --text: #e3efee;
+    --muted: #86a5a3;
+    --accent: #3cb8ae;
+    --accent-text: #072321;
+    --selected: #17302f;
+    --ok: #3cb8ae;
+    --warn: #e0a84a;
+    --bad: #ff8a73;
+    --bubble-customer: #162428;
+    --bubble-assistant: #17302f;
+    --bubble-operator: #1b2c40;
+    --bubble-phone: #232b3a;
+    --chat-bg: #0a1214;
+    --rail: #070d0f;
+    --rail-ink: #86a5a3;
+    --rail-on: #16302f;
+    --alert-bg: #3a1d18;
     color-scheme: dark;
   }
+}
+
+/* Escolha explícita do painel: escuro força o modo escuro (mesmos valores acima). */
+:root[data-theme="dark"] {
+  --bg: #0c1517;
+  --surface: #111d20;
+  --surface-2: #17262a;
+  --border: #223033;
+  --text: #e3efee;
+  --muted: #86a5a3;
+  --accent: #3cb8ae;
+  --accent-text: #072321;
+  --selected: #17302f;
+  --ok: #3cb8ae;
+  --warn: #e0a84a;
+  --bad: #ff8a73;
+  --bubble-customer: #162428;
+  --bubble-assistant: #17302f;
+  --bubble-operator: #1b2c40;
+  --bubble-phone: #232b3a;
+  --chat-bg: #0a1214;
+  --rail: #070d0f;
+  --rail-ink: #86a5a3;
+  --rail-on: #16302f;
+  --alert-bg: #3a1d18;
+  color-scheme: dark;
+}
+
+/* Escolha explícita do painel: claro. A base já é clara; isto só fixa o color-scheme. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @layer base {
@@ -78,6 +133,11 @@
   }
 }
 
+/* Números alinhados em colunas (horários, contagens). */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -109,6 +169,10 @@
   --color-bubble-operator: var(--bubble-operator);
   --color-bubble-phone: var(--bubble-phone);
   --color-chat: var(--chat-bg);
+  --color-rail: var(--rail);
+  --color-rail-ink: var(--rail-ink);
+  --color-rail-on: var(--rail-on);
+  --color-alert: var(--alert-bg);
   --opacity-disabled: 0.55;
   --shadow-stripe-warn: inset 3px 0 0 var(--warn);
   --shadow-bubble: 0 1px 1px rgb(0 0 0 / 0.08);

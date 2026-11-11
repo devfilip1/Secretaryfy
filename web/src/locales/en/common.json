@@ -2,6 +2,12 @@
   "loading": "Loading…",
   "signOut": "Sign out",
   "panelLanguage": "Panel language",
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "reconnecting": "Reconnecting to the server…",
   "save": "Save",
   "cancel": "Cancel",

@@ -22,6 +22,7 @@ import { Disabled } from "./pages/Disabled";
 import { Inbox } from "./pages/Inbox";
 import { Login } from "./pages/Login";
 import { PanelLanguage } from "./i18n/PanelLanguage";
+import { ThemeSelect } from "./theme/ThemeSelect";
 import { usePanelLanguage } from "./i18n/usePanelLanguage";
 import { BookOpen, Calendar, CalendarCheck, MessageSquare, Smartphone, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -138,6 +139,7 @@ function Shell({ onLoggedOut }: { onLoggedOut: () => void }) {
               ))}
             </nav>
             <ConnectionBadge connection={connection} />
+            <ThemeSelect />
             <PanelLanguage />
             <Button variant="link" onClick={leave}>
               {t("signOut")}
