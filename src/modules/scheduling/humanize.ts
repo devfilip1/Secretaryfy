@@ -73,7 +73,7 @@ const EXAMPLES = {
 function systemPrompt(language: "en" | "pt", clinicName: string): string {
   return [
     `You are the receptionist of ${clinicName}. Rewrite the message to sound like a warm, natural WhatsApp message from a human, in ${LANGUAGE_NAMES[language]}.`,
-    "The customer's last message is only there for tone. Do not answer it.",
+    "You only get the message to rewrite. Never answer or react to the customer: do not add openers such as \"sure\", \"happy to\" or \"of course\" before it.",
     "You MUST change the wording of the sentences that are not protected lines: casual, friendly, like a real person typing on WhatsApp. Never return the message unchanged.",
     "Be sweet and kind in every message, like a caring receptionist who is happy to help. Never curt, cold or bossy.",
     "When the original says something is not available, not possible or not understood, say it softly (for example start with \"unfortunately\" or an apology) and invite the customer to pick another option from the same original. Never scold, never blame.",
@@ -94,7 +94,7 @@ export function createHumanizer({ ollama, clinic }: { ollama: Pick<OllamaClient,
 
   return {
     /** Devolve a reescrita se passar na guarda; senão, ou em qualquer erro, o texto original. Nunca lança. */
-    async humanize(reply: string, customerText: string, log?: Warn): Promise<string> {
+    async humanize(reply: string, log?: Warn): Promise<string> {
       const fallback = (motivo: string) => {
         log?.warn({ motivo }, "resposta mantida no texto fixo");
         return reply;
@@ -108,9 +108,8 @@ export function createHumanizer({ ollama, clinic }: { ollama: Pick<OllamaClient,
             temperature: HUMANIZE_TEMPERATURE,
             messages: [
               { role: "system", content: systemPrompt(clinic.language, clinic.name) },
-              { role: "user", content: `Customer said: ${customerText}
-
-Message to rewrite: ${reply}` },
+              // A mensagem do cliente não entra: com ela o modelo respondia ao cliente ("no" virava "Happy to!") antes do texto fixo
+              { role: "user", content: `Message to rewrite: ${reply}` },
             ],
           });
           const parsed = OUTPUT.safeParse(raw);

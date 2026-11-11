@@ -18,6 +18,8 @@ Each fix added a rule next to the previous ones, and the router grew a branch pe
 4. **Each extractor has a phrase list in one place:** `scripts/eval-extractors.ts`. A new misreading is a new phrase there, and a case in the table test, not a new `if` in the router.
 5. **The main interpreter schema is not widened.** Facts that need a focused read stay out of it.
 
+A message the main interpreter reads as `rude`, `manipulation` or `off_topic` gets one more focused call, `mentionedSense`, which answers whether the words are random and make no request, statement or insult. Pure gibberish is downgraded to `unclear`, so the booking flow repeats its question instead of answering with the refusal or the empathy text. The call can only downgrade: it never raises an intent or touches other intents, and when it fails the intent stays as the main interpreter gave it. The main interpreter prompt does not change.
+
 ## Alternatives considered
 - **Trust the main model's fields and add one `if` per bug:** this is how the four misreadings were patched, and each patch sits in the router where the next one lands.
 - **Add `period` (and more) to the main schema:** the model filled the new field with guesses and the eval regressed.

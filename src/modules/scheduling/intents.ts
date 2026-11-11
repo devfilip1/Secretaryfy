@@ -46,6 +46,8 @@ const CHOICE_LIKE_INTENTS: readonly Intent[] = ["more", "unclear", "other_day", 
 const TOO_FAR_INTENTS: readonly Intent[] = ["availability", "choose", "book"];
 /** Com os horários do dia na tela, "de tarde" (parte do dia sem horário) é a parte desse mesmo dia (flow.dispatch) */
 const ASKS_PERIOD_OF_SCREEN_INTENTS: readonly Intent[] = ["choose", "availability"];
+/** Podem ser só palavras sem sentido: a chamada de sentido (understanding/sense.ts) confere, e só rebaixa para não entendi (applySense, em resolve.ts) */
+const MAY_BE_NOISE_INTENTS: readonly Intent[] = ["rude", "manipulation", "off_topic"];
 
 /** Os grupos por nome, só para o teste de intents.test.ts fotografar os membros; o código usa os predicados */
 export const INTENT_GROUPS = {
@@ -57,6 +59,7 @@ export const INTENT_GROUPS = {
   CHOICE_LIKE: CHOICE_LIKE_INTENTS,
   TOO_FAR: TOO_FAR_INTENTS,
   ASKS_PERIOD_OF_SCREEN: ASKS_PERIOD_OF_SCREEN_INTENTS,
+  MAY_BE_NOISE: MAY_BE_NOISE_INTENTS,
 } as const;
 
 /** Pede um dia ou um horário (ver ASKS_FOR_WHEN_INTENTS) */
@@ -75,3 +78,5 @@ export const isChoiceLike = (intent: Intent): boolean => CHOICE_LIKE_INTENTS.inc
 export const isTooFar = (intent: Intent): boolean => TOO_FAR_INTENTS.includes(intent);
 /** Com os horários do dia na tela, pede a parte do dia desse mesmo dia */
 export const asksPeriodOfScreen = (intent: Intent): boolean => ASKS_PERIOD_OF_SCREEN_INTENTS.includes(intent);
+/** Pode ser só palavras sem sentido (ver MAY_BE_NOISE_INTENTS) */
+export const mayBeNoise = (intent: Intent): boolean => MAY_BE_NOISE_INTENTS.includes(intent);

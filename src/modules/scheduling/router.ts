@@ -13,14 +13,14 @@ import { InterpreterUnavailable } from "./ollama.js";
 import { systemNotes, type Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
-import { applyPick, applyWhen, needsPick, wantsWhen } from "./understanding/resolve.js";
+import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
 
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -38,7 +38,7 @@ interface Deps {
   /** Textos na língua da clínica (replies.ts, createReplies) */
   replies: Replies;
   /** Reescrita opcional da resposta do fluxo (humanize.ts); só o texto do fluxo passa por ela */
-  humanize?: (reply: string, customerText: string, log: FastifyBaseLogger) => Promise<string>;
+  humanize?: (reply: string, log: FastifyBaseLogger) => Promise<string>;
 }
 
 /** Decide se a mensagem vai para o agendamento ou para o folheto, e devolve o texto da resposta. */
@@ -154,6 +154,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       "mensagem interpretada",
     );
 
+    // Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas abaixo (ver understanding/sense.ts)
+    if (wantsSense(interpretation)) interpretation = applySense(interpretation, (await interpreter.mentionedSense?.({ text, log })) ?? null);
+
     // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
     if (interpretation.intent === "manipulation" || interpretation.intent === "off_topic") return { text: replies.stayOnTopic() };
 
@@ -211,13 +214,14 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
     const timed = applyWhen(interpretation, when, session?.step);
     const count = session?.options?.length ?? 0;
-    const pick = needsPick(timed, count) ? ((await interpreter.mentionedOption?.({ text, count, log })) ?? null) : null;
-    const chosen = applyPick(timed, pick);
+    // A posição só vale com a citação no texto (o modelo principal a inventa para "sim, pode ser"): quando a chamada focada roda, ela decide
+    const picking = needsPick(timed, count);
+    const chosen = picking ? applyPick(timed, (await interpreter.mentionedOption?.({ text, count, log })) ?? null) : timed;
 
     // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
-    let out = result.handoff ? result.reply : await humanize(result.reply, text, log);
+    let out = result.handoff ? result.reply : await humanize(result.reply, log);
     // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura
     if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out)) out = `${replies.again()}\n\n${out}`;
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };

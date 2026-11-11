@@ -7,6 +7,7 @@ import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import { createOptionExtractor } from "./understanding/option.js";
 import { normalize } from "./understanding/quote.js";
+import { createSenseReader } from "./understanding/sense.js";
 import { createWhenExtractor, type DayPeriod } from "./understanding/when.js";
 import { INTENTS, canCarryAWhen, asksForWhen, isStepOnly, picksOfferedDay, type Intent } from "./intents.js";
 
@@ -349,6 +350,8 @@ function validate(raw: unknown, { text, step, options, window, now, timeZone, aw
   // O nome tem de estar escrito na mensagem e nunca vem de uma pergunta ("Qual seu nome?" e "voces aceitam cartão?" não são nomes)
   let cleaned = keepsName ? cleanName(name) : null;
   if (cleaned && (!nameInText(cleaned, text) || text.includes("?"))) cleaned = null;
+  // "sim" e "não" respondem a uma pergunta, não são um nome (o modelo as devolve como nome logo depois do pedido)
+  if (cleaned && (YES.has(normalize(cleaned)) || NO.has(normalize(cleaned)))) cleaned = null;
   if (intent === "give_name" && !cleaned) return result("unclear", { source: "model" });
   // O serviço tem de ser do catálogo: o rótulo que o modelo devolveu vira o nome guardado (byLabel, sem busca aproximada)
   const service = parsed.data.service ? catalog.byLabel(parsed.data.service) : null;
@@ -385,6 +388,7 @@ export function createInterpreter({
 }) {
   const when = createWhenExtractor({ ollama });
   const pick = createOptionExtractor({ ollama });
+  const sense = createSenseReader({ ollama });
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -403,6 +407,7 @@ export function createInterpreter({
     },
     mentionedWhen: when,
     mentionedOption: pick,
+    mentionedSense: sense,
 
     /**
      * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha

@@ -4,7 +4,7 @@ import type { SessionOption } from "../src/db/schema.js";
 import { createClinicContext } from "../src/modules/clinic/context.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createInterpreter, type DayPeriod, type Interpretation, type InterpretInput } from "../src/modules/scheduling/interpret.js";
-import { applyPick, applyWhen, needsPick, wantsWhen } from "../src/modules/scheduling/understanding/resolve.js";
+import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "../src/modules/scheduling/understanding/resolve.js";
 import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
 
 // Terça, 20/10/2026, 15:00 em Salvador
@@ -136,6 +136,13 @@ const cases: Case[] = [
   named("quanto custa?", null, "question"),
   named("com dor", null, ["needs_staff", "unclear"]),
   named("vai se ferrar, robô inútil", null, "rude"),
+  // Palavras sem sentido não são grosseria nem manipulação: o cliente é convidado a repetir (e duas seguidas chamam a equipe)
+  c("choose_day", "macaco roxo lava louça", "unclear"),
+  c("choose_day", "banana telefone nuvem", "unclear"),
+  c("choose_slot", "purple monkey dishwasher", "unclear"),
+  c("choose_slot", "banana telephone cloud", "unclear"),
+  c("ask_name", "asdf qwerty kkkk", "unclear"),
+  c(null, "blá blá blá sapato voador", "unclear"),
 ];
 
 const ollama = createOllamaClient({
@@ -160,15 +167,16 @@ const latencies: number[] = [];
 for (const k of cases) {
   const options = k.step === "choose_day" ? days : k.step === "choose_slot" ? slots : [];
   const started = Date.now();
-  const first = await interpreter.interpret({
+  const interpreted = await interpreter.interpret({
     text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
+  // Como o roteador: palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas
+  const first = wantsSense(interpreted) ? applySense(interpreted, (await interpreter.mentionedSense({ text: k.text })) ?? null) : interpreted;
   // Como o roteador: a chamada focada lê a frase (horário ou parte do dia), e a posição da opção quando o modelo não a leu
   const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
   const timed = applyWhen(first, when, k.step);
   const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
-  const pick = needsPick(timed, shown) ? ((await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : null;
-  const got = applyPick(timed, pick);
+  const got = needsPick(timed, shown) ? applyPick(timed, (await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : timed;
   latencies.push(Date.now() - started);
   const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
