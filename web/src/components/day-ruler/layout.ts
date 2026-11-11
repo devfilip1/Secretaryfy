@@ -122,8 +122,10 @@ export function layoutDay(input: RulerInput): DayLayout {
       service: appointment.service,
     })),
   );
+  // Dia longo (mais de 10 h) usa marcas de 4 em 4 horas para os rótulos não se sobreporem
+  const step = end - start > 600 ? 240 : TICK_MINUTES;
   const ticks: DayLayout["ticks"] = [];
-  for (let minutes = Math.ceil(start / TICK_MINUTES) * TICK_MINUTES; minutes <= end; minutes += TICK_MINUTES) {
+  for (let minutes = Math.ceil(start / step) * step; minutes <= end; minutes += step) {
     ticks.push({ minutes, leftPct: pctOf(minutes) });
   }
   const inside = nowMinutes >= start && nowMinutes <= end;
