@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { TextField } from "./FormParts";
 import { readLine, type ReadBlock } from "./read-preview";
@@ -12,11 +13,12 @@ import { Muted } from "../Muted";
 
 /** Linha de leitura: como o assistente vai ler o campo, aparece só quando há valor. `assessmentNote` é a nota da brochura. */
 export function ReadPreview({ name, assessmentNote = "" }: { name: string; assessmentNote?: string }) {
+  const { t } = useTranslation("knowledge");
   const { control } = useFormContext();
   const block = useWatch({ control, name }) as ReadBlock | undefined;
   const line = readLine(block ?? { label: "", value: "" }, assessmentNote);
   if (!line) return null;
-  return <Muted as="p">{`The assistant reads: ${line}`}</Muted>;
+  return <Muted as="p">{t("read.preview", { line })}</Muted>;
 }
 
 /** Um campo de texto (Como funciona, Resultado, Recuperação): o valor e a linha de leitura embaixo. */
@@ -72,17 +74,24 @@ export function ExtraFactFields({
   onRemove: () => void;
   assessmentNote: string;
 }) {
+  const { t } = useTranslation("knowledge");
   const name = `extras.${index}`;
   return (
     <div className="grid gap-4 border-b border-border pb-6 last:border-b-0 last:pb-0">
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField name={`${name}.label`} label="Name" description="For example: Mensalidade" />
-        <TextField name={`${name}.value`} label="Value" description="For example: R$ 35 a R$ 90" />
+        <TextField name={`${name}.label`} label={t("extra.name")} description={t("extra.nameExample")} />
+        <TextField name={`${name}.value`} label={t("extra.value")} description={t("extra.valueExample")} />
       </div>
       <ReadPreview name={name} assessmentNote={assessmentNote} />
       <div className="flex items-center gap-3">
         <AssessmentSwitch name={`${name}.assessment`} />
-        <Button type="button" variant="destructive-ghost" size="icon-sm" aria-label={`Remove detail ${index + 1}`} onClick={onRemove}>
+        <Button
+          type="button"
+          variant="destructive-ghost"
+          size="icon-sm"
+          aria-label={t("extra.remove", { number: index + 1 })}
+          onClick={onRemove}
+        >
           <Trash2 />
         </Button>
       </div>
@@ -113,11 +122,6 @@ export function SwitchField({ name, label, description }: { name: string; label:
 
 /** A chave "Final value depends on the assessment" (ligada grava `assessment: true`). */
 function AssessmentSwitch({ name }: { name: string }) {
-  return (
-    <SwitchField
-      name={name}
-      label="Final value depends on the assessment"
-      description="Turn it on when the price is a range. The final value is set at the assessment."
-    />
-  );
+  const { t } = useTranslation("knowledge");
+  return <SwitchField name={name} label={t("assessment.label")} description={t("assessment.description")} />;
 }

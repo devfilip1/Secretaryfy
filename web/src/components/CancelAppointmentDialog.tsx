@@ -1,18 +1,11 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ApiError, cancelAppointment, type Appointment } from "../api";
-import type { ClinicFormats } from "../format";
+import type { useFormats } from "../i18n/formats";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Notice } from "./Notice";
 import { Title } from "./Title";
-
-/** Mensagem para o erro do cancelamento; not_found fecha o diálogo e recarrega a lista. */
-function cancelReason(err: unknown): string {
-  if (err instanceof ApiError && err.error === "calendar_disconnected") {
-    return "The calendar is disconnected. Reconnect it in the Calendar tab.";
-  }
-  return "Could not cancel the appointment. Please try again.";
-}
 
 /** Confirmação antes de cancelar um agendamento: remove o evento da agenda e não avisa o cliente. */
 export function CancelAppointmentDialog({
@@ -23,18 +16,27 @@ export function CancelAppointmentDialog({
   onGone,
 }: {
   appointment: Appointment;
-  formats: ClinicFormats;
+  formats: ReturnType<typeof useFormats>;
   onKeep: () => void;
   onCancelled: () => void;
   /** O agendamento já não existe: fecha o diálogo e a lista recarrega. */
   onGone: () => void;
 }) {
+  const { t } = useTranslation("appointments");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const start = new Date(appointment.startsAt);
-  const when = `${formats.day.format(start)} at ${formats.time.format(start)}`;
-  const who = [appointment.customerName, appointment.service].filter(Boolean).join(", ");
+  const when = t("cancelDialog.when", { day: formats.day.format(start), time: formats.time.format(start) });
+  const who = appointment.service
+    ? t("cancelDialog.who", { name: appointment.customerName, service: appointment.service })
+    : appointment.customerName;
+
+  /** Mensagem para o erro do cancelamento; not_found fecha o diálogo e recarrega a lista (em confirm). */
+  function cancelReason(err: unknown): string {
+    if (err instanceof ApiError && err.error === "calendar_disconnected") return t("errors.calendar_disconnected");
+    return t("errors.cancel");
+  }
 
   async function confirm() {
     setBusy(true);
@@ -59,11 +61,9 @@ export function CancelAppointmentDialog({
       <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle asChild>
-            <Title level={3}>Cancel this appointment?</Title>
+            <Title level={3}>{t("cancelDialog.title")}</Title>
           </DialogTitle>
-          <DialogDescription>
-            {`${who}, ${when}. The event is removed from the calendar. No message is sent to the customer.`}
-          </DialogDescription>
+          <DialogDescription>{t("cancelDialog.description", { who, when })}</DialogDescription>
         </DialogHeader>
         {error ? (
           <DialogBody>
@@ -72,10 +72,10 @@ export function CancelAppointmentDialog({
         ) : null}
         <DialogFooter>
           <Button variant="secondary" onClick={onKeep} disabled={busy} autoFocus>
-            Keep it
+            {t("cancelDialog.keep")}
           </Button>
           <Button variant="destructive" onClick={confirm} disabled={busy}>
-            {busy ? "Cancelling…" : "Cancel appointment"}
+            {busy ? t("cancelDialog.busy") : t("cancelDialog.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

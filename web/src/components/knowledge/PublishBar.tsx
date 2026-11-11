@@ -1,26 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, CloudOff, Upload, type LucideIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ApiError, publishKnowledge, type KnowledgeStatus } from "../../api";
 import { knowledgeKeys, knowledgeStatusQuery } from "../../queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "../Notice";
 
+type PublishErrorKey = "publishBar.busy" | "publishBar.unreachable" | "publishBar.failed";
+
 // Ícone e texto junto da cor: o estado não depende só da cor
-const STATUS_BADGE: Record<KnowledgeStatus["state"], { variant: "secondary" | "warn"; text: string; icon: LucideIcon }> = {
-  upToDate: { variant: "secondary", text: "Up to date", icon: CircleCheck },
-  unpublished: { variant: "warn", text: "Unpublished changes", icon: CircleAlert },
-  unavailable: { variant: "warn", text: "Assistant offline", icon: CloudOff },
+const STATUS_BADGE: Record<
+  KnowledgeStatus["state"],
+  { variant: "secondary" | "warn"; textKey: "status.upToDate" | "status.unpublished" | "status.unavailable"; icon: LucideIcon }
+> = {
+  upToDate: { variant: "secondary", textKey: "status.upToDate", icon: CircleCheck },
+  unpublished: { variant: "warn", textKey: "status.unpublished", icon: CircleAlert },
+  unavailable: { variant: "warn", textKey: "status.unavailable", icon: CloudOff },
 };
 
-export function publishErrorMessage(err: unknown): string {
-  if (err instanceof ApiError && err.status === 409) return "Publishing is already running. Try again in a moment.";
-  if (err instanceof ApiError && err.status === 502) return "The assistant service is not reachable.";
-  return "Could not publish. Please try again.";
+/** Texto do erro de publicação. `t` é o da aba Clínica (quem chama passa o seu). */
+export function publishErrorMessage(err: unknown, t: (key: PublishErrorKey) => string): string {
+  if (err instanceof ApiError && err.status === 409) return t("publishBar.busy");
+  if (err instanceof ApiError && err.status === 502) return t("publishBar.unreachable");
+  return t("publishBar.failed");
 }
 
 /** Estado da publicação no assistente e o botão para publicar as mudanças. */
 export function PublishBar() {
+  const { t } = useTranslation("clinic");
   const queryClient = useQueryClient();
   const { data: status } = useQuery(knowledgeStatusQuery());
   const publish = useMutation({
@@ -36,20 +44,20 @@ export function PublishBar() {
         {badge && (
           <Badge variant={badge.variant}>
             <badge.icon />
-            {badge.text}
+            {t(badge.textKey)}
           </Badge>
         )}
         <Button onClick={() => publish.mutate()} disabled={status?.state !== "unpublished" || publish.isPending}>
           <Upload />
-          {publish.isPending ? "Publishing…" : "Publish"}
+          {publish.isPending ? t("publishBar.publishing") : t("publishBar.publish")}
         </Button>
       </div>
       {justPublished && (
         <Notice tone="ok" role="status">
-          Published. The assistant now answers from the new text.
+          {t("publishBar.published")}
         </Notice>
       )}
-      {publish.isError && <Notice role="alert">{publishErrorMessage(publish.error)}</Notice>}
+      {publish.isError && <Notice role="alert">{publishErrorMessage(publish.error, t)}</Notice>}
     </div>
   );
 }

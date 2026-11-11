@@ -1,1 +1,54 @@
-{}
+{
+  "loading": "Carregando…",
+  "title": "Google Agenda",
+  "connectIntro": "Conecte a agenda da clínica para o assistente consultar horários livres e marcar consultas pelo WhatsApp.",
+  "connect": "Conectar Google Agenda",
+  "reconnect": "Reconectar",
+  "reauthNotice": "O Google negou o acesso à agenda. Conecte de novo para o assistente voltar a marcar consultas.",
+  "account": "Conta:",
+  "timeZone": "Fuso horário:",
+  "timeZoneWarning": "A agenda está em {{timeZone}}: os horários oferecidos aos clientes serão calculados nesse fuso. Troque o fuso nas configurações do Google Agenda e recarregue esta página.",
+  "calendarLabel": "Agenda usada para as consultas",
+  "calendarPrimary": "{{name}} (principal)",
+  "disconnect": "Desconectar",
+  "disconnectConfirm": "Desconectar a agenda? O assistente deixa de oferecer e marcar horários até você conectar de novo.",
+  "notices": {
+    "connected": "Agenda conectada.",
+    "denied": "A autorização foi cancelada na tela do Google. Nada foi alterado.",
+    "error": "Não foi possível conectar a agenda. Tente de novo.",
+    "missing_scope": "A permissão para acessar a agenda não foi autorizada. Conecte de novo e mantenha todas as permissões marcadas."
+  },
+  "errors": {
+    "load": "Não foi possível carregar a agenda.",
+    "connect": "Não foi possível iniciar a conexão com o Google.",
+    "googleNotConfigured": "As credenciais do Google não estão configuradas no servidor. Defina GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no .env, com os valores do Google Cloud Console, e reinicie o servidor.",
+    "disconnect": "Não foi possível desconectar. Tente de novo.",
+    "changeCalendar": "Não foi possível trocar a agenda."
+  },
+  "days": {
+    "monday": "Segunda-feira",
+    "tuesday": "Terça-feira",
+    "wednesday": "Quarta-feira",
+    "thursday": "Quinta-feira",
+    "friday": "Sexta-feira",
+    "saturday": "Sábado",
+    "sunday": "Domingo"
+  },
+  "rules": {
+    "title": "Horário de atendimento",
+    "intro": "O assistente só oferece horários dentro destas regras que estejam livres na agenda.",
+    "closed": "Fechado",
+    "to": "a",
+    "startOf": "{{day}}: início",
+    "endOf": "{{day}}: fim",
+    "slotMinutes": "Duração padrão da consulta (min)",
+    "gridMinutes": "Grade de horários (min)",
+    "minNoticeHours": "Antecedência mínima para marcar (h)",
+    "maxDaysAhead": "Marcar com até quantos dias de antecedência",
+    "cancelNoticeHours": "Cancelar ou remarcar até (h antes)",
+    "save": "Salvar regras",
+    "saving": "Salvando…",
+    "saved": "Regras salvas.",
+    "checkFields": "Confira os campos destacados."
+  }
+}

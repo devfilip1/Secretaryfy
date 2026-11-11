@@ -1,16 +1,12 @@
+import { useTranslation } from "react-i18next";
 import type { SendRisk } from "../api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Title } from "./Title";
 
-const RISK_TEXT: Record<SendRisk, string> = {
-  cold_contact: "The customer has not written in over 24 hours.",
-  opted_out: "The customer asked not to receive messages.",
-  protection_paused: "Automatic sending is paused by number protection.",
-};
-
 /** Confirmação antes de o operador enviar com risco de banimento (specs/004, US4). */
 export function RiskDialog({ risks, onCancel, onConfirm }: { risks: SendRisk[]; onCancel: () => void; onConfirm: () => void }) {
+  const { t } = useTranslation("inbox");
   return (
     <Dialog
       open
@@ -25,23 +21,23 @@ export function RiskDialog({ risks, onCancel, onConfirm }: { risks: SendRisk[]; 
       >
         <DialogHeader>
           <DialogTitle asChild>
-            <Title level={3}>Send anyway?</Title>
+            <Title level={3}>{t("risk.title")}</Title>
           </DialogTitle>
         </DialogHeader>
         <DialogBody>
           <ul className="list-disc pl-5">
             {risks.map((risk) => (
-              <li key={risk}>{RISK_TEXT[risk] ?? risk}</li>
+              <li key={risk}>{t(`risk.${risk}`, { defaultValue: risk })}</li>
             ))}
           </ul>
-          <DialogDescription className="mt-3">Sending anyway increases the risk of the number being banned.</DialogDescription>
+          <DialogDescription className="mt-3">{t("risk.warning")}</DialogDescription>
         </DialogBody>
         <DialogFooter className="flex-row justify-end max-md:flex-wrap">
           <Button variant="secondary" onClick={onCancel} autoFocus>
-            Cancel
+            {t("risk.cancel")}
           </Button>
           <Button variant="destructive" onClick={onConfirm}>
-            Send anyway
+            {t("risk.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

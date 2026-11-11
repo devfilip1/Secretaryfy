@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { deleteSection, type KnowledgeRow } from "../../api";
 import { isBookable } from "@server/modules/knowledge/types";
 import { knowledgeKeys } from "../../queries";
-import { serverReason } from "./server-reason";
-import { KIND_LABEL, KIND_NOUN } from "./kinds";
+import { reasonTextOf, serverReason } from "./server-reason";
+import { KIND_ADD_KEY, KIND_LABEL_KEY } from "./kinds";
 import type { SectionTarget } from "./SectionDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,12 +21,13 @@ const NEW_TARGETS: SectionTarget[] = [{ kind: "treatment" }, { kind: "info" }];
 
 /** Os botões de criar: um por tipo de seção. A clínica não entra aqui: a seção nasce da importação. */
 export function AddSectionButtons({ onAdd }: { onAdd: (target: SectionTarget) => void }) {
+  const { t } = useTranslation("knowledge");
   return (
     <div className="flex flex-wrap gap-2">
       {NEW_TARGETS.map((target) => (
         <Button key={target.kind} variant="secondary" onClick={() => onAdd(target)}>
           <Plus />
-          {`Add ${KIND_NOUN[target.kind]}`}
+          {t(KIND_ADD_KEY[target.kind])}
         </Button>
       ))}
     </div>
@@ -42,6 +44,7 @@ export function SectionList({
   onEdit: (section: KnowledgeRow) => void;
   onAdd: (target: SectionTarget) => void;
 }) {
+  const { t } = useTranslation("knowledge");
   const queryClient = useQueryClient();
   const [pendingDelete, setPendingDelete] = useState<KnowledgeRow | null>(null);
   const remove = useMutation({
@@ -60,7 +63,7 @@ export function SectionList({
       {!hasClinic && <ClinicHint onAdd={onAdd} />}
       {sections.length === 0 ? (
         <div className="grid justify-items-start gap-4 py-6">
-          <Muted as="p">No sections yet. Start with a treatment, or add a few info lines such as the address and hours.</Muted>
+          <Muted as="p">{t("list.empty")}</Muted>
           <AddSectionButtons onAdd={onAdd} />
         </div>
       ) : (
@@ -71,28 +74,28 @@ export function SectionList({
                 <div className="min-w-0 flex-1 basis-56">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold break-words text-balance">{section.title}</span>
-                    <Badge variant="secondary">{KIND_LABEL[section.kind]}</Badge>
-                    {section.kind === "treatment" && !isBookable(section) && <Muted>Not bookable</Muted>}
+                    <Badge variant="secondary">{t(KIND_LABEL_KEY[section.kind])}</Badge>
+                    {section.kind === "treatment" && !isBookable(section) && <Muted>{t("list.notBookable")}</Muted>}
                   </div>
                   {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="secondary" size="sm" onClick={() => onEdit(section)}>
                     <Pencil />
-                    Edit
+                    {t("list.edit")}
                   </Button>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="destructive-ghost"
                         size="icon-sm"
-                        aria-label={`Delete ${section.title}`}
+                        aria-label={t("list.deleteLabel", { title: section.title })}
                         onClick={() => setPendingDelete(section)}
                       >
                         <Trash2 />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
+                    <TooltipContent>{t("list.delete")}</TooltipContent>
                   </Tooltip>
                 </div>
               </li>
@@ -115,12 +118,13 @@ export function SectionList({
 
 /** Aviso sem clínica: o assistente não tem endereço nem contato até a seção existir. */
 function ClinicHint({ onAdd }: { onAdd: (target: SectionTarget) => void }) {
+  const { t } = useTranslation("knowledge");
   return (
     <Notice tone="plain" layout="box">
-      <Muted>No clinic details yet. The assistant needs the address and contact to say where to come.</Muted>
+      <Muted>{t("clinicHint")}</Muted>
       <Button variant="secondary" size="sm" onClick={() => onAdd({ kind: "clinic" })}>
         <Plus />
-        Add clinic details
+        {t("add.clinic")}
       </Button>
     </Notice>
   );
@@ -139,6 +143,7 @@ function DeleteDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation("knowledge");
   return (
     <Dialog
       open
@@ -149,21 +154,21 @@ function DeleteDialog({
       <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle asChild>
-            <Title level={3}>{`Delete ${section.title}?`}</Title>
+            <Title level={3}>{t("deleteDialog.title", { title: section.title })}</Title>
           </DialogTitle>
-          <DialogDescription>The assistant stops answering about it after you publish.</DialogDescription>
+          <DialogDescription>{t("deleteDialog.description")}</DialogDescription>
         </DialogHeader>
         {error ? (
           <DialogBody>
-            <Notice role="alert">{serverReason(error, "Could not delete the section. Please try again.")}</Notice>
+            <Notice role="alert">{serverReason(error, t("deleteDialog.error"), reasonTextOf(t))}</Notice>
           </DialogBody>
         ) : null}
         <DialogFooter>
           <Button variant="secondary" onClick={onCancel} autoFocus>
-            Keep
+            {t("deleteDialog.keep")}
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={busy}>
-            {busy ? "Deleting…" : "Delete section"}
+            {busy ? t("deleteDialog.deleting") : t("deleteDialog.confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

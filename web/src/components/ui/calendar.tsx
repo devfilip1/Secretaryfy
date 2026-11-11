@@ -2,6 +2,8 @@
 
 import * as React from "react"
 import { DayButton, DayPicker, getDefaultClassNames, labelDayButton, type Modifiers } from "react-day-picker"
+import { enUS, ptBR } from "react-day-picker/locale"
+import { useTranslation } from "react-i18next"
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
@@ -9,12 +11,24 @@ import { buttonVariants } from "@/components/ui/button"
 // Calendário shadcn sobre react-day-picker v9. Célula de 32px; no toque (pointer-coarse) 44px.
 // Dia escolhido em primary, hoje com fundo accent, dias de outro mês esmaecidos, desabilitados apagados.
 // As cores de estado ficam no botão do dia (CalendarDayButton), que tem o modificador de cada dia.
+// Mês e dia da semana seguem o idioma do painel (en ou pt).
 
-/** Estado do dia em texto para o leitor de tela: a cor do pontinho sozinha não basta. */
-function statusSuffix(modifiers: Modifiers) {
-  if (modifiers.free) return ", free times"
-  if (modifiers.full) return ", fully booked"
-  return ""
+/** Locale do react-day-picker para o idioma atual do painel. */
+function useDayLocale() {
+  const { i18n } = useTranslation("appointments")
+  return i18n.language === "pt" ? ptBR : enUS
+}
+
+/** Rótulo do dia para o leitor de tela, com o estado em texto: a cor do pontinho sozinha não basta. */
+function useDayAriaLabel() {
+  const { t } = useTranslation("appointments")
+  const locale = useDayLocale()
+  return (date: Date, modifiers: Modifiers) => {
+    const text = labelDayButton(date, modifiers, { locale })
+    if (modifiers.free) return t("calendar.ariaFree", { date: text })
+    if (modifiers.full) return t("calendar.ariaFull", { date: text })
+    return text
+  }
 }
 
 function Calendar({
@@ -25,10 +39,13 @@ function Calendar({
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
   const defaultClassNames = getDefaultClassNames()
+  const locale = useDayLocale()
+  const dayAriaLabel = useDayAriaLabel()
 
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      locale={locale}
       className={cn(
         "group/calendar bg-background p-3 [--cell-size:--spacing(8)] pointer-coarse:[--cell-size:--spacing(11)]",
         className
@@ -66,8 +83,7 @@ function Calendar({
         ...classNames,
       }}
       labels={{
-        labelDayButton: (date, modifiers, options, dateLib) =>
-          `${labelDayButton(date, modifiers, options, dateLib)}${statusSuffix(modifiers)}`,
+        labelDayButton: (date, modifiers) => dayAriaLabel(date, modifiers),
       }}
       components={{
         Chevron: ({ className, orientation }) => {
@@ -95,6 +111,8 @@ function CalendarDayButton({
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const ref = React.useRef<HTMLButtonElement>(null)
+  const { t } = useTranslation("appointments")
+  const dayAriaLabel = useDayAriaLabel()
 
   React.useEffect(() => {
     if (modifiers.focused) ref.current?.focus()
@@ -105,8 +123,8 @@ function CalendarDayButton({
       ref={ref}
       type="button"
       data-slot="calendar-day"
-      aria-label={`${labelDayButton(day.date, modifiers)}${statusSuffix(modifiers)}`}
-      title={modifiers.free ? "Free times" : modifiers.full ? "Fully booked" : undefined}
+      aria-label={dayAriaLabel(day.date, modifiers)}
+      title={modifiers.free ? t("calendar.freeTimes") : modifiers.full ? t("calendar.fullyBooked") : undefined}
       className={cn(
         "relative flex aspect-square size-(--cell-size) w-full min-w-(--cell-size) flex-col items-center justify-center gap-1 rounded-md text-sm leading-none font-normal outline-hidden hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
         modifiers.today && !modifiers.selected && "bg-accent font-semibold text-accent-foreground",

@@ -1,1 +1,53 @@
-{}
+{
+  "loading": "Carregando…",
+  "title": "Clientes",
+  "count_one": "{{count}} cliente · adicionado quando confirma um horário",
+  "count_other": "{{count}} clientes · adicionados quando confirmam um horário",
+  "searchPlaceholder": "Buscar por nome ou telefone",
+  "searchLabel": "Buscar clientes",
+  "empty": "Ainda não há clientes. Quem confirma um horário aparece aqui.",
+  "noResults": "Nenhum cliente encontrado para “{{query}}”.",
+  "nextAppointment": "Próximo: {{when}}",
+  "noUpcoming": "Nenhum horário futuro",
+  "appointmentAt": "{{day}} às {{time}}",
+  "appointmentWithService": "{{when}} · {{service}}",
+  "fields": {
+    "id": "ID",
+    "name": "Nome",
+    "phone": "Telefone",
+    "created": "Criado em",
+    "updated": "Atualizado em"
+  },
+  "notesTitle": "Anotações",
+  "ariaNotes": "Anotações",
+  "ariaName": "Nome do cliente",
+  "notesPlaceholder": "Só a clínica vê estas anotações. Ex.: alérgica a látex, prefere manhãs.",
+  "appointmentsTitle": "Agendamentos",
+  "noAppointments": "Nenhum agendamento ligado a este cadastro.",
+  "cancelled": "cancelado",
+  "noConversation": "Nenhuma conversa de WhatsApp com este cliente",
+  "confirmDelete": "Excluir o cadastro de {{name}} ({{phone}})?\n\nOs agendamentos já marcados continuam no Google Agenda. Se o cliente marcar de novo, ele volta a ser cadastrado.",
+  "saved": {
+    "name": "Nome salvo.",
+    "nameCalendarWarning": "Nome salvo, mas não foi possível atualizar o título do evento na agenda.",
+    "notes": "Anotações salvas."
+  },
+  "actions": {
+    "edit": "Editar",
+    "save": "Salvar",
+    "saveNotes": "Salvar anotações",
+    "saving": "Salvando…",
+    "cancel": "Cancelar",
+    "delete": "Excluir cadastro",
+    "deleting": "Excluindo…",
+    "viewConversation": "Ver conversa"
+  },
+  "errors": {
+    "load": "Não foi possível carregar os clientes.",
+    "delete": "Não foi possível excluir o cadastro de {{name}}. Tente de novo.",
+    "saveName": "Não foi possível salvar o nome. Tente de novo.",
+    "saveNotes": "Não foi possível salvar as anotações. Tente de novo.",
+    "notFound": "Este cliente não existe mais. Recarregue a página.",
+    "invalidBody": "Alguns dados não são válidos. Confira e tente de novo."
+  }
+}

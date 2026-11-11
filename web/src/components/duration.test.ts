@@ -10,26 +10,26 @@ describe("validateDuration", () => {
     assert.equal(validateDuration("45", 90), null);
   });
 
-  it("recusa abaixo de 5 (0 e 4)", () => {
-    assert.match(validateDuration(0, 90) ?? "", /minimum is 5/);
-    assert.match(validateDuration(4, 90) ?? "", /minimum is 5/);
+  it("recusa abaixo de 5 (0 e 4) com o código min", () => {
+    assert.deepEqual(validateDuration(0, 90), { code: "min" });
+    assert.deepEqual(validateDuration(4, 90), { code: "min" });
   });
 
-  it("recusa o que não é múltiplo de 5 (7)", () => {
-    assert.match(validateDuration(7, 90) ?? "", /multiple of 5/);
+  it("recusa o que não é múltiplo de 5 (7) com o código step", () => {
+    assert.deepEqual(validateDuration(7, 90), { code: "step" });
   });
 
-  it("recusa acima do máximo (max + 5)", () => {
-    assert.match(validateDuration(95, 90) ?? "", /longest free time.*1 h 30 min/);
+  it("recusa acima do máximo (max + 5) com o código max e o máximo", () => {
+    assert.deepEqual(validateDuration(95, 90), { code: "max", max: 90 });
   });
 
-  it("recusa vazio, texto e números não inteiros", () => {
-    assert.match(validateDuration("", 90) ?? "", /Enter the duration/);
-    assert.match(validateDuration("   ", 90) ?? "", /Enter the duration/);
-    assert.match(validateDuration("abc", 90) ?? "", /Enter the duration/);
-    assert.match(validateDuration(Number.NaN, 90) ?? "", /Enter the duration/);
-    assert.match(validateDuration(-5, 90) ?? "", /Enter the duration/);
-    assert.match(validateDuration(7.5, 90) ?? "", /Enter the duration/);
+  it("recusa vazio, texto e números não inteiros com o código format", () => {
+    assert.deepEqual(validateDuration("", 90), { code: "format" });
+    assert.deepEqual(validateDuration("   ", 90), { code: "format" });
+    assert.deepEqual(validateDuration("abc", 90), { code: "format" });
+    assert.deepEqual(validateDuration(Number.NaN, 90), { code: "format" });
+    assert.deepEqual(validateDuration(-5, 90), { code: "format" });
+    assert.deepEqual(validateDuration(7.5, 90), { code: "format" });
   });
 });
 

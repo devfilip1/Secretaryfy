@@ -1,6 +1,8 @@
 import { useId, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useFormContext } from "react-hook-form";
 import type { KnowledgeRow, SectionInput } from "../../api";
+import { FILL_DURATION_OR_PRICE, REQUIRED } from "./form-values";
 import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +12,16 @@ export interface SectionFormProps<Row extends KnowledgeRow> {
   section?: Row;
   formId: string;
   onSubmit: (input: SectionInput) => void;
+}
+
+/** Mensagem de validação no idioma do painel: o código do form-values vira o texto; a do servidor segue como veio. */
+export function useIssueText(): (message: string | undefined) => string | undefined {
+  const { t } = useTranslation("knowledge");
+  return (message) => {
+    if (message === REQUIRED) return t("validation.required");
+    if (message === FILL_DURATION_OR_PRICE) return t("validation.fillDurationOrPrice");
+    return message;
+  };
 }
 
 /** Grupo com título. Os campos dentro ficam perto; o espaço entre grupos (FieldGroup) é maior. */
@@ -39,6 +51,7 @@ export function TextField({
   const id = useId();
   const descriptionId = `${id}-description`;
   const { register, getFieldState, formState } = useFormContext();
+  const issueText = useIssueText();
   const { error } = getFieldState(name, formState);
   const Control = multiline ? Textarea : Input;
   return (
@@ -53,7 +66,7 @@ export function TextField({
         aria-describedby={descriptionId}
       />
       <FieldDescription id={descriptionId}>{description}</FieldDescription>
-      <FieldError errors={[error]} />
+      <FieldError errors={error ? [{ message: issueText(error.message) }] : []} />
     </Field>
   );
 }

@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import type { KnowledgeLabels, TreatmentRow } from "../../api";
 import { treatmentDefaults, treatmentFormSchema, toTreatmentInput, type TreatmentFormValues } from "./form-values";
@@ -18,6 +19,7 @@ export function TreatmentForm({
   onSubmit,
   labels,
 }: SectionFormProps<TreatmentRow> & { labels: KnowledgeLabels }) {
+  const { t } = useTranslation("knowledge");
   const form = useForm<TreatmentFormValues>({
     resolver: zodResolver(treatmentFormSchema),
     defaultValues: treatmentDefaults(labels, section),
@@ -28,88 +30,86 @@ export function TreatmentForm({
     <FormProvider {...form}>
       <form id={formId} onSubmit={form.handleSubmit((values) => onSubmit(toTreatmentInput(values)))}>
         <FieldGroup className="gap-10">
-          <FormSection title="Basics">
-            <TextField
-              name="title"
-              label="Title"
-              description="The name patients use, for example: Limpeza Dental. One treatment per section."
-            />
-            <TextField
-              name="tagline"
-              label="Short description"
-              description="Optional. A short line shown after the title, for example: O Primeiro Passo para um Sorriso Saudável."
-            />
+          <FormSection title={t("section.basics")}>
+            <TextField name="title" label={t("treatmentForm.title.label")} description={t("treatmentForm.title.description")} />
+            <TextField name="tagline" label={t("treatmentForm.tagline.label")} description={t("treatmentForm.tagline.description")} />
           </FormSection>
 
-          <FormSection title="Booking">
+          <FormSection title={t("section.booking")}>
             <SwitchField
               name="bookable"
-              label="Patients can book this treatment"
-              description="When on, the assistant offers it in the booking list. Turn it off for treatments that are only information."
+              label={t("treatmentForm.bookable.label")}
+              description={t("treatmentForm.bookable.description")}
             />
             <TextField
               name="appointmentMinutes"
-              label="Appointment time (minutes)"
-              description="How long this treatment blocks in the calendar, in minutes (a multiple of 5). Leave empty to use the default appointment length of the Calendar page."
+              label={t("treatmentForm.appointmentMinutes.label")}
+              description={t("treatmentForm.appointmentMinutes.description")}
             />
           </FormSection>
 
-          <FormSection title="Other names patients use">
+          <FormSection title={t("section.otherNames")}>
             <ItemsField
               name="otherNames"
-              label="Names"
-              description="Other words patients use for this treatment, for example: branqueamento, clarear. One per line. The assistant uses them to find the right answer."
+              label={t("treatmentForm.otherNames.label")}
+              description={t("treatmentForm.otherNames.description")}
             />
           </FormSection>
 
-          <FormSection title="Who it is for">
+          <FormSection title={t("section.idealFor")}>
             <ItemsField
               name="ideal.items"
-              label="Items"
-              description="One short line each, for example: Hálito mais fresco. Press Enter for a new line."
+              label={t("treatmentForm.idealItems.label")}
+              description={t("treatmentForm.idealItems.description")}
             />
           </FormSection>
 
-          <FormSection title="How it works">
+          <FormSection title={t("section.howItWorks")}>
             <ValueField
               name="howItWorks"
-              label="Text"
+              label={t("treatmentForm.howItWorks.label")}
               multiline
-              description="How it is done and which materials it uses, for example: Remoção de placa e tártaro com ultrassom, seguida de polimento."
+              description={t("treatmentForm.howItWorks.description")}
             />
           </FormSection>
 
-          <FormSection title="Duration">
-            <FactValueField name="duration" label="Value" description="For example: 30 a 50 minutos" />
+          <FormSection title={t("section.duration")}>
+            <FactValueField name="duration" label={t("treatmentForm.duration.label")} description={t("treatmentForm.duration.description")} />
           </FormSection>
 
-          <FormSection title="Price">
-            <FactValueField name="price" label="Value" description="For example: R$ 40 a R$ 85" withAssessment assessmentNote={labels.assessment} />
+          <FormSection title={t("section.price")}>
+            <FactValueField
+              name="price"
+              label={t("treatmentForm.price.label")}
+              description={t("treatmentForm.price.description")}
+              withAssessment
+              assessmentNote={labels.assessment}
+            />
           </FormSection>
 
-          <FormSection title="More details">
+          <FormSection title={t("section.moreDetails")}>
             {extras.fields.map((field, index) => (
               <ExtraFactFields key={field.id} index={index} onRemove={() => extras.remove(index)} assessmentNote={labels.assessment} />
             ))}
             <div>
               <Button type="button" variant="secondary" onClick={() => extras.append(NEW_EXTRA)}>
                 <Plus />
-                Add detail
+                {t("extra.add")}
               </Button>
             </div>
           </FormSection>
 
-          <FormSection title="Result">
+          <FormSection title={t("section.result")}>
             <ValueField
               name="result"
-              label="Text"
+              label={t("treatmentForm.result.label")}
               multiline
-              description="What the patient gets and how long it lasts, for example: Até 8 tons mais claros, com resultado que dura até 3 anos."
+              description={t("treatmentForm.result.description")}
             />
           </FormSection>
 
-          <FormSection title="Recovery time">
-            <ValueField name="recovery" label="Time" description="How long healing takes afterwards, for example: 3 a 7 dias. Optional." />
+          <FormSection title={t("section.recoveryTime")}>
+            <ValueField name="recovery" label={t("treatmentForm.recovery.label")} description={t("treatmentForm.recovery.description")} />
           </FormSection>
         </FieldGroup>
       </form>

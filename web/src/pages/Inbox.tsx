@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { clearConversations, listConversations, type Conversation } from "../api";
 import { ConversationList } from "../components/ConversationList";
 import { ConversationView } from "../components/ConversationView";
@@ -13,6 +14,7 @@ function conversationFromHash(): string | null {
 }
 
 export function Inbox({ connected }: { connected: boolean }) {
+  const { t } = useTranslation("inbox");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelected] = useState<string | null>(conversationFromHash);
@@ -70,14 +72,14 @@ export function Inbox({ connected }: { connected: boolean }) {
   }
 
   async function onClearAll() {
-    if (!window.confirm("Delete all conversations and their messages? This cannot be undone.")) return;
+    if (!window.confirm(t("deleteAll.confirm"))) return;
     try {
       await clearConversations();
       // O evento conversations.cleared também limpa a lista; aqui não depende dele chegar
       setConversations([]);
       setSelectedId(null);
     } catch {
-      window.alert("Could not delete the conversations. Please try again.");
+      window.alert(t("errors.deleteAll"));
     }
   }
 
@@ -104,7 +106,7 @@ export function Inbox({ connected }: { connected: boolean }) {
           onClose={() => setSelectedId(null)}
         />
       ) : (
-        <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">Select a conversation</section>
+        <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">{t("selectConversation")}</section>
       )}
     </main>
   );

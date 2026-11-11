@@ -1,1 +1,255 @@
-{}
+{
+  "title": "Conhecimento",
+  "subtitle": "O que o assistente sabe sobre a clínica. As mudanças chegam ao assistente depois que você publicar.",
+  "loadError": "Não foi possível carregar o conhecimento. Tente de novo.",
+  "tabs": {
+    "sections": "Seções",
+    "clinic": "Clínica",
+    "help": "Ajuda"
+  },
+  "kind": {
+    "treatment": "Tratamento",
+    "info": "Informações",
+    "clinic": "Clínica"
+  },
+  "add": {
+    "treatment": "Adicionar tratamento",
+    "info": "Adicionar seção de informações",
+    "clinic": "Adicionar dados da clínica"
+  },
+  "edit": {
+    "treatment": "Editar tratamento",
+    "info": "Editar seção de informações",
+    "clinic": "Editar dados da clínica"
+  },
+  "describe": {
+    "treatment": "Um tratamento tem um nome, dados como preço e duração, e o resultado que o paciente pode esperar.",
+    "info": "Linhas livres, como endereço, horários ou contato.",
+    "clinic": "O endereço, o telefone e o e-mail que o assistente informa. Os horários de funcionamento vêm da página Agenda."
+  },
+  "dialog": {
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "saveError": "Não foi possível salvar a seção. Tente de novo."
+  },
+  "list": {
+    "empty": "Nenhuma seção ainda. Comece com um tratamento ou adicione algumas linhas de informação, como endereço e horários.",
+    "notBookable": "Não agendável",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "deleteLabel": "Excluir {{title}}"
+  },
+  "clinicHint": "Ainda não há dados da clínica. O assistente precisa do endereço e do contato para dizer onde o paciente deve ir.",
+  "deleteDialog": {
+    "title": "Excluir {{title}}?",
+    "description": "O assistente deixa de responder sobre isso depois que você publicar.",
+    "keep": "Manter",
+    "confirm": "Excluir seção",
+    "deleting": "Excluindo…",
+    "error": "Não foi possível excluir a seção. Tente de novo."
+  },
+  "itemsField": {
+    "item": "Item {{number}}",
+    "removeItem": "Remover item {{number}}",
+    "add": "Adicionar item"
+  },
+  "read": {
+    "preview": "O assistente lê: {{line}}"
+  },
+  "extra": {
+    "name": "Nome",
+    "value": "Valor",
+    "nameExample": "Por exemplo: Mensalidade",
+    "valueExample": "Por exemplo: R$ 35 a R$ 90",
+    "remove": "Remover detalhe {{number}}",
+    "add": "Adicionar detalhe"
+  },
+  "assessment": {
+    "label": "O valor final depende da avaliação",
+    "description": "Ligue quando o preço for uma faixa. O valor final é definido na avaliação."
+  },
+  "section": {
+    "basics": "Básico",
+    "content": "Conteúdo",
+    "booking": "Agendamento",
+    "otherNames": "Outros nomes que os pacientes usam",
+    "idealFor": "Para quem é",
+    "howItWorks": "Como funciona",
+    "duration": "Duração",
+    "price": "Preço",
+    "moreDetails": "Mais detalhes",
+    "result": "Resultado",
+    "recoveryTime": "Tempo de recuperação",
+    "address": "Endereço",
+    "contact": "Contato",
+    "openingHours": "Horário de funcionamento",
+    "closingText": "Texto de encerramento",
+    "assistantReads": "O assistente lê"
+  },
+  "infoForm": {
+    "title": {
+      "label": "Título",
+      "description": "O assunto das linhas, por exemplo: Endereço"
+    },
+    "lines": {
+      "label": "Texto",
+      "description": "Uma linha por vez, escrita como o paciente deve ler. Aperte Enter para nova linha."
+    }
+  },
+  "treatmentForm": {
+    "title": {
+      "label": "Título",
+      "description": "O nome que o paciente usa, por exemplo: Limpeza Dental. Um tratamento por seção."
+    },
+    "tagline": {
+      "label": "Descrição curta",
+      "description": "Opcional. Uma linha curta mostrada depois do título, por exemplo: O Primeiro Passo para um Sorriso Saudável."
+    },
+    "bookable": {
+      "label": "Paciente pode marcar este tratamento",
+      "description": "Quando ligado, o assistente oferece o tratamento na lista de agendamento. Desligue para tratamentos que são só informação."
+    },
+    "appointmentMinutes": {
+      "label": "Tempo da consulta (minutos)",
+      "description": "Quanto tempo este tratamento ocupa na agenda, em minutos (múltiplo de 5). Deixe vazio para usar a duração padrão da página Agenda."
+    },
+    "otherNames": {
+      "label": "Nomes",
+      "description": "Outras palavras que os pacientes usam para este tratamento, por exemplo: branqueamento, clarear. Uma por linha. O assistente usa para achar a resposta certa."
+    },
+    "idealItems": {
+      "label": "Itens",
+      "description": "Uma linha curta cada, por exemplo: Hálito mais fresco. Aperte Enter para nova linha."
+    },
+    "howItWorks": {
+      "label": "Texto",
+      "description": "Como é feito e quais materiais usa, por exemplo: Remoção de placa e tártaro com ultrassom, seguida de polimento."
+    },
+    "duration": {
+      "label": "Valor",
+      "description": "Por exemplo: 30 a 50 minutos"
+    },
+    "price": {
+      "label": "Valor",
+      "description": "Por exemplo: R$ 40 a R$ 85"
+    },
+    "result": {
+      "label": "Texto",
+      "description": "O que o paciente recebe e por quanto tempo dura, por exemplo: Até 8 tons mais claros, com resultado que dura até 3 anos."
+    },
+    "recovery": {
+      "label": "Tempo",
+      "description": "Quanto tempo leva a recuperação depois, por exemplo: 3 a 7 dias. Opcional."
+    }
+  },
+  "clinicForm": {
+    "title": {
+      "label": "Título",
+      "description": "O nome desta seção, por exemplo: Sorriso Pleno - Clinic information."
+    },
+    "intro": {
+      "label": "Introdução",
+      "description": "Opcional. As primeiras linhas do folheto, uma por linha, por exemplo: Transforme seu sorriso com segurança e rapidez."
+    },
+    "address": {
+      "label": "Endereço",
+      "description": "Uma linha por vez, por exemplo: Avenida Atlântica, 125, Sala 204. Aperte Enter para nova linha."
+    },
+    "phone": {
+      "label": "Telefone",
+      "description": "Opcional. Por exemplo: (21) 3000-0000."
+    },
+    "email": {
+      "label": "E-mail",
+      "description": "Opcional. Por exemplo: contato@clinica.example."
+    },
+    "closing": {
+      "label": "Texto",
+      "description": "Opcional. As últimas linhas que o assistente diz, uma por linha, por exemplo: Agende pelo WhatsApp."
+    },
+    "hours": {
+      "empty": "Nenhum horário definido ainda.",
+      "note": "Os horários vêm das regras de agendamento, então são escritos uma vez só e acompanham os agendamentos.",
+      "change": "Altere os horários na Agenda"
+    },
+    "reads": {
+      "intro": "Estas são as linhas que o assistente pode dizer, nesta ordem.",
+      "empty": "Nada ainda. Preencha o endereço primeiro."
+    }
+  },
+  "validation": {
+    "required": "Obrigatório",
+    "fillDurationOrPrice": "Preencha Duração ou Preço"
+  },
+  "errors": {
+    "invalid_body": "Alguns campos precisam de atenção."
+  },
+  "reason": {
+    "row": "linha {{row}}",
+    "field": "{{label}}: {{message}}"
+  },
+  "help": {
+    "page": {
+      "title": "O que é esta página",
+      "p1": "Esta página guarda o que o assistente sabe sobre a clínica. O assistente responde aos pacientes só com este texto, então não consegue responder sobre o que você não escreveu aqui.",
+      "s1": "Escolha Adicionar tratamento ou Adicionar seção de informações.",
+      "s2": "Preencha os campos. Cada grupo tem um título, e um exemplo fica embaixo de cada campo.",
+      "s3": "Aperte Salvar. A seção aparece na lista, mas o assistente ainda não a usa.",
+      "s4": "Quando as mudanças estiverem prontas, aperte Publicar. Só então o assistente responde com o texto novo."
+    },
+    "fill": {
+      "title": "O que você preenche e o que o assistente lê",
+      "p1": "Cada campo preenchido vira uma frase que o assistente pode dizer. As palavras antes do texto, como Como funciona, já vêm preenchidas para você. Este é o tratamento Limpeza Dental, como está no folheto.",
+      "f1": "Título e descrição curta",
+      "f2": "Para quem é",
+      "f3": "Como funciona",
+      "f4": "Duração e Preço",
+      "f5": "Resultado",
+      "f6": "Tempo de recuperação"
+    },
+    "texts": {
+      "title": "O que significa cada campo de texto",
+      "l1": "Como funciona: como o tratamento é feito e quais materiais usa.",
+      "l2": "Resultado: o que o paciente recebe e por quanto tempo dura.",
+      "l3": "Tempo de recuperação: quanto tempo leva para cicatrizar depois."
+    },
+    "duration": {
+      "title": "Duração, preço e mais detalhes",
+      "p1": "Duração e Preço têm um campo cada. Quando o preço é uma faixa, como R$ 40 a R$ 85, ligue Valor final depende da avaliação, para que o assistente diga que o valor final é definido na avaliação.",
+      "p2": "Outros dados, como uma mensalidade, vão em Mais detalhes. Dê a cada um um nome e um valor."
+    },
+    "info": {
+      "title": "Seções de informações",
+      "p1": "Endereço, horários, contato, por que nos escolher e uma chamada final são linhas livres. Escreva uma linha para cada coisa que você quer que o assistente possa repetir."
+    },
+    "clinic": {
+      "title": "Dados da clínica",
+      "p1": "O bloco da clínica guarda o endereço, o telefone e o e-mail que o assistente informa quando o paciente pergunta onde ir e como falar com vocês. Há um bloco da clínica, criado a partir do folheto quando o conhecimento é importado. Você pode editá-lo aqui.",
+      "p2": "Os horários de funcionamento não são escritos aqui. Eles vêm das regras de agendamento na página Agenda, então são escritos uma vez só e acompanham os agendamentos. Altere-os lá.",
+      "l1": "Introdução: as primeiras linhas, uma por linha. Opcional.",
+      "l2": "Endereço: uma linha por vez, por exemplo: Avenida Atlântica, 125, Sala 204. É preciso pelo menos uma linha.",
+      "l3": "Telefone e e-mail: opcionais.",
+      "l4": "Texto de encerramento: as últimas linhas que o assistente diz, como um convite para agendar. Opcional."
+    },
+    "clinicName": {
+      "title": "Nome da clínica e do assistente",
+      "p1": "Salvar na aba Clínica envia estes três campos ao servidor. O assistente usa um nome novo a partir da próxima mensagem.",
+      "l1": "Nome da clínica: o nome que os pacientes ouvem, por exemplo: Sorriso Pleno.",
+      "l2": "Nome do assistente: o nome que o assistente usa ao se apresentar, por exemplo: Ana. Deixe vazio para não ter nome.",
+      "l3": "Tipo de clínica: como o assistente descreve a clínica para o modelo, no idioma da clínica, por exemplo: clínica odontológica.",
+      "l4": "O idioma do assistente é escolhido na aba Clínica (Idioma do assistente); o idioma do próprio painel é escolhido no seletor da barra superior."
+    },
+    "booking": {
+      "title": "Agendamento",
+      "p1": "Cada tratamento tem a chave Paciente pode marcar este tratamento, ligada por padrão. Quando ela está ligada, o assistente oferece o tratamento na lista de agendamento. Desligue para tratamentos que são só informação: o assistente ainda pode explicá-los, mas não os oferece para agendar. Tratamentos desligados mostram Não agendável na lista."
+    },
+    "tips": {
+      "title": "Dicas",
+      "l1": "Não invente informações. O assistente só pode repetir o que você escreve aqui.",
+      "l2": "Mantenha um assunto por seção.",
+      "l3": "Confira cada número e preço antes de publicar.",
+      "l4": "Nada chega ao assistente até você apertar Publicar."
+    }
+  }
+}

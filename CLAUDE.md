@@ -35,7 +35,7 @@ cd rag && .\run.ps1 test                             # RAG unit tests
 - Single process only: calendar lock, send queue, SSE bus and reminder timer are in memory.
 - Customer notes must never reach the assistant (interpreter, RAG history, known name).
 - The service list lives only in `scheduling/services.ts`. The panel reads it from `GET /api/services` (`web/src/components/NewAppointment.tsx` keeps no copy), so change it there only.
-- Patient-facing text follows `clinic.language` (en/pt, `clinic_settings.language`, read at each use; `CLINIC_LANGUAGE` only seeds it); operator/panel text is English; code comments, logs and specs are Portuguese.
+- Patient-facing text follows `clinic.language` (en/pt, `clinic_settings.language`, read at each use; `CLINIC_LANGUAGE` only seeds it); panel text follows the panel's own language (en/pt, chosen in the header, files in `web/src/locales/<language>/<screen>.json`, keys typed from English, text the clinic wrote is never translated; server system notes stay English); code comments, logs and specs are Portuguese.
 - Modules take dependencies as `createX(deps)`; tests inject PGlite (`src/test/db.ts`), the fake calendar and a clock. Tests must not import `src/routes/{inbox,calendar,scheduling}.ts`.
 - Tests are `*.test.ts` next to the code and excluded from `tsc`.
 - Many files use CRLF line endings; `router.ts` and some others use LF. Preserve each file's style.

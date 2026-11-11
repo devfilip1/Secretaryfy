@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -30,13 +31,14 @@ export function Notice({
   layout?: keyof typeof LAYOUTS;
   onDismiss?: () => void;
 }) {
+  const { t } = useTranslation();
   const color = layout === "box" ? "" : TONES[tone].text;
   const border = layout === "text" ? "" : TONES[tone].border;
   return (
     <div className={cn(LAYOUTS[layout], color, border, className)} {...props}>
       {children}
       {onDismiss && (
-        <Button variant="link" onClick={onDismiss} aria-label="Dismiss notice">
+        <Button variant="link" onClick={onDismiss} aria-label={t("dismissNotice")}>
           <X className="size-4" />
         </Button>
       )}

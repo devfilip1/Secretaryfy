@@ -13,6 +13,8 @@ import {
   treatmentDefaults,
   treatmentFormSchema,
   type TreatmentFormValues,
+  FILL_DURATION_OR_PRICE,
+  REQUIRED,
 } from "./form-values";
 
 const LABELS: KnowledgeLabels = {
@@ -280,7 +282,7 @@ describe("tratamento: regras dos fatos e schema do formulário", () => {
     const parsed = treatmentFormSchema.safeParse(values({ duration: { label: "Duração", value: "", assessment: false } }));
     assert.equal(parsed.success, false);
     assert.deepEqual(factIssues(values({ duration: { label: "Duração", value: "", assessment: false } })), [
-      { path: ["duration", "value"], message: "Fill in Duration or Price" },
+      { path: ["duration", "value"], message: FILL_DURATION_OR_PRICE },
     ]);
   });
 
@@ -293,7 +295,7 @@ describe("tratamento: regras dos fatos e schema do formulário", () => {
 
   it("exige nome em um fato extra que tem valor", () => {
     const issues = factIssues(values({ extras: [{ label: "", value: "R$ 35", assessment: false }] }));
-    assert.deepEqual(issues, [{ path: ["extras", 0, "label"], message: "Required" }]);
+    assert.deepEqual(issues, [{ path: ["extras", 0, "label"], message: REQUIRED }]);
   });
 
   it("aceita um tratamento completo", () => {

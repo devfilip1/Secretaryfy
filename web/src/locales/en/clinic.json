@@ -1,1 +1,52 @@
-{}
+{
+  "loading": "Loading…",
+  "loadError": "Could not load the clinic settings. Please try again.",
+  "section": "Clinic",
+  "name": "Clinic name",
+  "nameHelp": "The name patients hear, for example: Sorriso Pleno.",
+  "assistantName": "Assistant name",
+  "assistantNameHelp": "Optional. The name the assistant uses when it introduces itself, for example: Ana. Leave it empty for no name.",
+  "kind": "Type of clinic",
+  "kindHelp": "How the assistant describes the clinic to the model, in the clinic's language, for example: clínica odontológica.",
+  "assistantLanguage": {
+    "label": "Assistant language",
+    "help": "The language the assistant uses with patients and in the brochure labels. It is not the panel language. Changing it does not translate the brochure text the clinic wrote: write that text in this same language."
+  },
+  "save": "Save",
+  "saving": "Saving…",
+  "saved": "Saved. The assistant uses the new settings from the next message.",
+  "saveError": "Could not save the clinic settings. Please try again.",
+  "languageDialog": {
+    "title": "Change the assistant language?",
+    "body": "From the next message the assistant will answer in {{language}}. The brochure text is not translated: if it is written in the other language, update it too.",
+    "cancel": "Cancel",
+    "confirm": "Change language"
+  },
+  "publishOffer": {
+    "published": "Published. The assistant answers from the new text.",
+    "body": "The brochure's automatic texts are now in {{language}}. Publish so the assistant's brochure uses them.",
+    "publish": "Publish now",
+    "publishing": "Publishing…"
+  },
+  "publishBar": {
+    "publish": "Publish",
+    "publishing": "Publishing…",
+    "published": "Published. The assistant now answers from the new text.",
+    "busy": "Publishing is already running. Try again in a moment.",
+    "unreachable": "The assistant service is not reachable.",
+    "failed": "Could not publish. Please try again."
+  },
+  "status": {
+    "upToDate": "Up to date",
+    "unpublished": "Unpublished changes",
+    "unavailable": "Assistant offline"
+  },
+  "validation": {
+    "nameRequired": "Enter the clinic name.",
+    "nameTooLong": "Use up to 120 characters.",
+    "assistantNameTooLong": "Use up to 60 characters.",
+    "kindRequired": "Enter the type of clinic.",
+    "kindTooLong": "Use up to 80 characters.",
+    "languageInvalid": "Choose English or Português."
+  }
+}

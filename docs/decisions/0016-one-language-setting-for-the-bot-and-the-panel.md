@@ -1,6 +1,6 @@
 # 0016 · One language setting for the bot and the panel, panel translated with react-i18next
 
-**Status:** Accepted (phases 1 and 2 done 2026-11-09; the panel, phase 3, follows) · **Date:** 2026-11-06
+**Status:** Accepted (phases 1 and 2 done 2026-11-09; the panel, phase 3, done 2026-11-10 with its own language, independent of the bot's) · **Date:** 2026-11-06
 
 ## Context
 The patient-facing texts already exist in Portuguese and English (`replies.pt.ts`, `replies.en.ts`, the RAG language packs, the brochure labels), but the language is `CLINIC_LANGUAGE`, fixed at boot. The panel is English only: its texts are written inside the components. The clinic wants one choice: in English everything is English, in Portuguese everything is Portuguese, the panel included.

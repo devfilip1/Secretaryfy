@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Ban, Bot, Pause, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   listMessages,
   markRead,
@@ -40,11 +41,13 @@ export function ConversationView({
   connected: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("inbox");
   const [messages, setMessages] = useState<Message[]>([]);
   const [header, setHeader] = useState<Conversation | null>(fromList);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Só a falha: o texto sai de inbox.json no idioma atual, então troca junto com o painel
+  const [loadFailed, setLoadFailed] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const restoreFrom = useRef<number | null>(null);
@@ -65,7 +68,7 @@ export function ConversationView({
   useEffect(() => {
     setLoading(true);
     load()
-      .catch(() => setError("Could not load the conversation."))
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false));
     markRead(conversationId).catch(() => {});
   }, [conversationId, load]);
@@ -142,7 +145,7 @@ export function ConversationView({
   return (
     <section className="flex min-h-0 flex-col bg-chat max-md:fixed max-md:inset-x-0 max-md:top-0 max-md:bottom-[calc(3.5rem+env(safe-area-inset-bottom))] max-md:z-1">
       <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5 max-md:gap-2 max-md:px-3 max-md:py-2">
-        <Button variant="secondary" className="hidden max-md:inline-flex" onClick={onClose} aria-label="Back to the list">
+        <Button variant="secondary" className="hidden max-md:inline-flex" onClick={onClose} aria-label={t("backToList")}>
           ←
         </Button>
         <div className="min-w-0 flex-1 max-md:[&_span]:whitespace-nowrap">
@@ -151,12 +154,12 @@ export function ConversationView({
         </div>
         {conversation && (
           <div className="flex items-center gap-2.5 text-sm max-md:gap-2 max-md:text-base">
-            <span className={paused ? "font-semibold text-warn" : undefined} title={paused ? "Assistant paused" : "Assistant active"}>
+            <span className={paused ? "font-semibold text-warn" : undefined} title={paused ? t("assistant.paused") : t("assistant.active")}>
               {paused ? <Pause className="inline size-4" /> : <Bot className="inline size-4" />}
-              <span className="max-md:hidden"> {paused ? "Assistant paused" : "Assistant active"}</span>
+              <span className="max-md:hidden"> {paused ? t("assistant.paused") : t("assistant.active")}</span>
             </span>
             <Button variant="secondary" onClick={togglePause}>
-              {paused ? "Resume" : "Pause"}
+              {paused ? t("assistant.resume") : t("assistant.pause")}
             </Button>
           </div>
         )}
@@ -164,17 +167,17 @@ export function ConversationView({
       {conversation?.needsAttention && (
         <Notice layout="bar" tone="warn" role="status" className="text-sm">
           <TriangleAlert className="mr-1 inline size-4" />
-          The assistant did not understand the customer and was paused. Reply here or resume the assistant.
+          {t("attention.notice")}
         </Notice>
       )}
       {conversation?.optedOut && (
         <Notice layout="bar" tone="destructive" role="status" className="flex items-center justify-between gap-3 text-sm max-md:flex-wrap">
           <span>
             <Ban className="mr-1 inline size-4" />
-            The customer asked not to receive messages. The assistant does not reply to this number.
+            {t("optedOut.notice")}
           </span>
           <Button variant="secondary" onClick={reactivate}>
-            Reactivate
+            {t("optedOut.reactivate")}
           </Button>
         </Notice>
       )}
@@ -186,11 +189,11 @@ export function ConversationView({
       >
         {hasMore && (
           <Muted as="p" className="my-4 text-center">
-            Scroll up to see earlier messages
+            {t("loadEarlier")}
           </Muted>
         )}
-        {loading && <p className="text-center text-muted-foreground">Loading…</p>}
-        {error && <Notice className="text-center">{error}</Notice>}
+        {loading && <p className="text-center text-muted-foreground">{t("loading")}</p>}
+        {loadFailed && <Notice className="text-center">{t("errors.loadConversation")}</Notice>}
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} onRetry={onRetry} />
         ))}

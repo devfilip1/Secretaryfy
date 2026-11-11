@@ -1,1 +1,88 @@
-{}
+{
+  "search": {
+    "placeholder": "Buscar por nome ou número"
+  },
+  "list": {
+    "empty": "Nenhuma conversa ainda",
+    "noResults": "Nenhuma conversa encontrada"
+  },
+  "deleteAll": {
+    "button": "Apagar todas as conversas",
+    "confirm": "Apagar todas as conversas e suas mensagens? Isso não pode ser desfeito."
+  },
+  "selectConversation": "Selecione uma conversa",
+  "backToList": "Voltar à lista",
+  "loading": "Carregando…",
+  "loadEarlier": "Role para cima para ver mensagens anteriores",
+  "assistant": {
+    "active": "Assistente ativo",
+    "paused": "Assistente pausado",
+    "pause": "Pausar",
+    "resume": "Retomar"
+  },
+  "attention": {
+    "badge": "Precisa de atenção",
+    "notice": "O assistente não entendeu o cliente e foi pausado. Responda aqui ou retome o assistente."
+  },
+  "optedOut": {
+    "title": "Pediu para não receber mensagens",
+    "notice": "O cliente pediu para não receber mensagens. O assistente não responde para este número.",
+    "reactivate": "Reativar"
+  },
+  "origin": {
+    "customer": "Cliente",
+    "assistant": "Assistente",
+    "operator": "Operador",
+    "phone": "Celular",
+    "system": "Secretaryfy"
+  },
+  "media": {
+    "audio": "Áudio",
+    "image": "Imagem",
+    "video": "Vídeo",
+    "document": "Documento",
+    "sticker": "Figurinha",
+    "location": "Localização",
+    "contact": "Contato",
+    "other": "Mensagem não suportada"
+  },
+  "message": {
+    "tryAgain": "Tentar de novo",
+    "notSentByProtection": "Não enviada pela proteção: {{reason}}"
+  },
+  "failedSend": "Não enviada. O WhatsApp não aceitou a mensagem.",
+  "composer": {
+    "placeholderTouch": "Digite uma mensagem",
+    "placeholderKeyboard": "Digite uma mensagem (Enter envia, Shift+Enter quebra a linha)",
+    "send": "Enviar",
+    "sending": "Enviando…",
+    "disconnected": "WhatsApp desconectado: conecte o número para enviar mensagens."
+  },
+  "risk": {
+    "title": "Enviar mesmo assim?",
+    "cold_contact": "O cliente não escreve há mais de 24 horas.",
+    "opted_out": "O cliente pediu para não receber mensagens.",
+    "protection_paused": "O envio automático está pausado pela proteção do número.",
+    "warning": "Enviar mesmo assim aumenta o risco de o número ser banido.",
+    "cancel": "Cancelar",
+    "confirm": "Enviar mesmo assim"
+  },
+  "protection": {
+    "paused": "Envio automático pausado pela proteção do número. O assistente não vai responder até lá.",
+    "pausedUntil": "Envio automático pausado pela proteção do número até {{time}}. O assistente não vai responder até lá.",
+    "pausedReason": "Envio automático pausado pela proteção do número ({{reason}}). O assistente não vai responder até lá.",
+    "pausedReasonUntil": "Envio automático pausado pela proteção do número ({{reason}}) até {{time}}. O assistente não vai responder até lá.",
+    "warmingUp": "Número em aquecimento: limites reduzidos ({{limit}} conversas por dia).",
+    "warmingUpUntil": "Número em aquecimento até {{day}}: limites reduzidos ({{limit}} conversas por dia).",
+    "reason": {
+      "send_failures": "muitas falhas de envio",
+      "connection_drops": "a conexão caiu várias vezes"
+    }
+  },
+  "errors": {
+    "whatsapp_disconnected": "WhatsApp desconectado: a mensagem não foi enviada.",
+    "sendFailed": "Não foi possível enviar. Tente de novo.",
+    "loadConversation": "Não foi possível carregar a conversa.",
+    "deleteAll": "Não foi possível apagar as conversas. Tente de novo."
+  }
+}

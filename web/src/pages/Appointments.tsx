@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StickyNote } from "lucide-react";
 import { confirmAppointment, listAppointments, type Appointment, type ReminderLabel } from "../api";
 import { CancelAppointmentDialog } from "../components/CancelAppointmentDialog";
@@ -7,33 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { blockReasonText, clinicFormats, formatPhone } from "../format";
+import { formatPhone } from "../format";
+import { useBlockReasonText } from "../i18n/blockReason";
+import { useFormats } from "../i18n/formats";
 import { Muted } from "../components/Muted";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
 
-const GROUPS: { key: Appointment["group"]; title: string }[] = [
-  { key: "today", title: "Today" },
-  { key: "tomorrow", title: "Tomorrow" },
-  { key: "week", title: "Next 7 days" },
+const GROUPS: { key: Appointment["group"]; title: "groups.today" | "groups.tomorrow" | "groups.week" }[] = [
+  { key: "today", title: "groups.today" },
+  { key: "tomorrow", title: "groups.tomorrow" },
+  { key: "week", title: "groups.week" },
 ];
 
-/** Etiqueta da situação do lembrete e da confirmação (specs/006 data-model.md); not_needed não mostra nada. */
-function reminderTag(a: Appointment): { text: string; tone: "ok" | "warn" | "bad" | "muted"; title?: string } | null {
-  const reason = blockReasonText(a.reminder.reason);
-  const labels: Record<ReminderLabel, ReturnType<typeof reminderTag>> = {
-    confirmed: { text: a.confirmedBy === "operator" ? "Confirmed by you" : "Confirmed", tone: "ok" },
-    scheduled: { text: "Reminder scheduled", tone: "muted", title: "The WhatsApp reminder goes out from 24 h before." },
-    remind_manually: { text: "Remind manually", tone: "warn", title: `${reason}. The assistant can't message this customer first.` },
-    waiting: { text: "Reminder waiting", tone: "muted", title: reason },
-    sent: { text: "Reminder sent", tone: "muted", title: "Waiting for the customer to reply YES." },
-    not_sent: { text: "Reminder not sent", tone: "bad", title: reason },
-    not_needed: null,
-  };
-  return labels[a.reminder.label];
-}
+type ReminderTag = { text: string; tone: "ok" | "warn" | "bad" | "muted"; title?: string };
 
 const TAG_TONE: Record<"ok" | "warn" | "bad" | "muted", string> = {
   ok: "text-ok",
@@ -42,10 +32,15 @@ const TAG_TONE: Record<"ok" | "warn" | "bad" | "muted", string> = {
   muted: "text-muted-foreground",
 };
 
+/** Erro da tela: a chave (e o nome, se houver) fica no estado e vira texto só ao mostrar, então trocar o idioma não refaz a busca. */
+type ErrorMessage = { key: "errors.load" | "errors.confirm" | "errors.notBooked"; values?: { name: string } };
+
 /** Próximos horários marcados pelo assistente ou pelo painel (specs/006 US1). */
 export function AppointmentsPage() {
+  const { t } = useTranslation("appointments");
+  const reasonText = useBlockReasonText();
   const [data, setData] = useState<{ timeZone: string; appointments: Appointment[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorMessage | null>(null);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -57,7 +52,7 @@ export function AppointmentsPage() {
         setData(r);
         setError(null);
       })
-      .catch(() => setError("Could not load the appointments."));
+      .catch(() => setError({ key: "errors.load" }));
   }, []);
   useEffect(load, [load]);
 
@@ -65,7 +60,23 @@ export function AppointmentsPage() {
     if (event.type === "appointments.updated" || event.type === "customers.updated" || event.type === "reconnected") load();
   });
 
-  const formats = useMemo(() => clinicFormats(data?.timeZone), [data?.timeZone]);
+  const formats = useFormats(data?.timeZone);
+  const errorText = error ? (error.values ? t(error.key, error.values) : t(error.key)) : null;
+
+  /** Etiqueta da situação do lembrete e da confirmação (specs/006 data-model.md); not_needed não mostra nada. */
+  function reminderTag(a: Appointment): ReminderTag | null {
+    const reason = reasonText(a.reminder.reason);
+    const labels: Record<ReminderLabel, ReminderTag | null> = {
+      confirmed: { text: a.confirmedBy === "operator" ? t("reminder.confirmedByYou") : t("reminder.confirmed"), tone: "ok" },
+      scheduled: { text: t("reminder.scheduled"), tone: "muted", title: t("reminder.scheduledHint") },
+      remind_manually: { text: t("reminder.remindManually"), tone: "warn", title: t("reminder.remindManuallyHint", { reason }) },
+      waiting: { text: t("reminder.waiting"), tone: "muted", title: reason },
+      sent: { text: t("reminder.sent"), tone: "muted", title: t("reminder.sentHint") },
+      not_sent: { text: t("reminder.notSent"), tone: "bad", title: reason },
+      not_needed: null,
+    };
+    return labels[a.reminder.label];
+  }
 
   async function confirm(a: Appointment) {
     setConfirming(a.id);
@@ -73,16 +84,17 @@ export function AppointmentsPage() {
       const { appointment } = await confirmAppointment(a.id);
       setData((d) => d && { ...d, appointments: d.appointments.map((x) => (x.id === a.id ? appointment : x)) });
     } catch {
-      setError(`Could not confirm ${a.customerName}'s appointment. Please try again.`);
+      setError({ key: "errors.confirm", values: { name: a.customerName } });
     } finally {
       setConfirming(null);
     }
   }
 
-  if (!data) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
+  if (!data) return <Page className="text-muted-foreground">{errorText ?? t("loading")}</Page>;
 
   // O horário inteiro: "9:00 AM – 10:00 AM"
-  const range = (a: Appointment) => `${formats.time.format(new Date(a.startsAt))} – ${formats.time.format(new Date(a.endsAt))}`;
+  const range = (a: Appointment) =>
+    t("range", { start: formats.time.format(new Date(a.startsAt)), end: formats.time.format(new Date(a.endsAt)) });
 
   return (
     <Page>
@@ -91,13 +103,13 @@ export function AppointmentsPage() {
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <Title level={2} className="mb-0.5">
-                Appointments
+                {t("title")}
               </Title>
-              <Muted as="p">Booked by the assistant or here, for the next 7 days.</Muted>
+              <Muted as="p">{t("subtitle")}</Muted>
             </div>
             {!creating && (
               <Button size="sm" onClick={() => setCreating(true)}>
-                New appointment
+                {t("new")}
               </Button>
             )}
           </div>
@@ -107,7 +119,7 @@ export function AppointmentsPage() {
               {notice}
             </Notice>
           )}
-          {error && <Notice role="alert">{error}</Notice>}
+          {errorText && <Notice role="alert">{errorText}</Notice>}
 
           {cancelling && (
             <CancelAppointmentDialog
@@ -115,13 +127,19 @@ export function AppointmentsPage() {
               formats={formats}
               onKeep={() => setCancelling(null)}
               onCancelled={() => {
-                setNotice(`Cancelled the appointment of ${cancelling.customerName}, ${formats.day.format(new Date(cancelling.startsAt))} at ${formats.time.format(new Date(cancelling.startsAt))}.`);
+                setNotice(
+                  t("notice.cancelled", {
+                    name: cancelling.customerName,
+                    day: formats.day.format(new Date(cancelling.startsAt)),
+                    time: formats.time.format(new Date(cancelling.startsAt)),
+                  }),
+                );
                 setError(null);
                 setData((d) => d && { ...d, appointments: d.appointments.filter((x) => x.id !== cancelling.id) });
                 setCancelling(null);
               }}
               onGone={() => {
-                setError("This appointment is no longer booked.");
+                setError({ key: "errors.notBooked" });
                 setCancelling(null);
                 load();
               }}
@@ -133,14 +151,20 @@ export function AppointmentsPage() {
               onCancel={() => setCreating(false)}
               onBooked={(a) => {
                 setCreating(false);
-                setNotice(`Booked ${a.customerName} for ${formats.day.format(new Date(a.startsAt))} at ${formats.time.format(new Date(a.startsAt))}.`);
+                setNotice(
+                  t("notice.booked", {
+                    name: a.customerName,
+                    day: formats.day.format(new Date(a.startsAt)),
+                    time: formats.time.format(new Date(a.startsAt)),
+                  }),
+                );
                 load();
               }}
             />
           )}
 
           {data.appointments.length === 0 ? (
-            <p className="mt-6 mb-2 text-center text-muted-foreground">No appointments in the next 7 days.</p>
+            <p className="mt-6 mb-2 text-center text-muted-foreground">{t("empty")}</p>
           ) : (
             GROUPS.map(({ key, title }) => {
               const items = data.appointments.filter((a) => a.group === key);
@@ -148,7 +172,7 @@ export function AppointmentsPage() {
               return (
                 <section key={key}>
                   <Title level={3} className="mt-4.5 mb-1.5">
-                    {title} <Muted>({items.length})</Muted>
+                    {t(title)} <Muted>({items.length})</Muted>
                   </Title>
                   <ul className="border-t border-border">
                     {items.map((a) => {
@@ -166,14 +190,16 @@ export function AppointmentsPage() {
                             <strong>{range(a)}</strong>
                             <Muted>
                               {key === "week" && `${formats.day.format(start)} · `}
-                              {a.minutes} min
+                              {t("minutes", { minutes: a.minutes })}
                             </Muted>
                           </div>
                           <div className="flex min-w-0 flex-col gap-0.5">
                             <span className="truncate font-semibold">{a.customerName}</span>
                             <Muted>
-                              {a.service ?? "-"} · {formatPhone(a.phone)}
-                              {a.origin === "panel" ? " · booked here" : ""}
+                              {t(a.origin === "panel" ? "serviceLineHere" : "serviceLine", {
+                                service: a.service ?? "-",
+                                phone: formatPhone(a.phone),
+                              })}
                             </Muted>
                             {a.notes && (
                               <Muted tone="warn" className="wrap-anywhere">
@@ -198,15 +224,15 @@ export function AppointmentsPage() {
                                   variant={a.reminder.label === "remind_manually" ? "default" : "secondary"}
                                   onClick={() => confirm(a)}
                                   disabled={confirming === a.id}
-                                  title="Mark as confirmed (for example, after calling the customer)"
+                                  title={t("confirm.hint")}
                                 >
-                                  {confirming === a.id ? "Confirming…" : "Confirm"}
+                                  {confirming === a.id ? t("confirm.busy") : t("confirm.button")}
                                 </Button>
                               )}
                               <Button variant="outline" className="text-destructive" onClick={() => setCancelling(a)}>
-                                Cancel
+                                {t("cancel")}
                               </Button>
-                              {a.conversationId && <a href={`#/?c=${a.conversationId}`}>Open conversation</a>}
+                              {a.conversationId && <a href={`#/?c=${a.conversationId}`}>{t("openConversation")}</a>}
                             </div>
                           </div>
                         </li>
