@@ -11,8 +11,8 @@ Everything Secretaryfy does for a patient starts with a WhatsApp message and end
 | 3. Debounce | Wait for 4 s of silence, join the patient's unanswered messages | [debounce.ts](../src/modules/antiban/debounce.ts) |
 | 4. Handle | Opt-out/opt-in, paused conversation, then ask for a reply | [handle-message.ts](../src/modules/whatsapp/handle-message.ts) |
 | 5. Route | Known name, reminder answer, interpret, then scheduling or brochure | [router.ts](../src/modules/scheduling/router.ts) |
-| 6a. Interpret | Rules first; the model only when rules can't decide | [interpret.ts](../src/modules/scheduling/interpret.ts), [ollama.ts](../src/modules/scheduling/ollama.ts) |
-| 6b. Scheduling | State machine decides the next step and writes the reply (optionally reworded by the humanizer, see below) | [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
+| 6a. Interpret | Rules first; the model only when rules can't decide | [interpret.ts](../src/modules/scheduling/interpret.ts), [interpret/](../src/modules/scheduling/interpret/), [ollama.ts](../src/modules/scheduling/ollama.ts) |
+| 6b. Scheduling | State machine decides the next step and writes the reply (optionally reworded by the humanizer, see below) | [flow.ts](../src/modules/scheduling/flow.ts), [flow/](../src/modules/scheduling/flow/), [booking.ts](../src/modules/scheduling/booking.ts), [replies.ts](../src/modules/scheduling/replies.ts) |
 | 6c. Brochure | RAG service answers from the clinic's PDF | [rag/client.ts](../src/modules/rag/client.ts), [rag/server.py](../rag/server.py) |
 | 7. Gate | Anti-ban rules, read receipt, typing, queue, send | [gate.ts](../src/modules/antiban/gate.ts) |
 
@@ -87,6 +87,8 @@ Then it interprets the message and decides:
 
 ### 6a. Interpret
 The interpreter tries deterministic rules first: option numbers, yes/no words, "more", "other day", simple dates ("tuesday", "27th", "10/27"), times, closings ("thanks, bye"), names ("my name is…"; a bare name is left to the model, and the code keeps it only if it is written in the message), service numbers, reminder answers. Only when no rule applies does it call Ollama's `/api/chat` with `temperature: 0`, the step, the offered options, the history and a JSON Schema for the output (the service is an enum of the catalog labels), and validate the result with zod. `source: "rule" | "model"` is logged with the latency. Ollama failing or timing out (20 s) raises `InterpreterUnavailable` ([BR-CNV-07](business-rules.md#br-cnv-07--when-the-assistant-is-down-the-patient-is-told-once)).
+
+Code layout: [interpret.ts](../src/modules/scheduling/interpret.ts) keeps `createInterpreter`, which runs the rules, calls the model and merges the focused extractors. The rest is in [interpret/](../src/modules/scheduling/interpret/): `rules.ts` (the word sets and `byRules`), `prompt.ts` (the instructions and the JSON format sent to the model), `validate.ts` (checks the answer against the step, the options on screen and the date window, and the `mentionedService` answer), `names.ts` (`cleanName`, `nameInText`, "my name is…") and `types.ts` (the `Interpretation` and `InterpretInput` shapes). `interpret.ts` re-exports what other files import, so their imports do not change.
 
 This split is why a small 8B model is enough: most turns never reach it, and when it runs it only has to label the message, not decide anything ([ADR 0002](decisions/0002-state-machine-with-local-llm-as-interpreter.md)).
 

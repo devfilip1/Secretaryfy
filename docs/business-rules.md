@@ -48,11 +48,11 @@ A time is offered only if it falls within that weekday's opening hours, on the t
 
 ### BR-SCH-02 · Options are bullets, at most 6 per message
 Days (written in full, e.g. "quinta-feira, 5 de novembro") and times are offered as bullet lists of up to 6; asking for more shows the next page. The customer picks in free text ("quero sexta", "dia 10", "o primeiro", "o das 9", "quero ver mais"); the code maps the phrase to the offered option, and a bare number still works. A phrase that points to more than one option goes to the model or is asked again.
-- **Where:** `PAGE` in [flow.ts](../src/modules/scheduling/flow.ts)
+- **Where:** `PAGE` in [flow/offers.ts](../src/modules/scheduling/flow/offers.ts)
 
 ### BR-SCH-03 · Nothing is booked without "yes"
 The assistant shows a summary (day, time, name, service) and books only after the patient confirms.
-- **Where:** step `confirm_booking` in [flow.ts](../src/modules/scheduling/flow.ts)
+- **Where:** step `confirm_booking` in [flow/dispatch.ts](../src/modules/scheduling/flow/dispatch.ts), summary in [flow/offers.ts](../src/modules/scheduling/flow/offers.ts)
 
 ### BR-SCH-04 · Two patients never get the same time
 Right before writing, the calendar is read again inside a process-wide lock; a unique index on `(calendar_id, starts_at)` for booked appointments is the second barrier. If the index rejects the insert, the Google event just created is deleted. If the time was taken, the patient (or operator) gets other options.
@@ -64,7 +64,7 @@ A phone with a future appointment can't book a second one; the assistant offers 
 
 ### BR-SCH-06 · Cancel and reschedule only until the cancellation notice
 Within `cancelNoticeMinutes` (24 h) of the appointment, the assistant refuses to cancel or move it and tells the patient the deadline. This notice binds the patient only: the team can cancel at any time (BR-SCH-18).
-- **Where:** `tooLate` in [flow.ts](../src/modules/scheduling/flow.ts)
+- **Where:** `Run.tooLate` in [flow/run.ts](../src/modules/scheduling/flow/run.ts)
 
 ### BR-SCH-07 · Google Calendar is the source of truth
 Before using a stored appointment, it is compared with Google: deleted there means cancelled (with a 📅 note), moved there means the new time is adopted and the reminder recalculated.
@@ -76,11 +76,11 @@ A scheduling session expires 30 min after the last message. When the patient ret
 
 ### BR-SCH-09 · After 2 misunderstood replies, staff take over
 On the second consecutive reply the assistant can't understand inside a booking, it tells the patient someone will help, pauses itself in that conversation and flags it **Needs attention**.
-- **Where:** `MAX_MISUNDERSTOOD` and `misunderstood()` in [flow.ts](../src/modules/scheduling/flow.ts)
+- **Where:** `MAX_MISUNDERSTOOD` and `misunderstood()` in [flow/dispatch.ts](../src/modules/scheduling/flow/dispatch.ts)
 
 ### BR-SCH-10 · The services are the clinic's treatments, plus the assessment
 The services a patient can book are the treatments of the knowledge table that are not marked `bookable: false`, in the table's order, plus "General assessment" (`Assessment`), always last. The assistant picks one of them from the list, by its label: the treatment the patient talks about (the model reads the conversation) or the number of the list shown. A treatment that is not in the list is never the service. The patient can change it at the summary. The stored service is the treatment's key (see BR-SCH-11).
-- **Where:** `createKnowledgeCatalog` in [catalog.ts](../src/modules/scheduling/catalog.ts); `formatFor` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts); [ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)
+- **Where:** `createKnowledgeCatalog` in [catalog.ts](../src/modules/scheduling/catalog.ts); `formatFor` in [interpret/prompt.ts](../src/modules/scheduling/interpret/prompt.ts) and `validate` in [interpret/validate.ts](../src/modules/scheduling/interpret/validate.ts); [ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)
 
 ### BR-SCH-11 · What the calendar event looks like
 Title `"<name> — <service>"` (e.g. "Maria Souza — Dental Cleaning"; the service is the stored name: a treatment's key, such as `limpeza-dental`, or `Assessment`, see BR-SCH-10); the description holds the WhatsApp number and "Marcado pelo Secretaryfy." (or "Marcado pelo Secretaryfy (painel)." for panel bookings). Every booking, cancellation and reschedule is also written as a 📅 system note in the conversation history.
@@ -109,13 +109,13 @@ The number protection drops a message identical to one already sent. When a broc
 
 ### BR-SCH-17 · Appointment length per treatment, a time grid and a few natural times
 Each treatment may set `appointmentMinutes` (a multiple of 5); without it, and for the general assessment, the default length of the rules applies. The assistant asks for the treatment before it offers days, because the length decides which starts are free (a reschedule keeps the length of the appointment being moved). Start times sit on the grid; the assistant offers up to six **natural** times (the first of the day, the first after a busy block, a start that ends where another begins, and starts that follow the treatment's length from opening), never the whole grid. A time the customer names ("às 14h", "9:45") is checked on the full grid: free, it is chosen; taken or off the opening hours, the assistant says so kindly and offers the three nearest. The model only reads the time (`time`, with a focused second call when the field comes back empty); the code decides. Booking, the calendar event and the stored end use the same length; changing a treatment's length does not touch appointments already made.
-- **Where:** [availability.ts](../src/modules/scheduling/availability.ts), [flow.ts](../src/modules/scheduling/flow.ts), [booking.ts](../src/modules/scheduling/booking.ts), [interpret.ts](../src/modules/scheduling/interpret.ts), [ADR 0015](decisions/0015-appointment-length-per-treatment-and-time-grid.md)
+- **Where:** [availability.ts](../src/modules/scheduling/availability.ts), [flow/offers.ts](../src/modules/scheduling/flow/offers.ts), [booking.ts](../src/modules/scheduling/booking.ts), [interpret/validate.ts](../src/modules/scheduling/interpret/validate.ts), [ADR 0015](decisions/0015-appointment-length-per-treatment-and-time-grid.md)
 
 ## Names and customer registry
 
 ### BR-NAM-01 · The assistant asks for the name at a calm moment, at most twice
 To a patient with no known name, the assistant adds a request for the name to a greeting or a brochure answer, never after an insult, a complaint, a handoff or a message it did not understand. If the patient keeps going without saying it, it asks once more after 3 messages, and then never again (`name_asks`, `name_asked_at`). Only the interpreter model decides that a message holds a name, with the hint that the assistant just asked; the code keeps the name only if every word of it is written in the patient's messages (accent- and case-insensitive) and the message has no question mark. Messages grouped by the debounce are read together, so "Carla" followed by a question still gives the name. The booking summary shows the name and invites the patient to correct it.
-- **Where:** `askName`, `justAsked` and `fromBrochure` in [router.ts](../src/modules/scheduling/router.ts), `nameInText` and `validate` in [interpret.ts](../src/modules/scheduling/interpret.ts)
+- **Where:** `askName`, `justAsked` and `fromBrochure` in [router.ts](../src/modules/scheduling/router.ts), `nameInText` in [interpret/names.ts](../src/modules/scheduling/interpret/names.ts) and `validate` in [interpret/validate.ts](../src/modules/scheduling/interpret/validate.ts)
 
 ### BR-NAM-08 · An insult gets a short, polite reply
 A message classified as `rude` (insults the assistant or the clinic and asks nothing) gets "Entendo sua frustração…", with no brochure answer, no offer and no name request.
@@ -169,7 +169,7 @@ The team can cancel an appointment at any time, with no notice limit (BR-SCH-06 
 
 ### BR-REM-04 · YES confirms, NO offers to reschedule
 Right after a reminder (no booking dialogue open, at most one patient message since), YES or phrases like "see you then" confirm the appointment; NO starts the reschedule offer. Staff can also confirm from the panel.
-- **Where:** `awaitingReminder` in [router.ts](../src/modules/scheduling/router.ts); `ATTENDING` in [interpret.ts](../src/modules/scheduling/interpret.ts); `POST /api/appointments/:id/confirm` in [panel-appointments.ts](../src/routes/panel-appointments.ts)
+- **Where:** `awaitingReminder` in [router.ts](../src/modules/scheduling/router.ts); `ATTENDING` in [interpret/rules.ts](../src/modules/scheduling/interpret/rules.ts); `POST /api/appointments/:id/confirm` in [panel-appointments.ts](../src/routes/panel-appointments.ts)
 
 ### Reminder states
 
