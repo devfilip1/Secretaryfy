@@ -64,4 +64,3 @@ The main agent plans and reviews; Haiku subagents write the code. This is a stan
 ## Keeping the docs current
 - Changed a business rule, route, entity or environment variable → update the matching file in `docs/` (and `.env.example` for env vars) in the same task.
 - New architectural decision → new ADR in `docs/decisions/`; mark the old one "Superseded by NNNN" instead of rewriting it.
-- Touched `docs/` → update "Last updated" at the end of `docs/README.md`.
