@@ -49,6 +49,18 @@
     "save": "Save rules",
     "saving": "Saving…",
     "saved": "Rules saved.",
-    "checkFields": "Check the highlighted fields."
+    "checkFields": "Check the highlighted fields.",
+    "issue": {
+      "no_open_day": "Mark at least one day of business hours.",
+      "end_before_start": "The end must be after the start.",
+      "day_shorter_than_appointment": "The day is shorter than one appointment ({{minutes}} min).",
+      "invalid_format": "Use the HH:mm format.",
+      "invalid_type": "Enter a whole number.",
+      "too_small": "Must be at least {{min}}.",
+      "too_big": "Must be at most {{max}}.",
+      "not_multiple_of": "Use a multiple of {{divisor}} minutes.",
+      "unrecognized_keys": "Choose days from Monday to Sunday.",
+      "invalid": "This value is not valid."
+    }
   }
 }

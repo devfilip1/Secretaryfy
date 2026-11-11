@@ -49,6 +49,18 @@
     "save": "Salvar regras",
     "saving": "Salvando…",
     "saved": "Regras salvas.",
-    "checkFields": "Confira os campos destacados."
+    "checkFields": "Confira os campos destacados.",
+    "issue": {
+      "no_open_day": "Marque ao menos um dia de atendimento.",
+      "end_before_start": "O fim precisa ser depois do início.",
+      "day_shorter_than_appointment": "O dia é mais curto que uma consulta ({{minutes}} min).",
+      "invalid_format": "Use o formato HH:mm.",
+      "invalid_type": "Digite um número inteiro.",
+      "too_small": "Deve ser no mínimo {{min}}.",
+      "too_big": "Deve ser no máximo {{max}}.",
+      "not_multiple_of": "Use um múltiplo de {{divisor}} minutos.",
+      "unrecognized_keys": "Escolha dias de segunda a domingo.",
+      "invalid": "Este valor não é válido."
+    }
   }
 }

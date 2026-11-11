@@ -24,6 +24,7 @@ import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
+import { issueParamsForPanel } from "./calendar-rules-issue";
 
 const DAYS: { key: DayKey; label: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday" }[] = [
   { key: "1", label: "monday" },
@@ -201,7 +202,12 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
   const [issues, setIssues] = useState<RulesIssue[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  const issueAt = (path: string) => issues.find((i) => i.path === path || i.path.startsWith(`${path}.`))?.message;
+  /** Traduz pelo código; um código sem tradução mostra o texto em inglês do servidor. */
+  const issueText = (issue: RulesIssue) => t(`rules.issue.${issue.code}` as never, { ...issueParamsForPanel(issue), defaultValue: issue.message });
+  const issueAt = (path: string) => {
+    const issue = issues.find((i) => i.path === path || i.path.startsWith(`${path}.`));
+    return issue && issueText(issue);
+  };
 
   function setDay(key: DayKey, patch: Partial<{ start: string; end: string }> | null) {
     setRules((r) => {
