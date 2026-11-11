@@ -342,6 +342,25 @@ test("apagar todas as conversas exige login", async () => {
   assert.equal((await app.inject({ method: "DELETE", url: "/api/conversations" })).statusCode, 401);
 });
 
+test("apagar uma conversa pelo painel: 204, depois 404; id inexistente ou malformado também dá 404", async () => {
+  const conv = await customerSays("Oi");
+  const other = await customerSays("Olá", undefined, "5511900000002");
+  const url = `/api/conversations/${conv.id}`;
+  assert.equal((await app.inject({ method: "DELETE", url })).statusCode, 401);
+
+  const res = await app.inject({ method: "DELETE", url, cookies: auth });
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.body, "");
+  const again = await app.inject({ method: "DELETE", url, cookies: auth });
+  assert.equal(again.statusCode, 404);
+  assert.deepEqual(again.json(), { error: "not_found" });
+  assert.equal((await app.inject({ method: "DELETE", url: `/api/conversations/${crypto.randomUUID()}`, cookies: auth })).statusCode, 404);
+  assert.equal((await app.inject({ method: "DELETE", url: "/api/conversations/nao-e-uuid", cookies: auth })).statusCode, 404);
+
+  assert.deepEqual((await get("/api/conversations")).json().conversations.map((c: { id: string }) => c.id), [other.id]);
+  assert.deepEqual(events.filter((e) => e.type === "conversation.deleted"), [{ type: "conversation.deleted", id: conv.id }]);
+});
+
 test("apagar as conversas ou desconectar não apaga o cadastro de clientes (specs/005 FR-019)", async () => {
   await execute(sql`delete from customers`);
   await execute(sql`insert into customers (phone, name) values ('5511999999999', 'Maria')`);

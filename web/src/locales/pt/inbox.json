@@ -10,6 +10,15 @@
     "button": "Apagar todas as conversas",
     "confirm": "Apagar todas as conversas e suas mensagens? Isso não pode ser desfeito."
   },
+  "deleteOne": {
+    "button": "Apagar conversa",
+    "title": "Apagar esta conversa?",
+    "description": "{{name}}: as mensagens desta conversa serão apagadas de vez. O cliente e os agendamentos continuam.",
+    "keep": "Manter",
+    "confirm": "Apagar conversa",
+    "busy": "Apagando…",
+    "error": "Não foi possível apagar a conversa. Tente de novo."
+  },
   "selectConversation": "Selecione uma conversa",
   "backToList": "Voltar à lista",
   "loading": "Carregando…",

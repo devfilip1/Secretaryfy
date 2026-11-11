@@ -186,10 +186,16 @@ function createQueries(db: Db) {
       return { messages: rows.slice(0, limit).reverse(), hasMore };
     },
 
-    /** Apaga todas as conversas; mensagens, agendamentos e sessões de agendamento vão junto pelo cascade. */
+    /** Apaga todas as conversas; mensagens e sessões de agendamento vão junto pelo cascade, e os agendamentos ficam sem conversa. */
     async deleteAllConversations(): Promise<number> {
       const rows = await db.delete(conversations).returning({ id: conversations.id });
       return rows.length;
+    },
+
+    /** Apaga uma conversa; mensagens e sessões de agendamento vão junto, os agendamentos ficam sem conversa (ON DELETE SET NULL). */
+    async deleteConversation(id: string): Promise<boolean> {
+      const rows = await db.delete(conversations).where(eq(conversations.id, id)).returning({ id: conversations.id });
+      return rows.length > 0;
     },
 
     /** Reativar o assistente também tira o destaque de "precisa de atendimento" (FR-024b). */

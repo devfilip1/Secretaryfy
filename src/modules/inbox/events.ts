@@ -15,6 +15,8 @@ export type InboxEvent =
   | { type: "message.updated"; conversationId: string; message: MessageJson }
   | { type: "conversation.updated"; conversation: ConversationJson }
   | { type: "conversations.cleared" }
+  /** Uma conversa foi apagada pelo painel: a lista tira a linha com esse id */
+  | { type: "conversation.deleted"; id: string }
   /** O cadastro de clientes mudou (cliente novo, nome atualizado ou exclusão): o painel busca a lista de novo */
   | { type: "customers.updated" }
   /** Um horário foi marcado, remarcado, cancelado ou confirmado, ou o lembrete mudou: a aba de agendamentos busca a lista */

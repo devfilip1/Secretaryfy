@@ -82,6 +82,14 @@ Desconecta o número (FR-018).
 }
 ```
 
+### `DELETE /api/conversations/:id`
+
+Apaga uma conversa, com as mensagens e as sessões de agendamento dela. Os agendamentos ficam, sem a conversa
+(`conversationId` nulo), e o cadastro de clientes não muda.
+
+- **204**: apagada. O painel recebe `conversation.deleted` com `{ "id" }`.
+- **404** `not_found`: o id não existe ou não é um UUID.
+
 ### `GET /api/conversations/:id/messages?before=<messageId>&limit=50`
 
 - **`limit`**: padrão 50, máximo 100.
@@ -143,6 +151,7 @@ Reenvia uma mensagem `failed` do operador (FR-013).
 | `message.updated` | `{ "conversationId", "message" }` | A situação de um envio mudou (`sent` ou `failed`) |
 | `conversation.updated` | `{ "conversation" }` | Prévia, não lidas, nome ou pausa mudaram |
 | `conversations.cleared` | `{}` | O número foi desconectado e todas as conversas foram apagadas |
+| `conversation.deleted` | `{ "id" }` | Uma conversa foi apagada pelo painel |
 | `connection.updated` | `{ "state", "number", "qr" }` | O estado da conexão mudou ou chegou um QR code novo |
 
 Quando reconecta (`onopen` depois de um `onerror`), o cliente busca de novo `GET /api/conversations`, a conversa aberta e `GET /api/connection`, para recuperar o que perdeu (R3).

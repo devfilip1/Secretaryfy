@@ -1,18 +1,21 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { sql } from "drizzle-orm";
+import { appointments } from "../../db/schema.js";
 import { createTestDb } from "../../test/db.js";
 import { createInboxRepository, type InboxRepository } from "./repository.js";
 
 let close: () => Promise<unknown>;
 let repo: InboxRepository;
 let reset: () => Promise<unknown>;
+let testDb: Awaited<ReturnType<typeof createTestDb>>;
 
 before(async () => {
-  const testDb = await createTestDb();
+  testDb = await createTestDb();
   close = testDb.close;
   repo = createInboxRepository(testDb.db as never);
   reset = async () => {
+    await testDb.db.execute(sql`delete from appointments`);
     await testDb.db.execute(sql`delete from messages`);
     await testDb.db.execute(sql`delete from conversations`);
   };
@@ -195,4 +198,41 @@ test("conversa pelo telefone: uma só, e o mapa telefone → conversa para as li
   assert.deepEqual(await repo.conversationIdsByPhone([]), new Map());
   assert.equal((await repo.setCustomerNameByPhone(b.phone, "Bia Souza"))?.customerName, "Bia Souza");
   assert.equal(await repo.setCustomerNameByPhone("5511000000000", "X"), null);
+});
+
+test("apagar uma conversa leva as mensagens dela e deixa as outras", async () => {
+  const a = await conversation("5511999999999", "A");
+  const b = await conversation("5511988887777", "B");
+  await repo.insertMessage({ conversationId: a.id, origin: "customer", type: "text", text: "Oi", status: "received", sentAt: at(1) });
+  await repo.insertMessage({ conversationId: b.id, origin: "customer", type: "text", text: "Olá", status: "received", sentAt: at(2) });
+
+  assert.equal(await repo.deleteConversation(a.id), true);
+  assert.equal(await repo.findConversation(a.id), null);
+  assert.equal((await repo.listMessages(a.id)).messages.length, 0);
+  assert.equal((await repo.listMessages(b.id)).messages.length, 1);
+  assert.deepEqual((await repo.listConversations({})).map((c) => c.id), [b.id]);
+  assert.equal(await repo.deleteConversation(a.id), false);
+  assert.equal(await repo.deleteConversation("00000000-0000-4000-8000-000000000000"), false);
+});
+
+test("apagar a conversa de quem tem agendamento mantém o agendamento, sem conversa", async () => {
+  const conv = await conversation("5511999999999", "Maria");
+  const [appt] = await testDb.db
+    .insert(appointments)
+    .values({
+      conversationId: conv.id,
+      phone: conv.phone,
+      googleEventId: "evento-teste-1",
+      calendarId: "agenda-teste",
+      startsAt: new Date(Date.UTC(2026, 10, 20, 13)),
+      endsAt: new Date(Date.UTC(2026, 10, 20, 14)),
+      customerName: "Maria",
+    })
+    .returning();
+
+  assert.equal(await repo.deleteConversation(conv.id), true);
+  const [kept] = await testDb.db.select().from(appointments);
+  assert.equal(kept.id, appt.id);
+  assert.equal(kept.conversationId, null);
+  assert.equal(kept.phone, "5511999999999");
 });

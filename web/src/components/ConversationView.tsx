@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Ban, Bot, Pause, TriangleAlert } from "lucide-react";
+import { Ban, Bot, Pause, Trash2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   listMessages,
@@ -16,6 +16,7 @@ import { formatPhone } from "../format";
 import { useInboxEvents } from "../useEvents";
 import { Button } from "./ui/button";
 import { Composer } from "./Composer";
+import { DeleteConversationDialog } from "./DeleteConversationDialog";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
 import { RiskDialog } from "./RiskDialog";
@@ -35,11 +36,13 @@ export function ConversationView({
   conversation: fromList,
   connected,
   onClose,
+  onDeleted,
 }: {
   conversationId: string;
   conversation: Conversation | null;
   connected: boolean;
   onClose: () => void;
+  onDeleted: () => void;
 }) {
   const { t } = useTranslation("inbox");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,6 +57,8 @@ export function ConversationView({
   const loadingOlder = useRef(false);
   // Reenvio que espera o operador confirmar os riscos de banimento (specs/004)
   const [retryRisks, setRetryRisks] = useState<{ message: Message; risks: SendRisk[] } | null>(null);
+  // Apagar a conversa pede confirmação antes (DeleteConversationDialog)
+  const [deleting, setDeleting] = useState(false);
 
   const conversation = fromList ?? header;
 
@@ -161,6 +166,9 @@ export function ConversationView({
             <Button variant="secondary" onClick={togglePause}>
               {paused ? t("assistant.resume") : t("assistant.pause")}
             </Button>
+            <Button variant="outline" size="icon" className="text-destructive" onClick={() => setDeleting(true)} aria-label={t("deleteOne.button")} title={t("deleteOne.button")}>
+              <Trash2 />
+            </Button>
           </div>
         )}
       </header>
@@ -200,6 +208,9 @@ export function ConversationView({
       </div>
 
       <Composer conversationId={conversationId} connected={connected} onSent={onSent} />
+      {deleting && conversation && (
+        <DeleteConversationDialog conversation={conversation} onKeep={() => setDeleting(false)} onDeleted={onDeleted} />
+      )}
       {retryRisks && (
         <RiskDialog
           risks={retryRisks.risks}

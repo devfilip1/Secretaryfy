@@ -33,8 +33,8 @@ If the RAG service fails or exceeds `RAG_TIMEOUT_MS` (30 s), the patient gets a 
 - **Where:** `createRagAnswerer` in [handle-message.ts](../src/modules/whatsapp/handle-message.ts); `InterpreterUnavailable` in [router.ts](../src/modules/scheduling/router.ts)
 
 ### BR-CNV-08 · Disconnecting the number deletes every conversation
-When WhatsApp logs the number out, all conversations and messages are deleted. The operator can also delete them all from the panel. Appointments, the customer registry and opt-outs survive both.
-- **Where:** `loggedOut` branch in [evolution-webhook.ts](../src/routes/evolution-webhook.ts); `DELETE /api/conversations` in [panel-api.ts](../src/routes/panel-api.ts)
+When WhatsApp logs the number out, all conversations and messages are deleted. The operator can also delete them all, or one at a time, from the panel. Appointments, the customer registry and opt-outs survive both.
+- **Where:** `loggedOut` branch in [evolution-webhook.ts](../src/routes/evolution-webhook.ts); `DELETE /api/conversations` and `DELETE /api/conversations/:id` in [panel-api.ts](../src/routes/panel-api.ts)
 
 ## Scheduling
 
@@ -263,4 +263,3 @@ The panel is off unless `OPERATOR_PASSWORD` (12+ characters) is set. A login cre
 - `package.json` still describes the project as an assistant "for sending emails"; no email feature exists.
 - `ANTHROPIC_API_KEY` is required by [env.ts](../src/config/env.ts), but no code calls the Claude API.
 - The service catalog is the knowledge table ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)): the panel reads it from `GET /api/services` and keeps no copy. A treatment's key is what appointments store, so renaming a key does not rename the bookings made before.
-- The comment on `DELETE /api/conversations` in [panel-api.ts](../src/routes/panel-api.ts) says it deletes "appointments in progress". It deletes scheduling sessions (dialogues in progress), not appointments, which survive since feature 006.

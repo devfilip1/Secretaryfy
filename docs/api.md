@@ -37,7 +37,8 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `POST /api/connection/qr` | Requests a new QR code (limited, [BR-AB-07](business-rules.md#br-ab-07--warm-up-and-automatic-brake)) |
 | `DELETE /api/connection` | Logs the number out (which deletes all conversations) |
 | `GET /api/conversations?q=` | List, newest first; searches name, said name and phone |
-| `DELETE /api/conversations` | Deletes all conversations and messages; returns `{deleted}` |
+| `DELETE /api/conversations` | Deletes all conversations and messages; returns `{deleted}`. Appointments stay, without the conversation |
+| `DELETE /api/conversations/:id` | Deletes one conversation with its messages and scheduling sessions; 204, or 404 `not_found` (unknown or malformed id) |
 | `GET /api/conversations/:id/messages?before=&limit=` | Page of messages (max 100), newest first, with `hasMore` |
 | `POST /api/conversations/:id/read` | Clears the unread count |
 | `PATCH /api/conversations/:id` | `{assistantPaused: bool}` to pause/resume, or `{optedOut: false}` to reactivate an opted-out patient. Opting a patient out from the panel is not allowed. |
@@ -87,6 +88,7 @@ Every `/api/*` route needs the session cookie `sf_session`, except `POST /api/se
 | `message.created`, `message.updated` | `conversationId`, `message` |
 | `conversation.updated` | `conversation` |
 | `conversations.cleared` | — |
+| `conversation.deleted` | `id` (the conversation deleted from the panel) |
 | `appointments.updated`, `customers.updated` | — (the page reloads its list) |
 | `connection.updated` | `state`, `number`, `qr` |
 | `calendar.updated` | `connection` |

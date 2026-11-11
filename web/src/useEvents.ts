@@ -8,6 +8,8 @@ export type InboxEvent =
   | { type: "conversation.updated"; conversation: Conversation }
   /** O WhatsApp foi desconectado e todas as conversas foram apagadas. */
   | { type: "conversations.cleared" }
+  /** A conversa foi apagada: sai da lista e, se estiver aberta, a tela fecha. */
+  | { type: "conversation.deleted"; id: string }
   /** O cadastro de clientes mudou: a aba Clientes busca a lista de novo. */
   | { type: "customers.updated" }
   /** Os horários mudaram: a aba Appointments busca a lista de novo. */
@@ -25,6 +27,7 @@ const SERVER_EVENTS = [
   "message.created",
   "message.updated",
   "conversation.updated",
+  "conversation.deleted",
   "conversations.cleared",
   "customers.updated",
   "appointments.updated",

@@ -131,6 +131,7 @@ The clinic's brochure, one row per section (ADR 0010, step 2). `key` is a stable
 | Action | Deletes | Keeps |
 |---|---|---|
 | Number logged out / "Delete all conversations" | conversations, messages, scheduling sessions | appointments (conversation link nulled), customers, opt-outs, connected numbers |
+| Delete one conversation (panel) | that conversation, its messages, scheduling sessions | appointments (conversation link nulled), customers, opt-outs |
 | Delete a customer | the customer row; the conversation's `customer_name` | appointments (customer link nulled) and Google events |
 | Appointment deleted in Google | — (marked `cancelled` / `calendar` on next sync) | the row |
 
