@@ -212,3 +212,16 @@ test("nome conhecido: o dito na conversa, senão o do cadastro; o do perfil não
   const published = events.find((e) => e.type === "conversation.updated");
   assert.equal(published?.type === "conversation.updated" && published.conversation.name, "Maria");
 });
+
+test("apagar uma conversa publica conversation.deleted uma vez; id inexistente não publica nada", async () => {
+  const { conversation } = await service.recordIncoming(incoming({ id: "D1" }));
+  events = [];
+
+  assert.equal(await service.deleteConversation(conversation.id), true);
+  assert.deepEqual(events, [{ type: "conversation.deleted", id: conversation.id }]);
+
+  events = [];
+  assert.equal(await service.deleteConversation(conversation.id), false);
+  assert.equal(await service.deleteConversation("00000000-0000-4000-8000-000000000000"), false);
+  assert.deepEqual(events, []);
+});

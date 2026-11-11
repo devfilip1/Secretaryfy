@@ -220,10 +220,17 @@ export function createInboxService({
       return repo.findConversation(conversationId);
     },
 
-    /** O número foi desconectado: não fica nenhuma conversa, nem os agendamentos ligados a elas. */
+    /** O número foi desconectado: não fica nenhuma conversa; os agendamentos continuam, sem a conversa. */
     async clearAll() {
       const deleted = await repo.deleteAllConversations();
       publish({ type: "conversations.cleared" });
+      return deleted;
+    },
+
+    /** Apaga uma conversa pelo painel. Devolve false, sem avisar ninguém, quando ela não existe. */
+    async deleteConversation(id: string): Promise<boolean> {
+      const deleted = await repo.deleteConversation(id);
+      if (deleted) publish({ type: "conversation.deleted", id });
       return deleted;
     },
 

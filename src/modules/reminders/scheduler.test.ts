@@ -60,8 +60,13 @@ function makeScheduler(extra: { allowOutsideWindow?: boolean } = {}) {
       // Como o portão: um motivo que o chamador pula (bypass) não bloqueia
       assistantBlockReason: async ({ bypass = [] }) => (blockReason && !bypass.includes(blockReason) ? blockReason : null),
       // Como o portão: o texto enviado vira mensagem do assistente na conversa
-      sendAssistant: async ({ conversationId, text, bypass = [] }) => {
+      sendAssistant: async ({ conversationId, text, bypass = [], ignorePause = false }) => {
         if (blockReason && !bypass.includes(blockReason)) return "blocked";
+        // Como a fila do portão: conversa pausada pela equipe bloqueia, salvo ignorePause (lembrete)
+        if (!ignorePause && (await inbox.isPaused(conversationId))) {
+          await inbox.recordBlocked({ conversationId, text, reason: "superseded" });
+          return "blocked";
+        }
         if (sendOutcome !== "sent") return sendOutcome;
         sent.push({ conversationId, text });
         const out = await inbox.startOutgoing({ conversationId, origin: "assistant", text });
@@ -307,4 +312,36 @@ test("variações: o mesmo texto não vai duas vezes para a mesma conversa", asy
   assert.equal((await reload(again)).reminderStatus, "sent");
   assert.equal(sent.length, 2);
   assert.notEqual(sent[0].text, sent[1].text);
+});
+
+test("conversa pausada pela equipe: o lembrete sai mesmo assim, uma vez só", async () => {
+  const conv = await conversation();
+  const appt = await appointment();
+  await inbox.setAssistantPaused(conv.id, true);
+  await scheduler.tick();
+  await scheduler.tick();
+  assert.equal(sent.length, 1);
+  assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["sent", null]);
+  assert.equal((await testDb.db.select().from(messages)).filter((m) => m.status === "blocked").length, 0);
+  assert.deepEqual(await systemNotes(conv.id), [{ kind: "reminder_sent", start: "2026-10-21T13:00:00.000Z", timeZone: tz }]);
+});
+
+test("conversa pausada: as outras regras da proteção continuam valendo", async () => {
+  await conversation();
+  const appt = await appointment();
+  await inbox.setAssistantPaused((await repo.findConversationByPhone(PHONE))!.id, true);
+  blockReason = "outside_window";
+  await scheduler.tick();
+  await scheduler.tick();
+  assert.equal(sent.length, 0);
+  assert.deepEqual([(await reload(appt)).reminderStatus, (await reload(appt)).reminderReason], ["pending", "outside_window"]);
+});
+
+test("conversa pausada: nenhuma tentativa bloqueada no histórico a cada passo", async () => {
+  await conversation();
+  await appointment();
+  await inbox.setAssistantPaused((await repo.findConversationByPhone(PHONE))!.id, true);
+  blockReason = "daily_conversations";
+  for (let i = 0; i < 3; i++) await scheduler.tick();
+  assert.equal((await testDb.db.select().from(messages)).filter((m) => m.status === "blocked").length, 0);
 });

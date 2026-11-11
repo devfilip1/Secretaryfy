@@ -55,6 +55,10 @@ export function Inbox({ connected }: { connected: boolean }) {
       setSelectedId(null);
       return;
     }
+    if (event.type === "conversation.deleted") {
+      forgetConversation(event.id);
+      return;
+    }
     if (event.type !== "conversation.updated") return;
     const updated = event.conversation;
     setConversations((list) => {
@@ -69,6 +73,12 @@ export function Inbox({ connected }: { connected: boolean }) {
   function onSearch(q: string) {
     query.current = q;
     load().catch(() => {});
+  }
+
+  // Tira a conversa da lista e fecha se ela estava aberta: vale para apagar aqui e para o evento conversation.deleted
+  function forgetConversation(id: string) {
+    setConversations((list) => list.filter((c) => c.id !== id));
+    if (selectedId === id) setSelectedId(null);
   }
 
   async function onClearAll() {
@@ -104,6 +114,7 @@ export function Inbox({ connected }: { connected: boolean }) {
           conversation={selected}
           connected={connected}
           onClose={() => setSelectedId(null)}
+          onDeleted={() => forgetConversation(selectedId)}
         />
       ) : (
         <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">{t("selectConversation")}</section>

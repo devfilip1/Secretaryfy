@@ -108,7 +108,8 @@ export function createReminderScheduler({
     if (blocked === "opted_out") return notSent(current, blocked, conversation.id, timeZone);
     if (blocked) return waiting(current, blocked);
 
-    const outcome = await gate.sendAssistant({ conversationId: conversation.id, phone: conversation.phone, text, bypass });
+    // O lembrete sai mesmo com a conversa pausada pela equipe: confirmar o horário vale mais que a pausa (decisão do dono)
+    const outcome = await gate.sendAssistant({ conversationId: conversation.id, phone: conversation.phone, text, bypass, ignorePause: true });
     if (outcome !== "sent") return waiting(current, outcome === "failed" ? "failed" : "blocked");
     if (await store.markReminderSent(current.id, clock())) {
       log.info({ appointmentId: current.id, conversationId: conversation.id }, "lembrete enviado");

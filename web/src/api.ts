@@ -133,6 +133,8 @@ export const listMessages = (id: string, { before, limit = 50 }: { before?: stri
 
 /** Apaga todas as conversas e as mensagens delas (o número continua conectado). */
 export const clearConversations = () => request<{ deleted: number }>("DELETE", "/api/conversations");
+/** Apaga uma conversa e as mensagens dela; o cliente e os agendamentos ficam. 404 not_found se ela não existe. */
+export const deleteConversation = (id: string) => request<void>("DELETE", `/api/conversations/${id}`);
 export const markRead = (id: string) => request<void>("POST", `/api/conversations/${id}/read`, {});
 export const setPaused = (id: string, assistantPaused: boolean) =>
   request<Conversation>("PATCH", `/api/conversations/${id}`, { assistantPaused });

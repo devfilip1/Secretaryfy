@@ -10,6 +10,15 @@
     "button": "Delete all conversations",
     "confirm": "Delete all conversations and their messages? This cannot be undone."
   },
+  "deleteOne": {
+    "button": "Delete conversation",
+    "title": "Delete this conversation?",
+    "description": "{{name}}: the messages of this conversation are removed for good. The customer and their appointments stay.",
+    "keep": "Keep it",
+    "confirm": "Delete conversation",
+    "busy": "Deleting…",
+    "error": "Could not delete the conversation. Please try again."
+  },
   "selectConversation": "Select a conversation",
   "backToList": "Back to the list",
   "loading": "Loading…",

@@ -97,9 +97,16 @@ export function panelApiRoutes({ inbox, repo, instance, send, risks, onOperatorM
       return { conversations: rows.map((r) => presentConversation(r, optedOut.has(r.phone))) };
     });
 
-    // Apaga todas as conversas, com as mensagens e os agendamentos em andamento; o painel é avisado por conversations.cleared
+    // Apaga todas as conversas, com as mensagens e as sessões de agendamento em andamento; os agendamentos continuam, sem a conversa. O painel é avisado por conversations.cleared
     app.delete("/api/conversations", async () => {
       return { deleted: await inbox.clearAll() };
+    });
+
+    // Apaga uma conversa, como a de cima; 404 quando o id não existe ou não é um UUID
+    app.delete("/api/conversations/:id", async (req, reply) => {
+      const params = idParams.safeParse(req.params);
+      if (!params.success || !(await inbox.deleteConversation(params.data.id))) return notFound(reply);
+      return reply.code(204).send();
     });
 
     app.get("/api/conversations/:id/messages", async (req, reply) => {
