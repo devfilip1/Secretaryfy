@@ -37,5 +37,22 @@
   "disabled": {
     "title": "Panel disabled",
     "body": "Set <code>OPERATOR_PASSWORD</code> (12 characters or more) in the server <code>.env</code> and restart it."
+  },
+  "blockReason": {
+    "outside_window": "the customer has not written in over 24 h",
+    "disconnected": "WhatsApp is disconnected",
+    "rate_limited": "waited too long in the queue",
+    "daily_conversations": "daily conversation limit reached",
+    "unanswered": "too many messages in a row without a customer reply",
+    "loop": "possibly talking to another bot",
+    "duplicate": "repeated text",
+    "opted_out": "the customer asked not to receive messages",
+    "paused": "automatic sending paused by protection",
+    "restart": "server restarted before sending",
+    "superseded": "the operator replied first",
+    "no_conversation": "no WhatsApp conversation with this number",
+    "failed": "WhatsApp send failed",
+    "blocked": "blocked by number protection",
+    "too_late": "less than 2 hours before the appointment"
   }
 }
