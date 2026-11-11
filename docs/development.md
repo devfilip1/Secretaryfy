@@ -94,13 +94,14 @@ cd rag && .\run.ps1 test   # RAG unit tests, no Ollama needed
 ```
 
 - Tests live next to the code (`*.test.ts`) and are excluded from `tsc`. [setup-env.ts](../src/test/setup-env.ts) fills required env vars with fake values; [db.ts](../src/test/db.ts) creates a PGlite database with the migrations applied; [fake-calendar.ts](../src/test/fake-calendar.ts) and [clock.ts](../src/test/clock.ts) replace Google and time.
+- The scheduling tests follow the code: one file per journey in [`flow/`](../src/modules/scheduling/flow) (`offers`, `booking`, `booking-details`, `appointment`, `dispatch`) with the shared setup in [flow-harness.ts](../src/test/flow-harness.ts) (`useFlowHarness()` registers the hooks and returns one object `h` with the state, so tests read `h.rules`, `h.fake`, ...), and the router tests split by area (`router`, `router-name`, `router-reminder`, `router-reading`) with [router-harness.ts](../src/test/router-harness.ts).
 - Covered: every module and route, including the webhook, the router, the state machine, the gate and the reminder scheduler. Not covered: the panel UI (checked by hand), real Evolution/Google calls.
 
 ### Evaluating with the real model
 
 ```bash
 npx tsx --env-file=.env scripts/eval-interpret.ts                    # 31 natural phrases through the interpreter (needs Ollama)
-npx tsx --env-file=.env scripts/eval-extractors.ts                    # 32 + 27 phrases through the focused extractors (time, part of the day, day named, option position; needs Ollama); run after touching interpret.ts or understanding/
+npx tsx --env-file=.env scripts/eval-extractors.ts                    # 32 + 27 phrases through the focused extractors (time, part of the day, day named, option position; needs Ollama); run after touching interpret/ or understanding/
 npx tsx --env-file=.env scripts/eval-scheduling.ts                    # 23 scripted conversations, fake calendar
 npx tsx --env-file=.env scripts/eval-scheduling.ts --only "name"      # one scenario
 AGENT_MODEL=llama3 npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
@@ -195,5 +196,5 @@ The gate can't fix what's outside the code. For the clinic's number:
 
 - **Add a panel API route:** add it to the matching `src/routes/panel-*.ts` (all `/api/*` routes are authenticated by the hook in [panel-session.ts](../src/routes/panel-session.ts)), validate with zod, add a `*.test.ts` using `app.inject`, add the client function in [web/src/api.ts](../web/src/api.ts), and update [api.md](api.md).
 - **Add a panel page:** create `web/src/pages/X.tsx`, add the hash and the tab in [App.tsx](../web/src/App.tsx), subscribe to SSE with `useInboxEvents` if it shows live data, style it in [styles.css](../web/src/styles.css) and check it at 375 px.
-- **Change what the assistant understands:** add rules in [interpret.ts](../src/modules/scheduling/interpret.ts) before touching the prompt, add cases to `interpret.test.ts`, and run `scripts/eval-scheduling.ts`.
+- **Change what the assistant understands:** add rules in [interpret/rules.ts](../src/modules/scheduling/interpret/rules.ts) before touching the prompt in [interpret/prompt.ts](../src/modules/scheduling/interpret/prompt.ts), add cases to `interpret.test.ts`, and run `scripts/eval-scheduling.ts`.
 - **Add a service to the catalog:** add a treatment to the knowledge table in the panel (Conhecimento), with `bookable` left on. There is no list in code; the catalog is re-read on every change ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). The API rejects a service that isn't in `GET /api/services`.

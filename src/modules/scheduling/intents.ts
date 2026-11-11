@@ -32,13 +32,13 @@ export type Intent = (typeof INTENTS)[number];
 
 /** Pedem um dia ou um horário: a chamada focada de horário roda para elas, e um dia dado sem o cliente citar fica de fora */
 const ASKS_FOR_WHEN_INTENTS: readonly Intent[] = ["book", "availability", "reschedule"];
-/** Podem levar o horário ou o dia que o cliente citou na frase (validate, em interpret.ts) */
+/** Podem levar o horário ou o dia que o cliente citou na frase (validate, em interpret/validate.ts) */
 const CAN_CARRY_A_WHEN_INTENTS: readonly Intent[] = ["choose", "book", "availability", "reschedule"];
 /** Só existem dentro de uma etapa (responder a uma lista oferecida); sem etapa, a mensagem só vira dar o nome, se o nome acabou de ser pedido */
 const STEP_ONLY_INTENTS: readonly Intent[] = ["choose", "more", "other_day", "choose_service"];
 /** Começam um fluxo de agendamento quando não há etapa em andamento (research.md R3) */
 const STARTS_SCHEDULING_INTENTS: readonly Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
-/** Escolhem um dia da lista de dias na tela: o dia da semana citado vira a opção dele (validate, em interpret.ts) */
+/** Escolhem um dia da lista de dias na tela: o dia da semana citado vira a opção dele (validate, em interpret/validate.ts) */
 const PICKS_OFFERED_DAY_INTENTS: readonly Intent[] = ["choose", "other_day"];
 /** Com os horários na tela, um horário ou uma parte do dia citados viram escolha dentro do dia (applyWhen, em resolve.ts) */
 const CHOICE_LIKE_INTENTS: readonly Intent[] = ["more", "unclear", "other_day", "availability"];

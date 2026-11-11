@@ -73,7 +73,7 @@ src/
     inbox/      conversations and messages, pause, event bus, JSON presenters
     rag/        HTTP client of the RAG service
     reminders/  reminder scheduler and the label shown in the panel
-    scheduling/ rules, free-time math, interpreter, intents.ts (intent list and predicates for its named groups), understanding/ (focused extractors and the merge rules in resolve.ts, ADR 0017), router, state machine, booking engine, replies
+    scheduling/ rules, free-time math, interpreter (interpret.ts and interpret/: rules, prompt, validate, names, types), intents.ts (intent list and predicates for its named groups), understanding/ (focused extractors and the merge rules in resolve.ts, ADR 0017), router, state machine (flow.ts and the flow/ folder), booking engine, replies
     whatsapp/   Evolution API events parser, sending, instance/QR, message handler
   routes/       Fastify plugins; also where process-wide instances are wired (inbox.ts, calendar.ts, scheduling.ts)
   test/         test setup: env, PGlite database, fake calendar, clock
@@ -85,6 +85,8 @@ drizzle/        SQL migrations
 ```
 
 Modules receive their dependencies as arguments (`createX({ ... })`), so tests swap the database, the calendar, the clock and the WhatsApp sender. The real instances are created once in `src/routes/inbox.ts`, `src/routes/calendar.ts` and `src/routes/scheduling.ts` and shared by the webhook, the panel API and the reminder scheduler. [index.ts](../src/index.ts) registers the routes and starts the scheduler.
+
+The scheduling state machine lives in `src/modules/scheduling/flow/`: `run.ts` holds the `Run` class (one customer message being handled: shared state and the helpers every journey uses), `offers.ts` offers days and times and holds the selected-slot steps, `booking.ts` runs the booking journey, `appointment.ts` runs cancel and reschedule, and `dispatch.ts` routes an interpretation to a journey and counts misunderstood replies. [flow.ts](../src/modules/scheduling/flow.ts) keeps only the public types and `createSchedulingFlow`. Each journey is a set of plain functions that take the `Run`; `run.ts` imports no journey, and `offers.ts` does not import `booking.ts`, so the imports have no cycles.
 
 ## Main flows
 
