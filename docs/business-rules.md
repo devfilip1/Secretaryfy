@@ -160,6 +160,7 @@ The reminder goes out only if the patient wrote in the last 24 h. Otherwise, and
 
 ### BR-REM-03 · The reminder passes the anti-ban gate
 It's an ordinary assistant message: all [anti-ban rules](#anti-ban-protection) apply. A patient who opted out never gets it (status `not_sent`); a temporary block (paused, limit) makes it wait and retry. It also waits while the patient has an unanswered message or a booking dialogue is open. If 2 h before the appointment it still hasn't gone out, it's marked `not_sent` with the last reason.
+A reminder is sent even if staff paused the assistant in that conversation; the protection rules still apply.
 - **Where:** `assistantBlockReason` in [gate.ts](../src/modules/antiban/gate.ts); [scheduler.ts](../src/modules/reminders/scheduler.ts)
 
 ### BR-SCH-18 · The team sets the length and cancels at any time
