@@ -118,5 +118,30 @@
     "opted_out": "O cliente pediu para não receber mensagens",
     "opted_in": "O cliente voltou a aceitar mensagens",
     "reactivated_by_operator": "Mensagens reativadas pelo operador"
+  },
+  "today": {
+    "label": "Agenda de hoje",
+    "greeting": {
+      "morning": "Bom dia, equipe da {{clinic}}",
+      "afternoon": "Boa tarde, equipe da {{clinic}}",
+      "evening": "Boa noite, equipe da {{clinic}}",
+      "morningPlain": "Bom dia, equipe",
+      "afternoonPlain": "Boa tarde, equipe",
+      "eveningPlain": "Boa noite, equipe"
+    },
+    "summary_one": "{{count}} consulta hoje.",
+    "summary_other": "{{count}} consultas hoje.",
+    "next": "Próxima às {{time}} com {{name}}.",
+    "noneLeft": "Não há mais consultas hoje.",
+    "none": "Nenhuma consulta hoje.",
+    "closed": "Hoje a clínica não atende.",
+    "now": "agora",
+    "noService": "sem serviço definido",
+    "pin": "{{time}} · {{name}} · {{service}} · {{status}}",
+    "status": {
+      "confirmed": "confirmada",
+      "waiting": "aguardando resposta",
+      "needsTeam": "precisa da equipe"
+    }
   }
 }

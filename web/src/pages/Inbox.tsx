@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { clearConversations, listConversations, type Conversation } from "../api";
 import { ConversationList } from "../components/ConversationList";
 import { ConversationView } from "../components/ConversationView";
+import { TodayStrip } from "../components/day-ruler/TodayStrip";
 import { useInboxEvents } from "../useEvents";
 
 const byRecent = (a: Conversation, b: Conversation) => b.lastMessageAt.localeCompare(a.lastMessageAt);
@@ -96,29 +97,34 @@ export function Inbox({ connected }: { connected: boolean }) {
   const selected = conversations.find((c) => c.id === selectedId) ?? null;
   // A conversa aberta já foi lida: o contador some na hora, sem esperar o servidor avisar (o aviso pode atrasar ou não chegar)
   const shown = conversations.map((c) => (c.id === selectedId && c.unreadCount > 0 ? { ...c, unreadCount: 0 } : c));
+  // Telefones com conversa que precisa da equipe: a régua do dia marca essas consultas em vermelho
+  const attentionPhones = useMemo(() => new Set(conversations.filter((c) => c.needsAttention).map((c) => c.phone)), [conversations]);
 
   return (
-    <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
-      <ConversationList
-        conversations={shown}
-        loaded={loaded}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onSearch={onSearch}
-        onClearAll={onClearAll}
-      />
-      {selectedId ? (
-        <ConversationView
-          key={selectedId}
-          conversationId={selectedId}
-          conversation={selected}
-          connected={connected}
-          onClose={() => setSelectedId(null)}
-          onDeleted={() => forgetConversation(selectedId)}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <TodayStrip attentionPhones={attentionPhones} />
+      <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
+        <ConversationList
+          conversations={shown}
+          loaded={loaded}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onSearch={onSearch}
+          onClearAll={onClearAll}
         />
-      ) : (
-        <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">{t("selectConversation")}</section>
-      )}
-    </main>
+        {selectedId ? (
+          <ConversationView
+            key={selectedId}
+            conversationId={selectedId}
+            conversation={selected}
+            connected={connected}
+            onClose={() => setSelectedId(null)}
+            onDeleted={() => forgetConversation(selectedId)}
+          />
+        ) : (
+          <section className="grid place-items-center bg-chat text-muted-foreground max-md:hidden">{t("selectConversation")}</section>
+        )}
+      </main>
+    </div>
   );
 }

@@ -118,5 +118,30 @@
     "opted_out": "The customer asked not to receive messages",
     "opted_in": "The customer accepts messages again",
     "reactivated_by_operator": "Messages reactivated by the operator"
+  },
+  "today": {
+    "label": "Today's schedule",
+    "greeting": {
+      "morning": "Good morning, {{clinic}} team",
+      "afternoon": "Good afternoon, {{clinic}} team",
+      "evening": "Good evening, {{clinic}} team",
+      "morningPlain": "Good morning, team",
+      "afternoonPlain": "Good afternoon, team",
+      "eveningPlain": "Good evening, team"
+    },
+    "summary_one": "{{count}} appointment today.",
+    "summary_other": "{{count}} appointments today.",
+    "next": "Next at {{time}} with {{name}}.",
+    "noneLeft": "No more appointments today.",
+    "none": "No appointments today.",
+    "closed": "The clinic does not attend today.",
+    "now": "now",
+    "noService": "no service set",
+    "pin": "{{time}} · {{name}} · {{service}} · {{status}}",
+    "status": {
+      "confirmed": "confirmed",
+      "waiting": "waiting for reply",
+      "needsTeam": "needs the team"
+    }
   }
 }

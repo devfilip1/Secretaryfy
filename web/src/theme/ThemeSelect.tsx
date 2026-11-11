@@ -7,7 +7,7 @@ import { applyTheme, readStoredTheme, THEME_CHOICES, writeStoredTheme, type Them
 
 const ICONS: Record<ThemeChoice, LucideIcon> = { system: Monitor, light: Sun, dark: Moon };
 
-/** Seletor do tema do painel: no cabeçalho e na tela de login, ao lado do idioma. */
+/** Seletor do tema, só na tela de login (no painel logado o tema fica no menu da conta). */
 export function ThemeSelect({ className }: { className?: string }) {
   const { t } = useTranslation();
   const [choice, setChoice] = useState<ThemeChoice>(() => readStoredTheme() ?? "system");
@@ -26,7 +26,6 @@ export function ThemeSelect({ className }: { className?: string }) {
       <SelectTrigger aria-label={t("theme.label")} className={cn("w-auto gap-1.5 px-2", className)}>
         <Icon aria-hidden />
         <SelectValue>
-          {/* Só o ícone, até a barra lateral da etapa 2 tirar o seletor do cabeçalho apertado */}
           <span className="hidden 2xl:inline">{t(`theme.${choice}`)}</span>
         </SelectValue>
       </SelectTrigger>

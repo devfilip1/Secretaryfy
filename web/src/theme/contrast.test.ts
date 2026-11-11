@@ -17,6 +17,9 @@ const PAIRS: readonly [text: string, background: string][] = [
   ["bad", "alert-bg"],
   ["ok", "surface"],
   ["warn", "bg"],
+  ["warn", "warn-bg"],
+  ["ok", "ok-bg"],
+  ["info", "info-bg"],
 ];
 
 const CSS = readFileSync(fileURLToPath(new URL("../tailwind.css", import.meta.url)), "utf8");
