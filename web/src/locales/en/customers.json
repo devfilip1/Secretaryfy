@@ -1,0 +1,53 @@
+{
+  "loading": "Loading…",
+  "title": "Customers",
+  "count_one": "{{count}} customer · added when they confirm a booking",
+  "count_other": "{{count}} customers · added when they confirm a booking",
+  "searchPlaceholder": "Search by name or phone",
+  "searchLabel": "Search customers",
+  "empty": "No customers yet. Anyone who confirms a booking shows up here.",
+  "noResults": "No customers found for “{{query}}”.",
+  "nextAppointment": "Next: {{when}}",
+  "noUpcoming": "No upcoming appointment",
+  "appointmentAt": "{{day}} at {{time}}",
+  "appointmentWithService": "{{when}} · {{service}}",
+  "fields": {
+    "id": "ID",
+    "name": "Name",
+    "phone": "Phone",
+    "created": "Created",
+    "updated": "Updated"
+  },
+  "notesTitle": "Notes",
+  "ariaNotes": "Notes",
+  "ariaName": "Customer name",
+  "notesPlaceholder": "Only the clinic sees these. E.g. allergic to latex, prefers mornings.",
+  "appointmentsTitle": "Appointments",
+  "noAppointments": "No appointments linked to this record.",
+  "cancelled": "cancelled",
+  "noConversation": "No WhatsApp conversation with this customer",
+  "confirmDelete": "Delete the record for {{name}} ({{phone}})?\n\nAppointments already booked stay on Google Calendar. If the customer books again, they are added back.",
+  "saved": {
+    "name": "Name saved.",
+    "nameCalendarWarning": "Name saved, but the calendar event title could not be updated.",
+    "notes": "Notes saved."
+  },
+  "actions": {
+    "edit": "Edit",
+    "save": "Save",
+    "saveNotes": "Save notes",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete record",
+    "deleting": "Deleting…",
+    "viewConversation": "View conversation"
+  },
+  "errors": {
+    "load": "Could not load the customers.",
+    "delete": "Could not delete the record for {{name}}. Please try again.",
+    "saveName": "Could not save the name. Please try again.",
+    "saveNotes": "Could not save the notes. Please try again.",
+    "notFound": "This customer no longer exists. Reload the page.",
+    "invalidBody": "Some of the data is not valid. Check it and try again."
+  }
+}

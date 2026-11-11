@@ -1,0 +1,108 @@
+{
+  "title": "Agendamentos",
+  "subtitle": "Marcados pelo assistente ou aqui, para os próximos 7 dias.",
+  "loading": "Carregando…",
+  "new": "Novo agendamento",
+  "empty": "Nenhum agendamento nos próximos 7 dias.",
+  "cancel": "Cancelar",
+  "close": "Fechar",
+  "book": "Agendar",
+  "groups": {
+    "today": "Hoje",
+    "tomorrow": "Amanhã",
+    "week": "Próximos 7 dias"
+  },
+  "range": "{{start}} – {{end}}",
+  "minutes": "{{minutes}} min",
+  "serviceLine": "{{service}} · {{phone}}",
+  "serviceLineHere": "{{service}} · {{phone}} · marcado aqui",
+  "openConversation": "Abrir conversa",
+  "confirm": {
+    "button": "Confirmar",
+    "busy": "Confirmando…",
+    "hint": "Marcar como confirmado (por exemplo, depois de ligar para o cliente)"
+  },
+  "reminder": {
+    "confirmedByYou": "Confirmado por você",
+    "confirmed": "Confirmado",
+    "scheduled": "Lembrete agendado",
+    "scheduledHint": "O lembrete pelo WhatsApp sai a partir de 24 h antes.",
+    "remindManually": "Lembrar manualmente",
+    "remindManuallyHint": "{{reason}}. O assistente não pode mandar a primeira mensagem para este cliente.",
+    "waiting": "Lembrete aguardando",
+    "sent": "Lembrete enviado",
+    "sentHint": "Aguardando o cliente responder SIM.",
+    "notSent": "Lembrete não enviado"
+  },
+  "notice": {
+    "booked": "Agendamos {{name}} para {{day}} às {{time}}.",
+    "cancelled": "Cancelamos o agendamento de {{name}}, {{day}} às {{time}}."
+  },
+  "errors": {
+    "generic": "Algo deu errado. Tente de novo.",
+    "load": "Não foi possível carregar os agendamentos.",
+    "confirm": "Não foi possível confirmar o agendamento de {{name}}. Tente de novo.",
+    "notBooked": "Este agendamento não está mais marcado.",
+    "cancel": "Não foi possível cancelar o agendamento. Tente de novo.",
+    "calendar": "Não foi possível acessar o Google Agenda. Tente de novo.",
+    "calendar_disconnected": "A agenda está desconectada. Reconecte-a na aba Agenda.",
+    "services": "Não foi possível carregar os serviços. Feche o formulário e tente de novo.",
+    "invalid_phone": "Informe um telefone com DDD.",
+    "slot_taken": "Esse horário acabou de ser ocupado. Escolha outro.",
+    "invalid_body": "Confira os campos e tente de novo."
+  },
+  "cancelDialog": {
+    "title": "Cancelar este agendamento?",
+    "who": "{{name}}, {{service}}",
+    "when": "{{day}} às {{time}}",
+    "description": "{{who}}, {{when}}. O evento é removido da agenda. Nenhuma mensagem é enviada ao cliente.",
+    "keep": "Manter",
+    "confirm": "Cancelar agendamento",
+    "busy": "Cancelando…"
+  },
+  "form": {
+    "title": "Novo agendamento",
+    "phone": "Telefone",
+    "name": "Nome",
+    "service": "Serviço",
+    "loadingServices": "Carregando serviços…",
+    "existing": "Este cliente já tem um agendamento em {{day}} às {{time}}. Só é permitido um agendamento futuro por número.",
+    "day": "Dia",
+    "loadingDays": "Carregando dias disponíveis…",
+    "noDays": "Nenhum dia disponível dentro do período para agendar.",
+    "otherDate": "Outra data",
+    "pickDate": "Escolha uma data",
+    "time": "Horário",
+    "loadingTimes": "Carregando horários…",
+    "noTimes": "Não há mais horários livres neste dia.",
+    "hideOther": "Ocultar outros horários de início",
+    "otherStarts": "Outros horários de início",
+    "duration": "Duração",
+    "durationLabel": "Duração",
+    "durationPlaceholder": "ex.: 2h ou 1h30",
+    "summaryFull": "{{start}} até {{end}} ({{duration}}). Livre até {{freeUntil}} (até {{max}}).",
+    "summaryFree": "Livre até {{freeUntil}} (até {{max}}).",
+    "noMessage": "Nenhuma mensagem é enviada ao cliente.",
+    "booking": "Agendando…",
+    "disconnected": "O Google Agenda não está conectado. <link>Conecte-o na aba Agenda</link> para agendar consultas."
+  },
+  "dayPart": {
+    "morning": "Manhã",
+    "afternoon": "Tarde",
+    "evening": "Noite"
+  },
+  "duration": {
+    "error": {
+      "format": "Informe a duração, como 45, 2h ou 1h30.",
+      "min": "O mínimo é 5 minutos.",
+      "step": "Use um múltiplo de 5 minutos.",
+      "max": "O maior tempo livre a partir deste horário é {{max}}."
+    }
+  },
+  "calendar": {
+    "freeTimes": "Horários livres",
+    "fullyBooked": "Lotado",
+    "ariaFree": "{{date}}, horários livres",
+    "ariaFull": "{{date}}, lotado"
+  }
+}

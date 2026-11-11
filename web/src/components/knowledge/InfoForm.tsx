@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslation } from "react-i18next";
 import { FormProvider, useForm } from "react-hook-form";
 import type { InfoRow } from "../../api";
 import { infoDefaults, infoFormSchema, toInfoInput, type InfoFormValues } from "./form-values";
@@ -7,6 +8,7 @@ import { FieldGroup } from "@/components/ui/field";
 
 /** Formulário de uma seção de texto livre: título e as linhas como estão na brochura. */
 export function InfoForm({ section, formId, onSubmit }: SectionFormProps<InfoRow>) {
+  const { t } = useTranslation("knowledge");
   const form = useForm<InfoFormValues>({
     resolver: zodResolver(infoFormSchema),
     defaultValues: infoDefaults(section),
@@ -16,15 +18,15 @@ export function InfoForm({ section, formId, onSubmit }: SectionFormProps<InfoRow
     <FormProvider {...form}>
       <form id={formId} onSubmit={form.handleSubmit((values) => onSubmit(toInfoInput(values)))}>
         <FieldGroup className="gap-10">
-          <FormSection title="Basics">
-            <TextField name="title" label="Title" description="The subject of the lines, for example: Endereço" />
+          <FormSection title={t("section.basics")}>
+            <TextField name="title" label={t("infoForm.title.label")} description={t("infoForm.title.description")} />
           </FormSection>
-          <FormSection title="Content">
+          <FormSection title={t("section.content")}>
             <TextField
               name="lines"
-              label="Text"
+              label={t("infoForm.lines.label")}
               multiline
-              description="One line per row, written as patients should read it. Press Enter for a new line."
+              description={t("infoForm.lines.description")}
             />
           </FormSection>
         </FieldGroup>

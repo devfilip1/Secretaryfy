@@ -1,0 +1,11 @@
+{
+  "subtitle": "Painel do WhatsApp",
+  "password": "Senha do operador",
+  "signIn": "Entrar",
+  "signingIn": "Entrando…",
+  "errors": {
+    "tooManyAttempts": "Muitas tentativas. Tente de novo em {{minutes}} min.",
+    "wrongPassword": "Senha incorreta.",
+    "unreachable": "Não foi possível entrar. Verifique se o servidor está em execução."
+  }
+}

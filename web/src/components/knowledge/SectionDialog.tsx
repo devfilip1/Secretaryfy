@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   createSection,
   updateSection,
@@ -10,10 +11,10 @@ import {
   type TreatmentRow,
 } from "../../api";
 import { knowledgeKeys } from "../../queries";
-import { reasonLines } from "./server-reason";
+import { reasonLines, reasonTextOf } from "./server-reason";
 import { ClinicForm } from "./ClinicForm";
 import { InfoForm } from "./InfoForm";
-import { KIND_NOUN } from "./kinds";
+import { KIND_ADD_KEY, KIND_DESCRIBE_KEY, KIND_EDIT_KEY } from "./kinds";
 import { TreatmentForm } from "./TreatmentForm";
 import { Notice } from "../Notice";
 import { Title } from "../Title";
@@ -47,12 +48,6 @@ export function targetFor(section: KnowledgeRow): SectionTarget {
 
 const FORM_ID = "section-form";
 
-const DESCRIPTION = {
-  treatment: "A treatment has a name, facts such as price and duration, and the result patients can expect.",
-  info: "Free lines such as address, hours or contact.",
-  clinic: "The address, phone and email the assistant gives. The opening hours come from the Calendar page.",
-} as const;
-
 /** Diálogo de criar ou editar uma seção; `target` null deixa o diálogo fechado. */
 export function SectionDialog({
   target,
@@ -65,6 +60,7 @@ export function SectionDialog({
   hours: string[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation("knowledge");
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: (request: { target: SectionTarget; input: SectionInput }) =>
@@ -94,15 +90,15 @@ export function SectionDialog({
           <>
             <DialogHeader>
               <DialogTitle asChild>
-                <Title level={3}>{`${target.section ? "Edit" : "Add"} ${KIND_NOUN[target.kind]}`}</Title>
+                <Title level={3}>{t(target.section ? KIND_EDIT_KEY[target.kind] : KIND_ADD_KEY[target.kind])}</Title>
               </DialogTitle>
-              <DialogDescription>{DESCRIPTION[target.kind]}</DialogDescription>
+              <DialogDescription>{t(KIND_DESCRIBE_KEY[target.kind])}</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <SectionForm target={target} labels={labels} hours={hours} onSubmit={(input) => save.mutate({ target, input })} />
               {save.isError && (
                 <Notice role="alert" className="mt-4">
-                  {reasonLines(save.error, "Could not save the section. Please try again.").map((line) => (
+                  {reasonLines(save.error, t("dialog.saveError"), reasonTextOf(t)).map((line) => (
                     <p key={line}>{line}</p>
                   ))}
                 </Notice>
@@ -110,10 +106,10 @@ export function SectionDialog({
             </DialogBody>
             <DialogFooter>
               <Button variant="secondary" onClick={handleClose}>
-                Cancel
+                {t("dialog.cancel")}
               </Button>
               <Button type="submit" form={FORM_ID} disabled={save.isPending}>
-                {save.isPending ? "Saving…" : "Save"}
+                {save.isPending ? t("dialog.saving") : t("dialog.save")}
               </Button>
             </DialogFooter>
           </>

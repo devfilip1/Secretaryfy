@@ -1,7 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import { Check, Clock, Info, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Message } from "../api";
-import { blockReasonText, failedSendText, formatDateTime, formatTime, mediaLabel, originLabel } from "../format";
+import { useBlockReasonText } from "../i18n/blockReason";
+import { useFormats } from "../i18n/formats";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Muted } from "./Muted";
@@ -23,7 +25,10 @@ const BUBBLE_BG: Record<Message["origin"], string> = {
 };
 
 export function MessageBubble({ message, onRetry }: { message: Message; onRetry?: (m: Message) => void }) {
-  const label = mediaLabel(message.type);
+  const { t } = useTranslation("inbox");
+  const { formatDateTime, formatTime } = useFormats();
+  const blockReasonText = useBlockReasonText();
+  const label = message.type === "text" ? null : t(`media.${message.type}`);
   const mine = message.origin !== "customer";
 
   // Registro do Secretaryfy (ex.: agendamento feito pelo assistente): linha centralizada, sem balão
@@ -55,7 +60,7 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
           blocked && "opacity-75 outline-1 outline-dashed outline-muted-foreground",
         )}
       >
-        <Muted className="text-xs font-bold">{originLabel(message.origin)}</Muted>
+        <Muted className="text-xs font-bold">{t(`origin.${message.origin}`)}</Muted>
         {label && <span className="italic">{label}</span>}
         {message.text && <p className="whitespace-pre-wrap wrap-anywhere">{message.text}</p>}
         <span className="self-end text-xs text-muted-foreground" title={formatDateTime(message.sentAt)}>
@@ -68,15 +73,15 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
         </span>
         {failed && (
           <span className="flex flex-wrap gap-2 text-xs text-destructive" title={message.error ?? undefined}>
-            {failedSendText}
+            {t("failedSend")}
             {message.origin === "operator" && onRetry && (
               <Button variant="link" className="text-xs" onClick={() => onRetry(message)}>
-                Try again
+                {t("message.tryAgain")}
               </Button>
             )}
           </span>
         )}
-        {blocked && <Muted className="text-xs">Not sent by protection: {blockReasonText(message.error)}</Muted>}
+        {blocked && <Muted className="text-xs">{t("message.notSentByProtection", { reason: blockReasonText(message.error) })}</Muted>}
       </div>
     </div>
   );

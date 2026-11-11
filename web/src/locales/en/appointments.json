@@ -1,0 +1,108 @@
+{
+  "title": "Appointments",
+  "subtitle": "Booked by the assistant or here, for the next 7 days.",
+  "loading": "Loading…",
+  "new": "New appointment",
+  "empty": "No appointments in the next 7 days.",
+  "cancel": "Cancel",
+  "close": "Close",
+  "book": "Book",
+  "groups": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "week": "Next 7 days"
+  },
+  "range": "{{start}} – {{end}}",
+  "minutes": "{{minutes}} min",
+  "serviceLine": "{{service}} · {{phone}}",
+  "serviceLineHere": "{{service}} · {{phone}} · booked here",
+  "openConversation": "Open conversation",
+  "confirm": {
+    "button": "Confirm",
+    "busy": "Confirming…",
+    "hint": "Mark as confirmed (for example, after calling the customer)"
+  },
+  "reminder": {
+    "confirmedByYou": "Confirmed by you",
+    "confirmed": "Confirmed",
+    "scheduled": "Reminder scheduled",
+    "scheduledHint": "The WhatsApp reminder goes out from 24 h before.",
+    "remindManually": "Remind manually",
+    "remindManuallyHint": "{{reason}}. The assistant can't message this customer first.",
+    "waiting": "Reminder waiting",
+    "sent": "Reminder sent",
+    "sentHint": "Waiting for the customer to reply YES.",
+    "notSent": "Reminder not sent"
+  },
+  "notice": {
+    "booked": "Booked {{name}} for {{day}} at {{time}}.",
+    "cancelled": "Cancelled the appointment of {{name}}, {{day}} at {{time}}."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "load": "Could not load the appointments.",
+    "confirm": "Could not confirm {{name}}'s appointment. Please try again.",
+    "notBooked": "This appointment is no longer booked.",
+    "cancel": "Could not cancel the appointment. Please try again.",
+    "calendar": "Could not reach Google Calendar. Please try again.",
+    "calendar_disconnected": "The calendar is disconnected. Reconnect it in the Calendar tab.",
+    "services": "Could not load the services. Close the form and try again.",
+    "invalid_phone": "Enter a phone number with area code.",
+    "slot_taken": "That time was just taken. Pick another one.",
+    "invalid_body": "Check the fields and try again."
+  },
+  "cancelDialog": {
+    "title": "Cancel this appointment?",
+    "who": "{{name}}, {{service}}",
+    "when": "{{day}} at {{time}}",
+    "description": "{{who}}, {{when}}. The event is removed from the calendar. No message is sent to the customer.",
+    "keep": "Keep it",
+    "confirm": "Cancel appointment",
+    "busy": "Cancelling…"
+  },
+  "form": {
+    "title": "New appointment",
+    "phone": "Phone",
+    "name": "Name",
+    "service": "Service",
+    "loadingServices": "Loading services…",
+    "existing": "This customer already has an appointment on {{day}} at {{time}}. Only one future appointment per number.",
+    "day": "Day",
+    "loadingDays": "Loading available days…",
+    "noDays": "No available days within the booking window.",
+    "otherDate": "Other date",
+    "pickDate": "Pick a date",
+    "time": "Time",
+    "loadingTimes": "Loading times…",
+    "noTimes": "No free times on this day anymore.",
+    "hideOther": "Hide other start times",
+    "otherStarts": "Other start times",
+    "duration": "Duration",
+    "durationLabel": "Duration",
+    "durationPlaceholder": "e.g. 2h or 1h30",
+    "summaryFull": "{{start}} to {{end}} ({{duration}}). Free until {{freeUntil}} (up to {{max}}).",
+    "summaryFree": "Free until {{freeUntil}} (up to {{max}}).",
+    "noMessage": "No message is sent to the customer.",
+    "booking": "Booking…",
+    "disconnected": "Google Calendar is not connected. <link>Connect it in Calendar</link> to book appointments."
+  },
+  "dayPart": {
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening"
+  },
+  "duration": {
+    "error": {
+      "format": "Enter the duration, like 45, 2h or 1h30.",
+      "min": "The minimum is 5 minutes.",
+      "step": "Use a multiple of 5 minutes.",
+      "max": "The longest free time from this start is {{max}}."
+    }
+  },
+  "calendar": {
+    "freeTimes": "Free times",
+    "fullyBooked": "Fully booked",
+    "ariaFree": "{{date}}, free times",
+    "ariaFull": "{{date}}, fully booked"
+  }
+}

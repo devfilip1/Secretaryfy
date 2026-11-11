@@ -1,0 +1,54 @@
+{
+  "loading": "Loading…",
+  "title": "Google Calendar",
+  "connectIntro": "Connect the clinic calendar so the assistant can check free times and book appointments over WhatsApp.",
+  "connect": "Connect Google Calendar",
+  "reconnect": "Reconnect",
+  "reauthNotice": "Google denied access to the calendar. Reconnect so the assistant can book again.",
+  "account": "Account:",
+  "timeZone": "Time zone:",
+  "timeZoneWarning": "The calendar is set to {{timeZone}}: times offered to customers will be calculated in that zone. Change the time zone in the Google Calendar settings and reload this page.",
+  "calendarLabel": "Calendar used for bookings",
+  "calendarPrimary": "{{name}} (primary)",
+  "disconnect": "Disconnect",
+  "disconnectConfirm": "Disconnect the calendar? The assistant stops offering and booking times until you connect again.",
+  "notices": {
+    "connected": "Calendar connected.",
+    "denied": "Authorization was cancelled on the Google screen. Nothing changed.",
+    "error": "Could not connect the calendar. Please try again.",
+    "missing_scope": "Calendar access was not authorized. Connect again and keep all permissions checked."
+  },
+  "errors": {
+    "load": "Could not load the calendar.",
+    "connect": "Could not start the connection with Google.",
+    "googleNotConfigured": "Google credentials are not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env with the ones from Google Cloud Console and restart the server.",
+    "disconnect": "Could not disconnect. Please try again.",
+    "changeCalendar": "Could not change the calendar."
+  },
+  "days": {
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "sunday": "Sunday"
+  },
+  "rules": {
+    "title": "Business hours",
+    "intro": "The assistant only offers times within these rules that are free on the calendar.",
+    "closed": "Closed",
+    "to": "to",
+    "startOf": "{{day}}: start",
+    "endOf": "{{day}}: end",
+    "slotMinutes": "Default appointment length (min)",
+    "gridMinutes": "Time grid (min)",
+    "minNoticeHours": "Minimum notice to book (h)",
+    "maxDaysAhead": "Book up to how many days ahead",
+    "cancelNoticeHours": "Cancel or reschedule up to (h before)",
+    "save": "Save rules",
+    "saving": "Saving…",
+    "saved": "Rules saved.",
+    "checkFields": "Check the highlighted fields."
+  }
+}

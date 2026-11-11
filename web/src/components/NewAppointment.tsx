@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ComponentProps, type FormEvent } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { ApiError, bookingDays, bookingSlots, bookingStarts, createAppointment, listServices, lookupPhone, type Appointment, type BookingStart } from "../api";
 import { useInboxEvents } from "../useEvents";
 import { CalendarIcon } from "lucide-react";
@@ -9,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { clinicFormats } from "../format";
+import { useFormats } from "../i18n/formats";
 import { toDate, toYmd } from "./date-string";
-import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration } from "./duration";
-import { durationPresets, groupByDayPart } from "./time-groups";
+import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration, type DurationError } from "./duration";
+import { durationPresets, groupByDayPart, type DayPart } from "./time-groups";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
@@ -25,6 +26,7 @@ function Choice({ selected, ...props }: ComponentProps<typeof Button> & { select
 
 /** Marcação pelo painel para quem ligou (specs/006 US3): só horários livres, calculados como o assistente calcula. */
 export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointment) => void; onCancel: () => void }) {
+  const { t } = useTranslation("appointments");
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [services, setServices] = useState<{ name: string; label: string }[] | null>(null);
@@ -44,7 +46,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   // Todos os inícios livres do dia, com o tempo livre de cada um
   const [starts, setStarts] = useState<BookingStart[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
-  // Texto do campo "Duration (minutes)"; começa em branco e é preenchido quando um horário é escolhido
+  // Texto do campo de duração; começa em branco e é preenchido quando um horário é escolhido
   const [duration, setDuration] = useState("");
   // Os inícios de 15 em 15 minutos ficam recolhidos; os horários sugeridos já cobrem o comum
   const [showAll, setShowAll] = useState(false);
@@ -55,7 +57,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const [busy, setBusy] = useState(false);
   const [slotsReload, setSlotsReload] = useState(0);
 
-  const formats = useMemo(() => clinicFormats(timeZone), [timeZone]);
+  const formats = useFormats(timeZone);
   // Dias vêm como YYYY-MM-DD no fuso da clínica: o meio-dia UTC cai no mesmo dia em qualquer fuso do Brasil
   const dayLabel = (d: string) => formats.day.format(new Date(`${d}T12:00:00Z`));
   // Dias do calendário com pontinho: verde se há horário livre, vermelho se está lotado; fechado não tem pontinho
@@ -66,10 +68,15 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       full: entries.filter(([, s]) => s === "full").map(([d]) => toDate(d)),
     };
   }, [status]);
+  const partLabel: Record<DayPart, string> = {
+    Morning: t("dayPart.morning"),
+    Afternoon: t("dayPart.afternoon"),
+    Evening: t("dayPart.evening"),
+  };
 
   function calendarError(err: unknown) {
     if (err instanceof ApiError && err.error === "calendar_disconnected") setDisconnected(true);
-    else setError("Could not reach Google Calendar. Please try again.");
+    else setError(t("errors.calendar"));
   }
 
   // Serviços e dias são recarregados também ao reconectar: se o formulário abriu sem conexão, não pode ficar sem dados
@@ -80,7 +87,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
         // Mantém o serviço já escolhido se ele ainda existir; senão começa pelo primeiro
         setService((current) => (r.services.some((s) => s.name === current) ? current : (r.services[0]?.name ?? "")));
       })
-      .catch(() => setError("Could not load the services. Close the form and try again."));
+      .catch(() => setError(t("errors.services")));
   }
 
   useEffect(() => {
@@ -148,6 +155,20 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   const durationError = start ? validateDuration(duration, maxMinutes) : null;
   const parsed = parseDuration(duration);
 
+  /** Texto do erro da duração, no idioma atual do painel. */
+  function durationErrorText(e: DurationError): string {
+    switch (e.code) {
+      case "format":
+        return t("duration.error.format");
+      case "min":
+        return t("duration.error.min");
+      case "step":
+        return t("duration.error.step");
+      case "max":
+        return t("duration.error.max", { max: formatMinutes(e.max ?? 0) });
+    }
+  }
+
   // Escolher um horário (chip ou lista) põe a duração padrão dele
   function pickStart(next: string) {
     const found = starts?.find((s) => s.start === next);
@@ -165,7 +186,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       if (found.name && !name.trim()) setName(found.name);
       setExisting(found.futureAppointment);
     } catch (err) {
-      if (err instanceof ApiError && err.error === "invalid_phone") setPhoneError("Enter a phone number with area code.");
+      if (err instanceof ApiError && err.error === "invalid_phone") setPhoneError(t("errors.invalid_phone"));
     }
   }
 
@@ -179,7 +200,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       onBooked(appointment);
     } catch (err) {
       if (err instanceof ApiError && err.error === "slot_taken") {
-        setError("That time was just taken. Pick another one.");
+        setError(t("errors.slot_taken"));
         setStart(null);
         setSlots(err.body.slots as string[]);
         // Recarrega também a lista completa: o horário ocupado e o tempo livre dos outros mudaram
@@ -187,8 +208,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       } else if (err instanceof ApiError && err.error === "already_booked") {
         setExisting(err.body.appointment as Appointment);
       } else if (err instanceof ApiError && err.error === "invalid_body") {
-        const issues = err.body.issues as { path: string; message: string }[];
-        setError(issues.map((i) => i.message).join(" · "));
+        setError(t("errors.invalid_body"));
       } else {
         calendarError(err);
       }
@@ -200,9 +220,9 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   if (disconnected) {
     return (
       <Notice layout="box" tone="plain">
-        Google Calendar is not connected. <a href="#/calendar">Connect it in Calendar</a> to book appointments.
+        <Trans i18nKey="form.disconnected" ns="appointments" components={{ link: <a href="#/calendar" /> }} />
         <Button variant="link" onClick={onCancel}>
-          Close
+          {t("close")}
         </Button>
       </Notice>
     );
@@ -212,10 +232,10 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <Title level={3}>New appointment</Title>
+      <Title level={3}>{t("form.title")}</Title>
       <div className="grid gap-3 md:grid-cols-2">
         <Field>
-          Phone
+          {t("form.phone")}
           <Input
             type="tel"
             inputMode="tel"
@@ -228,14 +248,14 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
           {phoneError && <Muted tone="destructive">{phoneError}</Muted>}
         </Field>
         <Field>
-          Name
+          {t("form.name")}
           <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field>
-          Service
+          {t("form.service")}
           <Select value={service} onValueChange={setService}>
             <SelectTrigger>
-              <SelectValue placeholder={services === null ? "Loading services…" : undefined} />
+              <SelectValue placeholder={services === null ? t("form.loadingServices") : undefined} />
             </SelectTrigger>
             <SelectContent>
               {services?.map((s) => (
@@ -250,17 +270,19 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
       {existing && (
         <Notice layout="box" tone="destructive">
-          This customer already has an appointment on {formats.day.format(new Date(existing.startsAt))} at{" "}
-          {formats.time.format(new Date(existing.startsAt))}. Only one future appointment per number.
+          {t("form.existing", {
+            day: formats.day.format(new Date(existing.startsAt)),
+            time: formats.time.format(new Date(existing.startsAt)),
+          })}
         </Notice>
       )}
 
       <FieldSet>
-        <FieldLegend variant="label">Day</FieldLegend>
+        <FieldLegend variant="label">{t("form.day")}</FieldLegend>
         {days === null ? (
-          <Muted>Loading available days…</Muted>
+          <Muted>{t("form.loadingDays")}</Muted>
         ) : days.length === 0 ? (
-          <Muted>No available days within the booking window.</Muted>
+          <Muted>{t("form.noDays")}</Muted>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {days.map((d) => (
@@ -273,12 +295,12 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
         {range && (
           // Outra data (até um ano à frente): o mesmo `day` dos chips, então o chip e o calendário mostram sempre o mesmo dia
           <div className="grid gap-1">
-            <Label htmlFor={otherDateId}>Other date</Label>
+            <Label htmlFor={otherDateId}>{t("form.otherDate")}</Label>
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
               <PopoverTrigger asChild>
                 <Button id={otherDateId} variant="outline" className="w-full justify-start font-normal sm:w-auto">
                   <CalendarIcon />
-                  {day ? dayLabel(day) : "Pick a date"}
+                  {day ? dayLabel(day) : t("form.pickDate")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -299,11 +321,11 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
                 <div className="flex flex-wrap gap-x-4 gap-y-1 border-t px-3 py-2">
                   <Muted className="flex items-center gap-1.5">
                     <span aria-hidden="true" className="size-1.5 rounded-full bg-ok" />
-                    Free times
+                    {t("calendar.freeTimes")}
                   </Muted>
                   <Muted className="flex items-center gap-1.5">
                     <span aria-hidden="true" className="size-1.5 rounded-full bg-destructive" />
-                    Fully booked
+                    {t("calendar.fullyBooked")}
                   </Muted>
                 </div>
               </PopoverContent>
@@ -314,11 +336,11 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
       {day && (
         <FieldSet>
-          <FieldLegend variant="label">Time</FieldLegend>
+          <FieldLegend variant="label">{t("form.time")}</FieldLegend>
           {slots === null || starts === null ? (
-            <Muted>Loading times…</Muted>
+            <Muted>{t("form.loadingTimes")}</Muted>
           ) : slots.length === 0 && starts.length === 0 ? (
-            <Muted>No free times on this day anymore.</Muted>
+            <Muted>{t("form.noTimes")}</Muted>
           ) : (
             <>
               {slots.length > 0 && (
@@ -338,13 +360,13 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
                     aria-expanded={showAll}
                     onClick={() => setShowAll((v) => !v)}
                   >
-                    {showAll ? "Hide other start times" : "Other start times"}
+                    {showAll ? t("form.hideOther") : t("form.otherStarts")}
                   </button>
                   {showAll && (
                     <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
                       {groupByDayPart(starts, (s) => s.start, timeZone).map(({ part, items }) => (
                         <div key={part} className="flex flex-col gap-1.5">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{part}</span>
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{partLabel[part]}</span>
                           <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                             {items.map((s) => (
                               <Choice key={s.start} selected={s.start === start} onClick={() => pickStart(s.start)}>
@@ -365,7 +387,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
       {start && (
         <FieldSet>
-          <FieldLegend variant="label">Duration</FieldLegend>
+          <FieldLegend variant="label">{t("form.duration")}</FieldLegend>
           <div className="flex flex-wrap items-center gap-1.5">
             {durationPresets(maxMinutes).map((m) => (
               <Choice key={m} selected={parsed === m} onClick={() => setDuration(formatMinutes(m))}>
@@ -374,8 +396,8 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
             ))}
             <Input
               className="w-32"
-              aria-label="Duration"
-              placeholder="e.g. 2h or 1h30"
+              aria-label={t("form.durationLabel")}
+              placeholder={t("form.durationPlaceholder")}
               inputMode="text"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
@@ -384,23 +406,31 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
           </div>
           <Muted>
             {durationError || parsed === null
-              ? null
-              : `${formats.time.format(new Date(start))} to ${formats.time.format(new Date(Date.parse(start) + parsed * 60_000))} (${formatMinutes(parsed)}). `}
-            {`Free until ${formats.time.format(new Date(endOfRoom(start, maxMinutes)))} (up to ${formatMinutes(maxMinutes)}).`}
+              ? t("form.summaryFree", {
+                  freeUntil: formats.time.format(new Date(endOfRoom(start, maxMinutes))),
+                  max: formatMinutes(maxMinutes),
+                })
+              : t("form.summaryFull", {
+                  start: formats.time.format(new Date(start)),
+                  end: formats.time.format(new Date(Date.parse(start) + parsed * 60_000)),
+                  duration: formatMinutes(parsed),
+                  freeUntil: formats.time.format(new Date(endOfRoom(start, maxMinutes))),
+                  max: formatMinutes(maxMinutes),
+                })}
           </Muted>
-          {durationError && <Muted tone="destructive">{durationError}</Muted>}
+          {durationError && <Muted tone="destructive">{durationErrorText(durationError)}</Muted>}
         </FieldSet>
       )}
 
       {error && <Notice role="alert">{error}</Notice>}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Muted className="mr-auto">No message is sent to the customer.</Muted>
+        <Muted className="mr-auto">{t("form.noMessage")}</Muted>
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Cancel
+          {t("cancel")}
         </Button>
         <Button type="submit" disabled={!canBook}>
-          {busy ? "Booking…" : "Book"}
+          {busy ? t("form.booking") : t("book")}
         </Button>
       </div>
     </form>

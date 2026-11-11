@@ -58,21 +58,25 @@ export interface InfoFormValues {
   lines: string;
 }
 
+/** Códigos das mensagens de validação: a tela troca cada um pelo texto do idioma (validation.*). */
+export const REQUIRED = "required";
+export const FILL_DURATION_OR_PRICE = "fillDurationOrPrice";
+
 type FormIssue = { path: (string | number)[]; message: string };
 
-const requiredText = z.string().trim().min(1, "Required");
+const requiredText = z.string().trim().min(1, REQUIRED);
 const blockSchema = z.object({ label: z.string(), value: z.string() });
 const factSchema = blockSchema.extend({ assessment: z.boolean() });
 
 /** Um campo com valor; o rótulo sozinho não conta como preenchido. */
 const hasValue = (block: LabelledFormValue) => block.value.trim() !== "";
 
-/** Erros do schema do servidor viram erros do campo; "too_small" (vazio) vira "Required". */
+/** Erros do schema do servidor viram erros do campo; "too_small" (vazio) vira REQUIRED. */
 function reportServerIssues(error: z.ZodError, ctx: z.RefinementCtx) {
   for (const issue of error.issues) {
     ctx.addIssue({
       code: "custom",
-      message: issue.code === "too_small" ? "Required" : issue.message,
+      message: issue.code === "too_small" ? REQUIRED : issue.message,
       path: issue.path.map(String),
     });
   }
@@ -84,14 +88,14 @@ function reportServerIssues(error: z.ZodError, ctx: z.RefinementCtx) {
  */
 export function factIssues(values: TreatmentFormValues): FormIssue[] {
   const anyValue = [values.duration, values.price, ...values.extras].some(hasValue);
-  if (!anyValue) return [{ path: ["duration", "value"], message: "Fill in Duration or Price" }];
+  if (!anyValue) return [{ path: ["duration", "value"], message: FILL_DURATION_OR_PRICE }];
 
   const issues: FormIssue[] = [];
   for (const name of ["duration", "price"] as const) {
-    if (hasValue(values[name]) && values[name].label.trim() === "") issues.push({ path: [name, "label"], message: "Required" });
+    if (hasValue(values[name]) && values[name].label.trim() === "") issues.push({ path: [name, "label"], message: REQUIRED });
   }
   values.extras.forEach((fact, index) => {
-    if (hasValue(fact) && fact.label.trim() === "") issues.push({ path: ["extras", index, "label"], message: "Required" });
+    if (hasValue(fact) && fact.label.trim() === "") issues.push({ path: ["extras", index, "label"], message: REQUIRED });
   });
   return issues;
 }

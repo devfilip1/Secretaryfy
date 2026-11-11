@@ -1,0 +1,27 @@
+{
+  "loading": "Loading…",
+  "confirmDisconnect": "Disconnect this number from Secretaryfy? The assistant stops replying until you connect again.",
+  "tryAgain": "Try again",
+  "connect": {
+    "title": "Connect WhatsApp",
+    "step1": "Open WhatsApp on your phone.",
+    "step2": "Tap <strong>Linked devices</strong>, then <strong>Link a device</strong>.",
+    "step3": "Point the camera at the code below.",
+    "qrAlt": "QR code to connect WhatsApp",
+    "generate": "Generate a new QR code",
+    "generating": "Generating QR code…",
+    "refreshNote": "The code refreshes automatically."
+  },
+  "connected": {
+    "title": "WhatsApp connected",
+    "unknownNumber": "Connected number",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting…"
+  },
+  "errors": {
+    "too_many_attempts": "Too many connection attempts. Try again at {{time}}.",
+    "unavailable": "Evolution API unavailable. Check that it is running.",
+    "generic": "Could not generate the QR code.",
+    "disconnect": "Could not disconnect. Please try again."
+  }
+}

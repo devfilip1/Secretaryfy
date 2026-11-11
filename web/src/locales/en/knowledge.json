@@ -1,0 +1,255 @@
+{
+  "title": "Knowledge",
+  "subtitle": "What the assistant knows about the clinic. Changes reach the assistant after you publish.",
+  "loadError": "Could not load the knowledge. Please try again.",
+  "tabs": {
+    "sections": "Sections",
+    "clinic": "Clinic",
+    "help": "Help"
+  },
+  "kind": {
+    "treatment": "Treatment",
+    "info": "Info",
+    "clinic": "Clinic"
+  },
+  "add": {
+    "treatment": "Add treatment",
+    "info": "Add info section",
+    "clinic": "Add clinic details"
+  },
+  "edit": {
+    "treatment": "Edit treatment",
+    "info": "Edit info section",
+    "clinic": "Edit clinic details"
+  },
+  "describe": {
+    "treatment": "A treatment has a name, facts such as price and duration, and the result patients can expect.",
+    "info": "Free lines such as address, hours or contact.",
+    "clinic": "The address, phone and email the assistant gives. The opening hours come from the Calendar page."
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "saveError": "Could not save the section. Please try again."
+  },
+  "list": {
+    "empty": "No sections yet. Start with a treatment, or add a few info lines such as the address and hours.",
+    "notBookable": "Not bookable",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteLabel": "Delete {{title}}"
+  },
+  "clinicHint": "No clinic details yet. The assistant needs the address and contact to say where to come.",
+  "deleteDialog": {
+    "title": "Delete {{title}}?",
+    "description": "The assistant stops answering about it after you publish.",
+    "keep": "Keep",
+    "confirm": "Delete section",
+    "deleting": "Deleting…",
+    "error": "Could not delete the section. Please try again."
+  },
+  "itemsField": {
+    "item": "Item {{number}}",
+    "removeItem": "Remove item {{number}}",
+    "add": "Add item"
+  },
+  "read": {
+    "preview": "The assistant reads: {{line}}"
+  },
+  "extra": {
+    "name": "Name",
+    "value": "Value",
+    "nameExample": "For example: Mensalidade",
+    "valueExample": "For example: R$ 35 a R$ 90",
+    "remove": "Remove detail {{number}}",
+    "add": "Add detail"
+  },
+  "assessment": {
+    "label": "Final value depends on the assessment",
+    "description": "Turn it on when the price is a range. The final value is set at the assessment."
+  },
+  "section": {
+    "basics": "Basics",
+    "content": "Content",
+    "booking": "Booking",
+    "otherNames": "Other names patients use",
+    "idealFor": "Who it is for",
+    "howItWorks": "How it works",
+    "duration": "Duration",
+    "price": "Price",
+    "moreDetails": "More details",
+    "result": "Result",
+    "recoveryTime": "Recovery time",
+    "address": "Address",
+    "contact": "Contact",
+    "openingHours": "Opening hours",
+    "closingText": "Closing text",
+    "assistantReads": "The assistant reads"
+  },
+  "infoForm": {
+    "title": {
+      "label": "Title",
+      "description": "The subject of the lines, for example: Endereço"
+    },
+    "lines": {
+      "label": "Text",
+      "description": "One line per row, written as patients should read it. Press Enter for a new line."
+    }
+  },
+  "treatmentForm": {
+    "title": {
+      "label": "Title",
+      "description": "The name patients use, for example: Limpeza Dental. One treatment per section."
+    },
+    "tagline": {
+      "label": "Short description",
+      "description": "Optional. A short line shown after the title, for example: O Primeiro Passo para um Sorriso Saudável."
+    },
+    "bookable": {
+      "label": "Patients can book this treatment",
+      "description": "When on, the assistant offers it in the booking list. Turn it off for treatments that are only information."
+    },
+    "appointmentMinutes": {
+      "label": "Appointment time (minutes)",
+      "description": "How long this treatment blocks in the calendar, in minutes (a multiple of 5). Leave empty to use the default appointment length of the Calendar page."
+    },
+    "otherNames": {
+      "label": "Names",
+      "description": "Other words patients use for this treatment, for example: branqueamento, clarear. One per line. The assistant uses them to find the right answer."
+    },
+    "idealItems": {
+      "label": "Items",
+      "description": "One short line each, for example: Hálito mais fresco. Press Enter for a new line."
+    },
+    "howItWorks": {
+      "label": "Text",
+      "description": "How it is done and which materials it uses, for example: Remoção de placa e tártaro com ultrassom, seguida de polimento."
+    },
+    "duration": {
+      "label": "Value",
+      "description": "For example: 30 a 50 minutos"
+    },
+    "price": {
+      "label": "Value",
+      "description": "For example: R$ 40 a R$ 85"
+    },
+    "result": {
+      "label": "Text",
+      "description": "What the patient gets and how long it lasts, for example: Até 8 tons mais claros, com resultado que dura até 3 anos."
+    },
+    "recovery": {
+      "label": "Time",
+      "description": "How long healing takes afterwards, for example: 3 a 7 dias. Optional."
+    }
+  },
+  "clinicForm": {
+    "title": {
+      "label": "Title",
+      "description": "The name of this section, for example: Sorriso Pleno - Clinic information."
+    },
+    "intro": {
+      "label": "Intro",
+      "description": "Optional. The opening lines of the brochure, one line per row, for example: Transforme seu sorriso com segurança e rapidez."
+    },
+    "address": {
+      "label": "Address",
+      "description": "One line per row, for example: Avenida Atlântica, 125, Sala 204. Press Enter for a new line."
+    },
+    "phone": {
+      "label": "Phone",
+      "description": "Optional. For example: (21) 3000-0000."
+    },
+    "email": {
+      "label": "Email",
+      "description": "Optional. For example: contato@clinica.example."
+    },
+    "closing": {
+      "label": "Text",
+      "description": "Optional. The last lines the assistant says, one per row, for example: Agende pelo WhatsApp."
+    },
+    "hours": {
+      "empty": "No opening hours set yet.",
+      "note": "The hours come from the booking rules, so they are written once and stay in step with bookings.",
+      "change": "Change the hours in Calendar"
+    },
+    "reads": {
+      "intro": "These are the lines the assistant can say, in this order.",
+      "empty": "Nothing yet. Fill in the address first."
+    }
+  },
+  "validation": {
+    "required": "Required",
+    "fillDurationOrPrice": "Fill in Duration or Price"
+  },
+  "errors": {
+    "invalid_body": "Some fields need attention."
+  },
+  "reason": {
+    "row": "row {{row}}",
+    "field": "{{label}}: {{message}}"
+  },
+  "help": {
+    "page": {
+      "title": "What this page is",
+      "p1": "This page holds what the assistant knows about the clinic. The assistant answers patients only from this text, so it cannot answer about anything you have not written here.",
+      "s1": "Choose Add treatment or Add info section.",
+      "s2": "Fill in the fields. Each group has a heading, and an example sits under each field.",
+      "s3": "Press Save. The section appears in the list, but the assistant does not use it yet.",
+      "s4": "When your changes are ready, press Publish. Only then does the assistant answer from the new text."
+    },
+    "fill": {
+      "title": "What you fill in and what the assistant reads",
+      "p1": "Each field you fill in becomes a sentence the assistant can say. The words before the text, such as Como funciona, are already filled in for you. This is the Limpeza Dental treatment, as the brochure has it.",
+      "f1": "Title and short description",
+      "f2": "Who it is for",
+      "f3": "How it works",
+      "f4": "Duration and Price",
+      "f5": "Result",
+      "f6": "Recovery time"
+    },
+    "texts": {
+      "title": "What each text field means",
+      "l1": "How it works: how the treatment is done and which materials it uses.",
+      "l2": "Result: what the patient gets and how long it lasts.",
+      "l3": "Recovery time: how long healing takes afterwards."
+    },
+    "duration": {
+      "title": "Duration, price and more details",
+      "p1": "Duration and Price have one field each. When the price is a range, such as R$ 40 to R$ 85, turn on Final value depends on the assessment, so the assistant says the final value is set at the assessment.",
+      "p2": "Other facts, such as a monthly fee, go in More details. Give each one a name and a value."
+    },
+    "info": {
+      "title": "Info sections",
+      "p1": "Address, hours, contact, why choose us and a closing call to action are free lines. Write one line for each thing you want the assistant to be able to repeat."
+    },
+    "clinic": {
+      "title": "Clinic details",
+      "p1": "The clinic block holds the address, phone and email the assistant gives when patients ask where to come and how to reach you. There is one clinic block, created from the brochure when the knowledge is imported. You can edit it here.",
+      "p2": "The opening hours are not written here. They come from the booking rules in the Calendar page, so they are written once and stay in step with the bookings. Change them there.",
+      "l1": "Intro: the opening lines, one per row. Optional.",
+      "l2": "Address: one line per row, for example: Avenida Atlântica, 125, Sala 204. At least one line is needed.",
+      "l3": "Phone and email: optional.",
+      "l4": "Closing text: the last lines the assistant says, such as a call to book. Optional."
+    },
+    "clinicName": {
+      "title": "Clinic name and assistant",
+      "p1": "Save on the Clinic tab sends these three fields to the server. The assistant uses a new name from the next message.",
+      "l1": "Clinic name: the name patients hear, for example: Sorriso Pleno.",
+      "l2": "Assistant name: the name the assistant uses when it introduces itself, for example: Ana. Leave it empty for no name.",
+      "l3": "Type of clinic: how the assistant describes the clinic to the model, in the clinic's language, for example: clínica odontológica.",
+      "l4": "The assistant's language is chosen in the Clinic tab (Assistant language); the panel's own language is chosen with the selector in the top bar."
+    },
+    "booking": {
+      "title": "Booking",
+      "p1": "Each treatment has the switch Patients can book this treatment, on by default. When it is on, the assistant offers the treatment in the booking list. Turn it off for treatments that are only information: the assistant can still explain it, but does not offer it for booking. Treatments that are off show Not bookable in the list."
+    },
+    "tips": {
+      "title": "Tips",
+      "l1": "Do not invent information. The assistant can only repeat what you write here.",
+      "l2": "Keep one subject per section.",
+      "l3": "Check every number and price before you publish.",
+      "l4": "Nothing reaches the assistant until you press Publish."
+    }
+  }
+}

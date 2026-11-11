@@ -1,0 +1,11 @@
+{
+  "subtitle": "WhatsApp panel",
+  "password": "Operator password",
+  "signIn": "Sign in",
+  "signingIn": "Signing in…",
+  "errors": {
+    "tooManyAttempts": "Too many attempts. Try again in {{minutes}} min.",
+    "wrongPassword": "Wrong password.",
+    "unreachable": "Could not sign in. Check that the server is running."
+  }
+}

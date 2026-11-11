@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   connectCalendar,
@@ -24,41 +25,38 @@ import { Page } from "../components/Page";
 import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
 
-const DAYS: { key: DayKey; label: string }[] = [
-  { key: "1", label: "Monday" },
-  { key: "2", label: "Tuesday" },
-  { key: "3", label: "Wednesday" },
-  { key: "4", label: "Thursday" },
-  { key: "5", label: "Friday" },
-  { key: "6", label: "Saturday" },
-  { key: "7", label: "Sunday" },
+const DAYS: { key: DayKey; label: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday" }[] = [
+  { key: "1", label: "monday" },
+  { key: "2", label: "tuesday" },
+  { key: "3", label: "wednesday" },
+  { key: "4", label: "thursday" },
+  { key: "5", label: "friday" },
+  { key: "6", label: "saturday" },
+  { key: "7", label: "sunday" },
 ];
 
-/** Avisos da volta do Google (?google=... no hash, contracts/panel-api.md). */
-const OAUTH_NOTICES: Record<string, { text: string; ok: boolean }> = {
-  connected: { text: "Calendar connected.", ok: true },
-  denied: { text: "Authorization was cancelled on the Google screen. Nothing changed.", ok: false },
-  error: { text: "Could not connect the calendar. Please try again.", ok: false },
-  missing_scope: {
-    text: "Calendar access was not authorized. Connect again and keep all permissions checked.",
-    ok: false,
-  },
-};
+/** Avisos da volta do Google (?google=... no hash, contracts/panel-api.md). O valor é o tom: true = ok. O texto vem de notices.<desfecho>. */
+const OAUTH_NOTICES = { connected: true, denied: false, error: false, missing_scope: false } as const;
+type OAuthOutcome = keyof typeof OAUTH_NOTICES;
+
+/** Erros desta tela: a chave vai para errors.<chave> em calendar.json. */
+type ErrorKey = "load" | "connect" | "googleNotConfigured" | "disconnect" | "changeCalendar";
 
 /** Lê e limpa o ?google= do hash. */
-function takeOAuthNotice() {
+function takeOAuthNotice(): OAuthOutcome | null {
   const [path, query] = window.location.hash.split("?");
   const outcome = new URLSearchParams(query).get("google");
   if (outcome) history.replaceState(null, "", path);
-  return outcome ? (OAUTH_NOTICES[outcome] ?? null) : null;
+  return outcome && outcome in OAUTH_NOTICES ? (outcome as OAuthOutcome) : null;
 }
 
 export function CalendarPage() {
+  const { t } = useTranslation("calendar");
   const [connection, setConnection] = useState<CalendarConnection | null>(null);
   const [rules, setRules] = useState<CalendarRules | null>(null);
   const [calendars, setCalendars] = useState<CalendarOption[] | null>(null);
   const [notice, setNotice] = useState(takeOAuthNotice);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorKey | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -67,7 +65,7 @@ export function CalendarPage() {
         setConnection(s.connection);
         setRules((current) => current ?? s.rules);
       })
-      .catch(() => setError("Could not load the calendar."));
+      .catch(() => setError("load"));
   }, []);
   useEffect(load, [load]);
 
@@ -90,23 +88,19 @@ export function CalendarPage() {
     try {
       window.location.href = (await connectCalendar()).url;
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.error === "google_not_configured"
-          ? "Google credentials are not configured on the server. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env with the ones from Google Cloud Console and restart the server."
-          : "Could not start the connection with Google.",
-      );
+      setError(err instanceof ApiError && err.error === "google_not_configured" ? "googleNotConfigured" : "connect");
       setBusy(false);
     }
   }
 
   async function disconnect() {
-    if (!window.confirm("Disconnect the calendar? The assistant stops offering and booking times until you connect again.")) return;
+    if (!window.confirm(t("disconnectConfirm"))) return;
     setBusy(true);
     try {
       await disconnectCalendar();
       load();
     } catch {
-      setError("Could not disconnect. Please try again.");
+      setError("disconnect");
     } finally {
       setBusy(false);
     }
@@ -116,60 +110,62 @@ export function CalendarPage() {
     try {
       setConnection((await selectCalendar(calendarId)).connection);
     } catch {
-      setError("Could not change the calendar.");
+      setError("changeCalendar");
     }
   }
 
-  if (!connection || !rules) return <Page className="text-muted-foreground">{error ?? "Loading…"}</Page>;
+  if (!connection || !rules) return <Page className="text-muted-foreground">{error ? t(`errors.${error}`) : t("loading")}</Page>;
 
   return (
     <Page>
       <div className="grid w-[min(720px,100%)] gap-4 max-md:gap-3">
         {notice && (
-          <Notice layout="box" tone={notice.ok ? "ok" : "destructive"} role="status" onDismiss={() => setNotice(null)}>
-            {notice.text}
+          <Notice
+            layout="box"
+            tone={OAUTH_NOTICES[notice] ? "ok" : "destructive"}
+            role="status"
+            onDismiss={() => setNotice(null)}
+          >
+            {t(`notices.${notice}`)}
           </Notice>
         )}
-        {error && <Notice role="alert">{error}</Notice>}
+        {error && <Notice role="alert">{t(`errors.${error}`)}</Notice>}
 
         <Card as="section" className="w-full">
           <Title level={2} className="mb-3">
-            Google Calendar
+            {t("title")}
           </Title>
           {connection.status === "disconnected" ? (
             <>
-              <p className="my-4 text-muted-foreground">
-                Connect the clinic calendar so the assistant can check free times and book appointments over WhatsApp.
-              </p>
+              <p className="my-4 text-muted-foreground">{t("connectIntro")}</p>
               <Button onClick={connect} disabled={busy}>
-                Connect Google Calendar
+                {t("connect")}
               </Button>
             </>
           ) : (
             <>
               {connection.status === "needs_reauth" && (
                 <Notice layout="box" tone="destructive" className="mb-3">
-                  Google denied access to the calendar. Reconnect so the assistant can book again.
+                  {t("reauthNotice")}
                   <Button onClick={connect} disabled={busy}>
-                    Reconnect
+                    {t("reconnect")}
                   </Button>
                 </Notice>
               )}
               <p className="my-4">
-                Account: <strong>{connection.email}</strong>
+                {t("account")} <strong>{connection.email}</strong>
                 <br />
                 <Muted>
-                  Time zone: <strong>{connection.timeZone}</strong>
+                  {t("timeZone")} <strong>{connection.timeZone}</strong>
                 </Muted>
               </p>
               {/^(UTC|Etc\/)/.test(connection.timeZone) && (
                 <Notice layout="box" tone="destructive" className="mb-3">
-                  The calendar is set to {connection.timeZone}: times offered to customers will be calculated in that zone. Change the
-                  time zone in the Google Calendar settings and reload this page.
+                  {t("timeZoneWarning", { timeZone: connection.timeZone })}
                 </Notice>
               )}
               <Field className="my-3">
-                Calendar used for bookings
+                {t("calendarLabel")}
                 <Select value={connection.calendarId} onValueChange={choose} disabled={!calendars || calendars.length === 0}>
                   <SelectTrigger>
                     <SelectValue />
@@ -178,8 +174,7 @@ export function CalendarPage() {
                     {(calendars ?? [{ id: connection.calendarId, name: connection.calendarName, timeZone: "", primary: false }]).map(
                       (c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                          {c.primary ? " (primary)" : ""}
+                          {c.primary ? t("calendarPrimary", { name: c.name }) : c.name}
                         </SelectItem>
                       ),
                     )}
@@ -187,7 +182,7 @@ export function CalendarPage() {
                 </Select>
               </Field>
               <Button variant="destructive" onClick={disconnect} disabled={busy}>
-                Disconnect
+                {t("disconnect")}
               </Button>
             </>
           )}
@@ -201,6 +196,7 @@ export function CalendarPage() {
 
 /** Regras de atendimento (FR-007, FR-008). Os prazos aparecem em horas e vão para a API em minutos. */
 function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: CalendarRules) => void }) {
+  const { t } = useTranslation("calendar");
   const [rules, setRules] = useState(initial);
   const [issues, setIssues] = useState<RulesIssue[]>([]);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -240,16 +236,17 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
   return (
     <Card as="form" className="w-full" onSubmit={submit}>
       <Title level={2} className="mb-1">
-        Business hours
+        {t("rules.title")}
       </Title>
       <Muted as="p" className="my-4">
-        The assistant only offers times within these rules that are free on the calendar.
+        {t("rules.intro")}
       </Muted>
 
       <div className="my-3 grid gap-1.5">
         {DAYS.map(({ key, label }) => {
           const hours = rules.weeklyHours[key];
           const problem = issueAt(`weeklyHours.${key}`);
+          const day = t(`days.${label}`);
           return (
             <div
               key={key}
@@ -257,28 +254,28 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
             >
               <label className="flex items-center gap-2 max-md:col-span-full">
                 <input type="checkbox" checked={!!hours} onChange={(e) => setDay(key, e.target.checked ? {} : null)} />
-                {label}
+                {day}
               </label>
               {hours ? (
                 <>
                   <Input
                     type="time"
-                    aria-label={`${label}: start`}
+                    aria-label={t("rules.startOf", { day })}
                     className="w-auto max-md:w-full"
                     value={hours.start}
                     onChange={(e) => setDay(key, { start: e.target.value })}
                   />
-                  <span className="text-muted-foreground">to</span>
+                  <span className="text-muted-foreground">{t("rules.to")}</span>
                   <Input
                     type="time"
-                    aria-label={`${label}: end`}
+                    aria-label={t("rules.endOf", { day })}
                     className="w-auto max-md:w-full"
                     value={hours.end}
                     onChange={(e) => setDay(key, { end: e.target.value })}
                   />
                 </>
               ) : (
-                <Muted className="max-md:col-span-full">Closed</Muted>
+                <Muted className="max-md:col-span-full">{t("rules.closed")}</Muted>
               )}
               {problem && (
                 <Muted tone="destructive" className="max-md:col-span-full">
@@ -297,35 +294,35 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-4">
         <NumberField
-          label="Default appointment length (min)"
+          label={t("rules.slotMinutes")}
           value={rules.slotMinutes}
           step={5}
           error={issueAt("slotMinutes")}
           onChange={(v) => setNumber("slotMinutes", v)}
         />
         <NumberField
-          label="Time grid (min)"
+          label={t("rules.gridMinutes")}
           value={rules.gridMinutes}
           step={5}
           error={issueAt("gridMinutes")}
           onChange={(v) => setNumber("gridMinutes", v)}
         />
         <NumberField
-          label="Minimum notice to book (h)"
+          label={t("rules.minNoticeHours")}
           value={rules.minNoticeMinutes / 60}
           step={0.5}
           error={issueAt("minNoticeMinutes")}
           onChange={(v) => setNumber("minNoticeMinutes", Math.round(v * 60))}
         />
         <NumberField
-          label="Book up to how many days ahead"
+          label={t("rules.maxDaysAhead")}
           value={rules.maxDaysAhead}
           step={1}
           error={issueAt("maxDaysAhead")}
           onChange={(v) => setNumber("maxDaysAhead", v)}
         />
         <NumberField
-          label="Cancel or reschedule up to (h before)"
+          label={t("rules.cancelNoticeHours")}
           value={rules.cancelNoticeMinutes / 60}
           step={1}
           error={issueAt("cancelNoticeMinutes")}
@@ -335,10 +332,10 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
 
       <div className="flex items-center gap-3 max-md:flex-wrap">
         <Button type="submit" disabled={status === "saving"}>
-          {status === "saving" ? "Saving…" : "Save rules"}
+          {status === "saving" ? t("rules.saving") : t("rules.save")}
         </Button>
-        {status === "saved" && <Muted tone="ok">Rules saved.</Muted>}
-        {status === "error" && <Muted tone="destructive">Check the highlighted fields.</Muted>}
+        {status === "saved" && <Muted tone="ok">{t("rules.saved")}</Muted>}
+        {status === "error" && <Muted tone="destructive">{t("rules.checkFields")}</Muted>}
       </div>
     </Card>
   );

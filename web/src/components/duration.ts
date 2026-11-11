@@ -3,6 +3,9 @@
 export const DURATION_STEP = 5;
 export const MIN_DURATION = 5;
 
+/** Motivo de a duração não valer; o texto é traduzido pelo componente. `max` vem só no caso "max". */
+export type DurationError = { code: "format" | "min" | "step" | "max"; max?: number };
+
 /** Minutos como texto: "45 min", "1 h", "1 h 30 min". */
 export function formatMinutes(minutes: number): string {
   const hours = Math.floor(minutes / 60);
@@ -28,13 +31,13 @@ export function parseDuration(value: number | string): number | null {
   return null;
 }
 
-/** Mensagem em inglês para a duração digitada, ou null se ela vale. `max` é o tempo livre a partir do horário. */
-export function validateDuration(value: number | string, max: number): string | null {
+/** Por que a duração digitada não vale, ou null se ela vale. `max` é o tempo livre a partir do horário. */
+export function validateDuration(value: number | string, max: number): DurationError | null {
   const minutes = parseDuration(value);
-  if (minutes === null) return "Enter the duration, like 45, 2h or 1h30.";
-  if (minutes < MIN_DURATION) return `The minimum is ${MIN_DURATION} minutes.`;
-  if (minutes % DURATION_STEP !== 0) return `Use a multiple of ${DURATION_STEP} minutes.`;
-  if (minutes > max) return `The longest free time from this start is ${formatMinutes(max)}.`;
+  if (minutes === null) return { code: "format" };
+  if (minutes < MIN_DURATION) return { code: "min" };
+  if (minutes % DURATION_STEP !== 0) return { code: "step" };
+  if (minutes > max) return { code: "max", max };
   return null;
 }
 

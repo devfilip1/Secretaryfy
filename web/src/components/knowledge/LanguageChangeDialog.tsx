@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Title } from "../Title";
@@ -12,6 +13,7 @@ export function LanguageChangeDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation("clinic");
   return (
     <Dialog
       open
@@ -22,17 +24,15 @@ export function LanguageChangeDialog({
       <DialogContent role="alertdialog" className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle asChild>
-            <Title level={3}>Change the assistant language?</Title>
+            <Title level={3}>{t("languageDialog.title")}</Title>
           </DialogTitle>
-          <DialogDescription>
-            {`From the next message the assistant will answer in ${languageLabel}. The brochure text is not translated: if it is written in the other language, update it too.`}
-          </DialogDescription>
+          <DialogDescription>{t("languageDialog.body", { language: languageLabel })}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="secondary" onClick={onCancel} autoFocus>
-            Cancel
+            {t("languageDialog.cancel")}
           </Button>
-          <Button onClick={onConfirm}>Change language</Button>
+          <Button onClick={onConfirm}>{t("languageDialog.confirm")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

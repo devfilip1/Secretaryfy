@@ -1,0 +1,88 @@
+{
+  "search": {
+    "placeholder": "Search by name or number"
+  },
+  "list": {
+    "empty": "No conversations yet",
+    "noResults": "No conversations found"
+  },
+  "deleteAll": {
+    "button": "Delete all conversations",
+    "confirm": "Delete all conversations and their messages? This cannot be undone."
+  },
+  "selectConversation": "Select a conversation",
+  "backToList": "Back to the list",
+  "loading": "Loading…",
+  "loadEarlier": "Scroll up to see earlier messages",
+  "assistant": {
+    "active": "Assistant active",
+    "paused": "Assistant paused",
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "attention": {
+    "badge": "Needs attention",
+    "notice": "The assistant did not understand the customer and was paused. Reply here or resume the assistant."
+  },
+  "optedOut": {
+    "title": "Asked not to receive messages",
+    "notice": "The customer asked not to receive messages. The assistant does not reply to this number.",
+    "reactivate": "Reactivate"
+  },
+  "origin": {
+    "customer": "Customer",
+    "assistant": "Assistant",
+    "operator": "Operator",
+    "phone": "Phone",
+    "system": "Secretaryfy"
+  },
+  "media": {
+    "audio": "Audio",
+    "image": "Image",
+    "video": "Video",
+    "document": "Document",
+    "sticker": "Sticker",
+    "location": "Location",
+    "contact": "Contact",
+    "other": "Unsupported message"
+  },
+  "message": {
+    "tryAgain": "Try again",
+    "notSentByProtection": "Not sent by protection: {{reason}}"
+  },
+  "failedSend": "Not sent. WhatsApp did not accept the message.",
+  "composer": {
+    "placeholderTouch": "Type a message",
+    "placeholderKeyboard": "Type a message (Enter sends, Shift+Enter adds a line)",
+    "send": "Send",
+    "sending": "Sending…",
+    "disconnected": "WhatsApp disconnected: connect the number to send messages."
+  },
+  "risk": {
+    "title": "Send anyway?",
+    "cold_contact": "The customer has not written in over 24 hours.",
+    "opted_out": "The customer asked not to receive messages.",
+    "protection_paused": "Automatic sending is paused by number protection.",
+    "warning": "Sending anyway increases the risk of the number being banned.",
+    "cancel": "Cancel",
+    "confirm": "Send anyway"
+  },
+  "protection": {
+    "paused": "Automatic sending paused by number protection. The assistant will not reply until then.",
+    "pausedUntil": "Automatic sending paused by number protection until {{time}}. The assistant will not reply until then.",
+    "pausedReason": "Automatic sending paused by number protection ({{reason}}). The assistant will not reply until then.",
+    "pausedReasonUntil": "Automatic sending paused by number protection ({{reason}}) until {{time}}. The assistant will not reply until then.",
+    "warmingUp": "Number warming up: reduced limits ({{limit}} conversations per day).",
+    "warmingUpUntil": "Number warming up until {{day}}: reduced limits ({{limit}} conversations per day).",
+    "reason": {
+      "send_failures": "too many send failures",
+      "connection_drops": "the connection dropped several times"
+    }
+  },
+  "errors": {
+    "whatsapp_disconnected": "WhatsApp disconnected: the message was not sent.",
+    "sendFailed": "Could not send. Please try again.",
+    "loadConversation": "Could not load the conversation.",
+    "deleteAll": "Could not delete the conversations. Please try again."
+  }
+}

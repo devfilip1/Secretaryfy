@@ -1,0 +1,52 @@
+{
+  "loading": "Carregando…",
+  "loadError": "Não foi possível carregar as configurações da clínica. Tente de novo.",
+  "section": "Clínica",
+  "name": "Nome da clínica",
+  "nameHelp": "O nome que os pacientes ouvem, por exemplo: Sorriso Pleno.",
+  "assistantName": "Nome da assistente",
+  "assistantNameHelp": "Opcional. O nome que o assistente usa ao se apresentar, por exemplo: Ana. Deixe vazio para não usar nome.",
+  "kind": "Tipo de clínica",
+  "kindHelp": "Como o assistente descreve a clínica para o modelo, no idioma da clínica, por exemplo: clínica odontológica.",
+  "assistantLanguage": {
+    "label": "Idioma do assistente",
+    "help": "Idioma que o assistente usa com os pacientes e nos rótulos da brochura. Não é o idioma do painel. Mudar aqui não traduz o texto da brochura escrito pela clínica: escreva esse texto neste mesmo idioma."
+  },
+  "save": "Salvar",
+  "saving": "Salvando…",
+  "saved": "Salvo. O assistente usa as novas configurações a partir da próxima mensagem.",
+  "saveError": "Não foi possível salvar as configurações da clínica. Tente de novo.",
+  "languageDialog": {
+    "title": "Trocar o idioma do assistente?",
+    "body": "A partir da próxima mensagem, o assistente vai responder em {{language}}. O texto da brochura não é traduzido: se ele estiver escrito no outro idioma, atualize também.",
+    "cancel": "Cancelar",
+    "confirm": "Trocar idioma"
+  },
+  "publishOffer": {
+    "published": "Publicado. O assistente responde com o texto novo.",
+    "body": "Os textos automáticos da brochura agora estão em {{language}}. Publique para que a brochura do assistente use esses textos.",
+    "publish": "Publicar agora",
+    "publishing": "Publicando…"
+  },
+  "publishBar": {
+    "publish": "Publicar",
+    "publishing": "Publicando…",
+    "published": "Publicado. O assistente agora responde com o texto novo.",
+    "busy": "A publicação já está em andamento. Tente de novo em instantes.",
+    "unreachable": "O serviço do assistente não está acessível.",
+    "failed": "Não foi possível publicar. Tente de novo."
+  },
+  "status": {
+    "upToDate": "Em dia",
+    "unpublished": "Alterações não publicadas",
+    "unavailable": "Assistente offline"
+  },
+  "validation": {
+    "nameRequired": "Informe o nome da clínica.",
+    "nameTooLong": "Use até 120 caracteres.",
+    "assistantNameTooLong": "Use até 60 caracteres.",
+    "kindRequired": "Informe o tipo de clínica.",
+    "kindTooLong": "Use até 80 caracteres.",
+    "languageInvalid": "Escolha English ou Português."
+  }
+}

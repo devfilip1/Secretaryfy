@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clinicSettingsDefaults, clinicSettingsSchema } from "./clinic-settings-form";
+import type { FieldErrors } from "react-hook-form";
+import { clinicSettingsDefaults, clinicSettingsSchema, translateErrors, type ClinicSettingsFormValues } from "./clinic-settings-form";
 
 const VALID = { name: "Sorriso Pleno", assistantName: "Ana", kind: "clínica odontológica", language: "pt" };
 
@@ -25,6 +26,12 @@ describe("clinicSettingsSchema", () => {
     assert.equal(clinicSettingsSchema.safeParse({ ...VALID, language: "pt" }).success, true);
     assert.equal(clinicSettingsSchema.safeParse({ ...VALID, language: "fr" }).success, false);
   });
+
+  it("devolve o código da mensagem, não o texto em inglês", () => {
+    const result = clinicSettingsSchema.safeParse({ ...VALID, name: "   " });
+    assert.equal(result.success, false);
+    assert.equal(result.error?.issues[0]?.message, "nameRequired");
+  });
 });
 
 describe("clinicSettingsDefaults", () => {
@@ -38,5 +45,14 @@ describe("clinicSettingsDefaults", () => {
     });
     assert.equal(defaults.language, "en");
     assert.equal(defaults.assistantName, "");
+  });
+});
+
+describe("translateErrors", () => {
+  it("troca o código de cada erro pelo texto e deixa o campo sem erro igual", () => {
+    const errors = { name: { type: "too_small", message: "nameRequired" } } as unknown as FieldErrors<ClinicSettingsFormValues>;
+    const translated = translateErrors(errors, (code) => `texto:${code}`);
+    assert.equal(translated.name?.message, "texto:nameRequired");
+    assert.deepEqual(translateErrors({}, (code) => code), {});
   });
 });

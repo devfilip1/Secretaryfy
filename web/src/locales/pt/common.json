@@ -1,0 +1,59 @@
+{
+  "loading": "Carregando…",
+  "signOut": "Sair",
+  "panelLanguage": "Idioma do painel",
+  "reconnecting": "Reconectando ao servidor…",
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "delete": "Excluir",
+  "retry": "Tentar de novo",
+  "close": "Fechar",
+  "dismissNotice": "Dispensar aviso",
+  "back": "Voltar",
+  "yes": "Sim",
+  "no": "Não",
+  "nav": {
+    "conversations": "Conversas",
+    "appointments": "Agendamentos",
+    "connection": "Conexão",
+    "calendar": "Agenda",
+    "customers": "Clientes",
+    "knowledge": "Conhecimento",
+    "short": {
+      "chats": "Conversas",
+      "appointments": "Consultas",
+      "whatsapp": "WhatsApp",
+      "calendar": "Calendário",
+      "customers": "Clientes",
+      "knowledge": "Folheto"
+    }
+  },
+  "connection": {
+    "connected": "Conectado",
+    "connecting": "Conectando…",
+    "disconnected": "Desconectado",
+    "title": "WhatsApp conectado",
+    "titleNumber": "WhatsApp conectado · {{phone}}"
+  },
+  "disabled": {
+    "title": "Painel desativado",
+    "body": "Defina <code>OPERATOR_PASSWORD</code> (12 caracteres ou mais) no <code>.env</code> do servidor e reinicie-o."
+  },
+  "blockReason": {
+    "outside_window": "o cliente não escreve há mais de 24 h",
+    "disconnected": "o WhatsApp está desconectado",
+    "rate_limited": "esperou demais na fila",
+    "daily_conversations": "limite diário de conversas atingido",
+    "unanswered": "muitas mensagens seguidas sem resposta do cliente",
+    "loop": "possível conversa com outro robô",
+    "duplicate": "texto repetido",
+    "opted_out": "o cliente pediu para não receber mensagens",
+    "paused": "envio automático pausado pela proteção",
+    "restart": "o servidor reiniciou antes de enviar",
+    "superseded": "o atendente respondeu primeiro",
+    "no_conversation": "não há conversa de WhatsApp com este número",
+    "failed": "o envio pelo WhatsApp falhou",
+    "blocked": "bloqueado pela proteção do número",
+    "too_late": "faltavam menos de 2 horas para a consulta"
+  }
+}

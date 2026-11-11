@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Ban, Pause, Trash } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { Conversation } from "../api";
-import { formatPhone, formatTime } from "../format";
+import { formatPhone } from "../format";
+import { useFormats } from "../i18n/formats";
 import { cn } from "../lib/utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -24,6 +26,8 @@ export function ConversationList({
   onSearch: (q: string) => void;
   onClearAll: () => void;
 }) {
+  const { t } = useTranslation("inbox");
+  const { formatTime } = useFormats();
   const [q, setQ] = useState("");
   const first = useRef(true);
 
@@ -42,7 +46,7 @@ export function ConversationList({
       <div className="p-2.5">
         <Input
           type="search"
-          placeholder="Search by name or number"
+          placeholder={t("search.placeholder")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -61,13 +65,13 @@ export function ConversationList({
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate font-semibold">
                   {c.assistantPaused && (
-                    <span title="Assistant paused">
-                      <Pause className="inline size-3.5" /> 
+                    <span title={t("assistant.paused")}>
+                      <Pause className="inline size-3.5" />
                     </span>
                   )}
                   {c.name || formatPhone(c.phone)}
                   {c.optedOut && (
-                    <span className="text-sm" title="Asked not to receive messages">
+                    <span className="text-sm" title={t("optedOut.title")}>
                       {" "}
                       <Ban className="inline size-3.5" />
                     </span>
@@ -77,7 +81,7 @@ export function ConversationList({
               </span>
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate text-sm text-muted-foreground">
-                  {c.needsAttention && <Badge variant="warn" className="mr-1.5">Needs attention</Badge>}
+                  {c.needsAttention && <Badge variant="warn" className="mr-1.5">{t("attention.badge")}</Badge>}
                   {c.lastMessagePreview}
                 </span>
                 {c.unreadCount > 0 && <Badge className="shrink-0">{c.unreadCount}</Badge>}
@@ -87,13 +91,13 @@ export function ConversationList({
         ))}
       </ul>
       {loaded && conversations.length === 0 && (
-        <p className="p-4 text-center text-muted-foreground">{q ? "No conversations found" : "No conversations yet"}</p>
+        <p className="p-4 text-center text-muted-foreground">{q ? t("list.noResults") : t("list.empty")}</p>
       )}
       {conversations.length > 0 && !q && (
         <footer className="mt-auto border-t border-border p-2.5">
           <Button variant="secondary" className="w-full text-sm text-destructive" onClick={onClearAll}>
             <Trash className="size-4" />
-            Delete all conversations
+            {t("deleteAll.button")}
           </Button>
         </footer>
       )}
