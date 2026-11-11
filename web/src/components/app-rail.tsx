@@ -15,7 +15,7 @@ export function AppRail({ view, attentionCount }: { view: View; attentionCount: 
       {navItemsAt("top").map((item) => (
         <RailLink key={item.hash} item={item} active={view === item.view} badge={item.view === "inbox" ? attentionCount : 0} />
       ))}
-      <div className="mt-auto flex flex-col items-center gap-1">
+      <div className="mt-auto flex flex-col items-center gap-1 border-t border-rail-ink/20 pt-2">
         {navItemsAt("bottom").map((item) => (
           <RailLink key={item.hash} item={item} active={view === item.view} />
         ))}
