@@ -80,3 +80,32 @@ for (const [mode, block] of [
     });
   }
 }
+
+/** Texto lido o dia todo nos balões: exige mais que o mínimo AA. */
+const BUBBLE_TEXT_RATIO = 7;
+const BUBBLES = ["bubble-customer", "bubble-assistant", "bubble-operator", "bubble-phone"] as const;
+
+for (const [mode, block] of [
+  ["claro", LIGHT],
+  ["escuro", DARK],
+] as const) {
+  for (const bubble of BUBBLES) {
+    test(`${mode}: --text sobre --${bubble} chega a ${BUBBLE_TEXT_RATIO}:1`, () => {
+      const ratio = contrastRatio(tokenIn(block, "text"), tokenIn(block, bubble));
+      assert.ok(ratio >= BUBBLE_TEXT_RATIO, `${ratio.toFixed(2)}:1 abaixo de ${BUBBLE_TEXT_RATIO}:1`);
+    });
+  }
+}
+
+// No escuro o balão tem de se separar do fundo da conversa (o verde-petróleo fraco de antes quase sumia)
+for (const [bubble, min] of [
+  ["bubble-assistant", 2],
+  ["bubble-customer", 1.5],
+  ["bubble-operator", 1.5],
+] as const) {
+  test(`escuro: --${bubble} se separa do fundo da conversa (${min}:1)`, () => {
+    const ratio = contrastRatio(tokenIn(DARK, bubble), tokenIn(DARK, "chat-bg"));
+    assert.ok(ratio >= min, `${ratio.toFixed(2)}:1 abaixo de ${min}:1`);
+  });
+}
+
