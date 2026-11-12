@@ -44,3 +44,19 @@ test("intenção que não é só o assunto não passa pela concordância", async
   await r.reply();
   assert.equal(r.handled[0].interpretation.intent, "cancel");
 });
+
+test("'melhor de manhã' na remarcação cita um período: não é sim, a parte do dia vai ao fluxo", async () => {
+  const r = setup({ intent: "reschedule", topicOnly: true, session: CONFIRM_RESCHEDULE, agreement: "agree", when: { time: null, period: "morning", namesDay: null }, text: "melhor de manhã" });
+  await r.reply();
+  const i = r.handled[0].interpretation;
+  assert.equal(i.intent, "reschedule");
+  assert.equal(i.period, "morning");
+  assert.ok(!i.topicOnly);
+});
+
+test("um horário citado na confirmação de remarcação também é mudança, não sim", async () => {
+  const r = setup({ intent: "reschedule", topicOnly: true, session: CONFIRM_RESCHEDULE, agreement: "agree", when: { time: "15:00", period: null, namesDay: null }, text: "pode ser as 15h" });
+  await r.reply();
+  assert.equal(r.handled[0].interpretation.intent, "reschedule");
+  assert.equal(r.handled[0].interpretation.time, "15:00");
+});

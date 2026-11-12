@@ -192,7 +192,8 @@
   },
   "errors": {
     "invalid_body": "Some fields need attention.",
-    "clinic_section_required": "The clinic section can't be deleted: the assistant needs its address and contact."
+    "clinic_section_required": "The clinic section can't be deleted: the assistant needs its address and contact.",
+    "no_bookable_service": "No service would be left for customers to book. Turn on the general assessment or the follow-up visit, or keep at least one treatment bookable."
   },
   "reason": {
     "row": "row {{row}}",

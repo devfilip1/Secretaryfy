@@ -84,7 +84,7 @@ export function panelCustomersRoutes({
     for (const appt of await store.futureBookedByPhone(phone, now())) {
       await store.setCustomerName(appt.id, name);
       try {
-        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT)}`);
+        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT, clinic.language)}`);
       } catch (err) {
         calendarUpdated = false;
         log.warn({ appointmentId: appt.id, err }, "não foi possível renomear o evento na agenda");

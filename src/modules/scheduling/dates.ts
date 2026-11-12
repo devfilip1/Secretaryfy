@@ -114,7 +114,7 @@ const DATE_IN_TEXT = new RegExp(
     "\\b(?:today|tomorrow|hoje|amanha|depois amanha)\\b",
     `\\b(?:next |proxim[oa] )?(?:${WEEKDAY_NAMES})\\b`,
     "\\b\\d{1,2}/\\d{1,2}(?:/\\d{4})?\\b",
-    "\\bdia \\d{1,2}\\b",
+    `\\bdia \\d{1,2}\\b(?! (?:${MONTH_NAMES})\\b)`,
     `\\b(?:${MONTH_NAMES}) ${ORDINAL}\\b`,
     `\\b${ORDINAL} (?:${MONTH_NAMES})\\b`,
   ].join("|"),

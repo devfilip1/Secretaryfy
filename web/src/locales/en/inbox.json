@@ -97,6 +97,7 @@
     "deleteAll": "Could not delete the conversations. Please try again."
   },
   "systemNote": {
+    "service": { "FollowUp": "Follow-up visit", "Assessment": "General assessment" },
     "at": "{{day}} at {{time}}",
     "booked": "Booked by the assistant: {{when}} ({{minutes}} min), {{service}}",
     "booked_from_panel": "Booked from the panel: {{when}} ({{minutes}} min), {{service}}",

@@ -29,6 +29,7 @@ export function reasonTextOf(t: TFunction<"knowledge">): ReasonText {
     code: (code) => {
       if (code === "invalid_body") return t("errors.invalid_body");
       if (code === "clinic_section_required") return t("errors.clinic_section_required");
+      if (code === "no_bookable_service") return t("errors.no_bookable_service");
       return undefined;
     },
     row: (row) => t("reason.row", { row }),

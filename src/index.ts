@@ -156,7 +156,7 @@ await app.register(
     onChange: () => catalog.refresh(),
   }),
 );
-await app.register(panelClinicRoutes({ clinic, repo: clinicSettings }));
+await app.register(panelClinicRoutes({ clinic, repo: clinicSettings, knowledge }));
 await app.register(panelStaticRoutes);
 
 // Lembrete pelo WhatsApp antes de cada horário (specs/006 US4)

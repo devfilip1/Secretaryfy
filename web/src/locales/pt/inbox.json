@@ -97,6 +97,7 @@
     "deleteAll": "Não foi possível apagar as conversas. Tente de novo."
   },
   "systemNote": {
+    "service": { "FollowUp": "Retorno", "Assessment": "Avaliação geral" },
     "at": "{{day}} às {{time}}",
     "booked": "Agendado pelo assistente: {{when}} ({{minutes}} min), {{service}}",
     "booked_from_panel": "Agendado pelo painel: {{when}} ({{minutes}} min), {{service}}",

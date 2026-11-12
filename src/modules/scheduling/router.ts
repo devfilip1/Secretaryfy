@@ -7,13 +7,13 @@ import type { IncomingMessage } from "../whatsapp/evolution.js";
 import { splitReply, type Reply } from "../whatsapp/handle-message.js";
 import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
-import type { Interpreter } from "./interpret.js";
+import type { Interpreter, When } from "./interpret.js";
 import { startsScheduling } from "./intents.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import type { Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
-import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
+import { applyAgreement, applyPick, applySense, applyWhen, citesWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
 
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
@@ -157,9 +157,16 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas abaixo (ver understanding/sense.ts)
     if (wantsSense(interpretation)) interpretation = applySense(interpretation, (await interpreter.mentionedSense?.({ text, log })) ?? null);
 
-    // Sim ou não numa confirmação que o modelo leu só como o assunto da pergunta: a concordância decide (ver applyAgreement, em resolve.ts)
+    // Sim ou não numa confirmação que o modelo leu só como o assunto da pergunta. Antes da concordância, a chamada focada de horário
+    // confere se a frase cita período, horário ou dia: citado, é um pedido de mudança ("melhor de manhã"), não um sim (ver resolve.ts)
+    let focusedWhen: When | null | undefined;
     if (interpretation.topicOnly) {
-      interpretation = applyAgreement(interpretation, session?.step ?? null, (await interpreter.mentionedAgreement?.({ text, log })) ?? null);
+      focusedWhen = (await interpreter.mentionedWhen?.({ text, log })) ?? null;
+      if (citesWhen(focusedWhen)) {
+        interpretation = { ...interpretation, topicOnly: false };
+      } else {
+        interpretation = applyAgreement(interpretation, session?.step ?? null, (await interpreter.mentionedAgreement?.({ text, log })) ?? null);
+      }
     }
 
     // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
@@ -220,7 +227,8 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const mentioned = session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
     // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
-    const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
+    // A chamada já feita acima (topicOnly) vale; senão, ela roda quando a intenção pede horário
+    const when = focusedWhen !== undefined ? focusedWhen : wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
     const timed = applyWhen(interpretation, when, session?.step);
     const count = session?.options?.length ?? 0;
     // A posição só vale com a citação no texto (o modelo principal a inventa para "sim, pode ser"): quando a chamada focada roda, ela decide

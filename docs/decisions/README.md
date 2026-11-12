@@ -22,5 +22,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0016](0016-one-language-setting-for-the-bot-and-the-panel.md) | One language setting for the bot and the panel, panel translated with react-i18next | Proposed |
 | [0017](0017-facts-of-the-message-are-read-by-focused-extractors.md) | Facts of the message are read by focused extractors with a checked quote, merged in code | Accepted |
 | [0018](0018-panel-visual-identity-porcelana-rail.md) | Panel visual identity: Porcelana tokens, light and dark themes, rail navigation | Accepted |
+| [0019](0019-assessment-and-follow-up-are-clinic-toggles.md) | Assessment and follow-up are clinic toggles, read live from the clinic settings | Accepted |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.

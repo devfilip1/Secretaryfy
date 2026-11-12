@@ -60,7 +60,11 @@ const normalize = (text: string) =>
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
-const fixedLabel = (name: string, language: Language): string | undefined => FIXED_LABELS.get(name)?.[language];
+/** O rótulo de um serviço fixo na língua pedida, ou undefined para um tratamento */
+export const fixedLabel = (name: string, language: Language): string | undefined => FIXED_LABELS.get(name)?.[language];
+
+/** Serviço fixo (avaliação, retorno): a nota guarda a chave e quem mostra traduz; o tratamento guarda o próprio título */
+export const isFixedService = (name: string): boolean => FIXED_LABELS.has(name);
 
 /** O tempo de um serviço fixo, mesmo quando ele não é oferecido: o que a clínica configurou (o padrão é undefined) */
 function fixedMinutes(name: string, offers: ServiceOffers): number | undefined {

@@ -56,6 +56,7 @@ async function panelWith(catalog: ServiceCatalog, language: "en" | "pt" = "en"):
     log: { error: () => {} },
     now: () => now,
     catalog,
+    clinic: { language },
   };
   const server = Fastify();
   await server.register(

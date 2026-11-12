@@ -14,6 +14,14 @@ export function wantsWhen(interpretation: Interpretation, step: SchedulingStep |
 }
 
 /**
+ * A chamada focada achou um período, um horário ou um dia citado: a frase é um pedido de mudança ("melhor de manhã"), não um sim ou não
+ * de confirmação, então a intenção do modelo segue e applyWhen a aplica.
+ */
+export function citesWhen(when: When | null): boolean {
+  return Boolean(when?.period || when?.time || when?.namesDay === true);
+}
+
+/**
  * Junta a chamada focada à interpretação: período vence horário inventado; chamada que rodou (namesDay booleano) manda no horário;
  * data sem dia citado some (e tooFar some junto); com horários na tela (step choose_slot) horário ou período vira escolha.
  * Devolve o mesmo objeto quando nada muda.

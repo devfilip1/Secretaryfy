@@ -53,6 +53,7 @@ const deps = {
   reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
   replies: schedulingReplies,
   catalog,
+  clinic,
 };
 
 // Agendamento pelo WhatsApp (specs/003): o Ollama interpreta, a máquina de estados decide

@@ -87,6 +87,8 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   // O dia da lista que o cliente escolheu vale mais que a opção que o modelo marcou ("fim de semana?" na lista não é a opção 1)
   // Sábado e domingo juntos não escolhem um dia da lista (a escolha é do fim de semana inteiro)
   const pickedDay = weekendAsked ? undefined : offeredDayPicked(parsed.data.intent, { weekday: weekdayCited, citedDates, explicitDates, modelDate: parsed.data.date ?? null, hasExplicitDate, offeredDays, timeZone });
+  // Data citada na frase que não é um dia da lista ("dia 25 de dezembro" com novembro na tela): a opção que o modelo marcou não vale
+  if (!pickedDay && hasExplicitDate) option = null;
   let fromWeekday = false;
   if (pickedDay) {
     option = pickedDay.n;

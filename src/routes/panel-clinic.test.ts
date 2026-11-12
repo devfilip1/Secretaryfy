@@ -15,12 +15,65 @@ function setup() {
   return { clinic, saved, repo };
 }
 
-async function appFor(clinic: ClinicContext, repo: { save: (identity: unknown) => Promise<void> }) {
+/** Uma seção de tratamento; `bookable` ausente = pode marcar (o padrão). */
+const treatment = (key: string, data: Record<string, unknown> = {}) => ({
+  key,
+  kind: "treatment",
+  title: key,
+  tagline: null,
+  data: { facts: [{ label: "Preço", value: "R$ 40" }], ...data },
+  position: 0,
+});
+
+async function appFor(
+  clinic: ClinicContext,
+  repo: { save: (identity: unknown) => Promise<void> },
+  rows: unknown[] = [],
+) {
   const app = Fastify();
-  await app.register(panelClinicRoutes({ clinic, repo: repo as never }));
+  await app.register(panelClinicRoutes({ clinic, repo: repo as never, knowledge: { list: async () => rows as never } }));
   await app.ready();
   return app;
 }
+
+test("PUT que desliga a avaliação e o retorno sem tratamento para marcar é 409 no_bookable_service e não grava", async () => {
+  const { clinic, saved, repo } = setup();
+  const app = await appFor(clinic, repo, [treatment("limpeza", { bookable: false })]);
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/clinic-settings",
+    payload: { name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "pt", offerAssessment: false },
+  });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().error, "no_bookable_service");
+  assert.deepEqual(saved, []);
+  assert.equal(clinic.offerAssessment, true);
+});
+
+test("PUT que desliga os dois fixos com um tratamento para marcar grava normalmente", async () => {
+  const { clinic, saved, repo } = setup();
+  const app = await appFor(clinic, repo, [treatment("limpeza")]);
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/clinic-settings",
+    payload: { name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "pt", offerAssessment: false },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(saved.length, 1);
+  assert.equal(clinic.offerAssessment, false);
+});
+
+test("PUT sem tratamento para marcar grava se a avaliação ou o retorno continuam ligados", async () => {
+  const { clinic, saved, repo } = setup();
+  const app = await appFor(clinic, repo, []);
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/clinic-settings",
+    payload: { name: "DentalSafe", assistantName: "Ana", kind: "dental clinic", language: "pt", offerAssessment: true, offerFollowUp: false },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(saved.length, 1);
+});
 
 test("GET devolve a identidade, a língua e restartRequired false", async () => {
   const { clinic, repo } = setup();

@@ -192,7 +192,8 @@
   },
   "errors": {
     "invalid_body": "Alguns campos precisam de atenção.",
-    "clinic_section_required": "A seção da clínica não pode ser excluída: o assistente precisa do endereço e do contato dela."
+    "clinic_section_required": "A seção da clínica não pode ser excluída: o assistente precisa do endereço e do contato dela.",
+    "no_bookable_service": "Nenhum serviço ficaria para o cliente marcar. Ligue a avaliação geral ou o retorno, ou mantenha ao menos um tratamento marcável."
   },
   "reason": {
     "row": "linha {{row}}",

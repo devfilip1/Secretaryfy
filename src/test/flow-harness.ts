@@ -5,7 +5,7 @@ import { createTestDb } from "./db.js";
 import { createFakeCalendar, type FakeCalendar } from "./fake-calendar.js";
 import { testCatalog } from "./catalog.js";
 import type { ServiceCatalog } from "../modules/scheduling/catalog.js";
-import { testReplies } from "./clinic.js";
+import { testClinic, testReplies } from "./clinic.js";
 import type { ActiveConnection } from "../modules/google/connection.js";
 import { createCustomerRepository, type CustomerRepository } from "../modules/customers/repository.js";
 import type { InboxEvent } from "../modules/inbox/events.js";
@@ -109,6 +109,7 @@ export function useFlowHarness() {
       now: () => h.now,
       replies,
       catalog: { ...h.catalog, minutes: (name) => h.catalogMinutes[name] ?? h.catalog.minutes(name) },
+      clinic: testClinic,
     });
   }
 

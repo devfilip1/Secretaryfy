@@ -5,7 +5,7 @@ import { toDocument } from "../modules/knowledge/render.js";
 import { KnowledgeOrderError, type KnowledgeRepository } from "../modules/knowledge/repository.js";
 import { ASSESSMENT_NOTE, FIELD_LABELS } from "../modules/knowledge/texts.js";
 import { invalidBody } from "./invalid-body.js";
-import { KNOWLEDGE_KINDS, knowledgeRowSchema } from "../modules/knowledge/types.js";
+import { isBookable, KNOWLEDGE_KINDS, knowledgeRowSchema, type KnowledgeRow } from "../modules/knowledge/types.js";
 import { RagAlreadyIndexingError, type RagAdmin } from "../modules/rag/admin.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
 import type { Language } from "../modules/scheduling/dates.js";
@@ -19,7 +19,7 @@ interface Deps {
   rules: { get(): Promise<{ weeklyHours: WeeklyHours }> };
   /** Lido a cada pedido: trocar o nome muda a versão do documento (e o status "não publicado") */
   /** Nome e língua lidos a cada pedido: a língua muda a versão do conteúdo (e o status) quando há fatos com `assessment` */
-  clinic: { name: string; language: Language };
+  clinic: { name: string; language: Language; offerAssessment: boolean; offerFollowUp: boolean };
   /** Depois de cada criação, troca, remoção ou ordem: o catálogo de tratamentos que se podem marcar relê a tabela (ADR 0014) */
   onChange?: () => Promise<void>;
 }
@@ -49,6 +49,16 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, onChange }: Dep
       const key = n === 1 ? base : `${base}-${n}`;
       if (!RESERVED_KEYS.has(key) && (await repo.get(key)) === null) return key;
     }
+  }
+
+  /**
+   * Trocar ou tirar o último tratamento que se marca, com a avaliação e o retorno desligados, deixaria o assistente sem serviço
+   * para oferecer (409 no_bookable_service). Só vale quando a seção era marcável e deixa de ser.
+   */
+  async function removesLastService(current: KnowledgeRow, next: KnowledgeRow | null): Promise<boolean> {
+    if (!isBookable(current) || (next !== null && isBookable(next))) return false;
+    if (clinic.offerAssessment || clinic.offerFollowUp) return false;
+    return !(await repo.list()).some((row) => row.key !== current.key && isBookable(row));
   }
 
   /** Documento de agora: as seções e o horário das regras (o horário não é guardado nas seções). */
@@ -108,6 +118,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, onChange }: Dep
         data: body.data.data,
       });
       if (!row.success) return invalidBody(reply, row.error);
+      if (await removesLastService(current, row.data)) return reply.code(409).send({ error: "no_bookable_service" });
       await repo.upsert(row.data);
       await onChange?.();
       return { section: row.data };
@@ -118,6 +129,7 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, onChange }: Dep
       const current = await repo.get(req.params.key);
       if (!current) return notFound(reply);
       if (current.kind === "clinic") return reply.code(409).send({ error: "clinic_section_required" });
+      if (await removesLastService(current, null)) return reply.code(409).send({ error: "no_bookable_service" });
       if (!(await repo.remove(req.params.key))) return notFound(reply);
       await onChange?.();
       return reply.code(204).send();

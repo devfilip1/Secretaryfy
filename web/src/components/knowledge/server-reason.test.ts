@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ApiError } from "../../api";
-import { fieldLine, humanizePath, reasonLines, serverReason, type ReasonText } from "./server-reason";
+import { fieldLine, humanizePath, reasonLines, reasonTextOf, serverReason, type ReasonText } from "./server-reason";
 
 // Textos em português, como o painel passa (reasonTextOf usa o namespace knowledge; aqui um par fixo).
 const PT: ReasonText = {
@@ -68,5 +68,14 @@ describe("reasonLines", () => {
     const err = new ApiError(400, "invalid_body", { message: "Some fields need attention.", fields: [] });
     assert.equal(serverReason(err, "Fallback"), "Some fields need attention.");
     assert.equal(serverReason(new ApiError(500, "boom", {}), "Fallback"), "Fallback");
+  });
+});
+
+describe("reasonTextOf", () => {
+  it("maps the no_bookable_service code to its knowledge text, and leaves other codes to the server", () => {
+    const text = reasonTextOf(((key: string) => `t:${key}`) as never);
+    assert.equal(text.code("no_bookable_service"), "t:errors.no_bookable_service");
+    assert.equal(text.code("clinic_section_required"), "t:errors.clinic_section_required");
+    assert.equal(text.code("unknown_code"), undefined);
   });
 });

@@ -10,7 +10,7 @@ import { createInboxRepository, type InboxRepository } from "../inbox/repository
 import { createInboxService } from "../inbox/service.js";
 import { testCatalog } from "../../test/catalog.js";
 import { createBooking, type Booking } from "./booking.js";
-import { createCatalog, type ServiceCatalog } from "./catalog.js";
+import { createCatalog, FOLLOW_UP, type ServiceCatalog } from "./catalog.js";
 import { DEFAULT_RULES } from "./rules.js";
 import { createSchedulingStore, type SchedulingStore } from "./sessions.js";
 
@@ -37,7 +37,7 @@ before(async () => {
 after(() => testDb.close());
 
 /** O motor de marcação com este catálogo (os títulos vêm dele) */
-const engine = (catalog: ServiceCatalog, clock: Date = NOW) =>
+const engine = (catalog: ServiceCatalog, clock: Date = NOW, language: "en" | "pt" = "en") =>
   createBooking({
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
@@ -48,6 +48,7 @@ const engine = (catalog: ServiceCatalog, clock: Date = NOW) =>
     log: { error: () => {} },
     now: () => clock,
     catalog,
+    clinic: { language },
   });
 
 beforeEach(async () => {
@@ -124,6 +125,20 @@ test("a chave guardada sai como o título do tratamento no evento, na nota e na 
   assert.equal(appt.service, "limpeza-dental");
   const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
   assert.deepEqual(notes, [{ kind: "booked", start: "2026-10-22T13:00:00.000Z", minutes: 60, service: "Limpeza dental", timeZone: "America/Bahia" }]);
+});
+
+test("serviço fixo: a agenda e o título da nota seguem a língua da clínica; a nota guarda a chave", async () => {
+  booking = engine(createCatalog([], { offerAssessment: true, offerFollowUp: true, assessmentMinutes: null, followUpMinutes: null }), NOW, "pt");
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const result = await slot("2026-10-22T10:00", { service: FOLLOW_UP, origin: "assistant", conversationId: conv.id });
+  assert.equal(result.kind, "booked");
+  const [event] = [...fake.events.values()];
+  assert.equal(event.summary, "Maria — Retorno");
+  assert.match(event.description, /Serviço: Retorno\n/);
+  const [appt] = await testDb.db.select().from(appointments);
+  assert.equal(appt.service, FOLLOW_UP);
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "booked", start: "2026-10-22T13:00:00.000Z", minutes: 60, service: FOLLOW_UP, timeZone: "America/Bahia" }]);
 });
 
 test("um nome que não está no catálogo vai para o evento como está", async () => {
