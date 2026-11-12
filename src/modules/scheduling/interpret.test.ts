@@ -492,3 +492,25 @@ test("fim de semana numa lista de dias: não é a opção do sábado, é a escol
   const r = await interpreter.interpret(input({ step: "choose_day", options: sabadoEDomingo, text: "fim de semana" }));
   assert.deepEqual([r.intent, r.option, r.date, r.weekend], ["choose", null, null, true]);
 });
+
+// Quinta, 12/11/2026: a segunda lista oferece 19, 20, 21, 23, 24 e 25 de novembro
+const proximaSemana = {
+  now: new Date("2026-11-12T21:00:00Z"),
+  window: { firstDate: "2026-11-12", lastDate: "2026-12-12" },
+  step: "choose_day" as const,
+  options: [19, 20, 21, 23, 24, 25].map((day, i): SessionOption => ({ n: i + 1, kind: "day", date: `2026-11-${day}` })),
+};
+
+test("'e na proxima quinta? dia 25 tem?': a data escrita vale mais que o dia da semana da mesma frase", async () => {
+  for (const weekday of ["thursday", "wednesday", null] as const) {
+    const { interpreter } = fakeOllama({ intent: "choose", option: 1, date: "2026-11-19", weekday, name: null });
+    const r = await interpreter.interpret(input({ ...proximaSemana, text: "e na proxima quinta? dia 25 tem?" }));
+    assert.deepEqual([r.intent, r.option, r.date], ["choose", 6, "2026-11-25"], String(weekday));
+  }
+});
+
+test("'Calma, nao eh dia 19 nao. Dia 25!': corrige o dia anterior, vale o 25", async () => {
+  const { interpreter } = fakeOllama({ intent: "unclear", option: null, date: null, weekday: null, name: null });
+  const r = await interpreter.interpret(input({ ...proximaSemana, text: "Calma, nao eh dia 19 nao. Dia 25!" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["choose", 6, "2026-11-25"]);
+});

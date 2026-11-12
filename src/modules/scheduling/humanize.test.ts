@@ -141,3 +141,8 @@ test("humanize: o prompt segue a língua trocada pelo painel, sem reiniciar", as
   assert.match(seen[0][0].content, /in English\./);
   assert.match(seen.at(-1)![0].content, /Brazilian Portuguese/);
 });
+
+test("guardRewrite recusa travessão que o texto fixo não tinha", () => {
+  assert.equal(guardRewrite("Posso confirmar?", "Posso confirmar — tudo certo?"), false);
+  assert.equal(guardRewrite("Pronto — feito.", "Pronto — feito, certo?"), true);
+});

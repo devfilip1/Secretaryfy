@@ -16,7 +16,7 @@ const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
       "Apologies, I can't answer right now. Please try again in a little while.",
     ],
     optOutConfirmation: [
-      "Done — you won't receive any more messages from us here. If you change your mind, just reply START.",
+      "Done, you won't receive any more messages from us here. If you change your mind, just reply START.",
       "Understood. We'll stop messaging you on WhatsApp. Reply START anytime to talk to us again.",
       "All set, no more messages from us. Should you need us again, reply START.",
     ],
@@ -29,7 +29,7 @@ const FIXED_TEXTS: Record<"en" | "pt", FixedTexts> = {
       "Desculpe, não consegui responder agora. Tente de novo daqui a pouco, por favor.",
     ],
     optOutConfirmation: [
-      "Pronto — você não receberá mais mensagens nossas por aqui. Se mudar de ideia, responda VOLTAR.",
+      "Pronto, você não receberá mais mensagens nossas por aqui. Se mudar de ideia, responda VOLTAR.",
       "Entendido. Não vamos mais enviar mensagens pelo WhatsApp. Responda VOLTAR quando quiser falar conosco de novo.",
       "Tudo certo, não enviaremos mais mensagens. Se precisar de nós, responda VOLTAR.",
     ],

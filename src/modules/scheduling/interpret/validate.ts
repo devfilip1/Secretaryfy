@@ -39,10 +39,15 @@ type OfferedDay = Extract<SessionOption, { kind: "day" }>;
  */
 function offeredDayPicked(
   intent: Intent,
-  { weekday, citedDates, hasExplicitDate, offeredDays, timeZone }: { weekday: number; citedDates: string[]; hasExplicitDate: boolean; offeredDays: OfferedDay[]; timeZone: string },
+  { weekday, citedDates, explicitDates, modelDate, hasExplicitDate, offeredDays, timeZone }: { weekday: number; citedDates: string[]; explicitDates: string[]; modelDate: string | null; hasExplicitDate: boolean; offeredDays: OfferedDay[]; timeZone: string },
 ): OfferedDay | undefined {
   if (!picksOfferedDay(intent) || offeredDays.length === 0) return undefined;
-  const byDate = offeredDays.find((o) => citedDates.includes(o.date));
+  // Data escrita ("dia 25") vale mais que o dia da semana na mesma frase ("quinta"): quem diz as duas quer a data
+  const explicit = citedDates.filter((d) => explicitDates.includes(d));
+  const candidates = explicit.length > 0 ? explicit : citedDates;
+  // Duas datas na frase ("não é dia 19, é dia 25"): vale a que o modelo escolheu; sem isso, a última, que é onde se põe a correção
+  const wanted = modelDate && candidates.includes(modelDate) ? [modelDate] : [...candidates].reverse();
+  const byDate = wanted.map((d) => offeredDays.find((o) => o.date === d)).find(Boolean);
   if (byDate) return byDate;
   if (!weekday || hasExplicitDate) return undefined;
   return offeredDays.find((o) => DateTime.fromISO(o.date, { zone: timeZone }).weekday === weekday);
@@ -66,13 +71,14 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   const offeredDays = options.filter((o): o is OfferedDay => o.kind === "day");
   const citedDates = findDatesInText(text, { now, timeZone });
   // O dia dito pelo nome na frase ("quarta feira") vale mais que o dia da semana do modelo, que erra o nome (devolveu quinta); com data explícita, vale o do modelo
-  const hasExplicitDate = findExplicitDatesInText(text, { now, timeZone }).length > 0;
+  const explicitDates = findExplicitDatesInText(text, { now, timeZone });
+  const hasExplicitDate = explicitDates.length > 0;
   const weekdayCited = weekendAsked ? 0 : hasExplicitDate ? weekday : (namedDays[0] ?? weekday);
   // O próximo dia com esse nome, contando hoje; a data que o modelo calculou erra o dia da semana
   const nextWithThatName = weekdayCited ? today.plus({ days: (weekdayCited - today.weekday + 7) % 7 }).toISODate() : null;
   // O dia da lista que o cliente escolheu vale mais que a opção que o modelo marcou ("fim de semana?" na lista não é a opção 1)
   // Sábado e domingo juntos não escolhem um dia da lista (a escolha é do fim de semana inteiro)
-  const pickedDay = weekendAsked ? undefined : offeredDayPicked(parsed.data.intent, { weekday: weekdayCited, citedDates, hasExplicitDate, offeredDays, timeZone });
+  const pickedDay = weekendAsked ? undefined : offeredDayPicked(parsed.data.intent, { weekday: weekdayCited, citedDates, explicitDates, modelDate: parsed.data.date ?? null, hasExplicitDate, offeredDays, timeZone });
   let fromWeekday = false;
   if (pickedDay) {
     option = pickedDay.n;

@@ -48,6 +48,8 @@ export function guardRewrite(original: string, rewrite: string): boolean {
   const out = rewrite.trim();
   if (!out || out.length > original.length * 1.6 + 40) return false;
   if (out.includes("**") || out.includes("```") || /^#/m.test(out)) return false;
+  // Travessão e meia-risca soam a texto de máquina no WhatsApp: a reescrita só os leva se o texto fixo já tinha
+  if (/[—–]/u.test(out) && !/[—–]/u.test(original)) return false;
 
   const before = extractFacts(original);
   const after = extractFacts(out);
@@ -84,6 +86,7 @@ function systemPrompt(language: "en" | "pt", clinicName: string): string {
     'Keep the words in quotes ("more", "other day", "mais", "outro dia") and YES, NO, SIM, NÃO exactly as written.',
     "Do not add facts, offers, promises, prices or questions that are not in the original.",
     "Do not use markdown.",
+    "Never use an em dash or an en dash; use a comma, a period or parentheses instead.",
     "Example of the style (only the unprotected sentences change):",
     EXAMPLES[language],
     'Return JSON: {"message": "..."}',

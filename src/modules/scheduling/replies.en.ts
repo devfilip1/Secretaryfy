@@ -70,7 +70,7 @@ I can also check another day if you like.`;
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.label));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure (general assessment)" : s.label));
       return `${who ? `${who}, which` : "Which"} service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 

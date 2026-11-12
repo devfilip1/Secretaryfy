@@ -89,7 +89,7 @@ test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horá
   const times = pt.offerSlots("2026-10-21", slots, tz, false);
   assert.match(times, /\n• 09:00\n• 10:00\n/);
   assert.match(pt.chooseService(), /\n• Dental Cleaning\n/);
-  assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
+  assert.match(pt.chooseService(), /\n• Não tenho certeza \(avaliação geral\)\n/);
 });
 
 test("confirmação e lembrete pedem confirmação", () => {

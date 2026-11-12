@@ -50,7 +50,7 @@ test("lista de serviços: os 8 tratamentos em bullets e a avaliação geral no f
   assert.equal(lines[0], "Which service is this appointment for?");
   assert.equal(lines[1], "• Dental Cleaning");
   assert.equal(lines[8], "• Dental Veneers");
-  assert.equal(lines[9], "• Not sure — general assessment");
+  assert.equal(lines[9], "• Not sure (general assessment)");
   assert.equal(lines[10], "Just tell me which one.");
 });
 
