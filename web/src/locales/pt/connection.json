@@ -2,8 +2,21 @@
   "loading": "Carregando…",
   "confirmDisconnect": "Desconectar este número do Secretaryfy? O assistente deixa de responder até você conectar de novo.",
   "tryAgain": "Tentar de novo",
+  "status": {
+    "open": "Conectado",
+    "connecting": "Conectando…",
+    "close": "Não conectado"
+  },
+  "connected": {
+    "unknownNumber": "Número conectado",
+    "note": "As mensagens deste número chegam ao painel.",
+    "disconnect": "Desconectar",
+    "disconnecting": "Desconectando…"
+  },
   "connect": {
     "title": "Conectar o WhatsApp",
+    "lead": "Vincule o número pelo celular em três passos.",
+    "noNumber": "Nenhum número vinculado ainda.",
     "step1": "Abra o WhatsApp no celular.",
     "step2": "Toque em <strong>Aparelhos conectados</strong> e depois em <strong>Conectar um aparelho</strong>.",
     "step3": "Aponte a câmera para o código abaixo.",
@@ -12,11 +25,23 @@
     "generating": "Gerando o código QR…",
     "refreshNote": "O código se renova sozinho."
   },
-  "connected": {
-    "title": "WhatsApp conectado",
-    "unknownNumber": "Número conectado",
-    "disconnect": "Desconectar",
-    "disconnecting": "Desconectando…"
+  "protection": {
+    "title": "Proteção do número",
+    "normal": "Envio em ritmo normal.",
+    "warmingUp": "Número em aquecimento: os limites estão reduzidos.",
+    "warmingUpUntil": "Número em aquecimento até {{day}}: os limites estão reduzidos.",
+    "paused": "Envio automático pausado pela proteção do número.",
+    "pausedUntil": "Pausado até {{time}}.",
+    "reason": "Motivo: {{reason}}.",
+    "reasons": {
+      "send_failures": "muitas falhas de envio",
+      "connection_drops": "a conexão caiu várias vezes"
+    },
+    "perMinute": "Por minuto",
+    "perHour": "Por hora",
+    "conversationsToday": "Conversas hoje",
+    "footnote": "Valores atuais, da última verificação.",
+    "unavailable": "Não foi possível carregar os limites agora."
   },
   "errors": {
     "too_many_attempts": "Muitas tentativas de conexão. Tente de novo às {{time}}.",

@@ -4,6 +4,9 @@ export type PanelLanguage = "en" | "pt";
 
 export const PANEL_LANGUAGES: readonly PanelLanguage[] = ["en", "pt"];
 
+/** Cada idioma com o próprio nome: nunca traduzido. */
+export const PANEL_LANGUAGE_NAMES: Readonly<Record<PanelLanguage, string>> = { en: "English", pt: "Português" };
+
 /** Chave do localStorage com a escolha feita no painel. */
 const STORAGE_KEY = "secretaryfy.panelLanguage";
 

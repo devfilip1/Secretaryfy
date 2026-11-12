@@ -18,7 +18,16 @@
   "back": "Voltar",
   "yes": "Sim",
   "no": "Não",
+  "account": {
+    "title": "Equipe",
+    "menu": "Conta",
+    "theme": "Tema",
+    "language": "Idioma",
+    "initialsFallback": "SF"
+  },
   "nav": {
+    "label": "Navegação principal",
+    "attentionCount": "Conversas que pedem atenção: {{count}}",
     "conversations": "Conversas",
     "appointments": "Agendamentos",
     "connection": "Conexão",

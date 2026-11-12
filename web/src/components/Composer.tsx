@@ -88,7 +88,7 @@ export function Composer({
       <div className="flex items-end gap-2.5">
         <Textarea
           ref={area}
-          className="max-h-40 min-h-0 flex-1 resize-none"
+          className="max-h-40 min-h-0 flex-1 resize-none overflow-y-hidden [scrollbar-width:thin]"
           rows={1}
           maxLength={MAX_LENGTH}
           placeholder={t(TOUCH ? "composer.placeholderTouch" : "composer.placeholderKeyboard")}

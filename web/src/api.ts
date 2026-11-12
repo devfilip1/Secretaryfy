@@ -234,6 +234,8 @@ export type ReminderLabel = "confirmed" | "scheduled" | "remind_manually" | "wai
 
 export interface Appointment {
   id: string;
+  /** Sempre "booked": a lista só traz os marcados */
+  status: "booked";
   startsAt: string;
   endsAt: string;
   /** Duração do atendimento em minutos */
@@ -251,7 +253,14 @@ export interface Appointment {
   confirmedBy: "customer" | "operator" | null;
 }
 
-export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
+/** Consultas dos próximos `days` dias (o servidor padrão é 7; até 31). `from: "today"` inclui as de hoje já passadas. */
+export const listAppointments = (days?: number, from?: "today") => {
+  const query = new URLSearchParams();
+  if (days) query.set("days", String(days));
+  if (from) query.set("from", from);
+  const qs = query.toString();
+  return request<{ timeZone: string; appointments: Appointment[] }>("GET", `/api/appointments${qs ? `?${qs}` : ""}`);
+};
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 /** Cancela o agendamento e remove o evento da agenda; não avisa o cliente. 404 not_found, 409 calendar_disconnected. */
 export const cancelAppointment = (id: string) => request<{ ok: true }>("POST", `/api/appointments/${id}/cancel`, {});

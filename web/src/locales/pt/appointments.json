@@ -1,9 +1,22 @@
 {
-  "title": "Agendamentos",
-  "subtitle": "Marcados pelo assistente ou aqui, para os próximos 7 dias.",
+  "title": "Consultas",
+  "subtitle": "Marcados pelo assistente ou aqui.",
   "loading": "Carregando…",
   "new": "Novo agendamento",
   "empty": "Nenhum agendamento nos próximos 7 dias.",
+  "emptyMonth": "Nenhum agendamento nos próximos 30 dias.",
+  "view": {
+    "label": "Alcance da agenda",
+    "day": "Dia",
+    "week": "7 dias",
+    "month": "Mês"
+  },
+  "agenda": {
+    "prev": "Dia anterior",
+    "next": "Próximo dia",
+    "today": "Hoje",
+    "emptyDay": "Nenhum agendamento neste dia."
+  },
   "cancel": "Cancelar",
   "close": "Fechar",
   "book": "Agendar",

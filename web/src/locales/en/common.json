@@ -18,7 +18,16 @@
   "back": "Back",
   "yes": "Yes",
   "no": "No",
+  "account": {
+    "title": "Team",
+    "menu": "Account",
+    "theme": "Theme",
+    "language": "Language",
+    "initialsFallback": "SF"
+  },
   "nav": {
+    "label": "Main navigation",
+    "attentionCount": "Conversations needing attention: {{count}}",
     "conversations": "Conversations",
     "appointments": "Appointments",
     "connection": "Connection",

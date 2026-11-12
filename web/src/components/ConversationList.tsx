@@ -65,7 +65,7 @@ export function ConversationList({
               <span className="flex items-center justify-between gap-2">
                 <span className="truncate font-semibold">
                   {c.assistantPaused && (
-                    <span title={t("assistant.paused")}>
+                    <span title={t("assistant.paused")} className="mr-1.5">
                       <Pause className="inline size-3.5" />
                     </span>
                   )}

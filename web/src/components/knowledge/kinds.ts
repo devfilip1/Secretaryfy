@@ -3,6 +3,9 @@
 /** Nome do tipo de seção nas linhas da lista. */
 export const KIND_LABEL_KEY = { treatment: "kind.treatment", info: "kind.info", clinic: "kind.clinic" } as const;
 
+/** Título do bloco de cada tipo na lista (Dados da clínica, Tratamentos, Informações). */
+export const KIND_GROUP_KEY = { clinic: "group.clinic", treatment: "group.treatment", info: "group.info" } as const;
+
 /** Botão "Adicionar ..." de cada tipo, e o título do diálogo ao criar. */
 export const KIND_ADD_KEY = { treatment: "add.treatment", info: "add.info", clinic: "add.clinic" } as const;
 

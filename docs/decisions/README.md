@@ -21,5 +21,6 @@ Decisions someone might question or want to reverse. Most come from the `researc
 | [0015](0015-appointment-length-per-treatment-and-time-grid.md) | Appointment length per treatment and a 15-minute time grid | Accepted |
 | [0016](0016-one-language-setting-for-the-bot-and-the-panel.md) | One language setting for the bot and the panel, panel translated with react-i18next | Proposed |
 | [0017](0017-facts-of-the-message-are-read-by-focused-extractors.md) | Facts of the message are read by focused extractors with a checked quote, merged in code | Accepted |
+| [0018](0018-panel-visual-identity-porcelana-rail.md) | Panel visual identity: Porcelana tokens, light and dark themes, rail navigation | Accepted |
 
 New decision → new file `NNNN-short-title.md` with Status, Date, Context, Decision, Alternatives, Consequences. Don't rewrite an old record; mark it `Superseded by NNNN`.

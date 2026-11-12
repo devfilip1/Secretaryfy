@@ -1,5 +1,5 @@
 {
-  "title": "Conhecimento",
+  "title": "Folheto",
   "subtitle": "O que o assistente sabe sobre a clínica. As mudanças chegam ao assistente depois que você publicar.",
   "loadError": "Não foi possível carregar o conhecimento. Tente de novo.",
   "tabs": {
@@ -13,9 +13,15 @@
     "clinic": "Clínica"
   },
   "add": {
+    "menu": "Adicionar",
     "treatment": "Adicionar tratamento",
     "info": "Adicionar seção de informações",
     "clinic": "Adicionar dados da clínica"
+  },
+  "group": {
+    "clinic": "Dados da clínica",
+    "treatment": "Tratamentos",
+    "info": "Informações"
   },
   "edit": {
     "treatment": "Editar tratamento",
@@ -34,9 +40,10 @@
     "saveError": "Não foi possível salvar a seção. Tente de novo."
   },
   "list": {
+    "emptyTitle": "O folheto ainda está em branco",
     "empty": "Nenhuma seção ainda. Comece com um tratamento ou adicione algumas linhas de informação, como endereço e horários.",
     "notBookable": "Não agendável",
-    "edit": "Editar",
+    "editLabel": "Editar {{title}}",
     "delete": "Excluir",
     "deleteLabel": "Excluir {{title}}"
   },
@@ -206,7 +213,17 @@
       "f3": "Como funciona",
       "f4": "Duração e Preço",
       "f5": "Resultado",
-      "f6": "Tempo de recuperação"
+      "f6": "Tempo de recuperação",
+      "examples": {
+        "f1": "Limpeza Dental - O Primeiro Passo para um Sorriso Saudável",
+        "f2Title": "Ideal para quem quer",
+        "f2a": "Sensação imediata de boca limpa",
+        "f2b": "Hálito mais fresco",
+        "f3": "Como funciona: Remoção de placa e tártaro com ultrassom, seguida de polimento.",
+        "f4": "Duração: 30 a 50 minutos   |   Preço: R$ 40 a R$ 85 (valor final definido na avaliação)",
+        "f5": "Resultado: Imediato, já na primeira sessão",
+        "f6": "Recuperação: 3 a 7 dias"
+      }
     },
     "texts": {
       "title": "O que significa cada campo de texto",

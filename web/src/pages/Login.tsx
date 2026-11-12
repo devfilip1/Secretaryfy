@@ -2,10 +2,9 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, login } from "../api";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CenterPage } from "../components/CenterPage";
 import { Field } from "../components/Field";
+import { LoginBrand } from "../components/login/LoginBrand";
 import { Notice } from "../components/Notice";
 import { Title } from "../components/Title";
 import { PanelLanguage } from "../i18n/PanelLanguage";
@@ -41,31 +40,34 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <CenterPage>
-      <Card as="form" className="flex w-[min(420px,100%)] flex-col gap-3.5" onSubmit={submit}>
-        <div className="flex items-center gap-2 self-end">
+    <main className="grid min-h-full md:grid-cols-2">
+      <LoginBrand />
+      <div className="relative grid place-items-center p-4 md:p-9">
+        <div className="absolute end-4 top-4 flex items-center gap-2">
           <ThemeSelect />
           <PanelLanguage />
         </div>
-        <Title level={1} className="mb-1">
-          Secretaryfy
-        </Title>
-        <p className="text-muted-foreground">{t("subtitle")}</p>
-        <Field className="gap-1.5 font-medium">
-          {t("password")}
-          <Input
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Field>
-        {error && <Notice role="alert">{error}</Notice>}
-        <Button type="submit" disabled={!password || busy}>
-          {busy ? t("signingIn") : t("signIn")}
-        </Button>
-      </Card>
-    </CenterPage>
+        <form className="grid w-full max-w-[360px] gap-5 pt-14 md:pt-0" onSubmit={submit}>
+          <div className="grid gap-1.5">
+            <Title level={2}>{t("title")}</Title>
+            <p className="m-0 text-sm text-muted-foreground">{t("hint")}</p>
+          </div>
+          <Field className="gap-1.5 font-medium">
+            {t("password")}
+            <Input
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+          {error && <Notice role="alert">{error}</Notice>}
+          <Button type="submit" className="w-full" disabled={!password || busy}>
+            {busy ? t("signingIn") : t("signIn")}
+          </Button>
+        </form>
+      </div>
+    </main>
   );
 }

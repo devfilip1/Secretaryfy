@@ -7,16 +7,31 @@
   "searchLabel": "Buscar clientes",
   "empty": "Ainda não há clientes. Quem confirma um horário aparece aqui.",
   "noResults": "Nenhum cliente encontrado para “{{query}}”.",
-  "nextAppointment": "Próximo: {{when}}",
+  "pagination": {
+    "nav": "Páginas de clientes",
+    "range": "Mostrando {{from}}–{{to}} de {{total}}",
+    "page": "Página {{page}} de {{pageCount}}",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "previousLabel": "Página anterior",
+    "nextLabel": "Próxima página"
+  },
+  "columns": {
+    "name": "Nome",
+    "phone": "Telefone",
+    "next": "Próxima consulta"
+  },
+  "pickOne": "Selecione um cliente para ver os detalhes.",
+  "since": "Cliente desde {{date}}",
+  "totalAppointments_one": "{{count}} agendamento",
+  "totalAppointments_other": "{{count}} agendamentos",
   "noUpcoming": "Nenhum horário futuro",
   "appointmentAt": "{{day}} às {{time}}",
   "appointmentWithService": "{{when}} · {{service}}",
   "fields": {
-    "id": "ID",
-    "name": "Nome",
     "phone": "Telefone",
-    "created": "Criado em",
-    "updated": "Atualizado em"
+    "next": "Próximo agendamento",
+    "total": "Agendamentos"
   },
   "notesTitle": "Anotações",
   "ariaNotes": "Anotações",
@@ -40,7 +55,8 @@
     "cancel": "Cancelar",
     "delete": "Excluir cadastro",
     "deleting": "Excluindo…",
-    "viewConversation": "Ver conversa"
+    "viewConversation": "Abrir conversa",
+    "back": "Voltar"
   },
   "errors": {
     "load": "Não foi possível carregar os clientes.",

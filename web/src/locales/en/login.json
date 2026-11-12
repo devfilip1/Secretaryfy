@@ -1,5 +1,9 @@
 {
-  "subtitle": "WhatsApp panel",
+  "brandName": "Secretaryfy",
+  "brandTitle": "The clinic front desk, right on WhatsApp",
+  "brandText": "Answers, books, and alerts the team when a person is needed.",
+  "title": "Sign in to the panel",
+  "hint": "Use the team's password.",
   "password": "Operator password",
   "signIn": "Sign in",
   "signingIn": "Signing in…",

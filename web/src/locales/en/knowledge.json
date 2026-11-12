@@ -13,9 +13,15 @@
     "clinic": "Clinic"
   },
   "add": {
+    "menu": "Add",
     "treatment": "Add treatment",
     "info": "Add info section",
     "clinic": "Add clinic details"
+  },
+  "group": {
+    "clinic": "Clinic info",
+    "treatment": "Treatments",
+    "info": "Info"
   },
   "edit": {
     "treatment": "Edit treatment",
@@ -34,9 +40,10 @@
     "saveError": "Could not save the section. Please try again."
   },
   "list": {
+    "emptyTitle": "The brochure is still blank",
     "empty": "No sections yet. Start with a treatment, or add a few info lines such as the address and hours.",
     "notBookable": "Not bookable",
-    "edit": "Edit",
+    "editLabel": "Edit {{title}}",
     "delete": "Delete",
     "deleteLabel": "Delete {{title}}"
   },
@@ -60,8 +67,8 @@
   "extra": {
     "name": "Name",
     "value": "Value",
-    "nameExample": "For example: Mensalidade",
-    "valueExample": "For example: R$ 35 a R$ 90",
+    "nameExample": "For example: Monthly fee",
+    "valueExample": "For example: R$ 35 to R$ 90",
     "remove": "Remove detail {{number}}",
     "add": "Add detail"
   },
@@ -90,7 +97,7 @@
   "infoForm": {
     "title": {
       "label": "Title",
-      "description": "The subject of the lines, for example: Endereço"
+      "description": "The subject of the lines, for example: Address"
     },
     "lines": {
       "label": "Text",
@@ -100,11 +107,11 @@
   "treatmentForm": {
     "title": {
       "label": "Title",
-      "description": "The name patients use, for example: Limpeza Dental. One treatment per section."
+      "description": "The name patients use, for example: Dental Cleaning. One treatment per section."
     },
     "tagline": {
       "label": "Short description",
-      "description": "Optional. A short line shown after the title, for example: O Primeiro Passo para um Sorriso Saudável."
+      "description": "Optional. A short line shown after the title, for example: The First Step to a Healthy Smile."
     },
     "bookable": {
       "label": "Patients can book this treatment",
@@ -116,45 +123,45 @@
     },
     "otherNames": {
       "label": "Names",
-      "description": "Other words patients use for this treatment, for example: branqueamento, clarear. One per line. The assistant uses them to find the right answer."
+      "description": "Other words patients use for this treatment, for example: whitening, bleaching. One per line. The assistant uses them to find the right answer."
     },
     "idealItems": {
       "label": "Items",
-      "description": "One short line each, for example: Hálito mais fresco. Press Enter for a new line."
+      "description": "One short line each, for example: Fresher breath. Press Enter for a new line."
     },
     "howItWorks": {
       "label": "Text",
-      "description": "How it is done and which materials it uses, for example: Remoção de placa e tártaro com ultrassom, seguida de polimento."
+      "description": "How it is done and which materials it uses, for example: Plaque and tartar removal with ultrasound, followed by polishing."
     },
     "duration": {
       "label": "Value",
-      "description": "For example: 30 a 50 minutos"
+      "description": "For example: 30 to 50 minutes"
     },
     "price": {
       "label": "Value",
-      "description": "For example: R$ 40 a R$ 85"
+      "description": "For example: R$ 40 to R$ 85"
     },
     "result": {
       "label": "Text",
-      "description": "What the patient gets and how long it lasts, for example: Até 8 tons mais claros, com resultado que dura até 3 anos."
+      "description": "What the patient gets and how long it lasts, for example: Up to 8 shades lighter, with results lasting up to 3 years."
     },
     "recovery": {
       "label": "Time",
-      "description": "How long healing takes afterwards, for example: 3 a 7 dias. Optional."
+      "description": "How long healing takes afterwards, for example: 3 to 7 days. Optional."
     }
   },
   "clinicForm": {
     "title": {
       "label": "Title",
-      "description": "The name of this section, for example: Sorriso Pleno - Clinic information."
+      "description": "The name of this section, for example: Bright Smile Dental - Clinic information."
     },
     "intro": {
       "label": "Intro",
-      "description": "Optional. The opening lines of the brochure, one line per row, for example: Transforme seu sorriso com segurança e rapidez."
+      "description": "Optional. The opening lines of the brochure, one line per row, for example: Transform your smile safely and quickly."
     },
     "address": {
       "label": "Address",
-      "description": "One line per row, for example: Avenida Atlântica, 125, Sala 204. Press Enter for a new line."
+      "description": "One line per row, for example: 125 Ocean Avenue, Suite 204. Press Enter for a new line."
     },
     "phone": {
       "label": "Phone",
@@ -166,7 +173,7 @@
     },
     "closing": {
       "label": "Text",
-      "description": "Optional. The last lines the assistant says, one per row, for example: Agende pelo WhatsApp."
+      "description": "Optional. The last lines the assistant says, one per row, for example: Book through WhatsApp."
     },
     "hours": {
       "empty": "No opening hours set yet.",
@@ -200,13 +207,23 @@
     },
     "fill": {
       "title": "What you fill in and what the assistant reads",
-      "p1": "Each field you fill in becomes a sentence the assistant can say. The words before the text, such as Como funciona, are already filled in for you. This is the Limpeza Dental treatment, as the brochure has it.",
+      "p1": "Each field you fill in becomes a sentence the assistant can say. The words before the text, such as How it works, are already filled in for you. This is the Dental Cleaning treatment, as the brochure has it.",
       "f1": "Title and short description",
       "f2": "Who it is for",
       "f3": "How it works",
       "f4": "Duration and Price",
       "f5": "Result",
-      "f6": "Recovery time"
+      "f6": "Recovery time",
+      "examples": {
+        "f1": "Dental Cleaning - The First Step to a Healthy Smile",
+        "f2Title": "Ideal for people who want",
+        "f2a": "An immediate feeling of a clean mouth",
+        "f2b": "Fresher breath",
+        "f3": "How it works: Plaque and tartar removal with ultrasound, followed by polishing.",
+        "f4": "Duration: 30 to 50 minutes   |   Price: R$ 40 to R$ 85 (final price set at the evaluation)",
+        "f5": "Result: Immediate, from the first session",
+        "f6": "Recovery: 3 to 7 days"
+      }
     },
     "texts": {
       "title": "What each text field means",
@@ -228,16 +245,16 @@
       "p1": "The clinic block holds the address, phone and email the assistant gives when patients ask where to come and how to reach you. There is one clinic block, created from the brochure when the knowledge is imported. You can edit it here.",
       "p2": "The opening hours are not written here. They come from the booking rules in the Calendar page, so they are written once and stay in step with the bookings. Change them there.",
       "l1": "Intro: the opening lines, one per row. Optional.",
-      "l2": "Address: one line per row, for example: Avenida Atlântica, 125, Sala 204. At least one line is needed.",
+      "l2": "Address: one line per row, for example: 125 Ocean Avenue, Suite 204. At least one line is needed.",
       "l3": "Phone and email: optional.",
       "l4": "Closing text: the last lines the assistant says, such as a call to book. Optional."
     },
     "clinicName": {
       "title": "Clinic name and assistant",
       "p1": "Save on the Clinic tab sends these three fields to the server. The assistant uses a new name from the next message.",
-      "l1": "Clinic name: the name patients hear, for example: Sorriso Pleno.",
+      "l1": "Clinic name: the name patients hear, for example: Bright Smile Dental.",
       "l2": "Assistant name: the name the assistant uses when it introduces itself, for example: Ana. Leave it empty for no name.",
-      "l3": "Type of clinic: how the assistant describes the clinic to the model, in the clinic's language, for example: clínica odontológica.",
+      "l3": "Type of clinic: how the assistant describes the clinic to the model, in the clinic's language, for example: dental clinic.",
       "l4": "The assistant's language is chosen in the Clinic tab (Assistant language); the panel's own language is chosen with the selector in the top bar."
     },
     "booking": {

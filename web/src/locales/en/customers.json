@@ -7,16 +7,31 @@
   "searchLabel": "Search customers",
   "empty": "No customers yet. Anyone who confirms a booking shows up here.",
   "noResults": "No customers found for “{{query}}”.",
-  "nextAppointment": "Next: {{when}}",
+  "pagination": {
+    "nav": "Customers pages",
+    "range": "Showing {{from}}–{{to}} of {{total}}",
+    "page": "Page {{page}} of {{pageCount}}",
+    "previous": "Previous",
+    "next": "Next",
+    "previousLabel": "Previous page",
+    "nextLabel": "Next page"
+  },
+  "columns": {
+    "name": "Name",
+    "phone": "Phone",
+    "next": "Next appointment"
+  },
+  "pickOne": "Select a customer to see their details.",
+  "since": "Customer since {{date}}",
+  "totalAppointments_one": "{{count}} appointment",
+  "totalAppointments_other": "{{count}} appointments",
   "noUpcoming": "No upcoming appointment",
   "appointmentAt": "{{day}} at {{time}}",
   "appointmentWithService": "{{when}} · {{service}}",
   "fields": {
-    "id": "ID",
-    "name": "Name",
     "phone": "Phone",
-    "created": "Created",
-    "updated": "Updated"
+    "next": "Next appointment",
+    "total": "Appointments"
   },
   "notesTitle": "Notes",
   "ariaNotes": "Notes",
@@ -40,7 +55,8 @@
     "cancel": "Cancel",
     "delete": "Delete record",
     "deleting": "Deleting…",
-    "viewConversation": "View conversation"
+    "viewConversation": "Open conversation",
+    "back": "Back"
   },
   "errors": {
     "load": "Could not load the customers.",

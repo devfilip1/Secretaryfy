@@ -2,8 +2,21 @@
   "loading": "Loading…",
   "confirmDisconnect": "Disconnect this number from Secretaryfy? The assistant stops replying until you connect again.",
   "tryAgain": "Try again",
+  "status": {
+    "open": "Connected",
+    "connecting": "Connecting…",
+    "close": "Not connected"
+  },
+  "connected": {
+    "unknownNumber": "Connected number",
+    "note": "Messages from this number reach the panel.",
+    "disconnect": "Disconnect",
+    "disconnecting": "Disconnecting…"
+  },
   "connect": {
     "title": "Connect WhatsApp",
+    "lead": "Link the number from your phone in three steps.",
+    "noNumber": "No number linked yet.",
     "step1": "Open WhatsApp on your phone.",
     "step2": "Tap <strong>Linked devices</strong>, then <strong>Link a device</strong>.",
     "step3": "Point the camera at the code below.",
@@ -12,11 +25,23 @@
     "generating": "Generating QR code…",
     "refreshNote": "The code refreshes automatically."
   },
-  "connected": {
-    "title": "WhatsApp connected",
-    "unknownNumber": "Connected number",
-    "disconnect": "Disconnect",
-    "disconnecting": "Disconnecting…"
+  "protection": {
+    "title": "Number protection",
+    "normal": "Sending at a normal pace.",
+    "warmingUp": "Number warming up: limits are reduced.",
+    "warmingUpUntil": "Number warming up until {{day}}: limits are reduced.",
+    "paused": "Automatic sending paused by number protection.",
+    "pausedUntil": "Paused until {{time}}.",
+    "reason": "Reason: {{reason}}.",
+    "reasons": {
+      "send_failures": "too many send failures",
+      "connection_drops": "the connection dropped several times"
+    },
+    "perMinute": "Per minute",
+    "perHour": "Per hour",
+    "conversationsToday": "Conversations today",
+    "footnote": "Current values, as of the last check.",
+    "unavailable": "Could not load the limits right now."
   },
   "errors": {
     "too_many_attempts": "Too many connection attempts. Try again at {{time}}.",

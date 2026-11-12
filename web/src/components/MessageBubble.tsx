@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Check, Clock, Info, ShieldAlert, TriangleAlert } from "lucide-react";
+import { Check, CircleAlert, CircleCheck, Clock, Info, ShieldAlert, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Message } from "../api";
 import { useBlockReasonText } from "../i18n/blockReason";
@@ -8,12 +8,22 @@ import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Muted } from "./Muted";
 import { useSystemNoteText } from "./system-note";
+import { toneOfNote, type NoteTone } from "./system-note-tone";
 
 const STATUS_ICON: Partial<Record<Message["status"], LucideIcon>> = {
   sending: Clock,
   sent: Check,
   failed: TriangleAlert,
   blocked: ShieldAlert,
+};
+
+// Ícone e cores da pílula de um registro do sistema, conforme a situação (alerta é o mais forte)
+const NOTE_TONE: Record<NoteTone, { icon: LucideIcon; pill: string }> = {
+  alert: { icon: TriangleAlert, pill: "bg-alert font-bold text-destructive" },
+  warn: { icon: CircleAlert, pill: "bg-warn-bg text-warn" },
+  ok: { icon: CircleCheck, pill: "bg-ok-bg text-ok" },
+  info: { icon: Info, pill: "bg-info-bg text-info" },
+  neutral: { icon: Info, pill: "bg-secondary text-muted-foreground" },
 };
 
 // Cor de fundo de cada origem; "system" não tem balão (ver abaixo)
@@ -25,22 +35,29 @@ const BUBBLE_BG: Record<Message["origin"], string> = {
   system: "",
 };
 
-export function MessageBubble({ message, onRetry }: { message: Message; onRetry?: (m: Message) => void }) {
+export function MessageBubble({ message, onRetry, customerName }: { message: Message; onRetry?: (m: Message) => void; customerName?: string | null }) {
   const { t } = useTranslation("inbox");
   const { formatDateTime, formatTime } = useFormats();
   const blockReasonText = useBlockReasonText();
   const label = message.type === "text" ? null : t(`media.${message.type}`);
   const mine = message.origin !== "customer";
   const systemText = useSystemNoteText(message);
+  // Balão do cliente mostra o nome do paciente quando a conversa tem um; sem nome, o rótulo da origem
+  const customer = customerName?.trim();
+  const senderLabel = message.origin === "customer" && customer ? customer : t(`origin.${message.origin}`);
 
-  // Registro do Secretaryfy (ex.: agendamento feito pelo assistente): linha centralizada, sem balão
+  // Registro do Secretaryfy (ex.: agendamento feito pelo assistente): pílula centralizada, sem balão; a cor segue a situação
   if (message.origin === "system") {
+    const { icon: ToneIcon, pill } = NOTE_TONE[toneOfNote(message.note)];
     return (
       <div
-        className="mx-auto my-1.5 flex max-w-[90%] items-center gap-1.5 self-center rounded-lg bg-card px-2.5 py-1 text-center text-sm text-muted-foreground"
+        className={cn(
+          "mx-auto my-1.5 flex max-w-[90%] items-center gap-1.5 self-center rounded-full px-3 py-1 text-[13px]",
+          pill,
+        )}
         title={formatDateTime(message.sentAt)}
       >
-        <Info className="size-3.5 shrink-0" aria-hidden />
+        <ToneIcon className="size-4 shrink-0" aria-hidden />
         <span>
           {systemText} · {formatTime(message.sentAt)}
         </span>
@@ -62,7 +79,7 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
           blocked && "opacity-75 outline-1 outline-dashed outline-muted-foreground",
         )}
       >
-        <Muted className="text-xs font-bold">{t(`origin.${message.origin}`)}</Muted>
+        <Muted className="text-xs font-bold">{senderLabel}</Muted>
         {label && <span className="italic">{label}</span>}
         {message.text && <p className="whitespace-pre-wrap wrap-anywhere">{message.text}</p>}
         <span className="self-end text-xs text-muted-foreground" title={formatDateTime(message.sentAt)}>

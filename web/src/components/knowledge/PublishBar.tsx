@@ -1,22 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, CircleCheck, CloudOff, Upload, type LucideIcon } from "lucide-react";
+import { Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiError, publishKnowledge, type KnowledgeStatus } from "../../api";
 import { knowledgeKeys, knowledgeStatusQuery } from "../../queries";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "../Notice";
 
 type PublishErrorKey = "publishBar.busy" | "publishBar.unreachable" | "publishBar.failed";
 
-// Ícone e texto junto da cor: o estado não depende só da cor
-const STATUS_BADGE: Record<
-  KnowledgeStatus["state"],
-  { variant: "secondary" | "warn"; textKey: "status.upToDate" | "status.unpublished" | "status.unavailable"; icon: LucideIcon }
-> = {
-  upToDate: { variant: "secondary", textKey: "status.upToDate", icon: CircleCheck },
-  unpublished: { variant: "warn", textKey: "status.unpublished", icon: CircleAlert },
-  unavailable: { variant: "warn", textKey: "status.unavailable", icon: CloudOff },
+// Ponto colorido e texto junto: o estado não depende só da cor
+const STATUS_DOT: Record<KnowledgeStatus["state"], { textKey: "status.upToDate" | "status.unpublished" | "status.unavailable"; dot: string }> = {
+  upToDate: { textKey: "status.upToDate", dot: "bg-ok" },
+  unpublished: { textKey: "status.unpublished", dot: "bg-warn" },
+  unavailable: { textKey: "status.unavailable", dot: "bg-muted-foreground" },
 };
 
 /** Texto do erro de publicação. `t` é o da aba Clínica (quem chama passa o seu). */
@@ -26,7 +22,7 @@ export function publishErrorMessage(err: unknown, t: (key: PublishErrorKey) => s
   return t("publishBar.failed");
 }
 
-/** Estado da publicação no assistente e o botão para publicar as mudanças. */
+/** Barra fina e fixa no topo da aba: estado da publicação no assistente e o botão para publicar. */
 export function PublishBar() {
   const { t } = useTranslation("clinic");
   const queryClient = useQueryClient();
@@ -35,19 +31,19 @@ export function PublishBar() {
     mutationFn: publishKnowledge,
     onSuccess: (next) => queryClient.setQueryData(knowledgeKeys.status(), next),
   });
-  const badge = status ? STATUS_BADGE[status.state] : null;
+  const state = status ? STATUS_DOT[status.state] : null;
   const justPublished = publish.isSuccess && status?.state === "upToDate";
 
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
-        {badge && (
-          <Badge variant={badge.variant}>
-            <badge.icon />
-            {t(badge.textKey)}
-          </Badge>
+    <>
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/95 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        {state && (
+          <span className="inline-flex items-center gap-2 text-sm font-medium">
+            <span className={`size-2 shrink-0 rounded-full ${state.dot}`} aria-hidden="true" />
+            {t(state.textKey)}
+          </span>
         )}
-        <Button onClick={() => publish.mutate()} disabled={status?.state !== "unpublished" || publish.isPending}>
+        <Button size="sm" onClick={() => publish.mutate()} disabled={status?.state !== "unpublished" || publish.isPending}>
           <Upload />
           {publish.isPending ? t("publishBar.publishing") : t("publishBar.publish")}
         </Button>
@@ -58,6 +54,6 @@ export function PublishBar() {
         </Notice>
       )}
       {publish.isError && <Notice role="alert">{publishErrorMessage(publish.error, t)}</Notice>}
-    </div>
+    </>
   );
 }

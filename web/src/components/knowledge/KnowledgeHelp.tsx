@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Title } from "../Title";
 import { Muted } from "../Muted";
 
-// Os exemplos de texto (nomes e frases da brochura) são dados e ficam iguais em todos os idiomas; o texto ao redor vem do namespace knowledge.
+// Os exemplos (nomes e frases da brochura) vêm de help.fill.examples no namespace knowledge, no idioma do painel.
 
 interface HelpPair {
   fill: string;
@@ -30,15 +30,12 @@ export function KnowledgeHelp() {
       title: t("help.fill.title"),
       paragraphs: [t("help.fill.p1")],
       pairs: [
-        { fill: t("help.fill.f1"), reads: ["Limpeza Dental - O Primeiro Passo para um Sorriso Saudável"] },
-        { fill: t("help.fill.f2"), reads: ["Ideal para quem quer", "Sensação imediata de boca limpa", "Hálito mais fresco"] },
-        { fill: t("help.fill.f3"), reads: ["Como funciona: Remoção de placa e tártaro com ultrassom, seguida de polimento."] },
-        {
-          fill: t("help.fill.f4"),
-          reads: ["Duração: 30 a 50 minutos   |   Preço: R$ 40 a R$ 85 (valor final definido na avaliação)"],
-        },
-        { fill: t("help.fill.f5"), reads: ["Resultado: Imediato, já na primeira sessão"] },
-        { fill: t("help.fill.f6"), reads: ["Recuperação: 3 a 7 dias"] },
+        { fill: t("help.fill.f1"), reads: [t("help.fill.examples.f1")] },
+        { fill: t("help.fill.f2"), reads: [t("help.fill.examples.f2Title"), t("help.fill.examples.f2a"), t("help.fill.examples.f2b")] },
+        { fill: t("help.fill.f3"), reads: [t("help.fill.examples.f3")] },
+        { fill: t("help.fill.f4"), reads: [t("help.fill.examples.f4")] },
+        { fill: t("help.fill.f5"), reads: [t("help.fill.examples.f5")] },
+        { fill: t("help.fill.f6"), reads: [t("help.fill.examples.f6")] },
       ],
     },
     {
@@ -76,7 +73,7 @@ export function KnowledgeHelp() {
   return (
     <div className="grid gap-8">
       {blocks.map((block) => (
-        <section key={block.title} className="grid gap-3">
+        <section key={block.title} className="grid gap-3 border-t border-border pt-6 first:border-t-0 first:pt-0">
           <Title level={3}>{block.title}</Title>
           {block.paragraphs?.map((text) => (
             <Muted as="p" key={text} className="text-base leading-relaxed">

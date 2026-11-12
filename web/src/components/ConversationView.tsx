@@ -13,6 +13,7 @@ import {
   type SendRisk,
 } from "../api";
 import { formatPhone } from "../format";
+import { cn } from "../lib/utils";
 import { useInboxEvents } from "../useEvents";
 import { Button } from "./ui/button";
 import { Composer } from "./Composer";
@@ -159,9 +160,11 @@ export function ConversationView({
         </div>
         {conversation && (
           <div className="flex items-center gap-2.5 text-sm max-md:gap-2 max-md:text-base">
-            <span className={paused ? "font-semibold text-warn" : undefined} title={paused ? t("assistant.paused") : t("assistant.active")}>
-              {paused ? <Pause className="inline size-4" /> : <Bot className="inline size-4" />}
-              <span className="max-md:hidden"> {paused ? t("assistant.paused") : t("assistant.active")}</span>
+            <span className={cn("inline-flex items-center gap-1.5", paused ? "font-semibold text-warn" : "text-muted-foreground")} title={paused ? t("assistant.paused") : t("assistant.active")}>
+              {paused ? <Pause className="size-4" aria-hidden="true" /> : <Bot className="size-4" aria-hidden="true" />}
+              {/* Texto curto no celular, para o estado não virar só um ícone; no desktop, a frase completa */}
+              <span className="max-md:hidden">{paused ? t("assistant.paused") : t("assistant.active")}</span>
+              <span className="hidden max-md:inline">{paused ? t("assistant.pausedShort") : t("assistant.activeShort")}</span>
             </span>
             <Button variant="secondary" onClick={togglePause}>
               {paused ? t("assistant.resume") : t("assistant.pause")}
@@ -203,7 +206,7 @@ export function ConversationView({
         {loading && <p className="text-center text-muted-foreground">{t("loading")}</p>}
         {loadFailed && <Notice className="text-center">{t("errors.loadConversation")}</Notice>}
         {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} onRetry={onRetry} />
+          <MessageBubble key={m.id} message={m} onRetry={onRetry} customerName={conversation?.name} />
         ))}
       </div>
 
