@@ -19,11 +19,11 @@ const STATUS_ICON: Partial<Record<Message["status"], LucideIcon>> = {
 
 // Ícone e cores da pílula de um registro do sistema, conforme a situação (alerta é o mais forte)
 const NOTE_TONE: Record<NoteTone, { icon: LucideIcon; pill: string }> = {
-  alert: { icon: TriangleAlert, pill: "border-destructive bg-alert font-bold text-destructive" },
-  warn: { icon: CircleAlert, pill: "border-warn bg-warn-bg text-warn" },
-  ok: { icon: CircleCheck, pill: "border-ok bg-ok-bg text-ok" },
-  info: { icon: Info, pill: "border-info bg-info-bg text-info" },
-  neutral: { icon: Info, pill: "border-border bg-secondary text-muted-foreground" },
+  alert: { icon: TriangleAlert, pill: "bg-alert font-bold text-destructive" },
+  warn: { icon: CircleAlert, pill: "bg-warn-bg text-warn" },
+  ok: { icon: CircleCheck, pill: "bg-ok-bg text-ok" },
+  info: { icon: Info, pill: "bg-info-bg text-info" },
+  neutral: { icon: Info, pill: "bg-secondary text-muted-foreground" },
 };
 
 // Cor de fundo de cada origem; "system" não tem balão (ver abaixo)
@@ -52,7 +52,7 @@ export function MessageBubble({ message, onRetry, customerName }: { message: Mes
     return (
       <div
         className={cn(
-          "mx-auto my-1.5 flex max-w-[90%] items-center gap-1.5 self-center rounded-full border-l-3 px-3 py-1 text-[13px]",
+          "mx-auto my-1.5 flex max-w-[90%] items-center gap-1.5 self-center rounded-full px-3 py-1 text-[13px]",
           pill,
         )}
         title={formatDateTime(message.sentAt)}

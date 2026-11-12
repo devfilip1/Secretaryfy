@@ -15,7 +15,7 @@ interface DayTimelineProps {
 /** Linha do tempo de um dia: uma linha por consulta, na ordem do horário (ver dayItems). */
 export function DayTimeline({ items, formats, tagOf, confirmingId, onConfirm, onCancel }: DayTimelineProps) {
   return (
-    <ul className="border-t border-border">
+    <ul>
       {items.map((a) => (
         <AgendaRow
           key={a.id}
