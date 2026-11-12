@@ -113,7 +113,11 @@ export function panelKnowledgeRoutes({ repo, rag, rules, clinic, onChange }: Dep
       return { section: row.data };
     });
 
+    // A seção da clínica não se exclui (BR-KNO-04): sem ela o assistente perde endereço, contato e horário
     app.delete<{ Params: { key: string } }>("/api/knowledge/:key", async (req, reply) => {
+      const current = await repo.get(req.params.key);
+      if (!current) return notFound(reply);
+      if (current.kind === "clinic") return reply.code(409).send({ error: "clinic_section_required" });
       if (!(await repo.remove(req.params.key))) return notFound(reply);
       await onChange?.();
       return reply.code(204).send();

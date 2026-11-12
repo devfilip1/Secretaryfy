@@ -17,6 +17,8 @@ export interface Replies {
   /** O dia pedido é um dia em que a clínica não atende (regras semanais do painel) */
   /** A clínica não atende nesses dias da semana (ISO, 1 = segunda): todos de uma vez, para "fim de semana?" também ter resposta */
   closedDay(closedWeekdays: number[], closest: string[], tz: string): string;
+  /** Fim de semana com dias abertos: diz quais atende, quais estão fechados (se houver) e lista as datas com horário livre */
+  weekendOpen(openDates: string[], closedWeekdays: number[], tz: string): string;
   tooFar(maxDaysAhead: number, lastDate: string, closest: string[], tz: string): string;
   noOpenings(): string;
   askName(): string;

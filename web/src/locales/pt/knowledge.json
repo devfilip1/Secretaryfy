@@ -45,7 +45,8 @@
     "notBookable": "Não agendável",
     "editLabel": "Editar {{title}}",
     "delete": "Excluir",
-    "deleteLabel": "Excluir {{title}}"
+    "deleteLabel": "Excluir {{title}}",
+    "clinicLocked": "A seção da clínica pode ser editada, mas não excluída. O assistente precisa dela para informar o endereço e o contato."
   },
   "clinicHint": "Ainda não há dados da clínica. O assistente precisa do endereço e do contato para dizer onde o paciente deve ir.",
   "deleteDialog": {
@@ -190,7 +191,8 @@
     "fillDurationOrPrice": "Preencha Duração ou Preço"
   },
   "errors": {
-    "invalid_body": "Alguns campos precisam de atenção."
+    "invalid_body": "Alguns campos precisam de atenção.",
+    "clinic_section_required": "A seção da clínica não pode ser excluída: o assistente precisa do endereço e do contato dela."
   },
   "reason": {
     "row": "linha {{row}}",

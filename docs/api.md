@@ -103,7 +103,7 @@ The brochure sections the assistant answers from ([knowledge](data-model.md#know
 | `GET /api/knowledge` | — | `{sections, labels, hours}`: the sections in position order; `labels` are the field labels in the clinic language (with `address`, `hours`, `contact` for the clinic section); `hours` is the list of opening-hours lines generated from the scheduling rules (BR-KNO-02), which the form previews |
 | `POST /api/knowledge` | `{kind: "treatment" \| "info" \| "clinic", title, tagline?, data}`. A clinic takes `data: {intro: string[], address: string[] (min 1), phone?, email?, closing: string[]}`, with no hours | `201 {section}`. The key is a slug of the title, with `-2`, `-3`… when taken (`order` is never used). Appended at the end |
 | `PUT /api/knowledge/:key` | `{title, tagline?, data}` | `200 {section}`. Key, kind and position stay |
-| `DELETE /api/knowledge/:key` | — | `204` |
+| `DELETE /api/knowledge/:key` | — | `204`; 404 `not_found` (unknown key); 409 `{error: "clinic_section_required"}` for the clinic section, which is never deleted (BR-KNO-04) |
 | `PUT /api/knowledge/order` | `{keys: string[]}` | `204`. Must list every section exactly once; otherwise `400 {error: "invalid_order", message}` |
 | `GET /api/knowledge/status` | — | `{version, indexedVersion, state}`; `state` is `upToDate`, `unpublished` or `unavailable` (RAG unreachable) |
 | `POST /api/knowledge/publish` | — | Asks the RAG to reindex. `200 {version, indexedVersion, state}`; `409 {error: "already indexing"}`; `502 {error: "rag_unavailable"}` |

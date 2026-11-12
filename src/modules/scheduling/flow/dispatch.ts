@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import type { SchedulingSessionRow } from "../../../db/schema.js";
-import { asksPeriodOfScreen, isTooFar } from "../intents.js";
+import { asksPeriodOfScreen, carriesACitedDay, isTooFar } from "../intents.js";
 import type { FlowResult } from "../flow.js";
 import type { Interpretation } from "../interpret.js";
 import { currentAppointment, cancel, keep, move, startCancel, startReschedule } from "./appointment.js";
@@ -33,6 +33,11 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
   // "de tarde" com os horários do dia na tela: a parte do dia desse mesmo dia
   if (s?.step === "choose_slot" && i.period && i.option === null && !i.date && !i.time && asksPeriodOfScreen(i.intent)) {
     return periodOfScreen(run, i.period);
+  }
+
+  // Um dia citado que não é o da tela ("não é o dia 19, é o dia 25") é o dia pedido, mesmo com "outro dia" ou "mais"
+  if ((s?.step === "choose_day" || s?.step === "choose_slot") && i.date && carriesACitedDay(i.intent) && !daysOnScreen(run).includes(i.date)) {
+    return offerDayOrTime(run, i.date, i.time ?? null, i.period ?? null);
   }
 
   const period = i.period ?? null;
@@ -69,7 +74,7 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
       }
       // Um horário citado se confere na grade inteira, no dia da tela ou no dia que o cliente nomeou
       if (i.intent === "choose" && i.time) return askedTime(run, i.date ?? run.isoDate(run.optionSlots(s.options)[0]), i.time);
-      if (i.intent === "choose" && i.date) return sameDayAsOptions(run, i.date) && !period ? timeNotOffered(run) : offerDay(run, i.date, period);
+      if (i.intent === "choose" && i.date) return sameDayAsOptions(run, i.date) && !period ? timeNotOffered(run) : offerDay(run, i.date, period, run.optionSlots(s.options));
       if (i.intent === "more") return moreSlots(run);
       if (i.intent === "other_day") return offerDays(run);
       break;
@@ -101,6 +106,16 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
       break;
   }
   return misunderstood(run);
+}
+
+/** Os dias que estão na tela: o dia dos horários, ou os da lista de dias */
+function daysOnScreen(run: Run): string[] {
+  const s = run.session!;
+  if (s.step === "choose_slot") {
+    const slots = run.optionSlots(s.options);
+    return slots.length > 0 ? [run.isoDate(slots[0])] : [];
+  }
+  return run.optionDays(s.options);
 }
 
 async function misunderstood(run: Run): Promise<FlowResult> {

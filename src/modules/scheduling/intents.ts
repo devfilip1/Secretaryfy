@@ -47,6 +47,8 @@ const CHOICE_LIKE_INTENTS: readonly Intent[] = ["more", "unclear", "other_day", 
 const TOO_FAR_INTENTS: readonly Intent[] = ["availability", "choose", "book"];
 /** Com os horários do dia na tela, "de tarde" (parte do dia sem horário) é a parte desse mesmo dia (flow.dispatch) */
 const ASKS_PERIOD_OF_SCREEN_INTENTS: readonly Intent[] = ["choose", "availability"];
+/** Com um dia citado que não é o da tela ("não é o dia 19, é o dia 25"), vai para esse dia; a data fica na interpretação (validate) */
+const CARRY_A_CITED_DAY_INTENTS: readonly Intent[] = ["other_day", "more", "unclear"];
 /** Podem ser só palavras sem sentido: a chamada de sentido (understanding/sense.ts) confere, e só rebaixa para não entendi (applySense, em resolve.ts) */
 const MAY_BE_NOISE_INTENTS: readonly Intent[] = ["rude", "manipulation", "off_topic"];
 
@@ -61,6 +63,7 @@ export const INTENT_GROUPS = {
   TOO_FAR: TOO_FAR_INTENTS,
   ASKS_PERIOD_OF_SCREEN: ASKS_PERIOD_OF_SCREEN_INTENTS,
   MAY_BE_NOISE: MAY_BE_NOISE_INTENTS,
+  CARRY_A_CITED_DAY: CARRY_A_CITED_DAY_INTENTS,
 } as const;
 
 /** Pede um dia ou um horário (ver ASKS_FOR_WHEN_INTENTS) */
@@ -79,5 +82,7 @@ export const isChoiceLike = (intent: Intent): boolean => CHOICE_LIKE_INTENTS.inc
 export const isTooFar = (intent: Intent): boolean => TOO_FAR_INTENTS.includes(intent);
 /** Com os horários do dia na tela, pede a parte do dia desse mesmo dia */
 export const asksPeriodOfScreen = (intent: Intent): boolean => ASKS_PERIOD_OF_SCREEN_INTENTS.includes(intent);
+/** Leva um dia citado na frase que não é o da tela (ver CARRY_A_CITED_DAY_INTENTS) */
+export const carriesACitedDay = (intent: Intent): boolean => CARRY_A_CITED_DAY_INTENTS.includes(intent);
 /** Pode ser só palavras sem sentido (ver MAY_BE_NOISE_INTENTS) */
 export const mayBeNoise = (intent: Intent): boolean => MAY_BE_NOISE_INTENTS.includes(intent);

@@ -172,6 +172,10 @@ The team can cancel an appointment at any time, with no notice limit (BR-SCH-06 
 A question that asks which services or treatments the clinic offers or can book ("quais serviços vocês têm?", "o que vocês fazem?") is read as `list_services`. The answer is a fixed text built from the catalog: every bookable treatment, in the table's order, then the general assessment last, followed by a short offer to book one. No model writes it and no brochure answer is used, so it cannot leave a treatment out or invent one. It does not start a booking: the next "quero marcar a limpeza" does. A question about one treatment, its price or how it works is still a brochure question.
 - **Where:** `list_services` in [intents.ts](../src/modules/scheduling/intents.ts) and [interpret/prompt.ts](../src/modules/scheduling/interpret/prompt.ts); `servicesList` in [replies.pt.ts](../src/modules/scheduling/replies.pt.ts) and [replies.en.ts](../src/modules/scheduling/replies.en.ts); the branch in [router.ts](../src/modules/scheduling/router.ts)
 
+### BR-SCH-20 · A weekend question says which days the clinic opens first
+"Vocês atendem no fim de semana?" is read as a weekend question (`weekday: weekend`). The answer names the open weekend days first, then the closed ones, then offers the next dates with free times: "Atendemos aos sábados. Aos domingos estamos fechados. Estes são os próximos sábados com horário livre:" followed by up to 6 dates. Both days open: "Atendemos aos sábados e domingos", and the next dates of both. Both days closed: the closed-day text with the closest open days. Every date comes from the weekly hours and the calendar in code; the list is saved as the `choose_day` options, so "quero sábado" or "o primeiro" picks one of them.
+- **Where:** `offerWeekend` in [flow/offers.ts](../src/modules/scheduling/flow/offers.ts); `weekendOpen` in [replies.pt.ts](../src/modules/scheduling/replies.pt.ts) and [replies.en.ts](../src/modules/scheduling/replies.en.ts); tests in [flow/weekend.test.ts](../src/modules/scheduling/flow/weekend.test.ts)
+
 ### BR-REM-04 · YES confirms, NO offers to reschedule
 Right after a reminder (no booking dialogue open, at most one patient message since), YES or phrases like "see you then" confirm the appointment; NO starts the reschedule offer. Staff can also confirm from the panel.
 - **Where:** `awaitingReminder` in [router.ts](../src/modules/scheduling/router.ts); `ATTENDING` in [interpret/rules.ts](../src/modules/scheduling/interpret/rules.ts); `POST /api/appointments/:id/confirm` in [panel-appointments.ts](../src/routes/panel-appointments.ts)
@@ -255,6 +259,10 @@ The clinic section (intro, address, contact and closing text) is stored with no 
 ### BR-KNO-03 · Price facts carry the assessment note
 Price facts are imported with the assessment note on (a price is almost always a range), and a new price in the form starts with the switch on; the clinic can turn it off.
 - **Where:** [render.ts](../src/modules/knowledge/render.ts), [import-markdown.ts](../src/modules/knowledge/import-markdown.ts), [form-values.ts](../web/src/components/knowledge/form-values.ts)
+
+### BR-KNO-04 · The clinic section cannot be deleted
+The clinic section (kind `clinic`: address, phone, e-mail and the text around them) is where the assistant takes the address and contact from. `DELETE` on it answers `409 clinic_section_required` and removes nothing. The panel shows a lock with a short note in place of the trash button; the section can still be edited. An old database that lacks the section still shows the add-back hint.
+- **Where:** [panel-knowledge.ts](../src/routes/panel-knowledge.ts), [SectionList.tsx](../web/src/components/knowledge/SectionList.tsx)
 
 ## Panel access
 

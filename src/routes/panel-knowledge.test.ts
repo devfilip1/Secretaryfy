@@ -170,6 +170,14 @@ test("DELETE removes a section (204); an unknown key is 404", async () => {
   assert.equal((await app.inject({ method: "DELETE", url: "/api/knowledge/sobre-nos" })).statusCode, 404);
 });
 
+test("DELETE refuses the clinic section (409 clinic_section_required) and keeps it", async () => {
+  await app.inject({ method: "POST", url: "/api/knowledge", payload: clinicSection });
+  const res = await app.inject({ method: "DELETE", url: "/api/knowledge/clinica" });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().error, "clinic_section_required");
+  assert.ok((await keys()).includes("clinica"));
+});
+
 test("PUT /api/knowledge/order rewrites the order (204)", async () => {
   const res = await app.inject({ method: "PUT", url: "/api/knowledge/order", payload: { keys: ["sobre-nos", "limpeza-dental"] } });
   assert.equal(res.statusCode, 204);

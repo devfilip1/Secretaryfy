@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { SessionOption } from "../../../db/schema.js";
 import type { ServiceCatalog } from "../catalog.js";
 import { findDatesInText, findExplicitDatesInText, namesTheWeekend, weekdaysNamedInText } from "../dates.js";
-import { INTENTS, asksForWhen, canCarryAWhen, isStepOnly, picksOfferedDay, type Intent } from "../intents.js";
+import { INTENTS, asksForWhen, canCarryAWhen, carriesACitedDay, isStepOnly, picksOfferedDay, type Intent } from "../intents.js";
 import { normalize } from "../understanding/quote.js";
 import { cleanName, nameInText } from "./names.js";
 import { WEEKDAY_NAMES } from "./prompt.js";
@@ -103,6 +103,8 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
 
   // Uma data simples citada na frase vale mais que a calculada pelo modelo, que erra dias da semana (o dia escolhido da lista já é uma data citada)
   if (!pickedDay && citedDates.length === 1 && canCarryAWhen(intent)) date = citedDates[0];
+  // "Outro dia" e "mais" levam só a data citada na frase (a última, se são duas: a correção); sem ela, nenhuma data do modelo vale
+  if (!pickedDay && carriesACitedDay(intent)) date = date !== null && citedDates.includes(date) ? date : (citedDates.at(-1) ?? null);
   // Alguns modelos preenchem a data de hoje num pedido sem dia ("I want to book"): sem data na frase, hoje só vale se o cliente disse hoje
   const todayLocal = DateTime.fromJSDate(now, { zone: timeZone }).toISODate();
   if (date !== null && !fromWeekday && date === todayLocal && citedDates.length === 0 && asksForWhen(intent) && !SAYS_TODAY.test(text)) {
@@ -116,7 +118,7 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   if (intent === "choose") {
     if (option !== null && !options.some((o) => o.n === option)) return result("unclear", { source: "model" });
     if (option === null && date === null && time === null && !weekend) return result("unclear", { source: "model" });
-  } else if (!asksForWhen(intent)) {
+  } else if (!asksForWhen(intent) && !carriesACitedDay(intent)) {
     date = null;
   }
   // Logo depois do pedido de nome, o nome pode vir junto de qualquer intenção ("I'm Maria, how much is…?")

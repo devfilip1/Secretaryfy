@@ -26,7 +26,11 @@ const ENGLISH: ReasonText = {
 /** Textos do namespace knowledge para as linhas do aviso. */
 export function reasonTextOf(t: TFunction<"knowledge">): ReasonText {
   return {
-    code: (code) => (code === "invalid_body" ? t("errors.invalid_body") : undefined),
+    code: (code) => {
+      if (code === "invalid_body") return t("errors.invalid_body");
+      if (code === "clinic_section_required") return t("errors.clinic_section_required");
+      return undefined;
+    },
     row: (row) => t("reason.row", { row }),
     field: (label, message) => t("reason.field", { label, message }),
   };

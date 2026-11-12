@@ -55,6 +55,16 @@ Se preferir outro dia, é só pedir.`;
       return r.offerDays(closest, tz, `Não atendemos ${joinList(names, "e")}. Os dias mais próximos com horários livres são:`);
     },
 
+    weekendOpen(openDates: string[], closedWeekdays: number[], tz: string) {
+      // "sábados e domingos", "sábados": o plural vem do nome do dia, sem o "-feira"
+      const openDays = [...new Set(openDates.map((d) => DateTime.fromISO(d, { zone: tz }).weekday))];
+      const names = (days: number[]) => joinList(days.map((d) => `${weekdayNames("pt")[d - 1]}s`), "e");
+      const attends = `Atendemos aos ${names(openDays)}.`;
+      const closed = closedWeekdays.length > 0 ? ` Aos ${names(closedWeekdays)} estamos fechados.` : "";
+      const next = openDays.length === 1 ? `os próximos ${names(openDays)}` : "os próximos dias";
+      return `${attends}${closed} Estes são ${next} com horário livre:\n${bullets(openDates.map((d) => formatDayLong(d, tz, pt)))}\nQual deles fica melhor para você?`;
+    },
+
     dayFull(date: string, closest: string[], tz: string) {
       return r.offerDays(closest, tz, `Desculpe, não há mais horários ${onDay(date, tz)}. Os dias mais próximos com horários livres são:`);
     },

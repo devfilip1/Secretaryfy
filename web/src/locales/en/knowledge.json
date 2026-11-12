@@ -45,7 +45,8 @@
     "notBookable": "Not bookable",
     "editLabel": "Edit {{title}}",
     "delete": "Delete",
-    "deleteLabel": "Delete {{title}}"
+    "deleteLabel": "Delete {{title}}",
+    "clinicLocked": "The clinic section can be edited but not deleted. The assistant needs it to give the address and contact."
   },
   "clinicHint": "No clinic details yet. The assistant needs the address and contact to say where to come.",
   "deleteDialog": {
@@ -190,7 +191,8 @@
     "fillDurationOrPrice": "Fill in Duration or Price"
   },
   "errors": {
-    "invalid_body": "Some fields need attention."
+    "invalid_body": "Some fields need attention.",
+    "clinic_section_required": "The clinic section can't be deleted: the assistant needs its address and contact."
   },
   "reason": {
     "row": "row {{row}}",

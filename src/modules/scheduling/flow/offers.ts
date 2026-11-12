@@ -3,7 +3,7 @@ import { availableDays, naturalSlotsForDay, slotsForDay } from "../availability.
 import type { FlowResult } from "../flow.js";
 import type { DayPeriod } from "../interpret.js";
 import type { Rules } from "../rules.js";
-import { dayPeriod } from "../replies.js";
+import { slotsInPeriod, slotsNearPeriod } from "./period.js";
 import type { Run } from "./run.js";
 
 /** Até 6 dias ou horários por resposta (FR-013). */
@@ -43,7 +43,7 @@ export async function offerDays(run: Run, { after }: { after?: string } = {}): P
 }
 
 /** Horários de um dia (ou só os de uma parte dele); sem vaga, os dias livres mais próximos (US2, cenário 3). */
-export async function offerDay(run: Run, date: string, period: DayPeriod | null = null): Promise<FlowResult> {
+export async function offerDay(run: Run, date: string, period: DayPeriod | null = null, onScreen: Date[] = []): Promise<FlowResult> {
   if (date > run.window.lastDate) return tooFar(run);
   const slots = await offerableOn(run, date);
   if (slots.length === 0) {
@@ -56,30 +56,40 @@ export async function offerDay(run: Run, date: string, period: DayPeriod | null 
     const closedWeekdays = [1, 2, 3, 4, 5, 6, 7].filter(isClosed);
     return { reply: run.replies.closedDay(closedWeekdays, closest, run.tz) };
   }
-  if (period) return offerPeriod(run, date, slots, period);
+  if (period) return offerPeriod(run, date, slots, period, onScreen);
   return offerSlots(run, date, slots);
 }
 
-/** Sábado e domingo da janela de agendamento: o fim de semana que começa hoje ou o próximo. */
+/** Todos os sábados e domingos da janela de agendamento, do primeiro que ainda vem. */
 function weekendDates(run: Run): string[] {
-  const today = DateTime.fromISO(run.window.firstDate, { zone: run.tz });
-  const saturday = today.plus({ days: (6 - today.weekday + 7) % 7 });
-  return [saturday, saturday.plus({ days: 1 })].map((d) => d.toISODate()!).filter((d) => d <= run.window.lastDate);
+  const dates: string[] = [];
+  for (let day = DateTime.fromISO(run.window.firstDate, { zone: run.tz }); day.toISODate()! <= run.window.lastDate; day = day.plus({ days: 1 })) {
+    if (day.weekday >= SATURDAY) dates.push(day.toISODate()!);
+  }
+  return dates;
 }
 
+/** Dia da semana ISO do sábado (1 = segunda): a partir dele, sábado e domingo. */
+const SATURDAY = 6;
+
 /**
- * Fim de semana: sábado e domingo, cada um como um dia pedido. Um dia que as regras fecham se diz fechado (com os dias
- * mais próximos com vaga); os abertos com vaga são oferecidos. Com dias do fim de semana na tela, valem os da tela.
+ * Fim de semana: sábados e domingos com horário livre, em até PAGE datas (as próximas). Um dia que as regras fecham
+ * se diz fechado, na própria resposta (weekendOpen); sem nenhum dia aberto com vaga, valem os dias mais próximos.
+ * Com dias do fim de semana na tela, valem os da tela.
  */
 export async function offerWeekend(run: Run, onScreen: string[] = []): Promise<FlowResult> {
   const dates = weekendDates(run);
   if (dates.length === 0) return tooFar(run);
   const onScreenWeekend = dates.filter((d) => onScreen.includes(d));
   const pool = onScreenWeekend.length > 0 ? onScreenWeekend : dates;
-  const isOpen = (date: string) => Boolean(run.rules.weeklyHours[String(DateTime.fromISO(date, { zone: run.tz }).weekday) as keyof Rules["weeklyHours"]]);
-  const closed = dates.filter((d) => !isOpen(d)).map((d) => DateTime.fromISO(d, { zone: run.tz }).weekday);
+  const weekdayOf = (date: string) => DateTime.fromISO(date, { zone: run.tz }).weekday;
+  const isOpen = (date: string) => Boolean(run.rules.weeklyHours[String(weekdayOf(date)) as keyof Rules["weeklyHours"]]);
+  const closed = [...new Set(dates.filter((d) => !isOpen(d)).map(weekdayOf))];
   const open: string[] = [];
-  for (const date of pool) if (isOpen(date) && (await offerableOn(run, date)).length > 0) open.push(date);
+  for (const date of pool) {
+    if (open.length === PAGE) break;
+    if (isOpen(date) && (await offerableOn(run, date)).length > 0) open.push(date);
+  }
   // Um só dia aberto e com vaga, sem dia fechado: são os horários dele, como se o cliente tivesse pedido esse dia
   if (open.length === 1 && closed.length === 0) return offerDay(run, open[0]);
   if (open.length === 0) {
@@ -89,22 +99,33 @@ export async function offerWeekend(run: Run, onScreen: string[] = []): Promise<F
     return { reply: closed.length > 0 ? run.replies.closedDay(closed, days, run.tz) : run.replies.dayFull(pool[0], days, run.tz) };
   }
   await saveDays(run, open);
-  return { reply: closed.length > 0 ? run.replies.closedDay(closed, open, run.tz) : run.replies.offerDays(open, run.tz) };
+  return { reply: run.replies.weekendOpen(open, closed, run.tz) };
 }
 
 /** Só os horários da parte do dia pedida; sem nenhum, avisa e oferece os outros horários do mesmo dia. */
-async function offerPeriod(run: Run, date: string, slots: Date[], period: DayPeriod): Promise<FlowResult> {
-  const inPeriod = slots.filter((s) => dayPeriod(DateTime.fromJSDate(s, { zone: run.tz }).hour) === period);
-  if (inPeriod.length > 0) return offerSlots(run, date, inPeriod);
-  const page = slots.slice(0, PAGE);
-  await saveSlots(run, page);
-  return { reply: run.replies.periodEmpty(date, period, page, run.tz, slots.length > PAGE) };
+async function offerPeriod(run: Run, date: string, slots: Date[], period: DayPeriod, onScreen: Date[]): Promise<FlowResult> {
+  const inPeriod = slotsInPeriod(slots, period, run.tz);
+  if (inPeriod.length > 0) {
+    // Os mesmos horários que já estão na tela não se repetem: vai o que sobra do dia
+    if (sameStarts(inPeriod.slice(0, PAGE), onScreen)) return moreSlots(run);
+    return offerSlots(run, date, inPeriod);
+  }
+  // Sem horário nessa parte: os mais próximos dela (ver flow/period.ts), com o aviso
+  const near = slotsNearPeriod(slots, period, run.tz, PAGE);
+  if (sameStarts(near.shown, onScreen)) return moreSlots(run);
+  await saveSlots(run, near.shown);
+  return { reply: run.replies.periodEmpty(date, period, near.shown, run.tz, near.more) };
+}
+
+/** Os mesmos inícios, na mesma ordem: a resposta seria o texto que já está na tela. */
+function sameStarts(a: Date[], b: Date[]): boolean {
+  return b.length > 0 && a.length === b.length && a.every((s, i) => s.getTime() === b[i].getTime());
 }
 
 /** Os horários da tela são do dia que está nela: pedir "de tarde" é a tarde desse dia. */
 export async function periodOfScreen(run: Run, period: DayPeriod): Promise<FlowResult> {
   const slots = run.optionSlots(run.session!.options);
-  return offerDay(run, run.isoDate(slots[0]), period);
+  return offerDay(run, run.isoDate(slots[0]), period, slots);
 }
 
 function saveSlots(run: Run, page: Date[]) {

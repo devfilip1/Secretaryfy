@@ -1,5 +1,5 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { Info } from "luxon";
+import { DateTime, Info } from "luxon";
 import { formatDayLong, formatTime, formatWhen } from "./dates.js";
 import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
@@ -45,6 +45,16 @@ I can also check another day if you like.`;
     closedDay(closedWeekdays: number[], closest: string[], tz: string) {
       const names = closedWeekdays.map((d) => `${Info.weekdays("long", { locale: "en-US" })[d - 1]}s`);
       return r.offerDays(closest, tz, `We're closed on ${joinList(names, "and")}. The closest days with openings are:`);
+    },
+
+    weekendOpen(openDates: string[], closedWeekdays: number[], tz: string) {
+      // "Saturdays and Sundays", "Saturdays": o plural vem do nome do dia
+      const openDays = [...new Set(openDates.map((d) => DateTime.fromISO(d, { zone: tz }).weekday))];
+      const names = (days: number[]) => joinList(days.map((d) => `${Info.weekdays("long", { locale: "en-US" })[d - 1]}s`), "and");
+      const attends = `We're open on ${names(openDays)}.`;
+      const closed = closedWeekdays.length > 0 ? ` We're closed on ${names(closedWeekdays)}.` : "";
+      const next = openDays.length === 1 ? `the next ${names(openDays)}` : "the next days";
+      return `${attends}${closed} These are ${next} with openings:\n${bullets(openDates.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you?`;
     },
 
     dayFull(date: string, closest: string[], tz: string) {

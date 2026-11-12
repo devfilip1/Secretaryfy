@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Clock, Hospital, Info, Plus, Sparkles, Tag, Trash2, type LucideIcon } from "lucide-react";
+import { ChevronDown, Clock, Hospital, Info, Lock, Plus, Sparkles, Tag, Trash2, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { deleteSection, type KnowledgeKind, type KnowledgeRow, type TreatmentRow } from "../../api";
@@ -166,21 +166,45 @@ function SectionRow({ section, onEdit, onDelete }: { section: KnowledgeRow; onEd
           </span>
         )}
       </button>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="destructive-ghost"
-            size="icon-sm"
-            className="relative z-10"
-            aria-label={t("list.deleteLabel", { title: section.title })}
-            onClick={onDelete}
-          >
-            <Trash2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("list.delete")}</TooltipContent>
-      </Tooltip>
+      {section.kind === "clinic" ? (
+        <ClinicLock />
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="destructive-ghost"
+              size="icon-sm"
+              className="relative z-10"
+              aria-label={t("list.deleteLabel", { title: section.title })}
+              onClick={onDelete}
+            >
+              <Trash2 />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("list.delete")}</TooltipContent>
+        </Tooltip>
+      )}
     </li>
+  );
+}
+
+/** Cadeado no lugar do lixo na seção da clínica: ela se edita, não se exclui (BR-KNO-04); a dica diz por quê. */
+function ClinicLock() {
+  const { t } = useTranslation("knowledge");
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          tabIndex={0}
+          aria-label={t("list.clinicLocked")}
+          className="relative z-10 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground"
+        >
+          <Lock className="size-4" aria-hidden="true" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{t("list.clinicLocked")}</TooltipContent>
+    </Tooltip>
   );
 }
 

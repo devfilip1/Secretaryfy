@@ -117,6 +117,17 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
   assert.match(r.closedDay([1, 3, 7], ["2026-10-27"], tz), /^Não atendemos segunda, quarta e domingo\./);
 });
 
+test("fim de semana: domingo fechado diz que atende aos sábados e lista as datas; os dois abertos dizem que atende aos dois", () => {
+  assert.equal(
+    pt.weekendOpen(["2026-11-14", "2026-11-21"], [7], tz),
+    "Atendemos aos sábados. Aos domingos estamos fechados. Estes são os próximos sábados com horário livre:\n• sábado, 14 de novembro\n• sábado, 21 de novembro\nQual deles fica melhor para você?",
+  );
+  assert.equal(
+    pt.weekendOpen(["2026-11-14", "2026-11-15"], [], tz),
+    "Atendemos aos sábados e domingos. Estes são os próximos dias com horário livre:\n• sábado, 14 de novembro\n• domingo, 15 de novembro\nQual deles fica melhor para você?",
+  );
+});
+
 test("parte do dia sem horário livre: diz a parte e oferece os outros horários do dia", () => {
   assert.equal(
     pt.periodEmpty("2026-10-21", "morning", slots, tz, false),
