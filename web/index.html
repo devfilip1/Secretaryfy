@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Secretaryfy · Panel</title>
+    <script>
+      // Tema antes da primeira pintura, para não piscar o tema errado. Mesma chave de web/src/theme/theme.ts.
+      try {
+        const choice = localStorage.getItem("secretaryfy.theme");
+        if (choice === "light" || choice === "dark") document.documentElement.setAttribute("data-theme", choice);
+      } catch {
+        // armazenamento bloqueado: o sistema decide
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
