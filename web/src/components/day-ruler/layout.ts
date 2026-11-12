@@ -49,6 +49,8 @@ export interface Pin {
   status: PinStatus;
   customerName: string;
   service: string | null;
+  /** Começou antes de agora: pino menor e apagado */
+  passed: boolean;
 }
 
 export interface DayLayout {
@@ -59,7 +61,12 @@ export interface DayLayout {
   pins: Pin[];
   /** null quando a hora atual está fora do horário de funcionamento */
   nowPct: number | null;
+  /** Parte da linha do dia já percorrida: 0 antes da abertura, 100 depois do fechamento */
+  progressPct: number;
+  /** Consultas do dia: total, as que já começaram (done) e as que ainda não (left) */
   count: number;
+  done: number;
+  left: number;
   /** Primeira consulta que ainda não começou */
   next: { id: string; startsAt: string; startMinutes: number; customerName: string } | null;
 }
@@ -89,11 +96,16 @@ export function clockLabel(minutes: number, locale: string): string {
 
 export function layoutDay(input: RulerInput): DayLayout {
   const { timeZone } = input;
+  const nowMs = input.now.getTime();
   const nowMinutes = minutesOfDay(input.now, timeZone);
   const sorted = input.appointments
-    .map((appointment) => ({ appointment, startMinutes: minutesOfDay(new Date(appointment.startsAt), timeZone) }))
+    .map((appointment) => {
+      const startsAt = new Date(appointment.startsAt);
+      // Quem começa agora já começou: sai da "próxima", como antes
+      return { appointment, startMinutes: minutesOfDay(startsAt, timeZone), passed: startsAt.getTime() <= nowMs };
+    })
     .sort((a, b) => a.startMinutes - b.startMinutes);
-  const upcoming = sorted.find((item) => item.startMinutes > nowMinutes);
+  const upcoming = sorted.find((item) => !item.passed);
   const next = upcoming
     ? {
         id: upcoming.appointment.id,
@@ -103,16 +115,18 @@ export function layoutDay(input: RulerInput): DayLayout {
       }
     : null;
   const count = input.appointments.length;
+  const done = sorted.filter((item) => item.passed).length;
+  const left = count - done;
 
   const start = input.hours ? toMinutes(input.hours.start) : 0;
   const end = input.hours ? toMinutes(input.hours.end) : 0;
   if (!input.hours || end <= start) {
-    return { open: false, startMinutes: 0, endMinutes: 0, ticks: [], pins: [], nowPct: null, count, next: null };
+    return { open: false, startMinutes: 0, endMinutes: 0, ticks: [], pins: [], nowPct: null, progressPct: 0, count, done, left, next: null };
   }
 
   const pctOf = (minutes: number) => clamp(((minutes - start) / (end - start)) * 100, 0, 100);
   const pins = assignLanes(
-    sorted.map(({ appointment, startMinutes }) => ({
+    sorted.map(({ appointment, startMinutes, passed }) => ({
       id: appointment.id,
       startsAt: appointment.startsAt,
       startMinutes,
@@ -120,6 +134,7 @@ export function layoutDay(input: RulerInput): DayLayout {
       status: statusOf(appointment, input.attentionPhones),
       customerName: appointment.customerName,
       service: appointment.service,
+      passed,
     })),
   );
   // Dia longo (mais de 10 h) usa marcas de 4 em 4 horas para os rótulos não se sobreporem
@@ -136,7 +151,10 @@ export function layoutDay(input: RulerInput): DayLayout {
     ticks,
     pins,
     nowPct: inside ? pctOf(nowMinutes) : null,
+    progressPct: pctOf(nowMinutes),
     count,
+    done,
+    left,
     next,
   };
 }

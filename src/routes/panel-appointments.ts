@@ -45,7 +45,8 @@ const startsQuery = z.object({ date: z.iso.date() });
 const daysQuery = z.object({ service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
 // Quantos dias a partir de hoje a aba pede (Dia e 7 dias usam 7; Mês, 31); o padrão é o de sempre
-const agendaQuery = z.object({ days: z.coerce.number().int().min(1).max(31).default(7) });
+// from=today inclui os horários de hoje que já passaram (a régua do topo de Conversas); sem ele, só os futuros
+const agendaQuery = z.object({ days: z.coerce.number().int().min(1).max(31).default(7), from: z.enum(["today"]).optional() });
 
 type Group = "today" | "tomorrow" | "week";
 
@@ -74,6 +75,7 @@ export function panelAppointmentsRoutes({
     const group: Group = diff <= 0 ? "today" : diff === 1 ? "tomorrow" : "week";
     return {
       id: appt.id,
+      status: appt.status,
       startsAt: appt.startsAt.toISOString(),
       endsAt: appt.endsAt.toISOString(),
       // O tempo bloqueado de verdade na agenda, em minutos
@@ -166,9 +168,12 @@ export function panelAppointmentsRoutes({
       if (!query.success) return reply.code(422).send({ error: "invalid_query" });
       const now = clock();
       const timeZone = await timeZoneOf();
+      const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
       // Até o fim do último dia pedido (7 por padrão, 31 no mês), no fuso da clínica
-      const to = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day").plus({ days: query.data.days + 1 }).toJSDate();
-      const rows = await store.listUpcoming(now, to);
+      const to = today.plus({ days: query.data.days + 1 }).toJSDate();
+      // listUpcoming só pega o que começa depois de `from`: 1 ms antes do início do dia inclui o próprio início
+      const from = query.data.from === "today" ? today.minus({ milliseconds: 1 }).toJSDate() : now;
+      const rows = await store.listUpcoming(from, to);
       const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
       return {
         timeZone,

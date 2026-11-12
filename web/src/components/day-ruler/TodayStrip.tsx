@@ -32,22 +32,23 @@ export function TodayStrip({ attentionPhones }: { attentionPhones: ReadonlySet<s
   const greeting = clinic ? t(`today.greeting.${period}`, { clinic }) : t(`today.greeting.${period}Plain`);
   const layout = day && layoutDay({ appointments: day.appointments, hours: day.hours, now, timeZone, attentionPhones });
 
-  const pinLabel = (pin: Pin) =>
-    t("today.pin", {
+  const pinLabel = (pin: Pin) => {
+    const label = t("today.pin", {
       time: formats.formatClock(pin.startsAt),
       name: pin.customerName,
       service: pin.service ?? t("today.noService"),
       status: t(`today.status.${STATUS_KEY[pin.status]}`),
     });
+    return pin.passed ? `${label} · ${t("today.done")}` : label;
+  };
 
   let summary = "";
   if (layout && !layout.open) summary = t("today.closed");
   else if (layout && layout.count === 0) summary = t("today.none");
   else if (layout) {
-    const next = layout.next
-      ? t("today.next", { time: formats.formatClock(layout.next.startsAt), name: layout.next.customerName })
-      : t("today.noneLeft");
-    summary = `${t("today.summary", { count: layout.count })} ${next}`;
+    const counts = t("today.counts", { count: layout.count, done: layout.done, left: layout.left });
+    const next = layout.next ? ` ${t("today.next", { time: formats.formatClock(layout.next.startsAt), name: layout.next.customerName })}` : "";
+    summary = `${counts}${next}`;
   }
 
   return (

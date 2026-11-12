@@ -18,7 +18,7 @@ export function AppTopBar({
 
   return (
     <header className="hidden h-12 shrink-0 items-center gap-4 border-b border-border bg-card px-6 md:flex">
-      <p className="min-w-0 flex-1 truncate text-sm font-medium">{t(navItemFor(view).labelKey)}</p>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium">{t(navItemFor(view).shortKey)}</p>
       <ConnectionBadge connection={connection} />
       <AccountMenu onSignOut={onSignOut} />
     </header>

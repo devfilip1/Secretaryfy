@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronLeft } from "lucide-react";
 import { updateCustomer, type Customer, type CustomerAppointment } from "../../api";
 import { formatPhone } from "../../format";
 import type { useFormats } from "../../i18n/formats";
@@ -16,21 +17,25 @@ const MAX_NOTES = 1000;
 
 type Formats = ReturnType<typeof useFormats>;
 
-/** Ficha aberta: nome editável, anotações, conversa e exclusão (specs/006 US2). */
+/** Painel do cliente selecionado: nome editável, dados, anotações, consultas e ações (specs/006 US2). No celular, ocupa a tela toda e tem Voltar. */
 export function CustomerDetail({
   customer: c,
+  next,
   formats,
   label,
   onSaved,
   onDelete,
   deleting,
+  onBack,
 }: {
   customer: Customer;
+  next: CustomerAppointment | null;
   formats: Formats;
   label: (a: CustomerAppointment) => string;
   onSaved: (c: Customer) => void;
   onDelete: () => void;
   deleting: boolean;
+  onBack: () => void;
 }) {
   const { t } = useTranslation("customers");
   const [editing, setEditing] = useState(false);
@@ -66,14 +71,15 @@ export function CustomerDetail({
   }
 
   const notesChanged = notes !== (c.notes ?? "");
+  const total = c.appointments.length;
 
   return (
-    <div className="grid gap-5 px-2 pt-1 pb-4 max-md:px-1">
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-lg border border-border bg-card p-3.5 text-sm">
-        <dt className="text-muted-foreground">{t("fields.id")}</dt>
-        <dd className="m-0 font-mono text-xs wrap-anywhere">{c.id}</dd>
-        <dt className="text-muted-foreground">{t("fields.name")}</dt>
-        <dd className="m-0 wrap-anywhere">
+    <div className="grid content-start gap-5 p-4 md:p-5">
+      <div className="flex items-start gap-2">
+        <Button variant="ghost" size="icon" className="-ml-2 md:hidden" onClick={onBack} aria-label={t("actions.back")}>
+          <ChevronLeft aria-hidden="true" />
+        </Button>
+        <div className="grid min-w-0 flex-1 gap-1">
           {editing ? (
             <span className="flex flex-wrap items-center gap-2">
               <Input
@@ -99,23 +105,25 @@ export function CustomerDetail({
             </span>
           ) : (
             <span className="flex flex-wrap items-center gap-2">
-              {c.name}
+              <Title level={3} className="wrap-anywhere">
+                {c.name}
+              </Title>
               <Button variant="link" onClick={() => setEditing(true)}>
                 {t("actions.edit")}
               </Button>
             </span>
           )}
-        </dd>
+          <Muted>{t("since", { date: formats.formatDate(c.createdAt) })}</Muted>
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-lg border border-border bg-card p-3.5 text-sm">
         <dt className="text-muted-foreground">{t("fields.phone")}</dt>
         <dd className="tnum m-0 wrap-anywhere">{formatPhone(c.phone)}</dd>
-        <dt className="text-muted-foreground">{t("fields.created")}</dt>
-        <dd className="m-0 wrap-anywhere">{formats.formatDate(c.createdAt)}</dd>
-        {c.updatedAt !== c.createdAt && (
-          <>
-            <dt className="text-muted-foreground">{t("fields.updated")}</dt>
-            <dd className="m-0 wrap-anywhere">{formats.formatDate(c.updatedAt)}</dd>
-          </>
-        )}
+        <dt className="text-muted-foreground">{t("fields.next")}</dt>
+        <dd className="m-0 wrap-anywhere">{next ? label(next) : t("noUpcoming")}</dd>
+        <dt className="text-muted-foreground">{t("fields.total")}</dt>
+        <dd className="tnum m-0">{t("totalAppointments", { count: total })}</dd>
       </dl>
 
       {message && (
@@ -167,7 +175,7 @@ export function CustomerDetail({
         )}
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2 max-md:[&>*]:flex-1 max-md:[&_button]:w-full">
+      <div className="flex flex-wrap gap-2 max-md:[&>*]:flex-1 max-md:[&_button]:w-full">
         {c.conversationId ? (
           <Button asChild variant="secondary">
             <a href={`#/?c=${c.conversationId}`}>{t("actions.viewConversation")}</a>

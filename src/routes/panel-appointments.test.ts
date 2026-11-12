@@ -134,6 +134,23 @@ test("GET /api/appointments?days: a janela cresce com days (padrão 7); fora de 
   }
 });
 
+test("GET /api/appointments?from=today: inclui os de hoje já passados, com a situação; sem from, só os futuros", async () => {
+  now = at("2026-10-20T08:00");
+  await book({ ...VALID, start: at("2026-10-20T17:00").toISOString() });
+  await book({ ...VALID, phone: "71 98888-7777", name: "João", start: at("2026-10-21T09:00").toISOString() });
+  // Passou das 17h: o horário de hoje já aconteceu, mas continua marcado
+  now = at("2026-10-20T18:00");
+  const names = async (query: string) =>
+    (await app.inject({ url: `/api/appointments${query}` })).json().appointments.map((a: { customerName: string }) => a.customerName);
+
+  assert.deepEqual(await names(""), ["João"]);
+  assert.deepEqual(await names("?from=today"), ["Maria Souza", "João"]);
+  const [past] = (await app.inject({ url: "/api/appointments?from=today" })).json().appointments;
+  assert.deepEqual([past.startsAt, past.status], [at("2026-10-20T17:00").toISOString(), "booked"]);
+  assert.equal(past.group, "today");
+  assert.equal((await app.inject({ url: "/api/appointments?from=amanha" })).statusCode, 422);
+});
+
 test("GET /api/appointments sem agenda conectada: a lista do banco no fuso de reserva", async () => {
   await book(VALID);
   conn = null;

@@ -233,7 +233,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
   return (
     <form className="grid gap-4" onSubmit={submit}>
       <Title level={3}>{t("form.title")}</Title>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid items-start gap-3 md:grid-cols-2">
         <Field>
           {t("form.phone")}
           <Input

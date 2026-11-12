@@ -13,9 +13,15 @@
     "clinic": "Clinic"
   },
   "add": {
+    "menu": "Add",
     "treatment": "Add treatment",
     "info": "Add info section",
     "clinic": "Add clinic details"
+  },
+  "group": {
+    "clinic": "Clinic info",
+    "treatment": "Treatments",
+    "info": "Info"
   },
   "edit": {
     "treatment": "Edit treatment",
@@ -34,9 +40,10 @@
     "saveError": "Could not save the section. Please try again."
   },
   "list": {
+    "emptyTitle": "The brochure is still blank",
     "empty": "No sections yet. Start with a treatment, or add a few info lines such as the address and hours.",
     "notBookable": "Not bookable",
-    "edit": "Edit",
+    "editLabel": "Edit {{title}}",
     "delete": "Delete",
     "deleteLabel": "Delete {{title}}"
   },

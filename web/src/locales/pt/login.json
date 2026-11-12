@@ -1,5 +1,9 @@
 {
-  "subtitle": "Painel do WhatsApp",
+  "brandName": "Secretaryfy",
+  "brandTitle": "A recepção da clínica, direto no WhatsApp",
+  "brandText": "Atende, marca e avisa a equipe quando precisa de uma pessoa.",
+  "title": "Entrar no painel",
+  "hint": "Use a senha da equipe.",
   "password": "Senha do operador",
   "signIn": "Entrar",
   "signingIn": "Entrando…",

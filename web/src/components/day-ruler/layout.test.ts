@@ -84,3 +84,30 @@ test("consultas coladas vão para faixas diferentes; distantes ficam na mesma", 
   const apart = layoutDay({ ...base, appointments: [appt("1", "10:00"), appt("2", "11:00")] });
   assert.deepEqual(apart.pins.map((p) => p.lane), [0, 0]);
 });
+
+test("consultas que já começaram são passadas: contam como feitas e saem da próxima", () => {
+  const layout = layoutDay({ ...base, appointments: [appt("1", "10:00"), appt("2", "12:00"), appt("3", "15:00")] });
+  assert.deepEqual(layout.pins.map((p) => p.passed), [true, true, false]);
+  assert.deepEqual([layout.count, layout.done, layout.left], [3, 2, 1]);
+  assert.equal(layout.next?.id, "3");
+});
+
+test("sem consulta passada, tudo está por vir; no fim do dia, tudo feito", () => {
+  const before = layoutDay({ ...base, now: new Date("2026-11-11T08:00:00-03:00"), appointments: [appt("1", "10:00")] });
+  assert.deepEqual([before.done, before.left], [0, 1]);
+  const after = layoutDay({ ...base, now: new Date("2026-11-11T19:00:00-03:00"), appointments: [appt("1", "10:00")] });
+  assert.deepEqual([after.done, after.left, after.next], [1, 0, null]);
+});
+
+test("dia fechado ainda conta feitas e restantes", () => {
+  const layout = layoutDay({ ...base, hours: null, appointments: [appt("1", "10:00"), appt("2", "16:00")] });
+  assert.deepEqual([layout.done, layout.left], [1, 1]);
+});
+
+test("progresso da linha: 0 antes da abertura, proporcional no dia, 100 depois do fechamento", () => {
+  const pct = (hhmm: string) => layoutDay({ ...base, now: new Date(`2026-11-11T${hhmm}:00-03:00`), appointments: [] }).progressPct;
+  assert.equal(pct("08:00"), 0);
+  assert.equal(pct("13:30"), 50);
+  assert.ok(Math.abs(pct("12:00") - 100 / 3) < 0.01);
+  assert.equal(pct("19:00"), 100);
+});

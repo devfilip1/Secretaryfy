@@ -2,13 +2,11 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, login } from "../api";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { CenterPage } from "../components/CenterPage";
 import { Field } from "../components/Field";
+import { LoginBrand } from "../components/login/LoginBrand";
 import { Notice } from "../components/Notice";
 import { Title } from "../components/Title";
-import { ToothIcon } from "../components/tooth-icon";
 import { PanelLanguage } from "../i18n/PanelLanguage";
 import { ThemeSelect } from "../theme/ThemeSelect";
 
@@ -42,19 +40,17 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <CenterPage>
-      <div className="grid w-[min(400px,100%)] gap-4">
-        <div className="flex items-center justify-end gap-2">
+    <main className="grid min-h-full md:grid-cols-2">
+      <LoginBrand />
+      <div className="relative grid place-items-center p-4 md:p-9">
+        <div className="absolute end-4 top-4 flex items-center gap-2">
           <ThemeSelect />
           <PanelLanguage />
         </div>
-        <Card as="form" className="grid gap-5" onSubmit={submit}>
-          <div className="grid justify-items-center gap-3 text-center">
-            <span className="grid size-12 place-items-center rounded-xl bg-accent text-primary">
-              <ToothIcon className="size-6" />
-            </span>
-            <Title level={1}>Secretaryfy</Title>
-            <p className="m-0 text-muted-foreground">{t("subtitle")}</p>
+        <form className="grid w-full max-w-[360px] gap-5 pt-14 md:pt-0" onSubmit={submit}>
+          <div className="grid gap-1.5">
+            <Title level={2}>{t("title")}</Title>
+            <p className="m-0 text-sm text-muted-foreground">{t("hint")}</p>
           </div>
           <Field className="gap-1.5 font-medium">
             {t("password")}
@@ -70,8 +66,8 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
           <Button type="submit" className="w-full" disabled={!password || busy}>
             {busy ? t("signingIn") : t("signIn")}
           </Button>
-        </Card>
+        </form>
       </div>
-    </CenterPage>
+    </main>
   );
 }

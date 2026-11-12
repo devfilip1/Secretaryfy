@@ -27,7 +27,8 @@ export function useToday(): TodayData {
   const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(() => {
-    Promise.all([listAppointments(), getCalendar()])
+    // from=today: a régua mostra o dia inteiro, inclusive as consultas que já passaram
+    Promise.all([listAppointments(undefined, "today"), getCalendar()])
       .then(([list, calendar]) =>
         setFetched({
           timeZone: list.timeZone,

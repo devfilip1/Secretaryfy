@@ -129,11 +129,10 @@
       "afternoonPlain": "Boa tarde, equipe",
       "eveningPlain": "Boa noite, equipe"
     },
-    "summary_one": "{{count}} consulta hoje.",
-    "summary_other": "{{count}} consultas hoje.",
+    "counts": "{{count}} hoje · {{done}} feitas · {{left}} restantes",
     "next": "Próxima às {{time}} com {{name}}.",
-    "noneLeft": "Não há mais consultas hoje.",
     "none": "Nenhuma consulta hoje.",
+    "done": "Feita",
     "closed": "Hoje a clínica não atende.",
     "now": "agora",
     "noService": "sem serviço definido",

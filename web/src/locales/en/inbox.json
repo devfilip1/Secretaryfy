@@ -129,11 +129,10 @@
       "afternoonPlain": "Good afternoon, team",
       "eveningPlain": "Good evening, team"
     },
-    "summary_one": "{{count}} appointment today.",
-    "summary_other": "{{count}} appointments today.",
+    "counts": "{{count}} today · {{done}} done · {{left}} left",
     "next": "Next at {{time}} with {{name}}.",
-    "noneLeft": "No more appointments today.",
     "none": "No appointments today.",
+    "done": "Done",
     "closed": "The clinic does not attend today.",
     "now": "now",
     "noService": "no service set",
