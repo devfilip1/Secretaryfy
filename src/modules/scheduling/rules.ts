@@ -23,6 +23,9 @@ const dayHours = z
     params: { code: "end_before_start" },
   });
 
+/** Duração de um atendimento em minutos: de 15 a 240, de 5 em 5 (também vale para avaliação e retorno na identidade da clínica) */
+export const appointmentMinutes = z.number().int().min(15).max(240).multipleOf(5);
+
 /** Regras de atendimento (contracts/panel-api.md, PUT /api/calendar/rules). */
 export const rulesSchema = z
   .object({
@@ -33,7 +36,7 @@ export const rulesSchema = z
         params: { code: "no_open_day" },
       }),
     /** Duração padrão de um atendimento (o de cada tratamento pode ser outro, ADR 0015) */
-    slotMinutes: z.number().int().min(15).max(240).multipleOf(5),
+    slotMinutes: appointmentMinutes,
     /** De quantos em quantos minutos pode começar um atendimento */
     gridMinutes: z.number().int().min(5).max(60).multipleOf(5),
     minNoticeMinutes: z.number().int().min(0).max(10080),

@@ -347,13 +347,21 @@ export interface ClinicSettings {
   kind: string;
   language: "pt" | "en";
   restartRequired: boolean;
+  offerAssessment: boolean;
+  offerFollowUp: boolean;
+  assessmentMinutes: number | null;
+  followUpMinutes: number | null;
 }
-/** assistantName vazio quer dizer nenhum nome. */
+/** assistantName vazio quer dizer nenhum nome. Minutos null quer dizer o padrão da agenda. */
 export interface ClinicSettingsInput {
   name: string;
   assistantName: string;
   kind: string;
   language: "pt" | "en";
+  offerAssessment: boolean;
+  offerFollowUp: boolean;
+  assessmentMinutes: number | null;
+  followUpMinutes: number | null;
 }
 export const getClinicSettings = () => request<ClinicSettings>("GET", "/api/clinic-settings");
 export const saveClinicSettings = (input: ClinicSettingsInput) =>

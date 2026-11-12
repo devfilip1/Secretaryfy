@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import type { AppointmentRow } from "../../../db/schema.js";
 import { availableDays, naturalSlotsForDay, slotsForDay } from "../availability.js";
 import type { FlowResult } from "../flow.js";
 import type { DayPeriod } from "../interpret.js";
@@ -218,15 +219,30 @@ export async function selectSlot(run: Run, start: Date): Promise<FlowResult> {
   if (run.carry.flow === "reschedule") {
     const appt = run.carry.appointmentId ? await run.store.findAppointment(run.carry.appointmentId) : null;
     if (!appt) return run.finish(run.replies.noAppointment());
-    await run.save({ step: "confirm_reschedule", selectedStart: start });
-    return { reply: run.replies.confirmReschedule(appt.startsAt, start, run.tz) };
+    return confirmMove(run, appt, start);
   }
+  // Já há um horário futuro deste telefone: o horário escolhido é uma troca, nunca um agendamento novo (BR-SCH-05)
+  const upcoming = await run.upcomingAppointment();
+  if (upcoming) return switchUpcoming(run, upcoming, start);
   const name = run.session?.customerName ?? run.knownName;
   if (!name) {
     await run.save({ step: "ask_name", selectedStart: start });
     return { reply: run.replies.askName() };
   }
   return toSummary(run, start, name);
+}
+
+/** Horário escolhido com um agendamento futuro: vai à confirmação da troca, ou avisa se o prazo de cancelamento passou (BR-SCH-06). */
+async function switchUpcoming(run: Run, appt: AppointmentRow, start: Date): Promise<FlowResult> {
+  if (run.tooLate(appt)) return run.finish(run.replies.tooLateToChange(run.rules.cancelNoticeMinutes));
+  run.carry = { ...run.carry, flow: "reschedule", appointmentId: appt.id };
+  return confirmMove(run, appt, start);
+}
+
+/** Pede o "sim" para mover o agendamento ao horário escolhido. */
+async function confirmMove(run: Run, appt: AppointmentRow, start: Date): Promise<FlowResult> {
+  await run.save({ step: "confirm_reschedule", selectedStart: start });
+  return { reply: run.replies.confirmReschedule(appt.startsAt, start, run.tz) };
 }
 
 /** Com nome e horário: pergunta o serviço se ele ainda não veio da conversa, senão mostra o resumo (FR-011). */

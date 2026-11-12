@@ -3,13 +3,14 @@ import { ASSESSMENT } from "../catalog.js";
 import type { FlowResult } from "../flow.js";
 import type { DayPeriod } from "../interpret.js";
 import { CalendarUnavailable } from "../../google/gateway.js";
-import { currentAppointment, offerReschedule } from "./appointment.js";
+import { currentAppointment, offerReschedule, startReschedule } from "./appointment.js";
 import { askedTime, confirmBooking, offerDay, offerDays, offerWeekend, slotTaken, toSummary } from "./offers.js";
 import type { Run } from "./run.js";
 
 export async function startBook(run: Run, date: string | null, time: string | null, period: DayPeriod | null, weekend = false): Promise<FlowResult> {
   const existing = await currentAppointment(run);
-  if (existing) return offerReschedule(run, existing);
+  // Com dia citado, ele (e o horário ou a parte do dia) vale para a remarcação, sem perguntar de novo (BR-SCH-05)
+  if (existing) return date ? startReschedule(run, date, time, period) : offerReschedule(run, existing);
   run.carry = { flow: "book", appointmentId: null, customerName: run.carry.customerName, service: run.carry.service };
   // O tempo do atendimento decide quais inícios estão livres: o tratamento vem antes dos dias (ADR 0015)
   if (!run.carry.service) return askService(run);

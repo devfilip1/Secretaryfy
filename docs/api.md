@@ -114,8 +114,8 @@ The brochure sections the assistant answers from ([knowledge](data-model.md#know
 
 | Route | Body | Response |
 |---|---|---|
-| `GET /api/clinic-settings` | — | `{name, assistantName, kind, language, restartRequired}`. `assistantName` is `null` when there is none; `restartRequired` is `false` here (see below) |
-| `PUT /api/clinic-settings` | `{name}` (1–120), `{assistantName}` (0–60, empty means none), `{kind}` (1–80), `{language}` (`en` or `pt`, required) | `200` in the GET shape; `400 {error: "invalid_body", fields}` otherwise. Saved to `clinic_settings` and applied at once, with no restart: the next message, brochure answer, reminder and `/internal/clinic` use the new language (ADR 0016) |
+| `GET /api/clinic-settings` | — | `{name, assistantName, kind, language, offerAssessment, offerFollowUp, assessmentMinutes, followUpMinutes, restartRequired}`. `assistantName` is `null` when there is none; `assessmentMinutes` and `followUpMinutes` are `null` when the calendar's default length applies; `restartRequired` is `false` here (see below) |
+| `PUT /api/clinic-settings` | `{name}` (1–120), `{assistantName}` (0–60, empty means none), `{kind}` (1–80), `{language}` (`en` or `pt`, required), optional `{offerAssessment}` (boolean), `{offerFollowUp}` (boolean), `{assessmentMinutes}` and `{followUpMinutes}` (`null`, or 15–240 in steps of 5) | `200` in the GET shape; `400 {error: "invalid_body", fields}` otherwise. An omitted optional field keeps the saved value. The four new fields are saved to `clinic_settings` (migration 0014) and applied at once, with no restart. Defaults: offer assessment yes, follow-up no, length `null` | Saved to `clinic_settings` and applied at once, with no restart: the next message, brochure answer, reminder and `/internal/clinic` use the new language (ADR 0016) |
 
 ## Internal routes
 

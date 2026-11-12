@@ -72,3 +72,17 @@ test("a troca de nome chega à próxima saudação e ao prompt do interpretador,
   assert.match(seen[1][0].content, /of Smile Clinic/);
   assert.doesNotMatch(seen[1][0].content, /DentalSafe/);
 });
+
+test("os campos de agendamento têm padrão: avaliação sim, retorno não, duração null", () => {
+  const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "en" });
+  assert.deepEqual([clinic.offerAssessment, clinic.offerFollowUp, clinic.assessmentMinutes, clinic.followUpMinutes], [true, false, null, null]);
+});
+
+test("update troca os campos de agendamento; null na duração volta ao padrão do calendário", () => {
+  const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "en", assessmentMinutes: 45 });
+  clinic.update({ offerFollowUp: true, followUpMinutes: 30 });
+  assert.deepEqual([clinic.offerAssessment, clinic.offerFollowUp, clinic.assessmentMinutes, clinic.followUpMinutes], [true, true, 45, 30]);
+  clinic.update({ assessmentMinutes: null, offerAssessment: false });
+  assert.deepEqual([clinic.offerAssessment, clinic.assessmentMinutes], [false, null]);
+  assert.equal(clinic.language, "en");
+});

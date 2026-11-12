@@ -138,6 +138,11 @@ export class Run {
     );
   }
 
+  /** O próximo horário futuro do telefone, venha de qualquer conversa ou do painel (BR-SCH-05). */
+  async upcomingAppointment(): Promise<AppointmentRow | null> {
+    return this.sync(await this.store.findFutureBooked(this.conversation.phone, this.now));
+  }
+
   tooLate(appt: AppointmentRow): boolean {
     return appt.startsAt.getTime() - this.now.getTime() < this.rules.cancelNoticeMinutes * 60_000;
   }

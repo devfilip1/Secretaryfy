@@ -267,11 +267,21 @@ export const clinicSettings = pgTable(
     assistantName: text("assistant_name"),
     kind: text("kind").notNull(),
     language: text("language"),
+    /** Oferece a avaliação (primeira consulta) no agendamento */
+    offerAssessment: boolean("offer_assessment").notNull().default(true),
+    /** Oferece o retorno (acompanhamento) no agendamento */
+    offerFollowUp: boolean("offer_follow_up").notNull().default(false),
+    /** Duração da avaliação em minutos; null = a duração padrão do calendário */
+    assessmentMinutes: integer("assessment_minutes"),
+    /** Duração do retorno em minutos; null = a duração padrão do calendário */
+    followUpMinutes: integer("follow_up_minutes"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("clinic_settings_single_row", sql`${t.id} = 1`),
     check("clinic_settings_language", sql`${t.language} in ('en', 'pt')`),
+    check("clinic_settings_assessment_minutes", sql`${t.assessmentMinutes} is null or (${t.assessmentMinutes} between 15 and 240 and ${t.assessmentMinutes} % 5 = 0)`),
+    check("clinic_settings_follow_up_minutes", sql`${t.followUpMinutes} is null or (${t.followUpMinutes} between 15 and 240 and ${t.followUpMinutes} % 5 = 0)`),
   ],
 );
 

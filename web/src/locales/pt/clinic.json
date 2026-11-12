@@ -12,6 +12,18 @@
     "label": "Idioma do assistente",
     "help": "Idioma que o assistente usa com os pacientes e nos rótulos da brochura. Não é o idioma do painel. Mudar aqui não traduz o texto da brochura escrito pela clínica: escreva esse texto neste mesmo idioma."
   },
+  "serviceOptions": {
+    "section": "Opções de serviço",
+    "assessment": {
+      "label": "Avaliação geral",
+      "help": "Mostra como opção na lista de serviços"
+    },
+    "followUp": {
+      "label": "Retorno",
+      "help": "Adiciona Retorno/Follow-up como opção na lista de serviços"
+    },
+    "minutesLabel": "Duração em minutos (vazio usa o padrão da agenda)"
+  },
   "save": "Salvar",
   "saving": "Salvando…",
   "saved": "Salvo. O assistente usa as novas configurações a partir da próxima mensagem.",
@@ -47,6 +59,7 @@
     "assistantNameTooLong": "Use até 60 caracteres.",
     "kindRequired": "Informe o tipo de clínica.",
     "kindTooLong": "Use até 80 caracteres.",
-    "languageInvalid": "Escolha English ou Português."
+    "languageInvalid": "Escolha English ou Português.",
+    "minutesInvalid": "Use um número de 15 a 240, de 5 em 5, ou deixe vazio."
   }
 }
