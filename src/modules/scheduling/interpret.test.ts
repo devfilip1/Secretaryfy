@@ -392,3 +392,103 @@ test("mentionedService: null, rótulo fora do catálogo, avaliação geral, JSON
   assert.equal(await down.mentionedService({ history: [], text: "hmm", log }), null);
   assert.equal(logged.length, 1);
 });
+
+// Quarta, 11/11/2026, 18:00 em Salvador (já passou do horário): a lista oferece 12, 13, 14, 16, 17 e 18 de novembro
+const novembro = {
+  now: new Date("2026-11-11T21:00:00Z"),
+  window: { firstDate: "2026-11-11", lastDate: "2026-12-11" },
+  step: "choose_day" as const,
+  options: [12, 13, 14, 16, 17, 18].map((day, i): SessionOption => ({ n: i + 1, kind: "day", date: `2026-11-${day}` })),
+};
+
+test("dia da semana citado com dia oferecido na lista: é a escolha, qualquer que seja a intenção de escolha do modelo", async () => {
+  for (const intent of ["choose", "other_day", "book", "unclear"] as const) {
+    const { interpreter } = fakeOllama({ intent, option: null, date: "2026-11-11", weekday: "wednesday", name: null });
+    const r = await interpreter.interpret(input({ ...novembro, text: "quarta feira" }));
+    assert.deepEqual([r.intent, r.option, r.date], ["choose", 6, "2026-11-18"], intent);
+  }
+});
+
+test("data citada que é um dia oferecido é a escolha, mesmo com a intenção 'unclear' do modelo", async () => {
+  const { interpreter } = fakeOllama({ intent: "unclear", option: null, date: null, weekday: null, name: null });
+  const r = await interpreter.interpret(input({ ...novembro, text: "quarta dia 18" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["choose", 6, "2026-11-18"]);
+
+  const { interpreter: outro } = fakeOllama({ intent: "book", option: null, date: null, weekday: "wednesday", name: null });
+  assert.equal((await outro.interpret(input({ ...novembro, text: "quarta dia 18" }))).option, 6);
+});
+
+test("dia da semana sem dia oferecido com esse nome: vale a conta antiga, a partir de hoje", async () => {
+  // Nenhum domingo na lista: o próximo domingo conta a partir de hoje (quarta 11 → domingo 15)
+  const { interpreter } = fakeOllama({ intent: "choose", option: null, date: null, weekday: "sunday", name: null });
+  const r = await interpreter.interpret(input({ ...novembro, text: "e domingo?" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["choose", null, "2026-11-15"]);
+});
+
+test("sim e não nunca viram escolha de dia, mesmo com dias na lista", async () => {
+  const { interpreter: sim } = fakeOllama({ intent: "yes", option: null, date: null, weekday: null, name: null });
+  assert.equal((await sim.interpret(input({ ...novembro, text: "sim" }))).intent, "yes");
+  const { interpreter: nao } = fakeOllama({ intent: "unclear", option: null, date: null, weekday: null, name: null });
+  const r = await nao.interpret(input({ ...novembro, text: "sim" }));
+  assert.deepEqual([r.intent, r.option], ["unclear", null]);
+});
+
+test("dia da semana dito pelo nome, sem dia da semana do modelo: vale o dia oferecido com esse nome", async () => {
+  // O modelo não devolveu dia da semana nem data útil: o nome na frase é que manda
+  for (const raw of [
+    { intent: "unclear", option: null, date: null, weekday: null, name: null },
+    { intent: "choose", option: null, date: "2026-11-11", weekday: null, name: null },
+  ]) {
+    const { interpreter } = fakeOllama(raw);
+    assert.deepEqual(
+      (({ intent, option, date }) => [intent, option, date])(await interpreter.interpret(input({ ...novembro, text: "quarta feira" }))),
+      ["choose", 6, "2026-11-18"],
+    );
+  }
+  const { interpreter: sozinho } = fakeOllama({ intent: "choose", option: null, date: "2026-11-11", weekday: null, name: null });
+  assert.deepEqual([(await sozinho.interpret(input({ ...novembro, text: "quarta" }))).option], [6]);
+});
+
+test("o modelo erra o nome do dia da semana (quinta para \"quarta feira\"): vale o nome dito na frase", async () => {
+  const { interpreter } = fakeOllama({ intent: "choose", option: 1, date: "2026-11-12", weekday: "thursday", name: null });
+  const r = await interpreter.interpret(input({ ...novembro, text: "quarta feira" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["choose", 6, "2026-11-18"]);
+});
+
+test("dia da semana dito pelo nome sem dia oferecido com esse nome: a conta antiga, a partir de hoje", async () => {
+  // Nenhum domingo na lista; sem o dia da semana do modelo, 'domingo' é o próximo domingo (15/11)
+  const { interpreter } = fakeOllama({ intent: "choose", option: null, date: null, weekday: null, name: null });
+  const r = await interpreter.interpret(input({ ...novembro, text: "domingo" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["choose", null, "2026-11-15"]);
+});
+
+test("data explícita com o nome do dia não vira o dia do nome: 'quarta dia 25' fora da lista", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: "2026-11-25", weekday: null, name: null });
+  const r = await interpreter.interpret(input({ ...novembro, text: "quarta dia 25" }));
+  assert.deepEqual([r.intent, r.option, r.date], ["availability", null, "2026-11-25"]);
+});
+
+test("fim de semana: o modelo diz 'weekend', e a interpretação é os dois dias, sem data (nem sábado)", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: "2026-10-24", weekday: "weekend", name: null });
+  const r = await interpreter.interpret(input({ text: "vocês atendem no fim de semana?" }));
+  assert.deepEqual([r.intent, r.date, r.weekend], ["availability", null, true]);
+});
+
+test("sábado e domingo ditos juntos na frase: fim de semana, mesmo se o modelo devolve só sábado", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: "2026-10-24", weekday: "saturday", name: null });
+  const r = await interpreter.interpret(input({ text: "sábado e domingo" }));
+  assert.deepEqual([r.date, r.weekend], [null, true]);
+});
+
+test("sábado sozinho continua sendo o sábado, sem fim de semana", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, weekday: "saturday", name: null });
+  const r = await interpreter.interpret(input({ text: "tem horario sab?" }));
+  assert.deepEqual([r.date, r.weekend], ["2026-10-24", undefined]);
+});
+
+test("fim de semana numa lista de dias: não é a opção do sábado, é a escolha do fim de semana", async () => {
+  const sabadoEDomingo = [24, 25].map((day, i): SessionOption => ({ n: i + 1, kind: "day", date: `2026-10-${day}` }));
+  const { interpreter } = fakeOllama({ intent: "choose", option: 1, date: null, weekday: "weekend", name: null });
+  const r = await interpreter.interpret(input({ step: "choose_day", options: sabadoEDomingo, text: "fim de semana" }));
+  assert.deepEqual([r.intent, r.option, r.date, r.weekend], ["choose", null, null, true]);
+});

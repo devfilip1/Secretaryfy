@@ -60,6 +60,38 @@ export async function offerDay(run: Run, date: string, period: DayPeriod | null 
   return offerSlots(run, date, slots);
 }
 
+/** Sábado e domingo da janela de agendamento: o fim de semana que começa hoje ou o próximo. */
+function weekendDates(run: Run): string[] {
+  const today = DateTime.fromISO(run.window.firstDate, { zone: run.tz });
+  const saturday = today.plus({ days: (6 - today.weekday + 7) % 7 });
+  return [saturday, saturday.plus({ days: 1 })].map((d) => d.toISODate()!).filter((d) => d <= run.window.lastDate);
+}
+
+/**
+ * Fim de semana: sábado e domingo, cada um como um dia pedido. Um dia que as regras fecham se diz fechado (com os dias
+ * mais próximos com vaga); os abertos com vaga são oferecidos. Com dias do fim de semana na tela, valem os da tela.
+ */
+export async function offerWeekend(run: Run, onScreen: string[] = []): Promise<FlowResult> {
+  const dates = weekendDates(run);
+  if (dates.length === 0) return tooFar(run);
+  const onScreenWeekend = dates.filter((d) => onScreen.includes(d));
+  const pool = onScreenWeekend.length > 0 ? onScreenWeekend : dates;
+  const isOpen = (date: string) => Boolean(run.rules.weeklyHours[String(DateTime.fromISO(date, { zone: run.tz }).weekday) as keyof Rules["weeklyHours"]]);
+  const closed = dates.filter((d) => !isOpen(d)).map((d) => DateTime.fromISO(d, { zone: run.tz }).weekday);
+  const open: string[] = [];
+  for (const date of pool) if (isOpen(date) && (await offerableOn(run, date)).length > 0) open.push(date);
+  // Um só dia aberto e com vaga, sem dia fechado: são os horários dele, como se o cliente tivesse pedido esse dia
+  if (open.length === 1 && closed.length === 0) return offerDay(run, open[0]);
+  if (open.length === 0) {
+    const days = await closestDays(run, dates[0]);
+    if (days.length === 0) return run.finish(run.replies.noOpenings());
+    await saveDays(run, days);
+    return { reply: closed.length > 0 ? run.replies.closedDay(closed, days, run.tz) : run.replies.dayFull(pool[0], days, run.tz) };
+  }
+  await saveDays(run, open);
+  return { reply: closed.length > 0 ? run.replies.closedDay(closed, open, run.tz) : run.replies.offerDays(open, run.tz) };
+}
+
 /** Só os horários da parte do dia pedida; sem nenhum, avisa e oferece os outros horários do mesmo dia. */
 async function offerPeriod(run: Run, date: string, slots: Date[], period: DayPeriod): Promise<FlowResult> {
   const inPeriod = slots.filter((s) => dayPeriod(DateTime.fromJSDate(s, { zone: run.tz }).hour) === period);

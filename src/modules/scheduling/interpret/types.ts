@@ -22,6 +22,8 @@ export interface Interpretation {
   urgent?: boolean;
   /** A data pedida passa do limite de dias à frente: o fluxo explica, e não conta como "não entendi" */
   tooFar?: boolean;
+  /** O fim de semana inteiro (sábado e domingo), sem um dia citado: o fluxo oferece os dois, nunca um só */
+  weekend?: boolean;
 }
 
 export interface InterpretInput {

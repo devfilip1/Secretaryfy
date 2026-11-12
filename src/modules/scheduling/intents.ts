@@ -39,8 +39,8 @@ const CAN_CARRY_A_WHEN_INTENTS: readonly Intent[] = ["choose", "book", "availabi
 const STEP_ONLY_INTENTS: readonly Intent[] = ["choose", "more", "other_day", "choose_service"];
 /** Começam um fluxo de agendamento quando não há etapa em andamento (research.md R3) */
 const STARTS_SCHEDULING_INTENTS: readonly Intent[] = ["book", "availability", "cancel", "reschedule", "my_appointment"];
-/** Escolhem um dia da lista de dias na tela: o dia da semana citado vira a opção dele (validate, em interpret/validate.ts) */
-const PICKS_OFFERED_DAY_INTENTS: readonly Intent[] = ["choose", "other_day"];
+/** Podem escolher um dia da lista de dias na tela: o dia citado (ou o da semana) vira a opção dele (offeredDayPicked, em interpret/validate.ts). Sim e não ficam de fora */
+const PICKS_OFFERED_DAY_INTENTS: readonly Intent[] = ["choose", "other_day", "book", "availability", "unclear"];
 /** Com os horários na tela, um horário ou uma parte do dia citados viram escolha dentro do dia (applyWhen, em resolve.ts) */
 const CHOICE_LIKE_INTENTS: readonly Intent[] = ["more", "unclear", "other_day", "availability"];
 /** Pedem um dia além do limite de dias à frente: o fluxo explica, em vez de contar como não entendi (flow.dispatch) */

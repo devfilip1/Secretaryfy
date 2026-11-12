@@ -4,10 +4,10 @@ import type { FlowResult } from "../flow.js";
 import type { DayPeriod } from "../interpret.js";
 import { CalendarUnavailable } from "../../google/gateway.js";
 import { currentAppointment, offerReschedule } from "./appointment.js";
-import { askedTime, confirmBooking, offerDay, offerDays, slotTaken, toSummary } from "./offers.js";
+import { askedTime, confirmBooking, offerDay, offerDays, offerWeekend, slotTaken, toSummary } from "./offers.js";
 import type { Run } from "./run.js";
 
-export async function startBook(run: Run, date: string | null, time: string | null, period: DayPeriod | null): Promise<FlowResult> {
+export async function startBook(run: Run, date: string | null, time: string | null, period: DayPeriod | null, weekend = false): Promise<FlowResult> {
   const existing = await currentAppointment(run);
   if (existing) return offerReschedule(run, existing);
   run.carry = { flow: "book", appointmentId: null, customerName: run.carry.customerName, service: run.carry.service };
@@ -15,6 +15,7 @@ export async function startBook(run: Run, date: string | null, time: string | nu
   if (!run.carry.service) return askService(run);
   run.minutes = await run.lengthFor();
   if (date && time) return askedTime(run, date, time);
+  if (weekend && !date) return offerWeekend(run);
   return date ? offerDay(run, date, period) : offerDays(run);
 }
 

@@ -11,6 +11,7 @@ import {
   offerDay,
   offerDayOrTime,
   offerDays,
+  offerWeekend,
   periodOfScreen,
   sameDayAsOptions,
   selectSlot,
@@ -37,8 +38,9 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
   const period = i.period ?? null;
   switch (i.intent) {
     case "book":
-      return startBook(run, i.date, i.time ?? null, period);
+      return startBook(run, i.date, i.time ?? null, period, i.weekend === true);
     case "availability":
+      if (i.weekend) return offerWeekend(run, run.optionDays(s?.options ?? []));
       return i.date ? offerDayOrTime(run, i.date, i.time ?? null, period) : offerDays(run);
     case "cancel":
       return startCancel(run);
@@ -52,6 +54,7 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
 
   switch (s?.step) {
     case "choose_day":
+      if (i.intent === "choose" && i.weekend) return offerWeekend(run, run.optionDays(s.options));
       if (i.intent === "choose" && i.option !== null) return offerDay(run, run.dayOption(i.option), period);
       if (i.intent === "choose" && i.date) return offerDayOrTime(run, i.date, i.time ?? null, period);
       if (i.intent === "more") return offerDays(run, { after: run.lastOfferedDay() });
