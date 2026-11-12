@@ -133,6 +133,7 @@
     "next": "Next at {{time}} with {{name}}.",
     "none": "No appointments today.",
     "done": "Done",
+    "inProgress": "in progress",
     "closed": "The clinic does not attend today.",
     "now": "now",
     "noService": "no service set",

@@ -133,6 +133,7 @@
     "next": "Próxima às {{time}} com {{name}}.",
     "none": "Nenhuma consulta hoje.",
     "done": "Feita",
+    "inProgress": "em andamento",
     "closed": "Hoje a clínica não atende.",
     "now": "agora",
     "noService": "sem serviço definido",

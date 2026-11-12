@@ -39,6 +39,7 @@ export function TodayStrip({ attentionPhones }: { attentionPhones: ReadonlySet<s
       service: pin.service ?? t("today.noService"),
       status: t(`today.status.${STATUS_KEY[pin.status]}`),
     });
+    if (pin.inProgress) return `${label} · ${t("today.inProgress")}`;
     return pin.passed ? `${label} · ${t("today.done")}` : label;
   };
 
