@@ -22,7 +22,8 @@
     "title": "Equipe",
     "menu": "Conta",
     "theme": "Tema",
-    "language": "Idioma"
+    "language": "Idioma",
+    "initialsFallback": "SF"
   },
   "nav": {
     "label": "Navegação principal",

@@ -35,13 +35,16 @@ const BUBBLE_BG: Record<Message["origin"], string> = {
   system: "",
 };
 
-export function MessageBubble({ message, onRetry }: { message: Message; onRetry?: (m: Message) => void }) {
+export function MessageBubble({ message, onRetry, customerName }: { message: Message; onRetry?: (m: Message) => void; customerName?: string | null }) {
   const { t } = useTranslation("inbox");
   const { formatDateTime, formatTime } = useFormats();
   const blockReasonText = useBlockReasonText();
   const label = message.type === "text" ? null : t(`media.${message.type}`);
   const mine = message.origin !== "customer";
   const systemText = useSystemNoteText(message);
+  // Balão do cliente mostra o nome do paciente quando a conversa tem um; sem nome, o rótulo da origem
+  const customer = customerName?.trim();
+  const senderLabel = message.origin === "customer" && customer ? customer : t(`origin.${message.origin}`);
 
   // Registro do Secretaryfy (ex.: agendamento feito pelo assistente): pílula centralizada, sem balão; a cor segue a situação
   if (message.origin === "system") {
@@ -76,7 +79,7 @@ export function MessageBubble({ message, onRetry }: { message: Message; onRetry?
           blocked && "opacity-75 outline-1 outline-dashed outline-muted-foreground",
         )}
       >
-        <Muted className="text-xs font-bold">{t(`origin.${message.origin}`)}</Muted>
+        <Muted className="text-xs font-bold">{senderLabel}</Muted>
         {label && <span className="italic">{label}</span>}
         {message.text && <p className="whitespace-pre-wrap wrap-anywhere">{message.text}</p>}
         <span className="self-end text-xs text-muted-foreground" title={formatDateTime(message.sentAt)}>

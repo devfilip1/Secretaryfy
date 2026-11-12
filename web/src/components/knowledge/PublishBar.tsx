@@ -3,20 +3,19 @@ import { CircleAlert, CircleCheck, CloudOff, Upload, type LucideIcon } from "luc
 import { useTranslation } from "react-i18next";
 import { ApiError, publishKnowledge, type KnowledgeStatus } from "../../api";
 import { knowledgeKeys, knowledgeStatusQuery } from "../../queries";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notice } from "../Notice";
 
 type PublishErrorKey = "publishBar.busy" | "publishBar.unreachable" | "publishBar.failed";
 
-// Ícone e texto junto da cor: o estado não depende só da cor
-const STATUS_BADGE: Record<
+// Pílula com ícone e texto junto da cor: o estado não depende só da cor
+const STATUS_PILL: Record<
   KnowledgeStatus["state"],
-  { variant: "secondary" | "warn"; textKey: "status.upToDate" | "status.unpublished" | "status.unavailable"; icon: LucideIcon }
+  { textKey: "status.upToDate" | "status.unpublished" | "status.unavailable"; icon: LucideIcon; tone: string }
 > = {
-  upToDate: { variant: "secondary", textKey: "status.upToDate", icon: CircleCheck },
-  unpublished: { variant: "warn", textKey: "status.unpublished", icon: CircleAlert },
-  unavailable: { variant: "warn", textKey: "status.unavailable", icon: CloudOff },
+  upToDate: { textKey: "status.upToDate", icon: CircleCheck, tone: "bg-ok-bg text-ok" },
+  unpublished: { textKey: "status.unpublished", icon: CircleAlert, tone: "bg-warn-bg text-warn" },
+  unavailable: { textKey: "status.unavailable", icon: CloudOff, tone: "bg-warn-bg text-warn" },
 };
 
 /** Texto do erro de publicação. `t` é o da aba Clínica (quem chama passa o seu). */
@@ -35,17 +34,17 @@ export function PublishBar() {
     mutationFn: publishKnowledge,
     onSuccess: (next) => queryClient.setQueryData(knowledgeKeys.status(), next),
   });
-  const badge = status ? STATUS_BADGE[status.state] : null;
+  const pill = status ? STATUS_PILL[status.state] : null;
   const justPublished = publish.isSuccess && status?.state === "upToDate";
 
   return (
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
-        {badge && (
-          <Badge variant={badge.variant}>
-            <badge.icon />
-            {t(badge.textKey)}
-          </Badge>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3">
+        {pill && (
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium ${pill.tone}`}>
+            <pill.icon className="size-4" aria-hidden="true" />
+            {t(pill.textKey)}
+          </span>
         )}
         <Button onClick={() => publish.mutate()} disabled={status?.state !== "unpublished" || publish.isPending}>
           <Upload />

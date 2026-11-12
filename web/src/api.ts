@@ -251,7 +251,9 @@ export interface Appointment {
   confirmedBy: "customer" | "operator" | null;
 }
 
-export const listAppointments = () => request<{ timeZone: string; appointments: Appointment[] }>("GET", "/api/appointments");
+/** Consultas dos próximos `days` dias (o servidor padrão é 7; até 31). */
+export const listAppointments = (days?: number) =>
+  request<{ timeZone: string; appointments: Appointment[] }>("GET", days ? `/api/appointments?days=${days}` : "/api/appointments");
 export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
 /** Cancela o agendamento e remove o evento da agenda; não avisa o cliente. 404 not_found, 409 calendar_disconnected. */
 export const cancelAppointment = (id: string) => request<{ ok: true }>("POST", `/api/appointments/${id}/cancel`, {});

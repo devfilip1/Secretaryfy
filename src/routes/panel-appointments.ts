@@ -44,6 +44,8 @@ const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional()
 const startsQuery = z.object({ date: z.iso.date() });
 const daysQuery = z.object({ service: z.string().optional() });
 const lookupQuery = z.object({ phone: z.string() });
+// Quantos dias a partir de hoje a aba pede (Dia e 7 dias usam 7; Mês, 31); o padrão é o de sempre
+const agendaQuery = z.object({ days: z.coerce.number().int().min(1).max(31).default(7) });
 
 type Group = "today" | "tomorrow" | "week";
 
@@ -159,11 +161,13 @@ export function panelAppointmentsRoutes({
   return async function (app: FastifyInstance) {
     // --- Aba Appointments (US1) ---
 
-    app.get("/api/appointments", async () => {
+    app.get("/api/appointments", async (req, reply) => {
+      const query = agendaQuery.safeParse(req.query);
+      if (!query.success) return reply.code(422).send({ error: "invalid_query" });
       const now = clock();
       const timeZone = await timeZoneOf();
-      // Até o fim do 7º dia seguinte, no fuso da clínica
-      const to = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day").plus({ days: 8 }).toJSDate();
+      // Até o fim do último dia pedido (7 por padrão, 31 no mês), no fuso da clínica
+      const to = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day").plus({ days: query.data.days + 1 }).toJSDate();
       const rows = await store.listUpcoming(now, to);
       const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
       return {

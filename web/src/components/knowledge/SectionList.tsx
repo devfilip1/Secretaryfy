@@ -70,12 +70,14 @@ export function SectionList({
         <TooltipProvider>
           <ul className="divide-y divide-border border-y border-border">
             {sections.map((section) => (
-              <li key={section.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3">
+              <li key={section.key} className="flex flex-wrap items-center gap-x-4 gap-y-3 py-3.5">
                 <div className="min-w-0 flex-1 basis-56">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold break-words text-balance">{section.title}</span>
                     <Badge variant="secondary">{t(KIND_LABEL_KEY[section.kind])}</Badge>
-                    {section.kind === "treatment" && !isBookable(section) && <Muted>{t("list.notBookable")}</Muted>}
+                    {section.kind === "treatment" && !isBookable(section) && (
+                      <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">{t("list.notBookable")}</span>
+                    )}
                   </div>
                   {section.tagline && <Muted as="p" className="break-words">{section.tagline}</Muted>}
                 </div>

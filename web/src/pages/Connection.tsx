@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useState, type ComponentProps } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { ApiError, disconnect, requestQr, type Connection } from "../api";
-import { formatPhone } from "../format";
 import { useFormats } from "../i18n/formats";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Muted } from "../components/Muted";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
+import { PairingSteps } from "../components/connection/PairingSteps";
+import { ProtectionSummary } from "../components/connection/ProtectionSummary";
+import { StatusHero } from "../components/connection/StatusHero";
 import { Title } from "../components/Title";
 
-/** Quadro do QR code (264px no computador, largura da tela no celular); sem QR, mostra o texto ou o botão no lugar. */
+/** Quadro do QR code (264px no computador, largura da tela no celular); sem QR, mostra o texto ou o botão no lugar. O próprio QR traz o fundo claro para ler bem nos dois modos. */
 function QrFrame({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "mx-auto my-2 grid size-66 place-items-center rounded-lg bg-white p-2 text-muted-foreground max-md:h-auto max-md:w-[min(264px,100%)] max-md:aspect-square",
+        "mx-auto my-2 grid size-66 place-items-center rounded-lg bg-secondary p-2 text-center text-muted-foreground max-md:h-auto max-md:w-[min(264px,100%)] max-md:aspect-square",
         className,
       )}
       {...props}
@@ -88,34 +89,18 @@ export function ConnectionPage({
 
   return (
     <Page>
-      <Card className="w-[min(420px,100%)] text-center">
-        {connected ? (
-          <>
-            <Title level={2} className="mb-3">
-              {t("connected.title")}
-            </Title>
-            <p className="my-4 text-lg font-semibold">
-              {connection.number ? formatPhone(connection.number) : t("connected.unknownNumber")}
-            </p>
-            <Button variant="destructive" onClick={onDisconnect} disabled={busy}>
-              {busy ? t("connected.disconnecting") : t("connected.disconnect")}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Title level={2} className="mb-3">
-              {t("connect.title")}
-            </Title>
-            <ol className="list-decimal pl-5 text-left leading-relaxed">
-              <li>{t("connect.step1")}</li>
-              <li>
-                <Trans i18nKey="connect.step2" ns="connection" components={{ strong: <strong /> }} />
-              </li>
-              <li>{t("connect.step3")}</li>
-            </ol>
+      <div className="grid w-[min(520px,100%)] gap-4">
+        <StatusHero connection={connection} busy={busy} onDisconnect={onDisconnect} />
+        {!connected && (
+          <section className="grid gap-4 rounded-xl border border-border bg-card p-5 max-md:p-4">
+            <div className="grid gap-1">
+              <Title level={2}>{t("connect.title")}</Title>
+              <Muted as="p">{t("connect.lead")}</Muted>
+            </div>
+            <PairingSteps />
             {connection.qr ? (
               <QrFrame>
-                <img className="size-full" src={connection.qr} alt={t("connect.qrAlt")} />
+                <img className="size-full rounded-md" src={connection.qr} alt={t("connect.qrAlt")} />
               </QrFrame>
             ) : connection.state === "close" && !requesting && !error ? (
               <QrFrame>
@@ -134,12 +119,11 @@ export function ConnectionPage({
                 </Button>
               </Notice>
             )}
-            <Muted as="p" className="my-4">
-              {t("connect.refreshNote")}
-            </Muted>
-          </>
+            <Muted as="p">{t("connect.refreshNote")}</Muted>
+          </section>
         )}
-      </Card>
+        <ProtectionSummary refreshKey={connection.state} />
+      </div>
     </Page>
   );
 }

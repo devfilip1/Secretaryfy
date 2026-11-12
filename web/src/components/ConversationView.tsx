@@ -203,7 +203,7 @@ export function ConversationView({
         {loading && <p className="text-center text-muted-foreground">{t("loading")}</p>}
         {loadFailed && <Notice className="text-center">{t("errors.loadConversation")}</Notice>}
         {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} onRetry={onRetry} />
+          <MessageBubble key={m.id} message={m} onRetry={onRetry} customerName={conversation?.name} />
         ))}
       </div>
 

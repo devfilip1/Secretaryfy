@@ -1,9 +1,22 @@
 {
   "title": "Appointments",
-  "subtitle": "Booked by the assistant or here, for the next 7 days.",
+  "subtitle": "Booked by the assistant or here.",
   "loading": "Loading…",
   "new": "New appointment",
   "empty": "No appointments in the next 7 days.",
+  "emptyMonth": "No appointments in the next 30 days.",
+  "view": {
+    "label": "Agenda range",
+    "day": "Day",
+    "week": "7 days",
+    "month": "Month"
+  },
+  "agenda": {
+    "prev": "Previous day",
+    "next": "Next day",
+    "today": "Today",
+    "emptyDay": "Nothing booked on this day."
+  },
   "cancel": "Cancel",
   "close": "Close",
   "book": "Book",

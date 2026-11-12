@@ -22,7 +22,8 @@
     "title": "Team",
     "menu": "Account",
     "theme": "Theme",
-    "language": "Language"
+    "language": "Language",
+    "initialsFallback": "SF"
   },
   "nav": {
     "label": "Main navigation",

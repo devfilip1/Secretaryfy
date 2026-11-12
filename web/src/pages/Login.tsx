@@ -8,6 +8,7 @@ import { CenterPage } from "../components/CenterPage";
 import { Field } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { Title } from "../components/Title";
+import { ToothIcon } from "../components/tooth-icon";
 import { PanelLanguage } from "../i18n/PanelLanguage";
 import { ThemeSelect } from "../theme/ThemeSelect";
 
@@ -42,30 +43,35 @@ export function Login({ onLoggedIn }: { onLoggedIn: () => void }) {
 
   return (
     <CenterPage>
-      <Card as="form" className="flex w-[min(420px,100%)] flex-col gap-3.5" onSubmit={submit}>
-        <div className="flex items-center gap-2 self-end">
+      <div className="grid w-[min(400px,100%)] gap-4">
+        <div className="flex items-center justify-end gap-2">
           <ThemeSelect />
           <PanelLanguage />
         </div>
-        <Title level={1} className="mb-1">
-          Secretaryfy
-        </Title>
-        <p className="text-muted-foreground">{t("subtitle")}</p>
-        <Field className="gap-1.5 font-medium">
-          {t("password")}
-          <Input
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </Field>
-        {error && <Notice role="alert">{error}</Notice>}
-        <Button type="submit" disabled={!password || busy}>
-          {busy ? t("signingIn") : t("signIn")}
-        </Button>
-      </Card>
+        <Card as="form" className="grid gap-5" onSubmit={submit}>
+          <div className="grid justify-items-center gap-3 text-center">
+            <span className="grid size-12 place-items-center rounded-xl bg-accent text-primary">
+              <ToothIcon className="size-6" />
+            </span>
+            <Title level={1}>Secretaryfy</Title>
+            <p className="m-0 text-muted-foreground">{t("subtitle")}</p>
+          </div>
+          <Field className="gap-1.5 font-medium">
+            {t("password")}
+            <Input
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
+          {error && <Notice role="alert">{error}</Notice>}
+          <Button type="submit" className="w-full" disabled={!password || busy}>
+            {busy ? t("signingIn") : t("signIn")}
+          </Button>
+        </Card>
+      </div>
     </CenterPage>
   );
 }

@@ -119,6 +119,21 @@ test("GET /api/appointments: hoje, amanhã e semana no fuso da clínica, com con
   assert.equal(third.reminder.label, "scheduled");
 });
 
+test("GET /api/appointments?days: a janela cresce com days (padrão 7); fora de 1 a 31 é 422", async () => {
+  await book({ ...VALID, start: at("2026-10-20T17:00").toISOString() });
+  await book({ ...VALID, phone: "71 97777-6666", name: "Ana", service: "Assessment", start: at("2026-10-27T11:00").toISOString() });
+  await book({ ...VALID, phone: "71 96666-5555", name: "Bia", start: at("2026-11-05T10:00").toISOString() });
+  const names = async (query: string) =>
+    (await app.inject({ url: `/api/appointments${query}` })).json().appointments.map((a: { customerName: string }) => a.customerName);
+
+  assert.deepEqual(await names("?days=3"), ["Maria Souza"]);
+  assert.deepEqual(await names(""), ["Maria Souza", "Ana"]);
+  assert.deepEqual(await names("?days=31"), ["Maria Souza", "Ana", "Bia"]);
+  for (const query of ["?days=0", "?days=32", "?days=abc", "?days=1.5"]) {
+    assert.equal((await app.inject({ url: `/api/appointments${query}` })).statusCode, 422, query);
+  }
+});
+
 test("GET /api/appointments sem agenda conectada: a lista do banco no fuso de reserva", async () => {
   await book(VALID);
   conn = null;

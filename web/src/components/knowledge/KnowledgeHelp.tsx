@@ -76,7 +76,7 @@ export function KnowledgeHelp() {
   return (
     <div className="grid gap-8">
       {blocks.map((block) => (
-        <section key={block.title} className="grid gap-3">
+        <section key={block.title} className="grid gap-3 border-t border-border pt-6 first:border-t-0 first:pt-0">
           <Title level={3}>{block.title}</Title>
           {block.paragraphs?.map((text) => (
             <Muted as="p" key={text} className="text-base leading-relaxed">
