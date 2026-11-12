@@ -4,6 +4,7 @@ import type { AppointmentRow, ConversationRow, SchedulingSessionRow } from "../d
 import type { IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { testReplies as replies } from "./clinic.js";
 import type { SchedulingFlow } from "../modules/scheduling/flow.js";
+import type { Replies } from "../modules/scheduling/replies.js";
 import type { DayPeriod, Interpretation, InterpretInput, Interpreter } from "../modules/scheduling/interpret.js";
 import { InterpreterUnavailable } from "../modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
@@ -48,7 +49,10 @@ export function setup({
   pick = null,
   sense = null,
   flowReply = "do agendamento",
+  texts = replies,
 }: {  intent?: Interpretation["intent"];
+  /** Os textos do roteador (o padrão são os de teste; um catálogo com outros serviços pede os seus) */
+  texts?: Replies;
   /** O que o fluxo responde (o padrão é "do agendamento") */
   flowReply?: string;
   /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
@@ -144,7 +148,7 @@ export function setup({
   const reply = createSchedulingRouter({
     interpreter,
     flow,
-    replies,
+    replies: texts,
     store: {
       getSession: async () => session,
       clearSession: async (id) => {

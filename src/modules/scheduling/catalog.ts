@@ -1,17 +1,30 @@
-import type { Language } from "./dates.js";
+import type { ClinicContext } from "../clinic/context.js";
 import type { KnowledgeRepository } from "../knowledge/repository.js";
 import { isBookable } from "../knowledge/types.js";
+import type { Language } from "./dates.js";
 
 /**
- * O nome da avaliação geral, sempre presente na lista (specs/005, research.md R4). Fica em inglês, como o nome de um
- * tratamento: é o valor guardado em appointments.service.
+ * O nome da avaliação geral (specs/005, research.md R4). Fica em inglês, como o nome de um tratamento: é o valor guardado
+ * em appointments.service. A lista só a traz quando a clínica a oferece; o rótulo continua valendo para o que já foi marcado.
  */
 export const ASSESSMENT = "Assessment";
 
-/** Como a avaliação geral aparece ao cliente, em cada língua da clínica (o único rótulo escrito no código). */
-const ASSESSMENT_LABEL: Record<Language, string> = { en: "General assessment", pt: "Avaliação geral" };
+/** O retorno (acompanhamento): serviço fixo como a avaliação, com o nome guardado e o rótulo do mesmo jeito. */
+export const FOLLOW_UP = "FollowUp";
 
-/** Um serviço que o cliente pode marcar: o nome guardado (a chave do tratamento, ou ASSESSMENT) e o rótulo da lista. */
+/** Como cada serviço fixo aparece ao cliente, em cada língua da clínica (os únicos rótulos escritos no código). */
+const FIXED_LABELS = new Map<string, Record<Language, string>>([
+  [ASSESSMENT, { en: "General assessment", pt: "Avaliação geral" }],
+  [FOLLOW_UP, { en: "Follow-up visit", pt: "Retorno" }],
+]);
+
+/** Os serviços fixos que a clínica oferece e o tempo de cada um (null = a duração padrão do calendário): o que o painel edita. */
+export type ServiceOffers = Pick<ClinicContext, "offerAssessment" | "offerFollowUp" | "assessmentMinutes" | "followUpMinutes">;
+
+/** Sem configuração, a avaliação entra e o retorno não (padrões de clinic_settings). */
+const DEFAULT_OFFERS: ServiceOffers = { offerAssessment: true, offerFollowUp: false, assessmentMinutes: null, followUpMinutes: null };
+
+/** Um serviço que o cliente pode marcar: o nome guardado (a chave do tratamento, ou um serviço fixo) e o rótulo da lista. */
 export interface Service {
   name: string;
   label: string;
@@ -24,13 +37,13 @@ export interface Service {
  * memória, que o `refresh` do catálogo do banco atualiza.
  */
 export interface ServiceCatalog {
-  /** Os serviços na ordem da lista numerada, com a avaliação geral no fim */
+  /** Os serviços na ordem da lista numerada: tratamentos, retorno (se oferecido), avaliação geral (se oferecida) */
   list(): Service[];
   /** O serviço pelo número da lista (1 a N), ou null */
   byNumber(n: number): string | null;
-  /** Como o serviço aparece ao cliente, na língua pedida; um nome que não está no catálogo volta igual */
+  /** Como o serviço aparece ao cliente, na língua pedida; um serviço fixo sai com o rótulo dele mesmo fora da lista */
   label(name: string, language?: Language): string;
-  /** O serviço cujo rótulo (ou nome) é este texto, sem acento nem caixa; null se nenhum. Sem busca aproximada. */
+  /** O serviço cujo rótulo (ou nome) é este texto, sem acento nem caixa; null se nenhum. Só entre os oferecidos. */
   byLabel(text: string): string | null;
   /** Os serviços para a lista do painel */
   panelList(): Service[];
@@ -47,53 +60,68 @@ const normalize = (text: string) =>
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 
-/** O catálogo a partir dos tratamentos que se podem marcar, na ordem da lista: a avaliação geral entra no fim. */
-export function createCatalog(treatments: Service[]): ServiceCatalog {
-  const services: Service[] = [...treatments, { name: ASSESSMENT, label: ASSESSMENT_LABEL.en }];
+const fixedLabel = (name: string, language: Language): string | undefined => FIXED_LABELS.get(name)?.[language];
+
+/** O tempo de um serviço fixo, mesmo quando ele não é oferecido: o que a clínica configurou (o padrão é undefined) */
+function fixedMinutes(name: string, offers: ServiceOffers): number | undefined {
+  if (name === ASSESSMENT) return offers.assessmentMinutes ?? undefined;
+  if (name === FOLLOW_UP) return offers.followUpMinutes ?? undefined;
+  return undefined;
+}
+
+/** `minutes` só quando há um valor: a ausência de tempo é a duração padrão, não uma propriedade com undefined */
+const timed = (minutes: number | null): { minutes?: number } => (minutes ? { minutes } : {});
+
+/** O catálogo a partir dos tratamentos e dos serviços fixos oferecidos: o retorno e a avaliação entram no fim, nessa ordem. */
+export function createCatalog(treatments: Service[], offers: ServiceOffers = DEFAULT_OFFERS): ServiceCatalog {
+  const services: Service[] = [
+    ...treatments,
+    ...(offers.offerFollowUp ? [{ name: FOLLOW_UP, label: FIXED_LABELS.get(FOLLOW_UP)!.en, ...timed(offers.followUpMinutes) }] : []),
+    ...(offers.offerAssessment ? [{ name: ASSESSMENT, label: FIXED_LABELS.get(ASSESSMENT)!.en, ...timed(offers.assessmentMinutes) }] : []),
+  ];
   const byText = new Map<string, string>();
   for (const s of services) {
-    const texts = [s.name, s.label, ...(s.name === ASSESSMENT ? Object.values(ASSESSMENT_LABEL) : [])];
+    const fixed = FIXED_LABELS.get(s.name);
+    const texts = [s.name, s.label, ...(fixed ? Object.values(fixed) : [])];
     for (const text of texts) byText.set(normalize(text), s.name);
   }
   return {
     list: () => [...services],
     byNumber: (n) => services[n - 1]?.name ?? null,
-    label(name, language = "en") {
-      if (name === ASSESSMENT) return ASSESSMENT_LABEL[language];
-      return services.find((s) => s.name === name)?.label ?? name;
-    },
+    label: (name, language = "en") => fixedLabel(name, language) ?? services.find((s) => s.name === name)?.label ?? name,
     byLabel: (text) => byText.get(normalize(text)) ?? null,
     panelList: () => [...services],
-    minutes: (name) => services.find((s) => s.name === name)?.minutes,
+    minutes: (name) => services.find((s) => s.name === name)?.minutes ?? fixedMinutes(name, offers),
   };
 }
 
 export interface KnowledgeCatalog extends ServiceCatalog {
-  /** Relê a tabela de conhecimento e troca o retrato: no boot e depois de cada mudança no painel */
+  /** Relê a tabela de conhecimento e troca os tratamentos: no boot e depois de cada mudança no painel */
   refresh(): Promise<void>;
 }
 
 /**
  * Os tratamentos que o cliente pode marcar são as seções de tratamento da tabela de conhecimento, sem `bookable: false`,
- * na ordem da posição (ADR 0014). O nome guardado é a chave da seção; o rótulo é o título.
+ * na ordem da posição (ADR 0014). O nome guardado é a chave da seção; o rótulo é o título. Os serviços fixos são lidos da
+ * clínica a cada chamada: a troca no painel (Folheto > Clínica) vale na mensagem seguinte, sem reinício.
  */
-export function createKnowledgeCatalog({ repo }: { repo: Pick<KnowledgeRepository, "list"> }): KnowledgeCatalog {
-  let current = createCatalog([]);
+export function createKnowledgeCatalog({ repo, clinic }: { repo: Pick<KnowledgeRepository, "list">; clinic: ServiceOffers }): KnowledgeCatalog {
+  let treatments: Service[] = [];
+  const current = () => createCatalog(treatments, clinic);
   return {
-    list: () => current.list(),
-    byNumber: (n) => current.byNumber(n),
-    label: (name, language) => current.label(name, language),
-    byLabel: (text) => current.byLabel(text),
-    panelList: () => current.panelList(),
-    minutes: (name) => current.minutes(name),
+    list: () => current().list(),
+    byNumber: (n) => current().byNumber(n),
+    label: (name, language) => current().label(name, language),
+    byLabel: (text) => current().byLabel(text),
+    panelList: () => current().panelList(),
+    minutes: (name) => current().minutes(name),
     async refresh() {
       const rows = await repo.list();
-      current = createCatalog(rows.filter(isBookable).map((row) => ({
-          name: row.key,
-          label: row.title,
-          ...(row.kind === "treatment" && row.data.appointmentMinutes ? { minutes: row.data.appointmentMinutes } : {}),
-        })),
-      );
+      treatments = rows.filter(isBookable).map((row) => ({
+        name: row.key,
+        label: row.title,
+        ...(row.kind === "treatment" && row.data.appointmentMinutes ? { minutes: row.data.appointmentMinutes } : {}),
+      }));
     },
   };
 }

@@ -4,6 +4,7 @@ import { appointments, customers, messages, type ConversationRow } from "../db/s
 import { createTestDb } from "./db.js";
 import { createFakeCalendar, type FakeCalendar } from "./fake-calendar.js";
 import { testCatalog } from "./catalog.js";
+import type { ServiceCatalog } from "../modules/scheduling/catalog.js";
 import { testReplies } from "./clinic.js";
 import type { ActiveConnection } from "../modules/google/connection.js";
 import { createCustomerRepository, type CustomerRepository } from "../modules/customers/repository.js";
@@ -50,6 +51,8 @@ export function useFlowHarness() {
     mentioned: null as string | null,
     /** Tempo na agenda de tratamentos específicos (ADR 0015); vazio = a duração padrão das regras */
     catalogMinutes: {} as Record<string, number>,
+    /** Catálogo do fluxo; o padrão são os nove dos testes. O teste troca por um de outra configuração e refaz o fluxo */
+    catalog: testCatalog as ServiceCatalog,
     makeFlow,
     conversation,
     I,
@@ -79,6 +82,7 @@ export function useFlowHarness() {
     h.now = NOW;
     h.mentioned = "Dental Cleaning";
     h.catalogMinutes = {};
+    h.catalog = testCatalog;
     h.failUpsert = false;
     h.rules = { ...DEFAULT_RULES };
     h.conn = { refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" };
@@ -104,7 +108,7 @@ export function useFlowHarness() {
       log: { error: () => {} },
       now: () => h.now,
       replies,
-      catalog: { ...testCatalog, minutes: (name) => h.catalogMinutes[name] },
+      catalog: { ...h.catalog, minutes: (name) => h.catalogMinutes[name] ?? h.catalog.minutes(name) },
     });
   }
 

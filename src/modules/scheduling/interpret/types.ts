@@ -15,7 +15,7 @@ export interface Interpretation {
   /** Parte do dia que o cliente pediu sem citar um horário ('de manhã', 'à tarde', 'à noite'); ausente se não pediu */
   period?: DayPeriod | null;
   name: string | null;
-  /** Nome do serviço do catálogo (a chave do tratamento, ou ASSESSMENT) que o modelo deu, em qualquer intenção; ausente se não deu */
+  /** Nome do serviço do catálogo (a chave do tratamento, ou um serviço fixo: ASSESSMENT, FOLLOW_UP) que o modelo deu, em qualquer intenção; ausente se não deu */
   service?: string | null;
   source: "rule" | "model";
   /** needs_staff: dor, inchaço, sangramento ou outra urgência de saúde (o texto ao cliente muda) */

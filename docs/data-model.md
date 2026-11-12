@@ -88,7 +88,7 @@ Appointments made by the assistant or the panel. Google Calendar is the source o
 | `conversation_id` | Where it was booked; set to null if the conversation is deleted |
 | `origin` | `assistant` or `panel` |
 | `google_event_id`, `calendar_id` | The Google event |
-| `customer_name`, `service` | As in the event title. `service` is the stored service name: the key of a treatment in `knowledge_sections`, or `Assessment` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). Rows from before ADR 0014 keep their English names (e.g. `Dental Cleaning`), not migrated. `service` is null for appointments before feature 005 |
+| `customer_name`, `service` | As in the event title. `service` is the stored service name: the key of a treatment in `knowledge_sections`, or a fixed service, `Assessment` or `FollowUp` ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)). Rows from before ADR 0014 keep their English names (e.g. `Dental Cleaning`), not migrated. `service` is null for appointments before feature 005 |
 | `customer_id` | Registry record, set to null if the record is deleted |
 | `status`, `cancelled_by` | `booked` or `cancelled`; cancelled by `customer` (WhatsApp), `staff` (from the panel) or `calendar` (deleted in Google) |
 | `reminder_status`, `reminder_reason`, `reminder_sent_at` | See [reminder states](business-rules.md#reminder-states) |

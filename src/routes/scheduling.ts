@@ -30,7 +30,7 @@ export const clinicSettings = createClinicSettingsRepository(db);
 export const knowledge = createKnowledgeRepository(db);
 
 /** Os tratamentos que o cliente pode marcar, lidos da tabela (ADR 0014): index.ts relê no boot e a cada mudança no painel. */
-export const catalog = createKnowledgeCatalog({ repo: knowledge });
+export const catalog = createKnowledgeCatalog({ repo: knowledge, clinic });
 
 /** Textos aos clientes na língua; o nome e o da atendente são lidos da clínica a cada texto. */
 export const schedulingReplies = createReplies({ clinic, catalog });
