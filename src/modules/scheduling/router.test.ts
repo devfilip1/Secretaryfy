@@ -99,10 +99,10 @@ test("o handoff não leva saudação, mesmo na primeira resposta", async () => {
   assert.equal(out!.ignorePause, true);
 });
 
-test("a resposta igual a uma que já demos ganha uma abertura, para não ser descartada como repetida", async () => {
+test("a resposta igual a uma que já demos sai como está: a abertura é posta no envio, pela regra do portão", async () => {
   const same = setup({ intent: "book", assistantSaid: "do agendamento" });
   const out = await same.reply();
-  assert.match(out!.text, /^(Of course!|Happy to!|Sure thing!)\n\ndo agendamento$/);
+  assert.equal(out!.text, "do agendamento");
   const other = setup({ intent: "book", assistantSaid: "outra coisa" });
   assert.equal((await other.reply())!.text, "do agendamento");
 });
@@ -142,11 +142,10 @@ test("urgência de saúde: o texto manda procurar pronto atendimento se piorar",
   assert.deepEqual(r.notes[0], { kind: "needs_staff", urgent: true });
 });
 
-test("resposta do folheto igual a uma que já demos vai numa mensagem só, com abertura (senão a proteção a descarta)", async () => {
+test("resposta do folheto igual a uma que já demos vai numa mensagem só, sem partes (o envio cuida da abertura)", async () => {
   const r = setup({ intent: "question", assistantSaid: "do folheto" });
   const out = await r.reply();
-  assert.match(out!.text, /^(Of course!|Happy to!|Sure thing!)/);
-  assert.ok(out!.text.endsWith("do folheto"));
+  assert.equal(out!.text, "do folheto");
   assert.notEqual(out!.split, true);
 });
 

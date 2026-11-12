@@ -14,6 +14,8 @@ import { panelKnowledgeRoutes } from "./panel-knowledge.js";
 import { createClinicContext } from "../modules/clinic/context.js";
 
 const CLINIC = "Sorriso Pleno";
+/** A clínica que as rotas leem a cada pedido: os serviços fixos são trocados nos testes (padrão: avaliação sim, retorno não). */
+const clinic = { name: CLINIC, language: "pt" as const, offerAssessment: true, offerFollowUp: false };
 const BROCHURE = "## Limpeza Dental — O primeiro passo\nComo funciona: Ultrassom.\nDuração: 30 min   |   Preço: R$ 40\nResultado: Imediato\n\n## Sobre nós\nLinha um\n";
 
 let testDb: Awaited<ReturnType<typeof createTestDb>>;
@@ -64,8 +66,10 @@ beforeEach(async () => {
   rag.down = false;
   rag.busy = false;
   rules.weeklyHours = CLINIC_HOURS;
+  clinic.offerAssessment = true;
+  clinic.offerFollowUp = false;
   app = Fastify();
-  await app.register(panelKnowledgeRoutes({ repo, rag, rules, clinic: { name: CLINIC, language: "pt" } }));
+  await app.register(panelKnowledgeRoutes({ repo, rag, rules, clinic }));
   await app.ready();
 });
 
@@ -81,6 +85,48 @@ const clinicSection = {
   title: "Clínica",
   data: { intro: ["Bem-vinda"], address: ["Rua A, 1"], phone: "(21) 5555-0148", closing: [] },
 };
+
+test("tirar o último tratamento que se marca, com a avaliação e o retorno desligados, é 409 e não remove", async () => {
+  clinic.offerAssessment = false;
+  const res = await app.inject({ method: "DELETE", url: "/api/knowledge/limpeza-dental" });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().error, "no_bookable_service");
+  assert.ok((await keys()).includes("limpeza-dental"));
+});
+
+test("desmarcar o último tratamento que se marca, com os dois fixos desligados, é 409 e não grava", async () => {
+  clinic.offerAssessment = false;
+  const res = await app.inject({
+    method: "PUT",
+    url: "/api/knowledge/limpeza-dental",
+    payload: { title: "Limpeza Dental", tagline: "O primeiro passo", data: { ...treatmentData, bookable: false } },
+  });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().error, "no_bookable_service");
+  const stored = await repo.get("limpeza-dental");
+  assert.equal("bookable" in (stored?.data ?? {}), false);
+});
+
+test("desmarcar o último tratamento segue com a avaliação ligada; com os fixos desligados, só sai o que não se marca", async () => {
+  const unmarked = await app.inject({
+    method: "PUT",
+    url: "/api/knowledge/limpeza-dental",
+    payload: { title: "Limpeza Dental", tagline: "O primeiro passo", data: { ...treatmentData, bookable: false } },
+  });
+  assert.equal(unmarked.statusCode, 200);
+
+  clinic.offerAssessment = false;
+  const added = await app.inject({
+    method: "POST",
+    url: "/api/knowledge",
+    payload: { kind: "treatment", title: "Clareamento", tagline: null, data: treatmentData },
+  });
+  assert.equal(added.statusCode, 201);
+  const removed = await app.inject({ method: "DELETE", url: "/api/knowledge/clareamento" });
+  assert.equal(removed.statusCode, 409);
+  const kept = await app.inject({ method: "DELETE", url: "/api/knowledge/limpeza-dental" });
+  assert.equal(kept.statusCode, 204);
+});
 
 test("GET /api/knowledge brings the field labels in the clinic language, the three clinic headings included", async () => {
   const json = (await app.inject({ url: "/api/knowledge" })).json();
@@ -168,6 +214,14 @@ test("DELETE removes a section (204); an unknown key is 404", async () => {
   assert.equal((await app.inject({ method: "DELETE", url: "/api/knowledge/sobre-nos" })).statusCode, 204);
   assert.deepEqual(await keys(), ["limpeza-dental"]);
   assert.equal((await app.inject({ method: "DELETE", url: "/api/knowledge/sobre-nos" })).statusCode, 404);
+});
+
+test("DELETE refuses the clinic section (409 clinic_section_required) and keeps it", async () => {
+  await app.inject({ method: "POST", url: "/api/knowledge", payload: clinicSection });
+  const res = await app.inject({ method: "DELETE", url: "/api/knowledge/clinica" });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.json().error, "clinic_section_required");
+  assert.ok((await keys()).includes("clinica"));
 });
 
 test("PUT /api/knowledge/order rewrites the order (204)", async () => {

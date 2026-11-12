@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCalendar, listAppointments, type Appointment, type CalendarRules } from "../../api";
 import { useInboxEvents } from "../../useEvents";
+import { useActivePanelLanguage } from "../../i18n/usePanelLanguage";
 import { dayKeyOf, weekdayKeyOf, type OpeningHours } from "./layout";
 
 const MINUTE_MS = 60_000;
@@ -23,12 +24,13 @@ export interface TodayData {
 
 /** Agenda de hoje no fuso da clínica. Busca ao abrir, quando os horários mudam, ao voltar a conexão e na virada do dia. */
 export function useToday(): TodayData {
+  const language = useActivePanelLanguage();
   const [fetched, setFetched] = useState<Fetched | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(() => {
     // from=today: a régua mostra o dia inteiro, inclusive as consultas que já passaram
-    Promise.all([listAppointments(undefined, "today"), getCalendar()])
+    Promise.all([listAppointments(undefined, "today", language), getCalendar()])
       .then(([list, calendar]) =>
         setFetched({
           timeZone: list.timeZone,
@@ -38,7 +40,7 @@ export function useToday(): TodayData {
         }),
       )
       .catch(() => {});
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     load();

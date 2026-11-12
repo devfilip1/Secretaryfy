@@ -1,4 +1,5 @@
 import type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+import type { PanelLanguage } from "./i18n/language";
 
 // Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
 // e specs/004-whatsapp-anti-ban/contracts/panel-api.md
@@ -93,6 +94,9 @@ let onUnauthenticated: () => void = () => {};
 export function setUnauthenticatedHandler(handler: () => void) {
   onUnauthenticated = handler;
 }
+
+/** Acrescenta `language` ao caminho: o servidor põe os rótulos dos serviços fixos nesse idioma (sem ele, o da clínica). */
+export const withLanguage = (path: string, language: PanelLanguage) => `${path}${path.includes("?") ? "&" : "?"}language=${language}`;
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
@@ -221,12 +225,13 @@ export interface Customer {
   appointments: CustomerAppointment[];
 }
 
-export const listCustomers = () => request<{ timeZone: string; customers: Customer[] }>("GET", "/api/customers");
+export const listCustomers = (language: PanelLanguage) =>
+  request<{ timeZone: string; customers: Customer[] }>("GET", withLanguage("/api/customers", language));
 /** Exclui o cadastro; os agendamentos e o Google Agenda não mudam. */
 export const deleteCustomer = (id: string) => request<void>("DELETE", `/api/customers/${id}`);
 /** Edita nome e/ou anotações; `calendarUpdated` é false se algum título na agenda não pôde ser trocado. */
-export const updateCustomer = (id: string, patch: { name?: string; notes?: string | null }) =>
-  request<{ customer: Customer; calendarUpdated: boolean }>("PATCH", `/api/customers/${id}`, patch);
+export const updateCustomer = (id: string, patch: { name?: string; notes?: string | null }, language: PanelLanguage) =>
+  request<{ customer: Customer; calendarUpdated: boolean }>("PATCH", withLanguage(`/api/customers/${id}`, language), patch);
 
 // --- Agendamentos (specs/006-panel-appointments-reminders/contracts/panel-api.md) ---
 
@@ -254,14 +259,15 @@ export interface Appointment {
 }
 
 /** Consultas dos próximos `days` dias (o servidor padrão é 7; até 31). `from: "today"` inclui as de hoje já passadas. */
-export const listAppointments = (days?: number, from?: "today") => {
+export const listAppointments = (days: number | undefined, from: "today" | undefined, language: PanelLanguage) => {
   const query = new URLSearchParams();
   if (days) query.set("days", String(days));
   if (from) query.set("from", from);
   const qs = query.toString();
-  return request<{ timeZone: string; appointments: Appointment[] }>("GET", `/api/appointments${qs ? `?${qs}` : ""}`);
+  return request<{ timeZone: string; appointments: Appointment[] }>("GET", withLanguage(`/api/appointments${qs ? `?${qs}` : ""}`, language));
 };
-export const confirmAppointment = (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/confirm`, {});
+export const confirmAppointment = (id: string, language: PanelLanguage) =>
+  request<{ appointment: Appointment }>("POST", withLanguage(`/api/appointments/${id}/confirm`, language), {});
 /** Cancela o agendamento e remove o evento da agenda; não avisa o cliente. 404 not_found, 409 calendar_disconnected. */
 export const cancelAppointment = (id: string) => request<{ ok: true }>("POST", `/api/appointments/${id}/cancel`, {});
 
@@ -280,17 +286,18 @@ export interface BookingStart {
   maxMinutes: number;
 }
 export const bookingStarts = (date: string) => request<{ date: string; starts: BookingStart[] }>("GET", `/api/booking/starts?date=${date}`);
-export const lookupPhone = (phone: string) =>
+export const lookupPhone = (phone: string, language: PanelLanguage) =>
   request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
     "GET",
-    `/api/booking/lookup?phone=${encodeURIComponent(phone)}`,
+    withLanguage(`/api/booking/lookup?phone=${encodeURIComponent(phone)}`, language),
   );
 /** Erros 409: slot_taken (body.slots), already_booked (body.appointment), calendar_disconnected; 422: body.issues. `minutes` (5 a 480, múltiplo de 5) é a duração escolhida. */
-export const createAppointment = (body: { phone: string; name: string; service: string; start: string; minutes?: number }) =>
-  request<{ appointment: Appointment }>("POST", "/api/appointments", body);
+export const createAppointment = (body: { phone: string; name: string; service: string; start: string; minutes?: number }, language: PanelLanguage) =>
+  request<{ appointment: Appointment }>("POST", withLanguage("/api/appointments", language), body);
 
-/** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome para o painel. */
-export const listServices = () => request<{ services: { name: string; label: string }[] }>("GET", "/api/services");
+/** Serviços que o cliente pode marcar, na ordem do assistente; "label" é o nome no idioma pedido (o título do tratamento não muda). */
+export const listServices = (language: PanelLanguage) =>
+  request<{ services: { name: string; label: string }[] }>("GET", withLanguage("/api/services", language));
 
 // --- Conhecimento da clínica (src/routes/panel-knowledge.ts; tipos em src/modules/knowledge/types.ts) ---
 
@@ -347,13 +354,21 @@ export interface ClinicSettings {
   kind: string;
   language: "pt" | "en";
   restartRequired: boolean;
+  offerAssessment: boolean;
+  offerFollowUp: boolean;
+  assessmentMinutes: number | null;
+  followUpMinutes: number | null;
 }
-/** assistantName vazio quer dizer nenhum nome. */
+/** assistantName vazio quer dizer nenhum nome. Minutos null quer dizer o padrão da agenda. */
 export interface ClinicSettingsInput {
   name: string;
   assistantName: string;
   kind: string;
   language: "pt" | "en";
+  offerAssessment: boolean;
+  offerFollowUp: boolean;
+  assessmentMinutes: number | null;
+  followUpMinutes: number | null;
 }
 export const getClinicSettings = () => request<ClinicSettings>("GET", "/api/clinic-settings");
 export const saveClinicSettings = (input: ClinicSettingsInput) =>

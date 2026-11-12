@@ -3,9 +3,26 @@ import { test } from "node:test";
 import { sql } from "drizzle-orm";
 import { CalendarUnavailable } from "../../google/gateway.js";
 import { at, useFlowHarness } from "../../../test/flow-harness.js";
+import { testReplies } from "../../../test/clinic.js";
 
 const h = useFlowHarness();
 const { say, conversation, I, sessionOf, systemNotes, hasNote, allAppointments, book } = h;
+
+// Sem tratamento citado, o fluxo pergunta o tratamento (lista do catálogo) antes dos dias; citado, oferece os dias direto
+test("marcar sem tratamento citado: pergunta o serviço, não os dias; com tratamento citado: dias direto e o serviço guardado", async () => {
+  const conv = await conversation();
+  h.mentioned = null;
+  const asked = await say(conv, I("book"));
+  assert.equal(asked.reply, testReplies.chooseService("Maria"));
+  assert.equal((await sessionOf(conv))!.step, "choose_service");
+
+  const cited = await conversation("5571888888888");
+  h.mentioned = "Dental Cleaning";
+  await say(cited, I("book"));
+  const session = await sessionOf(cited);
+  assert.equal(session!.step, "choose_day");
+  assert.equal(session!.service, "Dental Cleaning");
+});
 
 // --- US1: marcar ---
 

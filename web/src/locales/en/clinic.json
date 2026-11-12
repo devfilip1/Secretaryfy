@@ -12,6 +12,18 @@
     "label": "Assistant language",
     "help": "The language the assistant uses with patients and in the brochure labels. It is not the panel language. Changing it does not translate the brochure text the clinic wrote: write that text in this same language."
   },
+  "serviceOptions": {
+    "section": "Service options",
+    "assessment": {
+      "label": "General assessment",
+      "help": "Shows it as an option in the service list"
+    },
+    "followUp": {
+      "label": "Follow-up visit",
+      "help": "Adds Retorno/Follow-up as an option in the service list"
+    },
+    "minutesLabel": "Duration in minutes (empty uses the calendar default)"
+  },
   "save": "Save",
   "saving": "Saving…",
   "saved": "Saved. The assistant uses the new settings from the next message.",
@@ -47,6 +59,7 @@
     "assistantNameTooLong": "Use up to 60 characters.",
     "kindRequired": "Enter the type of clinic.",
     "kindTooLong": "Use up to 80 characters.",
-    "languageInvalid": "Choose English or Português."
+    "languageInvalid": "Choose English or Português.",
+    "minutesInvalid": "Use a number from 15 to 240, in steps of 5, or leave it empty."
   }
 }

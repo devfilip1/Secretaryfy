@@ -9,9 +9,10 @@ const start = new Date("2026-10-21T13:00:00Z");
 const other = new Date("2026-10-23T17:00:00Z");
 const slots = [new Date("2026-10-21T12:00:00Z"), new Date("2026-10-21T13:00:00Z")];
 
-/** Uma chamada de cada método de Replies, com argumentos válidos. */
-function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
+/** Uma chamada de cada método de Replies, com argumentos válidos (startsWithAgain devolve boolean: testado à parte). */
+function everyCall(r: Replies): Record<Exclude<keyof Replies, "startsWithAgain">, () => string | string[]> {
   return {
+    servicesList: () => r.servicesList(),
     offerDays: () => r.offerDays(["2026-10-21", "2026-10-22"], tz),
     offerSlots: () => r.offerSlots("2026-10-21", slots, tz, true),
     periodEmpty: () => r.periodEmpty("2026-10-21", "morning", slots, tz, true),
@@ -51,6 +52,19 @@ function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
 
 const pt = createReplies({ clinic: { name: "Clínica Sorriso", language: "pt" }, catalog: testCatalog });
 
+test("lista de serviços em português: todos os tratamentos do catálogo e a avaliação geral no fim", () => {
+  const lines = pt.servicesList().split("\n");
+  assert.equal(lines[0], "Oferecemos estes serviços:");
+  assert.equal(lines.at(-2), "• Avaliação geral");
+  assert.equal(lines.at(-1), "Quer marcar algum deles? É só me dizer qual.");
+  assert.equal(lines.length, testCatalog.list().length + 2);
+});
+
+test("startsWithAgain reconhece a abertura da resposta repetida, não qualquer texto", () => {
+  assert.equal(pt.startsWithAgain("Claro! Tenho horários"), true);
+  assert.equal(pt.startsWithAgain("Tenho horários"), false);
+});
+
 test("todo método de Replies devolve texto não vazio em português", () => {
   for (const [name, call] of Object.entries(everyCall(pt))) {
     const out = call();
@@ -75,7 +89,7 @@ test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horá
   const times = pt.offerSlots("2026-10-21", slots, tz, false);
   assert.match(times, /\n• 09:00\n• 10:00\n/);
   assert.match(pt.chooseService(), /\n• Dental Cleaning\n/);
-  assert.match(pt.chooseService(), /\n• Não tenho certeza — avaliação geral\n/);
+  assert.match(pt.chooseService(), /\n• Não tenho certeza \(avaliação geral\)\n/);
 });
 
 test("confirmação e lembrete pedem confirmação", () => {
@@ -101,6 +115,17 @@ test("o dia na frase leva o artigo certo: na quarta-feira, no sábado", () => {
   assert.match(r.slotTaken("2026-10-24", slots, tz), /mais próximos no sábado, 24 de outubro são:/);
   assert.match(r.closedDay([6, 7], ["2026-10-26"], tz), /^Não atendemos sábado e domingo\./);
   assert.match(r.closedDay([1, 3, 7], ["2026-10-27"], tz), /^Não atendemos segunda, quarta e domingo\./);
+});
+
+test("fim de semana: domingo fechado diz que atende aos sábados e lista as datas; os dois abertos dizem que atende aos dois", () => {
+  assert.equal(
+    pt.weekendOpen(["2026-11-14", "2026-11-21"], [7], tz),
+    "Atendemos aos sábados. Aos domingos estamos fechados. Estes são os próximos sábados com horário livre:\n• sábado, 14 de novembro\n• sábado, 21 de novembro\nQual deles fica melhor para você?",
+  );
+  assert.equal(
+    pt.weekendOpen(["2026-11-14", "2026-11-15"], [], tz),
+    "Atendemos aos sábados e domingos. Estes são os próximos dias com horário livre:\n• sábado, 14 de novembro\n• domingo, 15 de novembro\nQual deles fica melhor para você?",
+  );
 });
 
 test("parte do dia sem horário livre: diz a parte e oferece os outros horários do dia", () => {

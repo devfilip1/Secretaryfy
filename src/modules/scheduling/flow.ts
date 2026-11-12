@@ -1,4 +1,5 @@
 import type { ConversationRow, SchedulingSessionRow } from "../../db/schema.js";
+import type { ClinicContext } from "../clinic/context.js";
 import type { CustomerRepository } from "../customers/repository.js";
 import type { ConnectionStore } from "../google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../google/gateway.js";
@@ -34,6 +35,8 @@ interface Deps {
   replies: Replies;
   /** Os tratamentos que o cliente pode marcar (catalog.ts): a lista da escolha */
   catalog: ServiceCatalog;
+  /** Língua da clínica, lida a cada marcação: o título na agenda e a nota seguem ela */
+  clinic: Pick<ClinicContext, "language">;
 }
 
 /** Máquina de estados do agendamento (data-model.md). O modelo só interpreta; quem decide e escreve é o código. */
@@ -49,9 +52,10 @@ export function createSchedulingFlow({
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
   replies,
   catalog,
+  clinic,
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
-  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, catalog, log, now: clock, reminderLeadMinutes });
+  const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, catalog, clinic, log, now: clock, reminderLeadMinutes });
   return {
     async handle({
       conversation,

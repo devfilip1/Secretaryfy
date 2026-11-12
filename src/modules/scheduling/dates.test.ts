@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findDatesInText, formatDay, formatTime, parseSimpleDate, parseTimeOfDay } from "./dates.js";
+import { findDatesInText, findExplicitDatesInText, formatDay, formatTime, parseSimpleDate, parseTimeOfDay } from "./dates.js";
 
 const timeZone = "America/Bahia";
 // Terça-feira, 20/10/2026, 15:00 em Salvador (UTC-3)
@@ -56,6 +56,17 @@ test("datas citadas no meio da frase", () => {
   assert.deepEqual(findDatesInText("what about next friday, the 30/10?", ctx), ["2026-10-30"]);
   assert.deepEqual(findDatesInText("monday or tuesday", ctx).length, 2);
   assert.deepEqual(findDatesInText("May I come in next week?", ctx), []);
+});
+
+test("'dia 25 de dezembro' é dezembro: o mês que o cliente disse não se perde para o dia 25 do mês corrente", () => {
+  // 12/11/2026, em Salvador
+  const ctx = { now: new Date("2026-11-12T13:00:00Z"), timeZone };
+  assert.deepEqual(findDatesInText("dia 25 de dezembro", ctx), ["2026-12-25"]);
+  assert.deepEqual(findExplicitDatesInText("dia 25 de dezembro", ctx), ["2026-12-25"]);
+  assert.deepEqual(findExplicitDatesInText("25/12", ctx), ["2026-12-25"]);
+  assert.deepEqual(findExplicitDatesInText("pode ser dia 25 de novembro", ctx), ["2026-11-25"]);
+  // Sem mês, "dia 25" é o próximo dia 25
+  assert.deepEqual(findExplicitDatesInText("dia 25", ctx), ["2026-11-25"]);
 });
 
 test("horário citado em minutos desde a meia-noite", () => {

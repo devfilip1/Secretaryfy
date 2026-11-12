@@ -3,14 +3,23 @@ import { test } from "node:test";
 import type { SchedulingSessionRow } from "../../db/schema.js";
 import { setup, SESSION } from "../../test/router-harness.js";
 
-test("o tratamento que o modelo viu na conversa vai para o agendamento (specs/005 US2)", async () => {
-  const r = setup({ intent: "book", service: "Braces and Orthodontic Treatment" });
+test("o serviço da interpretação principal não vai ao fluxo sem a citação conferida (quero marcar uma consulta)", async () => {
+  // O modelo preenche o primeiro tratamento mesmo sem o cliente citar um: a chamada focada diz que não há citação
+  const r = setup({ intent: "book", service: "Dental Cleaning", mentioned: null, text: "quero marcar uma consulta" });
   await r.reply();
-  assert.equal(r.handled[0].mentionedService, "Braces and Orthodontic Treatment");
+  assert.equal(r.mentionCalls.length, 1);
+  assert.equal(r.handled[0].mentionedService, null);
   // Sem serviço na interpretação, o texto não é lido por palavras
   const none = setup({ intent: "book", text: "I want braces" });
   await none.reply();
   assert.equal(none.handled[0].mentionedService, null);
+});
+
+test("o tratamento citado pelo cliente (chamada focada, citação conferida) vai ao fluxo: dias direto com o serviço (quero marcar uma limpeza)", async () => {
+  const r = setup({ intent: "book", service: "Dental Cleaning", mentioned: "Dental Cleaning", text: "quero marcar uma limpeza" });
+  await r.reply();
+  assert.equal(r.mentionCalls.length, 1);
+  assert.equal(r.handled[0].mentionedService, "Dental Cleaning");
 });
 
 // --- Tratamento citado na conversa (specs/005 US2): o interpretador só é consultado quando falta ---
@@ -31,11 +40,11 @@ test("sem tratamento na interpretação nem na sessão, o interpretador é consu
   assert.equal(r.handled[0].mentionedService, "Dental Cleaning");
 });
 
-test("com tratamento na interpretação, o interpretador não é consultado e o dela vai ao fluxo", async () => {
+test("com tratamento na interpretação, o interpretador é consultado e só a citação conferida vai ao fluxo", async () => {
   const r = setup({ intent: "book", service: "Braces and Orthodontic Treatment", mentioned: "Dental Cleaning" });
   await r.reply();
-  assert.equal(r.mentionCalls.length, 0);
-  assert.equal(r.handled[0].mentionedService, "Braces and Orthodontic Treatment");
+  assert.equal(r.mentionCalls.length, 1);
+  assert.equal(r.handled[0].mentionedService, "Dental Cleaning");
 });
 
 test("com tratamento já na sessão, o interpretador não é consultado", async () => {

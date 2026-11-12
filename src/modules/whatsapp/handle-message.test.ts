@@ -230,6 +230,22 @@ test("se a resposta não sai, o followUp também não", async () => {
   assert.deepEqual(f.sent.map((x) => x.text), ["Hi!"]);
 });
 
+test("resposta igual a uma já enviada sai com uma abertura, nunca em silêncio (BR-AB-04)", async () => {
+  const said = "Você já tem um agendamento. Quer remarcá-lo?";
+  const f = fakes({ reply: async () => ({ text: said }), recent: [said] });
+  await f.handle(MESSAGE);
+  assert.deepEqual(f.sent.map((x) => x.text), [`${testTexts.again[0]}\n${said}`]);
+});
+
+test("resposta igual com todas as aberturas já enviadas: nada sai, e o registro diz por quê", async () => {
+  const said = "Você já tem um agendamento.";
+  const recent = [said, ...testTexts.again.map((opening) => `${opening}\n${said}`)];
+  const f = fakes({ reply: async () => ({ text: said }), recent });
+  await f.handle(MESSAGE);
+  assert.deepEqual(f.sent, []);
+  assert.equal(f.errors.length, 1);
+});
+
 test("splitReply respeita o limite de partes pedido", () => {
   assert.equal(splitReply("A.\n\nB.\n\nC.", 2).length, 2);
   const block = "One sentence here is long enough to count. ".repeat(12).trim();

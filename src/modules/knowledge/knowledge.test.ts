@@ -66,10 +66,15 @@ for (const [file, language] of [
   test(`${file}: importing and rendering gives back the same titles and lines`, () => {
     const markdown = source(file);
     // O importador liga o aviso de avaliação no preço; o texto original não o tem
-    const withoutNotes = parseBrochure(markdown).map((row) =>
+    const rows = parseBrochure(markdown);
+    const withoutNotes = rows.map((row) =>
       row.kind === "treatment" ? { ...row, data: { ...row.data, facts: row.data.facts.map(({ label, value }) => ({ label, value })) } } : row,
     );
-    assert.deepEqual(sectionsOf(withoutNotes, language), plainSections(markdown));
+    // O título de tratamento sai com ": " no lugar do travessão da brochura (render.ts); os outros títulos ficam como estão
+    const expected = plainSections(markdown).map((section, i) =>
+      rows[i].kind === "treatment" ? { ...section, title: section.title.replace(" — ", ": ") } : section,
+    );
+    assert.deepEqual(sectionsOf(withoutNotes, language), expected);
   });
 
   test(`${file}: 8 treatments, one clinic section and 2 info sections`, () => {
@@ -168,8 +173,15 @@ test("sections come out in position order, whatever the order of the rows", () =
   assert.deepEqual(sectionsOf([...rows].reverse()), sectionsOf(rows));
   assert.deepEqual(
     sectionsOf(rows).map((section) => section.title),
-    ["Clareamento Dental — Dentes Mais Brancos", "Sobre nós"],
+    ["Clareamento Dental: Dentes Mais Brancos", "Sobre nós"],
   );
+});
+
+test("o slogan do tratamento sai com ': ' no documento do RAG, e o travessão da brochura continua sendo lido na importação", () => {
+  const [row] = parseBrochure("## Canal — Dor\nComo funciona: Ultrassom.\nDuração: 1 a 3 sessões   |   Preço: R$ 40\nResultado: Imediato\n");
+  assert.equal(row.tagline, "Dor");
+  assert.equal(sectionsOf([row])[0].title, "Canal: Dor");
+  assert.equal(sectionsOf([{ ...row, tagline: null }])[0].title, "Canal");
 });
 
 test("a section that cannot be parsed is stored as info, with its lines", () => {

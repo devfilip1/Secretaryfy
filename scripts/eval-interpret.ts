@@ -41,7 +41,22 @@ interface Case {
   /** O serviço esperado (null = nenhum), quando a frase cita um tratamento */
   service?: string | null;
   awaitingName?: boolean;
+  /** O fim de semana inteiro (sábado e domingo), sem um dia: a data fica null (false = não é o fim de semana) */
+  weekend?: boolean;
+  /** Outra cena (hoje, a janela e a lista de dias), quando o caso depende de um dia da semana que a lista de Outubro não tem */
+  on?: Scene;
 }
+interface Scene {
+  now: Date;
+  window: { firstDate: string; lastDate: string };
+  options: SessionOption[];
+}
+/** Quarta, 11/11/2026, 18:00 em Salvador (já passou do horário): a lista oferece 12, 13, 14, 16, 17 e 18 de novembro */
+const novembro: Scene = {
+  now: new Date("2026-11-11T21:00:00Z"),
+  window: { firstDate: "2026-11-11", lastDate: "2026-12-11" },
+  options: [12, 13, 14, 16, 17, 18].map((day, i): SessionOption => ({ n: i + 1, kind: "day", date: `2026-11-${day}` })),
+};
 /** Idioma da clínica nesta rodada (as chaves dos serviços esperados mudam com o catálogo). */
 const PT = (process.env.CLINIC_LANGUAGE ?? "en") === "pt";
 const c = (step: Step, text: string, intent: Case["intent"], extra: Partial<Case> = {}): Case => ({ step, text, intent, ...extra });
@@ -59,7 +74,9 @@ const cases: Case[] = [
   c(null, "tem horario sab?", "availability", { date: "2026-10-24" }),
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
-  c(null, "vocês atendem no fim de semana?", "availability", { date: "2026-10-24" }),
+  c(null, "vocês atendem no fim de semana?", "availability", { date: null, weekend: true }),
+  // Um dia da semana nomeado nunca é o fim de semana, mesmo que o modelo diga "weekend"
+  c(null, "quais horarios da segunda de tarde", "availability", { weekend: false }),
   c(null, PT ? "quero marcar uma limpeza" : "I would like to book a cleaning", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
   c(null, "preciso cancelar minha consulta", "cancel"),
   c(null, "quanto custa o clareamento?", "question"),
@@ -94,8 +111,11 @@ const cases: Case[] = [
   c("choose_day", "o último", "choose", { option: 4 }),
   c("choose_day", "e domingo?", ["choose", "availability"], { date: "2026-10-25" }),
   c("choose_day", "prefiro outro dia", "other_day"),
-  c("choose_day", "vcs abrem no fim de semana?", ["choose", "availability"], { date: "2026-10-24" }),
+  c("choose_day", "vcs abrem no fim de semana?", ["choose", "availability"], { date: null, weekend: true }),
   c("choose_day", "e sábado?", ["choose", "availability"], { date: "2026-10-24" }),
+  // Lista de novembro, quarta 11 à noite: o dia da semana vira o dia oferecido, não o de hoje
+  c("choose_day", "quarta feira", "choose", { date: "2026-11-18", on: novembro, option: 6 }),
+  c("choose_day", "quarta dia 18", "choose", { date: "2026-11-18", on: novembro, option: 6 }),
   c("choose_slot", "o das 9", "choose", { option: 1 }),
   c("choose_slot", "pode ser as 9:30", "choose", { time: "09:30" }),
   c("choose_slot", "as 15h", "choose", { time: "15:00" }),
@@ -123,6 +143,9 @@ const cases: Case[] = [
   c("confirm_booking", "sim, pode confirmar", "yes"),
   c("confirm_booking", "isso mesmo", "yes"),
   c("confirm_booking", "nao, melhor outro horario", "no"),
+  // O modelo tende a ler o assunto da pergunta ("remarcar", "agendar") em vez do sim: a confirmação vale como sim
+  c("confirm_reschedule", "pode sim camarada", "yes"),
+  c("confirm_booking", "pode sim camarada", "yes"),
   c("ask_name", "Carla Souza", "give_name"),
   c("choose_service", "quero fazer um clareamento", "choose_service", { service: PT ? "clareamento-dental" : "Teeth Whitening" }),
   c("ask_name", "pode colocar Joana", "give_name", { name: "Joana" }),
@@ -165,20 +188,20 @@ const interpreter = createInterpreter({ ollama, clinic, catalog });
 let ok = 0;
 const latencies: number[] = [];
 for (const k of cases) {
-  const options = k.step === "choose_day" ? days : k.step === "choose_slot" ? slots : [];
+  const scene = k.on ?? { now, window, options: k.step === "choose_day" ? days : k.step === "choose_slot" ? slots : [] };
   const started = Date.now();
   const interpreted = await interpreter.interpret({
-    text: k.text, step: k.step, options, history: [], now, timeZone, window, awaitingName: k.awaitingName ?? k.step === "ask_name",
+    text: k.text, step: k.step, options: scene.options, history: [], now: scene.now, timeZone, window: scene.window, awaitingName: k.awaitingName ?? k.step === "ask_name",
   });
   // Como o roteador: palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas
   const first = wantsSense(interpreted) ? applySense(interpreted, (await interpreter.mentionedSense({ text: k.text })) ?? null) : interpreted;
   // Como o roteador: a chamada focada lê a frase (horário ou parte do dia), e a posição da opção quando o modelo não a leu
   const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
   const timed = applyWhen(first, when, k.step);
-  const shown = k.step === "choose_day" ? days.length : k.step === "choose_slot" ? slots.length : 0;
+  const shown = k.step === "choose_day" ? scene.options.length : k.step === "choose_slot" ? slots.length : 0;
   const got = needsPick(timed, shown) ? applyPick(timed, (await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : timed;
   latencies.push(Date.now() - started);
-  const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.time === undefined || (got.time ?? null) === k.time) &&
+  const right = [k.intent].flat().includes(got.intent) && (k.option === undefined || got.option === k.option) && (k.date === undefined || got.date === k.date) && (k.weekend === undefined || (got.weekend ?? false) === k.weekend) && (k.time === undefined || (got.time ?? null) === k.time) &&
     (k.period === undefined || (got.period ?? null) === k.period) && (k.urgent === undefined || got.urgent === k.urgent) && (k.name === undefined || got.name === k.name) && (k.service === undefined || (got.service ?? null) === k.service);
   if (right) ok++;
   console.log(`${right ? "ok  " : "FAIL"} [${k.step ?? "-"}] ${k.text}  ->  ${got.intent} option=${got.option} date=${got.date} time=${got.time ?? "-"} period=${got.period ?? "-"} urgent=${got.urgent} name=${got.name} service=${got.service ?? "-"} (${got.source})${right ? "" : `   esperado ${[k.intent].flat().join("|")} option=${k.option ?? "-"} date=${k.date ?? "-"}`}`);

@@ -4,6 +4,17 @@ import { testReplies as replies } from "../../test/clinic.js";
 
 const tz = "America/Bahia";
 
+test("fim de semana em inglês: sábado aberto e domingo fechado, ou os dois abertos", () => {
+  assert.equal(
+    replies.weekendOpen(["2026-11-14", "2026-11-21"], [7], tz),
+    "We're open on Saturdays. We're closed on Sundays. These are the next Saturdays with openings:\n• Saturday, November 14\n• Saturday, November 21\nWhich one works best for you?",
+  );
+  assert.equal(
+    replies.weekendOpen(["2026-11-14", "2026-11-15"], [], tz),
+    "We're open on Saturdays and Sundays. These are the next days with openings:\n• Saturday, November 14\n• Sunday, November 15\nWhich one works best for you?",
+  );
+});
+
 test("listas em bullets, com os dias por extenso no fuso da clínica", () => {
   assert.equal(
     replies.offerDays(["2026-10-21", "2026-10-22"], tz),
@@ -50,7 +61,7 @@ test("lista de serviços: os 8 tratamentos em bullets e a avaliação geral no f
   assert.equal(lines[0], "Which service is this appointment for?");
   assert.equal(lines[1], "• Dental Cleaning");
   assert.equal(lines[8], "• Dental Veneers");
-  assert.equal(lines[9], "• Not sure — general assessment");
+  assert.equal(lines[9], "• Not sure (general assessment)");
   assert.equal(lines[10], "Just tell me which one.");
 });
 

@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { updateCustomer, type Customer, type CustomerAppointment } from "../../api";
 import { formatPhone } from "../../format";
 import type { useFormats } from "../../i18n/formats";
+import { useActivePanelLanguage } from "../../i18n/usePanelLanguage";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function CustomerDetail({
   onBack: () => void;
 }) {
   const { t } = useTranslation("customers");
+  const language = useActivePanelLanguage();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(c.name);
   const [notes, setNotes] = useState(c.notes ?? "");
@@ -53,7 +55,7 @@ export function CustomerDetail({
     setSaving(field);
     setMessage(null);
     try {
-      const { customer, calendarUpdated } = await updateCustomer(c.id, field === "name" ? { name } : { notes: notes.trim() ? notes : null });
+      const { customer, calendarUpdated } = await updateCustomer(c.id, field === "name" ? { name } : { notes: notes.trim() ? notes : null }, language);
       onSaved(customer);
       if (field === "name") {
         setEditing(false);

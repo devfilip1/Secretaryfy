@@ -4,7 +4,7 @@ import type { CalendarGateway } from "../../google/gateway.js";
 import type { InboxService } from "../../inbox/service.js";
 import { bookingWindow } from "../availability.js";
 import { syncAppointment, type Booking } from "../booking.js";
-import { ASSESSMENT, type ServiceCatalog } from "../catalog.js";
+import type { ServiceCatalog } from "../catalog.js";
 import type { FlowResult } from "../flow.js";
 import type { Replies } from "../replies.js";
 import type { Rules } from "../rules.js";
@@ -68,12 +68,19 @@ export class Run {
     this.rules = v.rules;
     this.minutes = v.rules.slotMinutes;
     this.window = bookingWindow({ rules: v.rules, now: v.now, timeZone: v.tz });
+    // Um serviço guardado que a clínica já tirou da lista não vale: a etapa pergunta de novo, sem assumir outro
+    const service = v.session?.service ?? v.mentionedService;
     this.carry = {
       flow: v.session?.flow ?? "book",
       appointmentId: v.session?.appointmentId ?? null,
       customerName: v.session?.customerName ?? null,
-      service: v.session?.service ?? v.mentionedService,
+      service: service && this.offered(service) ? service : null,
     };
+  }
+
+  /** O serviço ainda está na lista que a clínica oferece agora (o painel pode ter tirado o retorno ou a avaliação) */
+  offered(name: string): boolean {
+    return this.catalog.list().some((s) => s.name === name);
   }
 
   // --- Sessão ---
@@ -124,7 +131,8 @@ export class Run {
     const id = this.session?.flow === "reschedule" ? this.session.appointmentId : null;
     const appt = id ? await this.store.findAppointment(id) : null;
     if (appt) return Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / 60_000);
-    return this.catalog.minutes(this.carry.service ?? ASSESSMENT) ?? this.rules.slotMinutes;
+    const service = this.carry.service;
+    return (service ? this.catalog.minutes(service) : undefined) ?? this.rules.slotMinutes;
   }
 
   // --- Agendamento existente (FR-018a: o Google Agenda é a fonte da verdade) ---
@@ -136,6 +144,11 @@ export class Run {
       appt,
       { now: this.now, timeZone: this.tz, conversationId: this.conversation.id },
     );
+  }
+
+  /** O próximo horário futuro do telefone, venha de qualquer conversa ou do painel (BR-SCH-05). */
+  async upcomingAppointment(): Promise<AppointmentRow | null> {
+    return this.sync(await this.store.findFutureBooked(this.conversation.phone, this.now));
   }
 
   tooLate(appt: AppointmentRow): boolean {

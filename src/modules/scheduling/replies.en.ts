@@ -1,5 +1,5 @@
 import { fixedTextsFor } from "../antiban/texts.js";
-import { Info } from "luxon";
+import { DateTime, Info } from "luxon";
 import { formatDayLong, formatTime, formatWhen } from "./dates.js";
 import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
@@ -9,6 +9,9 @@ import type { DayPeriod } from "./interpret.js";
 const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n");
 
 const PERIOD_EN: Record<DayPeriod, string> = { morning: "morning", afternoon: "afternoon", evening: "evening" };
+
+/** As aberturas de again(): a resposta que repete outra começa com uma delas (as da língua, em antiban/texts.ts) */
+const AGAIN_EN = fixedTextsFor("en").again;
 
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutes`;
@@ -44,6 +47,16 @@ I can also check another day if you like.`;
       return r.offerDays(closest, tz, `We're closed on ${joinList(names, "and")}. The closest days with openings are:`);
     },
 
+    weekendOpen(openDates: string[], closedWeekdays: number[], tz: string) {
+      // "Saturdays and Sundays", "Saturdays": o plural vem do nome do dia
+      const openDays = [...new Set(openDates.map((d) => DateTime.fromISO(d, { zone: tz }).weekday))];
+      const names = (days: number[]) => joinList(days.map((d) => `${Info.weekdays("long", { locale: "en-US" })[d - 1]}s`), "and");
+      const attends = `We're open on ${names(openDays)}.`;
+      const closed = closedWeekdays.length > 0 ? ` We're closed on ${names(closedWeekdays)}.` : "";
+      const next = openDays.length === 1 ? `the next ${names(openDays)}` : "the next days";
+      return `${attends}${closed} These are ${next} with openings:\n${bullets(openDates.map((d) => formatDayLong(d, tz)))}\nWhich one works best for you?`;
+    },
+
     dayFull(date: string, closest: string[], tz: string) {
       return r.offerDays(closest, tz, `Sorry, there are no openings on ${formatDayLong(date, tz)}. The closest days with openings are:`);
     },
@@ -67,7 +80,7 @@ I can also check another day if you like.`;
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure — general assessment" : s.label));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure (general assessment)" : s.label));
       return `${who ? `${who}, which` : "Which"} service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 
@@ -216,8 +229,16 @@ I can also check another day if you like.`;
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Of course!", "Happy to!", "Sure thing!"];
-      return options[Math.floor(random() * options.length)];
+      return AGAIN_EN[Math.floor(random() * AGAIN_EN.length)];
+    },
+
+    startsWithAgain(text: string) {
+      return AGAIN_EN.some((opening) => text.startsWith(opening));
+    },
+
+    servicesList() {
+      const lines = catalog.list().map((s) => catalog.label(s.name, "en"));
+      return `We offer these services:\n${bullets(lines)}\nWould you like to book one of them? Just tell me which.`;
     },
 
     staff(urgent: boolean) {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { Intent, Interpretation, When } from "../interpret.js";
-import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./resolve.js";
+import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./resolve.js";
 
 const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: "book", option: null, date: null, name: null, source: "model", ...over });
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
@@ -160,4 +160,46 @@ test("applySense: com sentido, nulo ou intenção fora do grupo, devolve o mesmo
   assert.equal(applySense(rude, null), rude);
   const book = base({ intent: "book" });
   assert.equal(applySense(book, true), book);
+});
+
+test("applyAgreement: sem topicOnly, devolve o mesmo objeto", () => {
+  const cancel = base({ intent: "cancel" });
+  assert.equal(applyAgreement(cancel, "confirm_cancel", "agree"), cancel);
+  assert.equal(applyAgreement(cancel, "confirm_cancel", "refuse"), cancel);
+});
+
+test("applyAgreement: concordância vira sim e limpa o que o modelo inventou", () => {
+  const result = applyAgreement(base({ intent: "reschedule", topicOnly: true, date: "2026-10-21", time: "09:00", option: 2 }), "confirm_reschedule", "agree");
+  assert.deepEqual([result.intent, result.date, result.time, result.option], ["yes", null, null, null]);
+});
+
+test("applyAgreement: recusa vira não, em qualquer confirmação", () => {
+  const steps: [SchedulingStep, Intent][] = [
+    ["confirm_cancel", "cancel"],
+    ["confirm_booking", "book"],
+    ["confirm_reschedule", "reschedule"],
+    ["offer_reschedule", "reschedule"],
+  ];
+  for (const [step, intent] of steps) assert.equal(applyAgreement(base({ intent, topicOnly: true }), step, "refuse").intent, "no", step);
+});
+
+test("applyAgreement: sem resposta clara no cancelamento vira não entendi, nunca sim", () => {
+  for (const agreement of ["neither", null] as const) {
+    const result = applyAgreement(base({ intent: "cancel", topicOnly: true, date: "2026-10-21" }), "confirm_cancel", agreement);
+    assert.equal(result.intent, "unclear", String(agreement));
+    assert.equal(result.date, null);
+  }
+});
+
+test("applyAgreement: sem resposta clara no agendamento ou na remarcação, a intenção do modelo fica, nunca sim", () => {
+  const steps: [SchedulingStep, Intent][] = [
+    ["confirm_booking", "book"],
+    ["confirm_reschedule", "reschedule"],
+    ["offer_reschedule", "reschedule"],
+  ];
+  for (const [step, intent] of steps) {
+    for (const agreement of ["neither", null] as const) {
+      assert.equal(applyAgreement(base({ intent, topicOnly: true }), step, agreement).intent, intent, `${step} ${agreement}`);
+    }
+  }
 });

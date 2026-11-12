@@ -10,6 +10,9 @@ const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n
 
 const PERIOD_PT: Record<DayPeriod, string> = { morning: "de manhã", afternoon: "à tarde", evening: "à noite" };
 
+/** As aberturas de again(): a resposta que repete outra começa com uma delas (as da língua, em antiban/texts.ts) */
+const AGAIN_PT = fixedTextsFor("pt").again;
+
 /** "na sexta-feira, 6 de novembro" (ou "Na…" no começo da frase): o artigo muda com o gênero do dia da semana. */
 const onDay = (date: string, tz: string, capital = false) => {
   const article = DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na";
@@ -52,6 +55,16 @@ Se preferir outro dia, é só pedir.`;
       return r.offerDays(closest, tz, `Não atendemos ${joinList(names, "e")}. Os dias mais próximos com horários livres são:`);
     },
 
+    weekendOpen(openDates: string[], closedWeekdays: number[], tz: string) {
+      // "sábados e domingos", "sábados": o plural vem do nome do dia, sem o "-feira"
+      const openDays = [...new Set(openDates.map((d) => DateTime.fromISO(d, { zone: tz }).weekday))];
+      const names = (days: number[]) => joinList(days.map((d) => `${weekdayNames("pt")[d - 1]}s`), "e");
+      const attends = `Atendemos aos ${names(openDays)}.`;
+      const closed = closedWeekdays.length > 0 ? ` Aos ${names(closedWeekdays)} estamos fechados.` : "";
+      const next = openDays.length === 1 ? `os próximos ${names(openDays)}` : "os próximos dias";
+      return `${attends}${closed} Estes são ${next} com horário livre:\n${bullets(openDates.map((d) => formatDayLong(d, tz, pt)))}\nQual deles fica melhor para você?`;
+    },
+
     dayFull(date: string, closest: string[], tz: string) {
       return r.offerDays(closest, tz, `Desculpe, não há mais horários ${onDay(date, tz)}. Os dias mais próximos com horários livres são:`);
     },
@@ -75,7 +88,7 @@ Se preferir outro dia, é só pedir.`;
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza — avaliação geral" : s.label));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza (avaliação geral)" : s.label));
       return `${who ? `${who}, para` : "Para"} qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
     },
 
@@ -228,8 +241,16 @@ Se preferir outro dia, é só pedir.`;
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Claro!", "Com prazer!", "Pois não!"];
-      return options[Math.floor(random() * options.length)];
+      return AGAIN_PT[Math.floor(random() * AGAIN_PT.length)];
+    },
+
+    startsWithAgain(text: string) {
+      return AGAIN_PT.some((opening) => text.startsWith(opening));
+    },
+
+    servicesList() {
+      const lines = catalog.list().map((s) => catalog.label(s.name, "pt"));
+      return `Oferecemos estes serviços:\n${bullets(lines)}\nQuer marcar algum deles? É só me dizer qual.`;
     },
 
     staff(urgent: boolean) {

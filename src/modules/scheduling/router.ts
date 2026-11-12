@@ -7,20 +7,20 @@ import type { IncomingMessage } from "../whatsapp/evolution.js";
 import { splitReply, type Reply } from "../whatsapp/handle-message.js";
 import { bookingWindow } from "./availability.js";
 import type { SchedulingFlow } from "./flow.js";
-import type { Interpreter } from "./interpret.js";
+import type { Interpreter, When } from "./interpret.js";
 import { startsScheduling } from "./intents.js";
 import { InterpreterUnavailable } from "./ollama.js";
 import type { Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
-import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
+import { applyAgreement, applyPick, applySense, applyWhen, citesWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
 
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense" | "mentionedAgreement">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -118,12 +118,12 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     async function fromBrochure(calm: boolean): Promise<Reply> {
       const answer = await answerQuestion(text, log, message.phone, ragHistory);
       // A proteção descarta uma mensagem igual a uma já enviada: as partes repetidas ficam de fora (o cliente já as leu);
-      // só quando a resposta inteira é repetida ela vai numa mensagem só, com uma abertura
+      // quando a resposta inteira é repetida, a abertura entra no envio (handle-message), pela regra do portão
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
       const parts = splitReply(answer);
       const fresh = parts.filter((part) => !said.includes(part));
-      const reply =
-        fresh.length === 0 ? { text: `${replies.again()}\n${parts.join("\n")}` } : greet({ text: fresh.join("\n\n"), split: true });
+      const body = parts.join("\n");
+      const reply = fresh.length === 0 ? { text: body } : greet({ text: fresh.join("\n\n"), split: true });
       return calm ? askName(reply) : reply;
     }
 
@@ -157,6 +157,18 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas abaixo (ver understanding/sense.ts)
     if (wantsSense(interpretation)) interpretation = applySense(interpretation, (await interpreter.mentionedSense?.({ text, log })) ?? null);
 
+    // Sim ou não numa confirmação que o modelo leu só como o assunto da pergunta. Antes da concordância, a chamada focada de horário
+    // confere se a frase cita período, horário ou dia: citado, é um pedido de mudança ("melhor de manhã"), não um sim (ver resolve.ts)
+    let focusedWhen: When | null | undefined;
+    if (interpretation.topicOnly) {
+      focusedWhen = (await interpreter.mentionedWhen?.({ text, log })) ?? null;
+      if (citesWhen(focusedWhen)) {
+        interpretation = { ...interpretation, topicOnly: false };
+      } else {
+        interpretation = applyAgreement(interpretation, session?.step ?? null, (await interpreter.mentionedAgreement?.({ text, log })) ?? null);
+      }
+    }
+
     // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
     if (interpretation.intent === "manipulation" || interpretation.intent === "off_topic") return { text: replies.stayOnTopic() };
 
@@ -178,6 +190,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       const hello = firstReply ? `${opening} ${replies.howCanIHelp()}` : replies.howCanIHelp();
       return askName({ text: hello });
     }
+
+    // Quais serviços a clínica tem: a lista vem do catálogo, sem modelo e sem começar um agendamento (o próximo "quero marcar" começa)
+    if (interpretation.intent === "list_services") return greet({ text: replies.servicesList() });
 
     // Despedida: sem agendamento em andamento, só se despede; no meio de um, encerra o agendamento
     if (interpretation.intent === "goodbye") {
@@ -206,24 +221,24 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const scheduling = session ? interpretation.intent !== "question" : startsScheduling(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
-    // Sem tratamento na interpretação nem na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra);
-    // a resposta só vale se a citação do cliente combina com o tratamento (ver mentionedService)
-    const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
+    // Sem tratamento na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra); a resposta só vale
+    // se a citação do cliente está nas mensagens dele (ver mentionedService). O tratamento da interpretação principal não vale sozinho:
+    // o modelo preenche o primeiro da lista quando o cliente não citou nenhum ("quero marcar uma consulta")
+    const mentioned = session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
     // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
-    const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
+    // A chamada já feita acima (topicOnly) vale; senão, ela roda quando a intenção pede horário
+    const when = focusedWhen !== undefined ? focusedWhen : wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
     const timed = applyWhen(interpretation, when, session?.step);
     const count = session?.options?.length ?? 0;
     // A posição só vale com a citação no texto (o modelo principal a inventa para "sim, pode ser"): quando a chamada focada roda, ela decide
     const picking = needsPick(timed, count);
     const chosen = picking ? applyPick(timed, (await interpreter.mentionedOption?.({ text, count, log })) ?? null) : timed;
 
-    // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
+    // O tratamento citado na conversa (o da chamada focada, com a citação conferida) vira o serviço do agendamento (specs/005 FR-010)
+    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
-    let out = result.handoff ? result.reply : await humanize(result.reply, log);
-    // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura
-    if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out)) out = `${replies.again()}\n\n${out}`;
+    const out = result.handoff ? result.reply : await humanize(result.reply, log);
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };
   };
 }

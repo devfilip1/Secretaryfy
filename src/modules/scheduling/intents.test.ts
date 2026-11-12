@@ -8,11 +8,12 @@ const EXPECTED: Record<keyof typeof INTENT_GROUPS, Intent[]> = {
   CAN_CARRY_A_WHEN: ["choose", "book", "availability", "reschedule"],
   STEP_ONLY: ["choose", "more", "other_day", "choose_service"],
   STARTS_SCHEDULING: ["book", "availability", "cancel", "reschedule", "my_appointment"],
-  PICKS_OFFERED_DAY: ["choose", "other_day"],
+  PICKS_OFFERED_DAY: ["choose", "other_day", "book", "availability", "unclear"],
   CHOICE_LIKE: ["more", "unclear", "other_day", "availability"],
   TOO_FAR: ["availability", "choose", "book"],
   ASKS_PERIOD_OF_SCREEN: ["choose", "availability"],
   MAY_BE_NOISE: ["rude", "manipulation", "off_topic"],
+  CARRY_A_CITED_DAY: ["other_day", "more", "unclear"],
 };
 
 test("INTENTS não tem duplicados", () => {

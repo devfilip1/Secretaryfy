@@ -1,3 +1,4 @@
+import { fixedLabel } from "../scheduling/catalog.js";
 import { formatDayTime } from "../scheduling/dates.js";
 
 /**
@@ -57,9 +58,9 @@ const PROTECTION_TEXTS: Record<ProtectionReason, string> = {
 export function systemNoteText(note: SystemNote): string {
   switch (note.kind) {
     case "booked":
-      return `Booked by the assistant: ${when(note.start, note.timeZone)} (${note.minutes} min), ${note.service}`;
+      return `Booked by the assistant: ${when(note.start, note.timeZone)} (${note.minutes} min), ${serviceEn(note.service)}`;
     case "booked_from_panel":
-      return `Booked from the panel: ${when(note.start, note.timeZone)} (${note.minutes} min), ${note.service}`;
+      return `Booked from the panel: ${when(note.start, note.timeZone)} (${note.minutes} min), ${serviceEn(note.service)}`;
     case "rescheduled":
       return `Rescheduled by the assistant: ${when(note.from, note.timeZone)} → ${when(note.to, note.timeZone)}`;
     case "cancelled_by_customer":
@@ -94,3 +95,6 @@ export function systemNoteText(note: SystemNote): string {
 }
 
 const when = (iso: string, timeZone: string) => formatDayTime(new Date(iso), timeZone);
+
+/** Serviço fixo pela chave em inglês; um tratamento já vem com o título que a clínica escreveu */
+const serviceEn = (service: string) => fixedLabel(service, "en") ?? service;

@@ -25,6 +25,9 @@ const texts: FixedTexts = {
   get optIn() {
     return fixedTextsFor(clinic.language).optIn;
   },
+  get again() {
+    return fixedTextsFor(clinic.language).again;
+  },
 };
 
 // Agendamento (specs/003): o Ollama interpreta, a máquina de estados decide; dúvidas seguem para o RAG da feature 001

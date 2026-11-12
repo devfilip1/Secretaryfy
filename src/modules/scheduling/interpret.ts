@@ -2,7 +2,8 @@ import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { createOptionExtractor } from "./understanding/option.js";
-import { normalize } from "./understanding/quote.js";
+import { createAgreementReader } from "./understanding/agreement.js";
+import { quotedByCustomer } from "./understanding/quote.js";
 import { createSenseReader } from "./understanding/sense.js";
 import { createWhenExtractor } from "./understanding/when.js";
 import { byRules } from "./interpret/rules.js";
@@ -31,6 +32,7 @@ export function createInterpreter({
   const when = createWhenExtractor({ ollama });
   const pick = createOptionExtractor({ ollama });
   const sense = createSenseReader({ ollama });
+  const agreement = createAgreementReader({ ollama });
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -50,6 +52,7 @@ export function createInterpreter({
     mentionedWhen: when,
     mentionedOption: pick,
     mentionedSense: sense,
+    mentionedAgreement: agreement,
 
     /**
      * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha
@@ -76,9 +79,7 @@ export function createInterpreter({
         const parsed = mentionOutput.safeParse(raw);
         if (!parsed.success || parsed.data.service === null) return null;
         // Sem uma citação que esteja nas mensagens do cliente, o modelo está chutando (ex.: o primeiro da lista)
-        const said = [...history.filter((m) => m.role === "user").map((m) => m.content), text].map(normalize).join(" ");
-        const quote = parsed.data.quote ? normalize(parsed.data.quote) : "";
-        if (!quote.trim() || !said.includes(quote)) return null;
+        if (!quotedByCustomer(parsed.data.quote, history, text)) return null;
         const name = catalog.byLabel(parsed.data.service);
         return name === ASSESSMENT ? null : name;
       } catch (err) {

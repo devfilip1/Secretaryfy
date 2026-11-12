@@ -45,7 +45,7 @@ before(async () => {
 after(() => testDb.close());
 
 /** O painel com este catálogo: a marcação e a lista usam os mesmos títulos */
-async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
+async function panelWith(catalog: ServiceCatalog, language: "en" | "pt" = "en"): Promise<FastifyInstance> {
   const deps = {
     calendar: fake.gateway,
     connection: { getForUse: async () => conn },
@@ -56,6 +56,7 @@ async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
     log: { error: () => {} },
     now: () => now,
     catalog,
+    clinic: { language },
   };
   const server = Fastify();
   await server.register(
@@ -65,6 +66,7 @@ async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
       booking: createBooking(deps),
       reminderLeadMinutes: 1440,
       catalog,
+      clinic: { language },
     }),
   );
   return server;
@@ -333,6 +335,74 @@ test("o painel mostra o título do tratamento no catálogo; um nome fora dele ap
   assert.equal([...fake.events.values()].at(-1)?.summary, "João — Limpeza dental");
   const services = (await titled.inject({ url: "/api/appointments" })).json().appointments.map((a: { service: string }) => a.service);
   assert.deepEqual(services, ["Dental Cleaning", "Limpeza dental"]);
+});
+
+// --- Idioma dos rótulos e os serviços fixos (Retorno e Avaliação geral) ---
+
+const withFixed = (offers: { offerAssessment?: boolean; offerFollowUp?: boolean; assessmentMinutes?: number | null; followUpMinutes?: number | null } = {}) =>
+  createCatalog([{ name: "limpeza-dental", label: "Limpeza Dental" }], {
+    offerAssessment: true,
+    offerFollowUp: true,
+    assessmentMinutes: 30,
+    followUpMinutes: 45,
+    ...offers,
+  });
+
+test("GET /api/services?language: os fixos saem no idioma pedido; sem ele, o da clínica; outro valor, 422", async () => {
+  const fixed = await panelWith(withFixed());
+  const labels = async (url: string) => (await fixed.inject({ url })).json().services.map((s: { label: string }) => s.label);
+  assert.deepEqual(await labels("/api/services?language=pt"), ["Limpeza Dental", "Retorno", "Avaliação geral"]);
+  assert.deepEqual(await labels("/api/services?language=en"), ["Limpeza Dental", "Follow-up visit", "General assessment"]);
+  assert.deepEqual(await labels("/api/services"), ["Limpeza Dental", "Follow-up visit", "General assessment"]);
+  assert.equal((await fixed.inject({ url: "/api/services?language=fr" })).statusCode, 422);
+
+  const clinicPt = await panelWith(withFixed(), "pt");
+  const ptDefault = (await clinicPt.inject({ url: "/api/services" })).json().services.map((s: { label: string }) => s.label);
+  assert.deepEqual(ptDefault, ["Limpeza Dental", "Retorno", "Avaliação geral"]);
+});
+
+test("marcação de Retorno e Avaliação geral pelo painel: o tempo do serviço, o rótulo no idioma pedido e a lista", async () => {
+  const fixed = await panelWith(withFixed());
+  const retorno = await fixed.inject({
+    method: "POST",
+    url: "/api/appointments?language=pt",
+    payload: { ...VALID, service: "FollowUp", start: at("2026-10-22T14:00").toISOString() },
+  });
+  assert.equal(retorno.statusCode, 201);
+  assert.deepEqual([retorno.json().appointment.service, retorno.json().appointment.minutes], ["Retorno", 45]);
+
+  const avaliacao = await fixed.inject({
+    method: "POST",
+    url: "/api/appointments",
+    payload: { ...VALID, phone: "71 97777-6666", service: "Assessment", start: at("2026-10-22T16:00").toISOString() },
+  });
+  assert.deepEqual([avaliacao.statusCode, avaliacao.json().appointment.service, avaliacao.json().appointment.minutes], [201, "General assessment", 30]);
+
+  const pt = (await fixed.inject({ url: "/api/appointments?language=pt" })).json().appointments;
+  assert.deepEqual(pt.map((a: { service: string }) => a.service), ["Retorno", "Avaliação geral"]);
+  const en = (await fixed.inject({ url: "/api/appointments" })).json().appointments;
+  assert.deepEqual(en.map((a: { service: string }) => a.service), ["Follow-up visit", "General assessment"]);
+  assert.equal((await fixed.inject({ url: "/api/appointments?language=de" })).statusCode, 422);
+});
+
+test("Retorno e Avaliação geral sem minutes usam o tempo da clínica; sem tempo, a duração padrão", async () => {
+  const withTime = await panelWith(withFixed());
+  const followUp = await withTime.inject({ method: "POST", url: "/api/appointments", payload: { ...VALID, service: "FollowUp", start: at("2026-10-22T14:00").toISOString() } });
+  assert.equal(followUp.json().appointment.minutes, 45);
+
+  const plain = await panelWith(withFixed({ assessmentMinutes: null, followUpMinutes: null }));
+  const defaults = await plain.inject({ method: "POST", url: "/api/appointments", payload: { ...VALID, phone: "71 97777-6666", service: "Assessment", start: at("2026-10-22T16:00").toISOString() } });
+  assert.equal(defaults.json().appointment.minutes, 60);
+});
+
+test("Retorno e Avaliação geral desligados: a marcação é 422 e nada vai à agenda", async () => {
+  const off = await panelWith(withFixed({ offerAssessment: false, offerFollowUp: false }));
+  for (const service of ["FollowUp", "Assessment"]) {
+    const res = await off.inject({ method: "POST", url: "/api/appointments", payload: { ...VALID, service, start: at("2026-10-22T14:00").toISOString() } });
+    assert.equal(res.statusCode, 422, service);
+    assert.equal(res.json().error, "invalid_body");
+  }
+  assert.equal(fake.events.size, 0);
 });
 
 // --- US4: confirmação pelo operador ---

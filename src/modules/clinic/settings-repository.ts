@@ -13,12 +13,33 @@ export function createClinicSettingsRepository(db: Db) {
     /** A identidade gravada, ou null antes da primeira gravação. */
     async get(): Promise<ClinicIdentity | null> {
       const [row] = await db.select().from(clinicSettings).where(eq(clinicSettings.id, 1));
-      return row ? { name: row.name, assistantName: row.assistantName ?? undefined, kind: row.kind, language: (row.language ?? undefined) as Language | undefined } : null;
+      return row
+        ? {
+            name: row.name,
+            assistantName: row.assistantName ?? undefined,
+            kind: row.kind,
+            language: (row.language ?? undefined) as Language | undefined,
+            offerAssessment: row.offerAssessment,
+            offerFollowUp: row.offerFollowUp,
+            assessmentMinutes: row.assessmentMinutes,
+            followUpMinutes: row.followUpMinutes,
+          }
+        : null;
     },
 
     /** Grava a identidade inteira (o painel envia todos os campos sempre); a linha única é criada na primeira vez. */
     async save(identity: ClinicIdentity): Promise<void> {
-      const fields = { name: identity.name, assistantName: identity.assistantName ?? null, kind: identity.kind, language: identity.language ?? null, updatedAt: new Date() };
+      const fields = {
+        name: identity.name,
+        assistantName: identity.assistantName ?? null,
+        kind: identity.kind,
+        language: identity.language ?? null,
+        offerAssessment: identity.offerAssessment ?? true,
+        offerFollowUp: identity.offerFollowUp ?? false,
+        assessmentMinutes: identity.assessmentMinutes ?? null,
+        followUpMinutes: identity.followUpMinutes ?? null,
+        updatedAt: new Date(),
+      };
       await db.insert(clinicSettings).values({ id: 1, ...fields }).onConflictDoUpdate({ target: clinicSettings.id, set: fields });
     },
   };

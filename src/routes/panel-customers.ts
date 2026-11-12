@@ -7,7 +7,10 @@ import type { Publish } from "../modules/inbox/events.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
+import type { Language } from "../modules/scheduling/dates.js";
 import type { SchedulingStore } from "../modules/scheduling/sessions.js";
+import type { ClinicContext } from "../modules/clinic/context.js";
+import { panelLanguage } from "./panel-language.js";
 
 interface Deps {
   customers: Pick<CustomerRepository, "list" | "remove" | "findById" | "update">;
@@ -20,6 +23,8 @@ interface Deps {
   publish: Publish;
   /** O título do tratamento na lista e no nome do evento (ADR 0014) */
   catalog: Pick<ServiceCatalog, "label">;
+  /** Idioma da clínica, padrão dos rótulos quando o painel não pede um (`?language=`) */
+  clinic: Pick<ClinicContext, "language">;
   log?: { warn: (obj: object, msg: string) => void };
   now?: () => Date;
 }
@@ -34,7 +39,7 @@ const patchBody = z
   .strict()
   .refine((b) => b.name !== undefined || b.notes !== undefined, "send a name or notes");
 
-function present(row: CustomerWithAppointments, conversationId: string | null, catalog: Pick<ServiceCatalog, "label">) {
+function present(row: CustomerWithAppointments, conversationId: string | null, catalog: Pick<ServiceCatalog, "label">, language: Language) {
   return {
     id: row.id,
     name: row.name,
@@ -43,7 +48,7 @@ function present(row: CustomerWithAppointments, conversationId: string | null, c
     conversationId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    appointments: row.appointments.map((a) => ({ startsAt: a.startsAt.toISOString(), service: catalog.label(a.service ?? ASSESSMENT), status: a.status })),
+    appointments: row.appointments.map((a) => ({ startsAt: a.startsAt.toISOString(), service: catalog.label(a.service ?? ASSESSMENT, language), status: a.status })),
   };
 }
 
@@ -59,13 +64,14 @@ export function panelCustomersRoutes({
   connection,
   publish,
   catalog,
+  clinic,
   log = console,
   now = () => new Date(),
 }: Deps) {
-  async function presentAll() {
+  async function presentAll(language: Language) {
     const rows = await customers.list();
     const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
-    return rows.map((r) => present(r, conversations.get(r.phone) ?? null, catalog));
+    return rows.map((r) => present(r, conversations.get(r.phone) ?? null, catalog, language));
   }
 
   /**
@@ -78,7 +84,7 @@ export function panelCustomersRoutes({
     for (const appt of await store.futureBookedByPhone(phone, now())) {
       await store.setCustomerName(appt.id, name);
       try {
-        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT)}`);
+        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT, clinic.language)}`);
       } catch (err) {
         calendarUpdated = false;
         log.warn({ appointmentId: appt.id, err }, "não foi possível renomear o evento na agenda");
@@ -88,9 +94,15 @@ export function panelCustomersRoutes({
   }
 
   return async function (app: FastifyInstance) {
-    app.get("/api/customers", async () => ({ timeZone: await clinicTimeZone(connection), customers: await presentAll() }));
+    app.get("/api/customers", async (req, reply) => {
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
+      return { timeZone: await clinicTimeZone(connection), customers: await presentAll(language) };
+    });
 
     app.patch("/api/customers/:id", async (req, reply) => {
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
       const params = idParams.safeParse(req.params);
       const current = params.success ? await customers.findById(params.data.id) : null;
       if (!current) return reply.code(404).send({ error: "not_found" });
@@ -112,7 +124,7 @@ export function panelCustomersRoutes({
       const calendarUpdated = renamed ? await propagateName(current.phone, name) : true;
       publish({ type: "customers.updated" });
 
-      const customer = (await presentAll()).find((c) => c.id === current.id)!;
+      const customer = (await presentAll(language)).find((c) => c.id === current.id)!;
       return { customer, calendarUpdated };
     });
 

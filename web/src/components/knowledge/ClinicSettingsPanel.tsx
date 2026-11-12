@@ -1,11 +1,20 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { Controller, FormProvider, useForm, useFormContext } from "react-hook-form";
+import { Controller, FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { publishKnowledge, saveClinicSettings, type ClinicSettings } from "../../api";
 import { clinicSettingsKeys, clinicSettingsQuery, knowledgeKeys } from "../../queries";
-import { clinicSettingsDefaults, clinicSettingsSchema, translateErrors, type ClinicSettingsFormValues } from "./clinic-settings-form";
+import {
+  MAX_SERVICE_MINUTES,
+  MIN_SERVICE_MINUTES,
+  SERVICE_MINUTES_STEP,
+  clinicSettingsDefaults,
+  clinicSettingsSchema,
+  toClinicSettingsInput,
+  translateErrors,
+  type ClinicSettingsFormValues,
+} from "./clinic-settings-form";
 import { FormSection, TextField } from "./FormParts";
 import { LanguageChangeDialog } from "./LanguageChangeDialog";
 import { publishErrorMessage } from "./PublishBar";
@@ -13,8 +22,10 @@ import { reasonLines, reasonTextOf } from "./server-reason";
 import { Muted } from "../Muted";
 import { Notice } from "../Notice";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 // Nome de cada língua na própria língua: não se traduz
 const LANGUAGES: { value: "en" | "pt"; label: string }[] = [
@@ -61,6 +72,75 @@ function LanguageField() {
         </Field>
       )}
     />
+  );
+}
+
+type ServiceMinutesName = "assessmentMinutes" | "followUpMinutes";
+
+/** Duração opcional de um serviço: vazio quer dizer o padrão da agenda. Aparece com a opção ligada. */
+function ServiceMinutesField({ name }: { name: ServiceMinutesName }) {
+  const { t } = useTranslation("clinic");
+  const id = useId();
+  const { register, getFieldState, formState } = useFormContext<ClinicSettingsFormValues>();
+  const { error } = getFieldState(name, formState);
+  return (
+    <Field data-invalid={error ? true : undefined} className="min-w-0">
+      <FieldLabel htmlFor={id}>{t("serviceOptions.minutesLabel")}</FieldLabel>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={MIN_SERVICE_MINUTES}
+        max={MAX_SERVICE_MINUTES}
+        step={SERVICE_MINUTES_STEP}
+        {...register(name)}
+        aria-invalid={error ? true : undefined}
+      />
+      <FieldError errors={[error]} />
+    </Field>
+  );
+}
+
+/** Opção de serviço: chave ligada/desligada; ligada, mostra a duração. Desligar limpa a duração. */
+function ServiceOptionField({
+  offer,
+  minutes,
+  label,
+  help,
+}: {
+  offer: "offerAssessment" | "offerFollowUp";
+  minutes: ServiceMinutesName;
+  label: string;
+  help: string;
+}) {
+  const id = useId();
+  const { control, setValue } = useFormContext<ClinicSettingsFormValues>();
+  const offered = useWatch({ control, name: offer });
+  return (
+    <div className="grid gap-4">
+      <Field orientation="horizontal" className="min-w-0">
+        <FieldContent>
+          <FieldLabel htmlFor={id}>{label}</FieldLabel>
+          <FieldDescription>{help}</FieldDescription>
+        </FieldContent>
+        <Controller
+          name={offer}
+          control={control}
+          render={({ field }) => (
+            <Switch
+              id={id}
+              name={field.name}
+              checked={field.value}
+              onCheckedChange={(checked) => {
+                field.onChange(checked);
+                if (!checked) setValue(minutes, "", { shouldDirty: true });
+              }}
+            />
+          )}
+        />
+      </Field>
+      {offered && <ServiceMinutesField name={minutes} />}
+    </div>
   );
 }
 
@@ -111,7 +191,7 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
     defaultValues: clinicSettingsDefaults(settings),
   });
   const save = useMutation({
-    mutationFn: saveClinicSettings,
+    mutationFn: (values: ClinicSettingsFormValues) => saveClinicSettings(toClinicSettingsInput(values)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: clinicSettingsKeys.all }),
   });
   // Valores com língua trocada, esperando a confirmação do diálogo antes do PUT.
@@ -133,6 +213,7 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
     <FormProvider {...form}>
       <form
         className="grid gap-6"
+        noValidate
         onSubmit={form.handleSubmit((input) => {
           if (input.language === settings.language) saveInput(input);
           else setPendingLanguageSave(input);
@@ -144,6 +225,22 @@ function ClinicSettingsForm({ settings }: { settings: ClinicSettings }) {
             <TextField name="assistantName" label={t("assistantName")} description={t("assistantNameHelp")} />
             <TextField name="kind" label={t("kind")} description={t("kindHelp")} />
             <LanguageField />
+          </FieldGroup>
+        </FormSection>
+        <FormSection title={t("serviceOptions.section")}>
+          <FieldGroup className="gap-6">
+            <ServiceOptionField
+              offer="offerAssessment"
+              minutes="assessmentMinutes"
+              label={t("serviceOptions.assessment.label")}
+              help={t("serviceOptions.assessment.help")}
+            />
+            <ServiceOptionField
+              offer="offerFollowUp"
+              minutes="followUpMinutes"
+              label={t("serviceOptions.followUp.label")}
+              help={t("serviceOptions.followUp.help")}
+            />
           </FieldGroup>
         </FormSection>
         {save.isSuccess && (

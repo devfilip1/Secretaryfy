@@ -10,7 +10,7 @@ import type { Run } from "./run.js";
 
 /** O próximo horário do telefone, venha ele desta conversa, de outra ou do painel (specs/006 R1). */
 export async function currentAppointment(run: Run): Promise<AppointmentRow | null> {
-  return run.sync(await run.store.findFutureBooked(run.conversation.phone, run.now));
+  return run.upcomingAppointment();
 }
 
 async function refreshSessionAppointment(run: Run): Promise<AppointmentRow | null> {

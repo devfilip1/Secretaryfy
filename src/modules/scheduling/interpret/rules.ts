@@ -1,7 +1,7 @@
 /** Regras sem modelo (contracts/interpreter.md §1): as respostas curtas e as etapas que dispensam o modelo. */
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { ServiceCatalog } from "../catalog.js";
-import { minutesOfDay, parseSimpleDate, parseTimeOfDay } from "../dates.js";
+import { minutesOfDay, namesTheWeekend, parseSimpleDate, parseTimeOfDay } from "../dates.js";
 import { normalize } from "../understanding/quote.js";
 import { cleanName, MY_NAME } from "./names.js";
 import { result, type InterpretInput, type Interpretation } from "./types.js";
@@ -58,7 +58,10 @@ export function byRules({ text, step, options, now, timeZone, window, awaitingRe
   }
   if (step === null || CHOOSING.includes(step)) {
     const date = parseSimpleDate(text, { now, timeZone });
-    if (date) {
+    // Numa lista de dias, uma data que não está na lista é do modelo e do validate: um dia da semana citado ("quarta") cai em hoje aqui, e o dia oferecido com esse nome é o certo
+    const listed = step !== "choose_day" || options.some((o) => o.kind === "day" && o.date === date);
+    // Sábado e domingo juntos não são uma data só: o fim de semana é do modelo e do validate
+    if (date && listed && !namesTheWeekend(text)) {
       const intent = step === null ? "availability" : "choose";
       return result(intent, { date, ...(date > window.lastDate ? { tooFar: true } : {}) });
     }

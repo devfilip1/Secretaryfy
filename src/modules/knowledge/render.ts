@@ -15,9 +15,9 @@ export interface KnowledgeDocument {
 
 const labelled = ({ label, value }: LabelledValue): string => `${label}: ${value}`;
 
-/** Título da seção: o do tratamento leva o slogan depois de " — ", como os trechos do RAG sempre levaram. */
+/** Título da seção: o do tratamento leva o slogan depois de ": " (o RAG copiava o travessão para a resposta; a importação ainda lê " — "). */
 function sectionTitle(row: KnowledgeRow): string {
-  return row.kind === "treatment" && row.tagline ? `${row.title} — ${row.tagline}` : row.title;
+  return row.kind === "treatment" && row.tagline ? `${row.title}: ${row.tagline}` : row.title;
 }
 
 /** Um fato da linha; com `assessment`, o aviso da língua da clínica vem colado nele, antes do separador. */

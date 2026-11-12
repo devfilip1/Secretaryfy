@@ -47,3 +47,14 @@ test("motivo de lembrete desconhecido aparece como o próprio código", () => {
     "Reminder not sent for Wed, Oct 21 at 10:00 AM: weird",
   );
 });
+
+test("serviço fixo guardado pela chave sai com o nome em inglês; o tratamento sai como o título que a clínica escreveu", () => {
+  assert.equal(
+    systemNoteText({ kind: "booked", start, minutes: 60, service: "FollowUp", timeZone }),
+    "Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Follow-up visit",
+  );
+  assert.equal(
+    systemNoteText({ kind: "booked_from_panel", start, minutes: 60, service: "Assessment", timeZone }),
+    "Booked from the panel: Wed, Oct 21 at 10:00 AM (60 min), General assessment",
+  );
+});

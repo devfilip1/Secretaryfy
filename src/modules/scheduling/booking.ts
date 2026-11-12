@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AppointmentRow } from "../../db/schema.js";
+import type { ClinicContext } from "../clinic/context.js";
 import type { CustomerRepository } from "../customers/repository.js";
 import type { ConnectionStore } from "../google/connection.js";
 import type { CalendarGateway } from "../google/gateway.js";
@@ -7,7 +8,7 @@ import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
 import { isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
-import type { ServiceCatalog } from "./catalog.js";
+import { isFixedService, type ServiceCatalog } from "./catalog.js";
 import type { SystemNote } from "../inbox/system-note.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
@@ -77,6 +78,8 @@ interface Deps {
   customers: Pick<CustomerRepository, "upsert">;
   /** O título do tratamento para a agenda, a nota e o histórico: a chave guardada nunca sai (ADR 0014) */
   catalog: Pick<ServiceCatalog, "label" | "minutes">;
+  /** Língua da clínica, lida a cada marcação: o título da agenda e o da nota seguem ela */
+  clinic: Pick<ClinicContext, "language">;
   log?: { error: (obj: object, msg: string) => void };
   now?: () => Date;
   reminderLeadMinutes?: number;
@@ -95,6 +98,7 @@ export function createBooking({
   inbox,
   customers,
   catalog,
+  clinic,
   log = console,
   now: clock = () => new Date(),
   reminderLeadMinutes = DEFAULT_REMINDER_LEAD_MINUTES,
@@ -152,7 +156,10 @@ export function createBooking({
         if (!isSlotAvailable(start, { rules, busy, now, timeZone, minutes, maxDaysAhead })) return { kind: "slot_taken" };
 
         const id = randomUUID();
-        const title = catalog.label(service);
+        // O título segue a língua da clínica (o serviço fixo na língua dela; o tratamento, o título que a clínica escreveu)
+        const title = catalog.label(service, clinic.language);
+        // A nota guarda a chave do serviço fixo, que o painel traduz para quem lê; o tratamento guarda o título
+        const noteService = isFixedService(service) ? service : title;
         const { eventId } = await calendar.createEvent({
           // "<nome> — <serviço>" (specs/005 FR-013), com o título do tratamento
           summary: `${name} — ${title}`,
@@ -186,8 +193,8 @@ export function createBooking({
           const at = start.toISOString();
           const note: SystemNote =
             origin === "panel"
-              ? { kind: "booked_from_panel", start: at, minutes, service: title, timeZone }
-              : { kind: "booked", start: at, minutes, service: title, timeZone };
+              ? { kind: "booked_from_panel", start: at, minutes, service: noteService, timeZone }
+              : { kind: "booked", start: at, minutes, service: noteService, timeZone };
           await inbox.recordSystem(conversationId, note);
         }
         return { kind: "booked", appointment };

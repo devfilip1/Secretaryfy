@@ -114,7 +114,7 @@ const DATE_IN_TEXT = new RegExp(
     "\\b(?:today|tomorrow|hoje|amanha|depois amanha)\\b",
     `\\b(?:next |proxim[oa] )?(?:${WEEKDAY_NAMES})\\b`,
     "\\b\\d{1,2}/\\d{1,2}(?:/\\d{4})?\\b",
-    "\\bdia \\d{1,2}\\b",
+    `\\bdia \\d{1,2}\\b(?! (?:${MONTH_NAMES})\\b)`,
     `\\b(?:${MONTH_NAMES}) ${ORDINAL}\\b`,
     `\\b${ORDINAL} (?:${MONTH_NAMES})\\b`,
   ].join("|"),
@@ -132,6 +132,35 @@ export function findDatesInText(text: string, ctx: { now: Date; timeZone: string
     if (date) found.add(date);
   }
   return [...found];
+}
+
+/** Um dia da semana dito pelo nome, com ou sem "próxima"/"next" (a palavra inteira) */
+const WEEKDAY_NAME_ALONE = new RegExp(`^(?:next |proxim[oa] )?(?:${WEEKDAY_NAMES})$`);
+const WEEKDAY_NAME_IN_TEXT = new RegExp(`\\b(?:${WEEKDAY_NAMES})\\b`, "g");
+
+/**
+ * Datas citadas na frase que não vêm só do nome de um dia da semana ("dia 18", "18/11", "amanhã", "25 de novembro").
+ * "quarta" sozinho cai em hoje em findDatesInText; aqui ele não conta.
+ */
+export function findExplicitDatesInText(text: string, ctx: { now: Date; timeZone: string }): string[] {
+  const found = new Set<string>();
+  for (const match of normalize(text).match(DATE_IN_TEXT) ?? []) {
+    if (WEEKDAY_NAME_ALONE.test(match)) continue;
+    const date = parseSimpleDate(match, ctx);
+    if (date) found.add(date);
+  }
+  return [...found];
+}
+
+/** Os dias da semana (1 = segunda, como o luxon) ditos pelo nome na frase, na ordem em que aparecem */
+export function weekdaysNamedInText(text: string): number[] {
+  return (normalize(text).match(WEEKDAY_NAME_IN_TEXT) ?? []).map((name) => WEEKDAYS[name]);
+}
+
+/** A frase traz sábado e domingo juntos pelo nome: é o fim de semana, não um dia só (o primeiro nome não basta) */
+export function namesTheWeekend(text: string): boolean {
+  const days = weekdaysNamedInText(text);
+  return days.includes(6) && days.includes(7);
 }
 
 /**

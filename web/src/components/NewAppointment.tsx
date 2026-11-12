@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFormats } from "../i18n/formats";
+import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 import { toDate, toYmd } from "./date-string";
 import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration, type DurationError } from "./duration";
 import { durationPresets, groupByDayPart, type DayPart } from "./time-groups";
@@ -27,6 +28,7 @@ function Choice({ selected, ...props }: ComponentProps<typeof Button> & { select
 /** Marcação pelo painel para quem ligou (specs/006 US3): só horários livres, calculados como o assistente calcula. */
 export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointment) => void; onCancel: () => void }) {
   const { t } = useTranslation("appointments");
+  const language = useActivePanelLanguage();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [services, setServices] = useState<{ name: string; label: string }[] | null>(null);
@@ -81,7 +83,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
 
   // Serviços e dias são recarregados também ao reconectar: se o formulário abriu sem conexão, não pode ficar sem dados
   function loadServices() {
-    listServices()
+    listServices(language)
       .then((r) => {
         setServices(r.services);
         // Mantém o serviço já escolhido se ele ainda existir; senão começa pelo primeiro
@@ -90,9 +92,10 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
       .catch(() => setError(t("errors.services")));
   }
 
+  // Trocar o idioma do painel recarrega os rótulos dos serviços (o servidor os devolve no idioma pedido)
   useEffect(() => {
     loadServices();
-  }, []);
+  }, [language]);
 
   // Os dias dependem do serviço (a duração do atendimento). Espera a lista de serviços: o padrão já está escolhido
   // nessa hora, então carrega uma vez só. Reconectar recarrega pelo contador `daysReload`.
@@ -181,7 +184,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     setPhoneError(null);
     if (!phone.trim()) return;
     try {
-      const found = await lookupPhone(phone);
+      const found = await lookupPhone(phone, language);
       setPhone(found.phone);
       if (found.name && !name.trim()) setName(found.name);
       setExisting(found.futureAppointment);
@@ -196,7 +199,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
     setBusy(true);
     setError(null);
     try {
-      const { appointment } = await createAppointment({ phone, name, service, start, minutes: parseDuration(duration) ?? 0 });
+      const { appointment } = await createAppointment({ phone, name, service, start, minutes: parseDuration(duration) ?? 0 }, language);
       onBooked(appointment);
     } catch (err) {
       if (err instanceof ApiError && err.error === "slot_taken") {

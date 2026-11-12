@@ -18,7 +18,9 @@ export function useSystemNoteText(message: Message): string {
   if (!note) return message.text ?? "";
 
   const at = (iso: string) => t("systemNote.at", { day: formats.day.format(new Date(iso)), time: formats.time.format(new Date(iso)) });
-  const [key, params] = keyAndParams(note, at, reasonText);
+  // Serviço fixo vem como chave (FollowUp, Assessment) e sai no idioma do painel; um tratamento já é o título da clínica
+  const serviceText = (service: string) => t(`systemNote.service.${service}` as never, { defaultValue: service });
+  const [key, params] = keyAndParams(note, at, reasonText, serviceText);
   return t(`systemNote.${key}` as never, { ...params, defaultValue: message.text ?? "" });
 }
 
@@ -27,11 +29,12 @@ function keyAndParams(
   note: SystemNote,
   at: (iso: string) => string,
   reasonText: (code: string | null) => string,
+  serviceText: (service: string) => string,
 ): [string, Params] {
   switch (note.kind) {
     case "booked":
     case "booked_from_panel":
-      return [note.kind, { when: at(note.start), minutes: note.minutes, service: note.service }];
+      return [note.kind, { when: at(note.start), minutes: note.minutes, service: serviceText(note.service) }];
     case "rescheduled":
       return [note.kind, { from: at(note.from), to: at(note.to) }];
     case "cancelled_by_customer":
