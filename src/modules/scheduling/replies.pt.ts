@@ -10,6 +10,9 @@ const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n
 
 const PERIOD_PT: Record<DayPeriod, string> = { morning: "de manhã", afternoon: "à tarde", evening: "à noite" };
 
+/** As aberturas de again(): a resposta que repete outra começa com uma delas */
+const AGAIN_PT = ["Claro!", "Com prazer!", "Pois não!"];
+
 /** "na sexta-feira, 6 de novembro" (ou "Na…" no começo da frase): o artigo muda com o gênero do dia da semana. */
 const onDay = (date: string, tz: string, capital = false) => {
   const article = DateTime.fromISO(date, { zone: tz }).weekday >= 6 ? "no" : "na";
@@ -228,8 +231,16 @@ Se preferir outro dia, é só pedir.`;
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Claro!", "Com prazer!", "Pois não!"];
-      return options[Math.floor(random() * options.length)];
+      return AGAIN_PT[Math.floor(random() * AGAIN_PT.length)];
+    },
+
+    startsWithAgain(text: string) {
+      return AGAIN_PT.some((opening) => text.startsWith(opening));
+    },
+
+    servicesList() {
+      const lines = catalog.list().map((s) => catalog.label(s.name, "pt"));
+      return `Oferecemos estes serviços:\n${bullets(lines)}\nQuer marcar algum deles? É só me dizer qual.`;
     },
 
     staff(urgent: boolean) {

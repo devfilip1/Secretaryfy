@@ -24,6 +24,7 @@ export const INTENTS = [
   "manipulation",
   "rude",
   "question",
+  "list_services",
   "unclear",
   "off_topic",
 ] as const;

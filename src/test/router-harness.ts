@@ -47,7 +47,10 @@ export function setup({
   when = null,
   pick = null,
   sense = null,
+  flowReply = "do agendamento",
 }: {  intent?: Interpretation["intent"];
+  /** O que o fluxo responde (o padrão é "do agendamento") */
+  flowReply?: string;
   /** Serviço que o modelo deu junto da intenção (o tratamento de que a conversa fala) */
   service?: string | null;
   /** Tratamento que o interpretador acha que a conversa cita (mentionedService), sem a interpretação trazer um */
@@ -125,7 +128,7 @@ export function setup({
     handle: async (input: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }) => {
       const { interpretation } = input;
       handled.push(input);
-      return interpretation.intent === "unclear" ? { reply: "handoff", handoff: true } : { reply: "do agendamento" };
+      return interpretation.intent === "unclear" ? { reply: "handoff", handoff: true } : { reply: flowReply };
     },
   } as unknown as SchedulingFlow;
 

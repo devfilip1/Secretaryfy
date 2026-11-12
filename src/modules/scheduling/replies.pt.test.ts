@@ -9,9 +9,10 @@ const start = new Date("2026-10-21T13:00:00Z");
 const other = new Date("2026-10-23T17:00:00Z");
 const slots = [new Date("2026-10-21T12:00:00Z"), new Date("2026-10-21T13:00:00Z")];
 
-/** Uma chamada de cada método de Replies, com argumentos válidos. */
-function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
+/** Uma chamada de cada método de Replies, com argumentos válidos (startsWithAgain devolve boolean: testado à parte). */
+function everyCall(r: Replies): Record<Exclude<keyof Replies, "startsWithAgain">, () => string | string[]> {
   return {
+    servicesList: () => r.servicesList(),
     offerDays: () => r.offerDays(["2026-10-21", "2026-10-22"], tz),
     offerSlots: () => r.offerSlots("2026-10-21", slots, tz, true),
     periodEmpty: () => r.periodEmpty("2026-10-21", "morning", slots, tz, true),
@@ -50,6 +51,19 @@ function everyCall(r: Replies): Record<keyof Replies, () => string | string[]> {
 }
 
 const pt = createReplies({ clinic: { name: "Clínica Sorriso", language: "pt" }, catalog: testCatalog });
+
+test("lista de serviços em português: todos os tratamentos do catálogo e a avaliação geral no fim", () => {
+  const lines = pt.servicesList().split("\n");
+  assert.equal(lines[0], "Oferecemos estes serviços:");
+  assert.equal(lines.at(-2), "• Avaliação geral");
+  assert.equal(lines.at(-1), "Quer marcar algum deles? É só me dizer qual.");
+  assert.equal(lines.length, testCatalog.list().length + 2);
+});
+
+test("startsWithAgain reconhece a abertura da resposta repetida, não qualquer texto", () => {
+  assert.equal(pt.startsWithAgain("Claro! Tenho horários"), true);
+  assert.equal(pt.startsWithAgain("Tenho horários"), false);
+});
 
 test("todo método de Replies devolve texto não vazio em português", () => {
   for (const [name, call] of Object.entries(everyCall(pt))) {

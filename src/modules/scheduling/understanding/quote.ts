@@ -13,3 +13,13 @@ export function quoted(text: string, quote: string | null): boolean {
   const q = quote ? normalize(quote) : "";
   return q.trim() !== "" && normalize(text).includes(q);
 }
+
+/**
+ * A mesma regra para as mensagens do cliente: a citação tem de estar nas mensagens dele (a conversa e a atual). O que o
+ * assistente disse não prova nada. Quem decide um tratamento citado usa esta função, sem outra conferência.
+ */
+export function quotedByCustomer(quote: string | null, history: { role: string; content: string }[], text: string): boolean {
+  const said = [...history.filter((m) => m.role === "user").map((m) => m.content), text].map(normalize).join(" ");
+  const q = quote ? normalize(quote) : "";
+  return q.trim() !== "" && said.includes(q);
+}

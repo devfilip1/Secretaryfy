@@ -57,6 +57,10 @@ export interface Replies {
   slotNotOffered(date: string, slots: Date[], tz: string): string;
   /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
   again(random?: () => number): string;
+  /** O texto já começa com uma das aberturas de again(): não se põe outra na frente ("Claro!" duas vezes) */
+  startsWithAgain(text: string): boolean;
+  /** Os serviços que o cliente pode marcar, do catálogo, com a avaliação geral no fim (sem horário, sem modelo) */
+  servicesList(): string;
   /** O cliente precisa de alguém da equipe (a conversa é pausada); `urgent`: dor, inchaço ou outra urgência de saúde */
   staff(urgent: boolean): string;
   /** Tentativa de mudar o comportamento ou de extrair as instruções: nada é respondido, volta ao assunto da clínica */

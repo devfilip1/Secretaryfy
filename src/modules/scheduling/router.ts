@@ -122,8 +122,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
       const parts = splitReply(answer);
       const fresh = parts.filter((part) => !said.includes(part));
+      const body = parts.join("\n");
       const reply =
-        fresh.length === 0 ? { text: `${replies.again()}\n${parts.join("\n")}` } : greet({ text: fresh.join("\n\n"), split: true });
+        fresh.length === 0 ? { text: replies.startsWithAgain(body) ? body : `${replies.again()}\n${body}` } : greet({ text: fresh.join("\n\n"), split: true });
       return calm ? askName(reply) : reply;
     }
 
@@ -179,6 +180,9 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       return askName({ text: hello });
     }
 
+    // Quais serviços a clínica tem: a lista vem do catálogo, sem modelo e sem começar um agendamento (o próximo "quero marcar" começa)
+    if (interpretation.intent === "list_services") return greet({ text: replies.servicesList() });
+
     // Despedida: sem agendamento em andamento, só se despede; no meio de um, encerra o agendamento
     if (interpretation.intent === "goodbye") {
       if (!session) return { text: replies.goodbye(undefined, known) };
@@ -206,9 +210,10 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const scheduling = session ? interpretation.intent !== "question" : startsScheduling(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 
-    // Sem tratamento na interpretação nem na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra);
-    // a resposta só vale se a citação do cliente combina com o tratamento (ver mentionedService)
-    const mentioned = interpretation.service || session?.service ? null : await interpreter.mentionedService({ history, text, log });
+    // Sem tratamento na sessão, uma chamada focada ao modelo acha o que a conversa cita (sem regra por palavra); a resposta só vale
+    // se a citação do cliente está nas mensagens dele (ver mentionedService). O tratamento da interpretação principal não vale sozinho:
+    // o modelo preenche o primeiro da lista quando o cliente não citou nenhum ("quero marcar uma consulta")
+    const mentioned = session?.service ? null : await interpreter.mentionedService({ history, text, log });
 
     // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
     const when = wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
@@ -218,12 +223,15 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     const picking = needsPick(timed, count);
     const chosen = picking ? applyPick(timed, (await interpreter.mentionedOption?.({ text, count, log })) ?? null) : timed;
 
-    // O tratamento que o modelo viu na conversa (o citado por último) vira o serviço do agendamento (specs/005 FR-010)
-    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: interpretation.service ?? mentioned });
+    // O tratamento citado na conversa (o da chamada focada, com a citação conferida) vira o serviço do agendamento (specs/005 FR-010)
+    const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
     let out = result.handoff ? result.reply : await humanize(result.reply, log);
-    // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura
-    if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out)) out = `${replies.again()}\n\n${out}`;
+    // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura,
+    // salvo se o texto já começa com uma (senão sai "Claro!" duas vezes)
+    if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out) && !replies.startsWithAgain(out)) {
+      out = `${replies.again()}\n\n${out}`;
+    }
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };
   };
 }

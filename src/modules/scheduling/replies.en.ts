@@ -10,6 +10,9 @@ const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n
 
 const PERIOD_EN: Record<DayPeriod, string> = { morning: "morning", afternoon: "afternoon", evening: "evening" };
 
+/** As aberturas de again(): a resposta que repete outra começa com uma delas */
+const AGAIN_EN = ["Of course!", "Happy to!", "Sure thing!"];
+
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutes`;
   const h = minutes / 60;
@@ -216,8 +219,16 @@ I can also check another day if you like.`;
     },
 
     again(random: () => number = Math.random) {
-      const options = ["Of course!", "Happy to!", "Sure thing!"];
-      return options[Math.floor(random() * options.length)];
+      return AGAIN_EN[Math.floor(random() * AGAIN_EN.length)];
+    },
+
+    startsWithAgain(text: string) {
+      return AGAIN_EN.some((opening) => text.startsWith(opening));
+    },
+
+    servicesList() {
+      const lines = catalog.list().map((s) => catalog.label(s.name, "en"));
+      return `We offer these services:\n${bullets(lines)}\nWould you like to book one of them? Just tell me which.`;
     },
 
     staff(urgent: boolean) {
