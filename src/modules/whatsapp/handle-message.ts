@@ -126,6 +126,15 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
     return fresh;
   }
 
+  /**
+   * O texto como o portão o deixa sair: ele mesmo, ou com uma abertura que o cliente ainda não recebeu; null se nenhuma serve.
+   * Usa a mesma janela e a mesma conta da regra de texto repetido, então nunca difere do que o portão barraria.
+   */
+  async function unrepeated(conversationId: string, text: string): Promise<string | null> {
+    const same = await gate.pickVariant(conversationId, [text]);
+    return same ?? gate.pickVariant(conversationId, texts.again.map((opening) => `${opening}\n${text}`));
+  }
+
   return async function handleMessage(
     { conversationId, message }: { conversationId: string; message: IncomingMessage },
     log: FastifyBaseLogger,
@@ -179,10 +188,18 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
       const room = answer.followUp ? MAX_PARTS - 1 : MAX_PARTS;
       const parts = answer.split ? splitReply(answer.text, room) : [answer.text];
       const fresh = parts.length > 1 ? await keepFresh(conversationId, parts) : parts;
-      if (fresh.length === 0) log.info({ conversationId }, "resposta descartada: todas as partes repetidas");
+      // Todas as partes repetidas: a resposta inteira sai numa mensagem só, com abertura, nunca em silêncio
+      const pieces = fresh.length > 0 ? fresh : [parts.join("\n")];
+      if (fresh.length === 0) log.info({ conversationId }, "todas as partes repetidas: resposta inteira, com abertura");
       // Uma mensagem de cada vez, cada uma com seu "digitando…"; se uma não sair, as seguintes também não
-      for (const part of answer.followUp && fresh.length ? [...fresh, answer.followUp] : fresh) {
-        if ((await gate.sendAssistant({ conversationId, phone, text: part, ignorePause: answer.ignorePause })) !== "sent") return;
+      for (const piece of answer.followUp ? [...pieces, answer.followUp] : pieces) {
+        const text = await unrepeated(conversationId, piece);
+        // ponytail: teto = as três aberturas já enviadas para este mesmo texto na janela; então só o log, sem outra saída
+        if (!text) {
+          log.error({ conversationId }, "resposta repetida sem abertura livre: não enviada");
+          return;
+        }
+        if ((await gate.sendAssistant({ conversationId, phone, text, ignorePause: answer.ignorePause })) !== "sent") return;
       }
     } catch (err) {
       log.error({ phone, err }, "falha ao registrar a resposta do assistente");

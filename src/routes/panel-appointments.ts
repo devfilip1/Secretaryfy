@@ -22,7 +22,10 @@ import type { Booking } from "../modules/scheduling/booking.js";
 import { normalizePhone } from "../modules/scheduling/phone.js";
 import type { RulesStore } from "../modules/scheduling/rules.js";
 import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
+import type { Language } from "../modules/scheduling/dates.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
+import type { ClinicContext } from "../modules/clinic/context.js";
+import { panelLanguage } from "./panel-language.js";
 
 interface Deps {
   store: Pick<SchedulingStore, "listUpcoming" | "findAppointment" | "confirm">;
@@ -36,6 +39,8 @@ interface Deps {
   reminderLeadMinutes: number;
   /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
   catalog: ServiceCatalog;
+  /** Idioma da clínica, padrão dos rótulos quando o painel não pede um (`?language=`) */
+  clinic: Pick<ClinicContext, "language">;
   now?: () => Date;
 }
 
@@ -62,13 +67,14 @@ export function panelAppointmentsRoutes({
   booking,
   reminderLeadMinutes,
   catalog,
+  clinic,
   now: clock = () => new Date(),
 }: Deps) {
   /** Fuso da agenda conectada; sem agenda, o de reserva. */
   const timeZoneOf = () => clinicTimeZone(connection);
 
-  function present(appt: AppointmentRow | UpcomingAppointment, extra: { now: Date; timeZone: string; conversationId: string | null }) {
-    const { now, timeZone, conversationId } = extra;
+  function present(appt: AppointmentRow | UpcomingAppointment, extra: { now: Date; timeZone: string; conversationId: string | null; language: Language }) {
+    const { now, timeZone, conversationId, language } = extra;
     const day = DateTime.fromJSDate(appt.startsAt, { zone: timeZone }).startOf("day");
     const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
     const diff = Math.round(day.diff(today, "days").days);
@@ -82,8 +88,8 @@ export function panelAppointmentsRoutes({
       minutes: (appt.endsAt.getTime() - appt.startsAt.getTime()) / 60_000,
       group,
       customerName: "registeredName" in appt && appt.registeredName ? appt.registeredName : appt.customerName,
-      // O título do tratamento; sem serviço guardado é avaliação geral, como no fluxo
-      service: catalog.label(appt.service ?? ASSESSMENT),
+      // O título do tratamento; sem serviço guardado é avaliação geral, como no fluxo. Os fixos saem no idioma pedido
+      service: catalog.label(appt.service ?? ASSESSMENT, language),
       phone: appt.phone,
       customerId: appt.customerId,
       notes: "notes" in appt ? appt.notes : null,
@@ -99,9 +105,9 @@ export function panelAppointmentsRoutes({
     };
   }
 
-  async function presentOne(appt: AppointmentRow) {
+  async function presentOne(appt: AppointmentRow, language: Language) {
     const conversation = await inboxRepo.findConversationByPhone(appt.phone);
-    return present(appt, { now: clock(), timeZone: await timeZoneOf(), conversationId: conversation?.id ?? null });
+    return present(appt, { now: clock(), timeZone: await timeZoneOf(), conversationId: conversation?.id ?? null, language });
   }
 
   /** Agenda pronta para marcar; senão responde 409 e devolve null. */
@@ -166,6 +172,8 @@ export function panelAppointmentsRoutes({
     app.get("/api/appointments", async (req, reply) => {
       const query = agendaQuery.safeParse(req.query);
       if (!query.success) return reply.code(422).send({ error: "invalid_query" });
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
       const now = clock();
       const timeZone = await timeZoneOf();
       const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
@@ -177,12 +185,14 @@ export function panelAppointmentsRoutes({
       const conversations = await inboxRepo.conversationIdsByPhone(rows.map((r) => r.phone));
       return {
         timeZone,
-        appointments: rows.map((r) => present(r, { now, timeZone, conversationId: conversations.get(r.phone) ?? null })),
+        appointments: rows.map((r) => present(r, { now, timeZone, conversationId: conversations.get(r.phone) ?? null, language })),
       };
     });
 
     // O operador confirma o horário, por exemplo depois de ligar para o cliente (US4, FR-022a)
     app.post("/api/appointments/:id/confirm", async (req, reply) => {
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
       const params = idParams.safeParse(req.params);
       const now = clock();
       const current = params.success ? await store.findAppointment(params.data.id) : null;
@@ -198,13 +208,17 @@ export function panelAppointmentsRoutes({
             timeZone: await timeZoneOf(),
           });
       }
-      return { appointment: await presentOne(confirmed) };
+      return { appointment: await presentOne(confirmed, language) };
     });
 
     // --- Marcar pelo painel (US3) ---
 
-    // Lista de serviços do painel: a mesma do assistente, com o rótulo em inglês
-    app.get("/api/services", async () => ({ services: catalog.panelList() }));
+    // Lista de serviços do painel: a mesma do assistente, com o rótulo no idioma pedido (os tratamentos mantêm o título)
+    app.get("/api/services", async (req, reply) => {
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
+      return { services: catalog.panelList().map((s) => ({ ...s, label: catalog.label(s.name, language) })) };
+    });
 
     // Com `service`, os dias valem para a duração do tratamento; sem ele, a duração padrão
     app.get("/api/booking/days", async (req, reply) => {
@@ -257,6 +271,8 @@ export function panelAppointmentsRoutes({
       const query = lookupQuery.safeParse(req.query);
       const phone = query.success ? normalizePhone(query.data.phone) : null;
       if (!phone) return reply.code(422).send({ error: "invalid_phone" });
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
       const conversation = await inboxRepo.findConversationByPhone(phone);
       const customer = await customers.findByPhone(phone);
       return guard(reply, async () => {
@@ -265,7 +281,7 @@ export function panelAppointmentsRoutes({
           phone,
           name: customer?.name ?? conversation?.customerName ?? null,
           hasConversation: Boolean(conversation),
-          futureAppointment: future ? await presentOne(future) : null,
+          futureAppointment: future ? await presentOne(future, language) : null,
         };
       });
     });
@@ -277,6 +293,8 @@ export function panelAppointmentsRoutes({
         return reply.code(422).send({ error: "invalid_body", issues });
       }
       const { phone, name, service, start, minutes } = body.data;
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
       const conversation = await inboxRepo.findConversationByPhone(phone);
 
       return guard(reply, async () => {
@@ -291,9 +309,9 @@ export function panelAppointmentsRoutes({
         });
         switch (result.kind) {
           case "booked":
-            return reply.code(201).send({ appointment: await presentOne(result.appointment) });
+            return reply.code(201).send({ appointment: await presentOne(result.appointment, language) });
           case "already_booked":
-            return reply.code(409).send({ error: "already_booked", appointment: await presentOne(result.appointment) });
+            return reply.code(409).send({ error: "already_booked", appointment: await presentOne(result.appointment, language) });
           case "calendar_unavailable":
             return reply.code(409).send({ error: "calendar_disconnected" });
           case "slot_taken": {

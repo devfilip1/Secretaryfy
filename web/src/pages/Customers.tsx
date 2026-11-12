@@ -4,6 +4,7 @@ import { deleteCustomer, listCustomers, type Customer, type CustomerAppointment 
 import { formatPhone } from "../format";
 import { useFormats } from "../i18n/formats";
 import { useInboxEvents } from "../useEvents";
+import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { CustomerDetail } from "../components/customers/CustomerDetail";
@@ -26,6 +27,7 @@ function nextAppointment(c: Customer): CustomerAppointment | null {
 /** Cadastro de clientes: quem já confirmou um horário (specs/005). Tabela à esquerda e ficha do cliente selecionado à direita; no celular, a ficha ocupa a tela (specs/006). */
 export function CustomersPage() {
   const { t } = useTranslation("customers");
+  const language = useActivePanelLanguage();
   const [customers, setCustomers] = useState<Customer[] | null>(null);
   const [timeZone, setTimeZone] = useState<string | undefined>();
   const [error, setError] = useState<ErrorMessage | null>(null);
@@ -37,14 +39,14 @@ export function CustomersPage() {
   const errorText = error ? (error.values ? t(error.key, error.values) : t(error.key)) : null;
 
   const load = useCallback(() => {
-    listCustomers()
+    listCustomers(language)
       .then((r) => {
         setCustomers(r.customers);
         setTimeZone(r.timeZone);
         setError(null);
       })
       .catch((err) => setError({ key: serverErrorKey(err) ?? "errors.load" }));
-  }, []);
+  }, [language]);
   useEffect(load, [load]);
 
   useInboxEvents((event) => {

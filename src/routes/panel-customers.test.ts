@@ -48,6 +48,7 @@ async function panelWith(catalog: ServiceCatalog): Promise<FastifyInstance> {
       log: { warn: () => {} },
       now: () => NOW,
       catalog,
+      clinic: { language: "en" },
     }),
   );
   return server;
@@ -90,6 +91,32 @@ async function maria() {
 
 const patch = (id: string, payload: unknown) => app.inject({ method: "PATCH", url: `/api/customers/${id}`, payload: payload as object });
 const titles = () => [...fake.events.values()].map((e) => e.summary).sort();
+
+test("GET /api/customers?language: o retorno sai no idioma pedido; outro valor, 422", async () => {
+  const customer = await customers.upsert({ phone: PHONE, name: "Maria", at: NOW });
+  const start = new Date(NOW.getTime() + 30 * 3_600_000);
+  const end = new Date(start.getTime() + 2_700_000);
+  const { eventId } = await fake.gateway.createEvent({ summary: "Maria — Retorno", description: "", start, end, timeZone: "UTC", properties: {} });
+  const appt = await rawStore.insertBooked({
+    id: crypto.randomUUID(),
+    conversationId: null,
+    phone: PHONE,
+    origin: "assistant",
+    googleEventId: eventId,
+    calendarId: "primary",
+    startsAt: start,
+    endsAt: end,
+    customerName: "Maria",
+    service: "FollowUp",
+    reminderStatus: "not_needed",
+  });
+  await rawStore.setCustomer(appt!.id, customer.id);
+  const fixed = await panelWith(createCatalog([], { offerAssessment: true, offerFollowUp: true, assessmentMinutes: null, followUpMinutes: 45 }));
+  const labels = async (url: string) => (await fixed.inject({ url })).json().customers[0].appointments.map((a: { service: string }) => a.service);
+  assert.deepEqual(await labels("/api/customers?language=pt"), ["Retorno"]);
+  assert.deepEqual(await labels("/api/customers?language=en"), ["Follow-up visit"]);
+  assert.equal((await fixed.inject({ url: "/api/customers?language=xx" })).statusCode, 422);
+});
 
 test("GET /api/customers traz o fuso da clínica (o de reserva, sem agenda conectada)", async () => {
   const json = (await app.inject({ url: "/api/customers" })).json();

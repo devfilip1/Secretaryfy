@@ -6,6 +6,7 @@ import { testReplies as replies } from "./clinic.js";
 import type { SchedulingFlow } from "../modules/scheduling/flow.js";
 import type { Replies } from "../modules/scheduling/replies.js";
 import type { DayPeriod, Interpretation, InterpretInput, Interpreter } from "../modules/scheduling/interpret.js";
+import type { Agreement } from "../modules/scheduling/understanding/agreement.js";
 import { InterpreterUnavailable } from "../modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
 import { DEFAULT_RULES } from "../modules/scheduling/rules.js";
@@ -48,6 +49,8 @@ export function setup({
   when = null,
   pick = null,
   sense = null,
+  topicOnly = false,
+  agreement = null,
   flowReply = "do agendamento",
   texts = replies,
 }: {  intent?: Interpretation["intent"];
@@ -88,6 +91,10 @@ export function setup({
   pick?: number | null;
   /** Palavras sem sentido: a chamada de sentido (mentionedSense) acha que a mensagem não tem sentido; o padrão é não */
   sense?: boolean | null;
+  /** A intenção é só o assunto da pergunta de sim ou não (topicOnly na interpretação, ver validate.ts) */
+  topicOnly?: boolean;
+  /** Concordância que a chamada focada mentionedAgreement acha; null = a chamada falhou ou não se decide */
+  agreement?: Agreement | null;
   humanize?: (reply: string) => Promise<string>;
   /** A conversa ainda não tem resposta nossa */
   firstMessage?: boolean;
@@ -115,7 +122,7 @@ export function setup({
     interpret: async (input) => {
       inputs.push(input);
       if (unavailable) throw new InterpreterUnavailable("Ollama fora do ar");
-      return { intent: intent!, option: null, date, name, urgent, service, source: "model", ...(time ? { time } : {}) };
+      return { intent: intent!, option: null, date, name, urgent, service, source: "model", ...(time ? { time } : {}), ...(topicOnly ? { topicOnly: true } : {}) };
     },
     mentionedWhen: async (input) => {
       whenCalls.push(input);
@@ -123,6 +130,7 @@ export function setup({
     },
     mentionedOption: async () => pick,
     mentionedSense: async () => sense,
+    mentionedAgreement: async () => agreement,
     mentionedService: async (input) => {
       mentionCalls.push(input);
       return mentioned;

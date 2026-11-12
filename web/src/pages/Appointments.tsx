@@ -18,6 +18,7 @@ import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Title } from "../components/Title";
 import { useInboxEvents } from "../useEvents";
+import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 
 /** Erro da tela: a chave (e o nome, se houver) fica no estado e vira texto só ao mostrar, então trocar o idioma não refaz a busca. */
 type ErrorMessage = { key: "errors.load" | "errors.confirm" | "errors.notBooked"; values?: { name: string } };
@@ -28,6 +29,7 @@ type ErrorMessage = { key: "errors.load" | "errors.confirm" | "errors.notBooked"
  */
 export function AppointmentsPage() {
   const { t } = useTranslation("appointments");
+  const language = useActivePanelLanguage();
   const reasonText = useBlockReasonText();
   const [data, setData] = useState<{ timeZone: string; appointments: Appointment[] } | null>(null);
   const [error, setError] = useState<ErrorMessage | null>(null);
@@ -39,13 +41,13 @@ export function AppointmentsPage() {
   const [range, setRange] = useState<AgendaRange>(readAgendaRange);
 
   const load = useCallback(() => {
-    listAppointments(AGENDA_FETCH_DAYS[range])
+    listAppointments(AGENDA_FETCH_DAYS[range], undefined, language)
       .then((r) => {
         setData(r);
         setError(null);
       })
       .catch(() => setError({ key: "errors.load" }));
-  }, [range]);
+  }, [range, language]);
   useEffect(load, [load]);
 
   function chooseRange(next: AgendaRange) {
@@ -78,7 +80,7 @@ export function AppointmentsPage() {
   async function confirm(a: Appointment) {
     setConfirming(a.id);
     try {
-      const { appointment } = await confirmAppointment(a.id);
+      const { appointment } = await confirmAppointment(a.id, language);
       setData((d) => d && { ...d, appointments: d.appointments.map((x) => (x.id === a.id ? appointment : x)) });
     } catch {
       setError({ key: "errors.confirm", values: { name: a.customerName } });

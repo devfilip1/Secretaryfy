@@ -13,14 +13,14 @@ import { InterpreterUnavailable } from "./ollama.js";
 import type { Replies } from "./replies.js";
 import type { RulesStore } from "./rules.js";
 import type { SchedulingStore } from "./sessions.js";
-import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
+import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./understanding/resolve.js";
 
 /** Pede o nome no máximo duas vezes: na primeira resposta e, se o cliente seguiu sem dizer, mais uma vez depois de algumas mensagens */
 const NAME_ASKS_MAX = 2;
 const ASK_AGAIN_AFTER = 3;
 
 interface Deps {
-  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense">>;
+  interpreter: Pick<Interpreter, "interpret" | "mentionedService"> & Partial<Pick<Interpreter, "mentionedWhen" | "mentionedOption" | "mentionedSense" | "mentionedAgreement">>;
   flow: SchedulingFlow;
   store: Pick<SchedulingStore, "getSession" | "clearSession" | "findReminderAwaiting" | "confirm">;
   inbox: Pick<
@@ -118,13 +118,12 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     async function fromBrochure(calm: boolean): Promise<Reply> {
       const answer = await answerQuestion(text, log, message.phone, ragHistory);
       // A proteção descarta uma mensagem igual a uma já enviada: as partes repetidas ficam de fora (o cliente já as leu);
-      // só quando a resposta inteira é repetida ela vai numa mensagem só, com uma abertura
+      // quando a resposta inteira é repetida, a abertura entra no envio (handle-message), pela regra do portão
       const said = history.filter((m) => m.role === "assistant").map((m) => m.content);
       const parts = splitReply(answer);
       const fresh = parts.filter((part) => !said.includes(part));
       const body = parts.join("\n");
-      const reply =
-        fresh.length === 0 ? { text: replies.startsWithAgain(body) ? body : `${replies.again()}\n${body}` } : greet({ text: fresh.join("\n\n"), split: true });
+      const reply = fresh.length === 0 ? { text: body } : greet({ text: fresh.join("\n\n"), split: true });
       return calm ? askName(reply) : reply;
     }
 
@@ -157,6 +156,11 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
 
     // Palavras sem sentido lidas como grosseria, manipulação ou fora do assunto viram não entendi, antes das respostas fixas abaixo (ver understanding/sense.ts)
     if (wantsSense(interpretation)) interpretation = applySense(interpretation, (await interpreter.mentionedSense?.({ text, log })) ?? null);
+
+    // Sim ou não numa confirmação que o modelo leu só como o assunto da pergunta: a concordância decide (ver applyAgreement, em resolve.ts)
+    if (interpretation.topicOnly) {
+      interpretation = applyAgreement(interpretation, session?.step ?? null, (await interpreter.mentionedAgreement?.({ text, log })) ?? null);
+    }
 
     // Instruções, prompt, troca de papel e assuntos alheios à clínica: o modelo só classifica, e o assunto volta para a clínica sem passar pelo folheto
     if (interpretation.intent === "manipulation" || interpretation.intent === "off_topic") return { text: replies.stayOnTopic() };
@@ -226,12 +230,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // O tratamento citado na conversa (o da chamada focada, com a citação conferida) vira o serviço do agendamento (specs/005 FR-010)
     const result = await flow.handle({ conversation, interpretation: chosen, session, knownName: known, mentionedService: mentioned });
     // Handoff é texto fixo de quem atende; a reescrita só vale para a resposta do fluxo
-    let out = result.handoff ? result.reply : await humanize(result.reply, log);
-    // Um texto igual a um que já mandamos seria descartado pela proteção (repetido): quem pediu de novo recebe uma abertura,
-    // salvo se o texto já começa com uma (senão sai "Claro!" duas vezes)
-    if (!result.handoff && history.some((m) => m.role === "assistant" && m.content === out) && !replies.startsWithAgain(out)) {
-      out = `${replies.again()}\n\n${out}`;
-    }
+    const out = result.handoff ? result.reply : await humanize(result.reply, log);
     return { ...(result.handoff ? { text: out } : greet({ text: out })), ignorePause: result.handoff };
   };
 }

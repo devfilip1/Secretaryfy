@@ -47,7 +47,7 @@ test("'ou noite': a parte da noite chega ao fluxo sem horário inventado", async
   assert.equal(i.time ?? null, null);
 });
 
-test("uma resposta igual à que o assistente já mandou ganha a abertura, e a lista não sai pura", async () => {
+test("uma resposta igual à que o assistente já mandou sai sem mudança do roteador: o envio põe a abertura", async () => {
   const r = setup({
     intent: "choose",
     date: "2026-11-25",
@@ -57,7 +57,5 @@ test("uma resposta igual à que o assistente já mandou ganha a abertura, e a li
     assistantSaid: "Lista igual",
   });
   const reply = await r.reply();
-  assert.ok(reply);
-  assert.notEqual(reply.text, "Lista igual");
-  assert.match(reply.text, /\n\nLista igual$/);
+  assert.equal(reply!.text, "Lista igual");
 });

@@ -75,6 +75,8 @@ const cases: Case[] = [
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
   c(null, "vocês atendem no fim de semana?", "availability", { date: null, weekend: true }),
+  // Um dia da semana nomeado nunca é o fim de semana, mesmo que o modelo diga "weekend"
+  c(null, "quais horarios da segunda de tarde", "availability", { weekend: false }),
   c(null, PT ? "quero marcar uma limpeza" : "I would like to book a cleaning", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
   c(null, "preciso cancelar minha consulta", "cancel"),
   c(null, "quanto custa o clareamento?", "question"),
@@ -141,6 +143,9 @@ const cases: Case[] = [
   c("confirm_booking", "sim, pode confirmar", "yes"),
   c("confirm_booking", "isso mesmo", "yes"),
   c("confirm_booking", "nao, melhor outro horario", "no"),
+  // O modelo tende a ler o assunto da pergunta ("remarcar", "agendar") em vez do sim: a confirmação vale como sim
+  c("confirm_reschedule", "pode sim camarada", "yes"),
+  c("confirm_booking", "pode sim camarada", "yes"),
   c("ask_name", "Carla Souza", "give_name"),
   c("choose_service", "quero fazer um clareamento", "choose_service", { service: PT ? "clareamento-dental" : "Teeth Whitening" }),
   c("ask_name", "pode colocar Joana", "give_name", { name: "Joana" }),

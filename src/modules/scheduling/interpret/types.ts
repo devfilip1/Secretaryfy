@@ -24,6 +24,8 @@ export interface Interpretation {
   tooFar?: boolean;
   /** O fim de semana inteiro (sábado e domingo), sem um dia citado: o fluxo oferece os dois, nunca um só */
   weekend?: boolean;
+  /** Numa pergunta de sim ou não, a intenção só repete o assunto da pergunta (nada citado): a chamada de concordância decide (applyAgreement, em resolve.ts) */
+  topicOnly?: boolean;
 }
 
 export interface InterpretInput {

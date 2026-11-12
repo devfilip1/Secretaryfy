@@ -2,6 +2,7 @@ import type { ClinicContext } from "../clinic/context.js";
 import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { createOptionExtractor } from "./understanding/option.js";
+import { createAgreementReader } from "./understanding/agreement.js";
 import { quotedByCustomer } from "./understanding/quote.js";
 import { createSenseReader } from "./understanding/sense.js";
 import { createWhenExtractor } from "./understanding/when.js";
@@ -31,6 +32,7 @@ export function createInterpreter({
   const when = createWhenExtractor({ ollama });
   const pick = createOptionExtractor({ ollama });
   const sense = createSenseReader({ ollama });
+  const agreement = createAgreementReader({ ollama });
   return {
     /** Lança InterpreterUnavailable se o modelo for necessário e o Ollama não responder. */
     async interpret(input: InterpretInput): Promise<Interpretation> {
@@ -50,6 +52,7 @@ export function createInterpreter({
     mentionedWhen: when,
     mentionedOption: pick,
     mentionedSense: sense,
+    mentionedAgreement: agreement,
 
     /**
      * O tratamento de que a conversa fala (o citado por último), numa chamada só, sem regras por palavra. Qualquer falha

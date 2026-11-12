@@ -211,3 +211,36 @@ test("sem agendamento futuro, horário escolhido segue para o resumo de um novo 
   assert.equal(s?.flow, "book");
   assert.equal(h.fake.calls.moveEvent, 0);
 });
+
+test("reschedule na pergunta 'Quer remarcá-lo?' vale como sim: oferece os dias (BR-SCH-05)", async () => {
+  h.rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  const conv = await conversation();
+  await book(conv);
+  await say(conv, I("book"));
+  assert.match((await say(conv, I("reschedule"))).reply, /^Sure! These days have openings/);
+  const s = await sessionOf(conv);
+  assert.equal(s?.flow, "reschedule");
+  assert.equal(s?.step, "choose_day");
+});
+
+test("'as 15' com os horários de um dia na tela e agendamento futuro: o dia da tela e o horário vão à troca (BR-SCH-05)", async () => {
+  h.rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  const conv = await conversation();
+  await book(conv);
+  await say(conv, I("availability", { date: "2026-10-23", period: "afternoon" }));
+  const { reply } = await say(conv, I("book", { time: "15:00" }));
+  assert.equal(reply, "Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Friday, October 23 at 3:00 PM?");
+  assert.equal((await sessionOf(conv))?.step, "confirm_reschedule");
+  assert.equal((await say(conv, I("yes"))).reply, "Done! Your appointment is now on Friday, October 23 at 3:00 PM.");
+  assert.equal(h.fake.calls.moveEvent, 1);
+});
+
+test("availability com um horário na tela e agendamento futuro: vai à confirmação da troca (BR-SCH-05)", async () => {
+  h.rules = { ...DEFAULT_RULES, cancelNoticeMinutes: 60 };
+  const conv = await conversation();
+  await book(conv);
+  await say(conv, I("availability", { date: "2026-10-23", period: "afternoon" }));
+  const { reply } = await say(conv, I("availability", { time: "15:00" }));
+  assert.equal(reply, "Shall I move your appointment from Wednesday, October 21 at 10:00 AM to Friday, October 23 at 3:00 PM?");
+  assert.equal((await sessionOf(conv))?.step, "confirm_reschedule");
+});

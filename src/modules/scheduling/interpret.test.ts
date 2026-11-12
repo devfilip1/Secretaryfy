@@ -393,6 +393,65 @@ test("mentionedService: null, rótulo fora do catálogo, avaliação geral, JSON
   assert.equal(logged.length, 1);
 });
 
+// --- sim ou não numa confirmação: o assunto lido pelo modelo não é sim; o interpretador só marca topicOnly (quem decide é a concordância) ---
+
+test("confirmação de remarcação: 'pode sim camarada' lido como reschedule pelo modelo fica reschedule, marcado topicOnly", async () => {
+  const { interpreter } = fakeOllama({ intent: "reschedule", option: null, date: null, name: null });
+  const r = await interpreter.interpret(input({ text: "pode sim camarada", step: "confirm_reschedule" }));
+  assert.deepEqual([r.intent, r.date, r.source, r.topicOnly], ["reschedule", null, "model", true]);
+});
+
+test("confirmação: o assunto não herda a data, o horário nem o tratamento que o modelo inventou", async () => {
+  const { interpreter } = fakeOllama({ intent: "reschedule", option: null, date: "2026-10-27", time: "15:00", name: null, service: "Teeth Whitening" });
+  const r = await interpreter.interpret(input({ text: "pode sim camarada", step: "confirm_reschedule" }));
+  assert.deepEqual([r.intent, r.date, r.time, r.option, r.topicOnly], ["reschedule", null, undefined, null, true]);
+});
+
+test("confirmação de agendamento, de cancelamento e oferta de remarcação: o assunto lido pelo modelo fica a intenção dele, sem virar sim", async () => {
+  const booking = fakeOllama({ intent: "book", option: null, date: null, name: null }).interpreter;
+  assert.equal((await booking.interpret(input({ text: "pode sim", step: "confirm_booking" }))).intent, "book");
+  const cancel = fakeOllama({ intent: "cancel", option: null, date: null, name: null }).interpreter;
+  assert.equal((await cancel.interpret(input({ text: "pode sim", step: "confirm_cancel" }))).intent, "cancel");
+  const offer = fakeOllama({ intent: "reschedule", option: null, date: null, name: null }).interpreter;
+  assert.equal((await offer.interpret(input({ text: "pode sim", step: "offer_reschedule" }))).intent, "reschedule");
+});
+
+test("confirmação: 'não quero cancelar' lido como cancel também fica cancel, com topicOnly, nunca sim", async () => {
+  const { interpreter } = fakeOllama({ intent: "cancel", option: null, date: null, name: null });
+  const r = await interpreter.interpret(input({ text: "não quero cancelar", step: "confirm_cancel" }));
+  assert.deepEqual([r.intent, r.topicOnly], ["cancel", true]);
+});
+
+test("confirmação: o assunto com um dia citado é pedido de mudança, não sim", async () => {
+  const { interpreter } = fakeOllama({ intent: "reschedule", option: null, date: null, weekday: "wednesday", name: null });
+  const r = await interpreter.interpret(input({ text: "melhor na quarta", step: "confirm_reschedule" }));
+  assert.deepEqual([r.intent, r.date], ["reschedule", "2026-10-21"]);
+});
+
+test("confirmação: o assunto com um horário citado é pedido de mudança, não sim", async () => {
+  const { interpreter } = fakeOllama({ intent: "book", option: null, date: null, name: null });
+  assert.equal((await interpreter.interpret(input({ text: "pode ser às 15h", step: "confirm_booking" }))).intent, "book");
+});
+
+test("confirmação: o tratamento só conta como citado se estiver na frase", async () => {
+  const { interpreter } = fakeOllama({ intent: "book", option: null, date: null, name: null, service: "Teeth Whitening" });
+  const cited = await interpreter.interpret(input({ text: "pode sim, o Teeth Whitening", step: "confirm_booking" }));
+  assert.equal(cited.intent, "book");
+  const notCited = fakeOllama({ intent: "book", option: null, date: null, name: null, service: "Teeth Whitening" }).interpreter;
+  assert.equal((await notCited.interpret(input({ text: "pode sim", step: "confirm_booking" }))).intent, "book");
+});
+
+test("confirmação: não continua não, sim continua sim, e fora da confirmação o assunto não muda", async () => {
+  const { interpreter, bodies } = fakeOllama({ intent: "no", option: null, date: null, name: null });
+  assert.equal((await interpreter.interpret(input({ text: "não, deixa como está", step: "confirm_reschedule" }))).intent, "no");
+
+  assert.equal((await interpreter.interpret(input({ text: "sim", step: "confirm_booking" }))).intent, "yes");
+  assert.equal(bodies.length, 1, "o 'sim' puro é regra, sem o modelo");
+
+  const outside = fakeOllama({ intent: "reschedule", option: null, date: null, name: null }).interpreter;
+  assert.equal((await outside.interpret(input({ text: "pode sim camarada", step: null }))).intent, "reschedule");
+});
+
 // Quarta, 11/11/2026, 18:00 em Salvador (já passou do horário): a lista oferece 12, 13, 14, 16, 17 e 18 de novembro
 const novembro = {
   now: new Date("2026-11-11T21:00:00Z"),
@@ -491,6 +550,25 @@ test("fim de semana numa lista de dias: não é a opção do sábado, é a escol
   const { interpreter } = fakeOllama({ intent: "choose", option: 1, date: null, weekday: "weekend", name: null });
   const r = await interpreter.interpret(input({ step: "choose_day", options: sabadoEDomingo, text: "fim de semana" }));
   assert.deepEqual([r.intent, r.option, r.date, r.weekend], ["choose", null, null, true]);
+});
+
+test("'segunda de tarde' com 'weekend' do modelo: é a segunda, não o fim de semana", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, weekday: "weekend", name: null });
+  const r = await interpreter.interpret(input({ text: "quais horarios da segunda de tarde" }));
+  // Terça, 20/10/2026: a próxima segunda é 26/10
+  assert.deepEqual([r.intent, r.date, r.weekend], ["availability", "2026-10-26", undefined]);
+});
+
+test("'sábado de tarde' com 'weekend' do modelo: é só o sábado", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, weekday: "weekend", name: null });
+  const r = await interpreter.interpret(input({ text: "quais horarios no sabado de tarde" }));
+  assert.deepEqual([r.date, r.weekend], ["2026-10-24", undefined]);
+});
+
+test("'quais horarios do fim de semana' sem dia nomeado: o 'weekend' do modelo vale", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, weekday: "weekend", name: null });
+  const r = await interpreter.interpret(input({ text: "quais horarios do fim de semana" }));
+  assert.deepEqual([r.date, r.weekend], [null, true]);
 });
 
 // Quinta, 12/11/2026: a segunda lista oferece 19, 20, 21, 23, 24 e 25 de novembro

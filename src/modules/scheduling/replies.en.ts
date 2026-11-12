@@ -10,8 +10,8 @@ const bullets = (lines: string[]) => lines.map((line) => `• ${line}`).join("\n
 
 const PERIOD_EN: Record<DayPeriod, string> = { morning: "morning", afternoon: "afternoon", evening: "evening" };
 
-/** As aberturas de again(): a resposta que repete outra começa com uma delas */
-const AGAIN_EN = ["Of course!", "Happy to!", "Sure thing!"];
+/** As aberturas de again(): a resposta que repete outra começa com uma delas (as da língua, em antiban/texts.ts) */
+const AGAIN_EN = fixedTextsFor("en").again;
 
 const hoursText = (minutes: number) => {
   if (minutes % 60 !== 0) return `${minutes} minutes`;

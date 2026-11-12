@@ -1,15 +1,23 @@
 /** Validação e limpeza da resposta do modelo contra a etapa, as opções na tela e a janela de datas (contracts/interpreter.md §3). */
 import { DateTime } from "luxon";
 import { z } from "zod";
-import type { SessionOption } from "../../../db/schema.js";
+import type { SchedulingStep, SessionOption } from "../../../db/schema.js";
 import type { ServiceCatalog } from "../catalog.js";
-import { findDatesInText, findExplicitDatesInText, namesTheWeekend, weekdaysNamedInText } from "../dates.js";
+import { findDatesInText, findExplicitDatesInText, namesTheWeekend, parseTimeOfDay, weekdaysNamedInText } from "../dates.js";
 import { INTENTS, asksForWhen, canCarryAWhen, carriesACitedDay, isStepOnly, picksOfferedDay, type Intent } from "../intents.js";
 import { normalize } from "../understanding/quote.js";
 import { cleanName, nameInText } from "./names.js";
 import { WEEKDAY_NAMES } from "./prompt.js";
 import { NO, YES } from "./rules.js";
 import { result, type InterpretInput, type Interpretation } from "./types.js";
+
+/** Assunto de cada pergunta de sim ou não: a intenção que só repete esse assunto é a própria pergunta, não um pedido novo */
+const YES_NO_TOPIC: Partial<Record<SchedulingStep, Intent>> = {
+  confirm_booking: "book",
+  confirm_cancel: "cancel",
+  confirm_reschedule: "reschedule",
+  offer_reschedule: "reschedule",
+};
 
 /** O cliente fala de hoje: só então a data de hoje, devolvida pelo modelo num pedido sem dia, vale */
 const SAYS_TODAY = /\b(today|tonight|now|this (?:morning|afternoon|evening))\b/i;
@@ -59,13 +67,13 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   const parsed = modelOutput.safeParse(raw);
   if (!parsed.success) return result("unclear", { source: "model" });
   const { name } = parsed.data;
-  // O fim de semana é sábado e domingo juntos: o modelo o diz como "weekend", ou a frase traz os dois dias pelo nome
+  // O fim de semana é sábado e domingo juntos: o modelo o diz como "weekend", ou a frase traz os dois dias pelo nome. Se a frase nomeia algum dia e não os dois, o "weekend" do modelo é engano ("segunda de tarde" não é o fim de semana; "sábado" é só o sábado)
   const namedDays = weekdaysNamedInText(text);
-  const weekendAsked = parsed.data.weekday === "weekend" || namesTheWeekend(text);
+  const weekendAsked = namedDays.length > 0 ? namesTheWeekend(text) : parsed.data.weekday === "weekend";
   const weekday = parsed.data.weekday && parsed.data.weekday !== "weekend" ? WEEKDAY_NAMES.indexOf(parsed.data.weekday) + 1 : 0;
   let { option, date } = parsed.data;
   // O horário citado só vale no formato HH:MM de 24 h; um valor que o modelo inventou fora disso some
-  const time = parsed.data.time && /^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.data.time) && canCarryAWhen(parsed.data.intent) ? parsed.data.time : null;
+  let time = parsed.data.time &&/^([01]\d|2[0-3]):[0-5]\d$/.test(parsed.data.time) && canCarryAWhen(parsed.data.intent) ? parsed.data.time : null;
   // O modelo entende o dia da semana em qualquer forma ("sábados", "sab") e devolve só o número; a conta do calendário é do código
   const today = DateTime.fromJSDate(now, { zone: timeZone }).startOf("day");
   const offeredDays = options.filter((o): o is OfferedDay => o.kind === "day");
@@ -100,6 +108,19 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   if (pickedDay) intent = "choose";
   // Na lista de dias, citar um dia ("e domingo?") é escolher esse dia, mesmo que o modelo tenha visto aí um "outro dia"
   if (intent === "other_day" && (option !== null || fromWeekday)) intent = "choose";
+  // Sim ou não numa confirmação: a intenção que só repete o assunto da pergunta ("remarcar" num "pode sim") é um sim, salvo se
+  // a frase cita um dia, horário, opção ou tratamento (aí é um pedido de mudança). Quem diz o tratamento tem de dizê-lo na frase
+  const topic = step ? YES_NO_TOPIC[step] : undefined;
+  const namedService = !!parsed.data.service && normalize(text).includes(normalize(parsed.data.service));
+  const citesAWhen = citedDates.length > 0 || namedDays.length > 0 || weekendAsked || parseTimeOfDay(text) !== null || option !== null || namedService;
+  // Sem nada citado, o modelo só repetiu o assunto: se a frase é sim, não ou outra coisa, quem diz é a chamada de concordância (topicOnly).
+  // A intenção fica a do modelo; aqui não se decide sim nem não
+  const topicOnly = intent === topic && !citesAWhen;
+  if (topicOnly) {
+    date = null;
+    option = null;
+    time = null;
+  }
 
   // Uma data simples citada na frase vale mais que a calculada pelo modelo, que erra dias da semana (o dia escolhido da lista já é uma data citada)
   if (!pickedDay && citedDates.length === 1 && canCarryAWhen(intent)) date = citedDates[0];
@@ -148,6 +169,7 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
     name: cleaned,
     ...(service ? { service } : {}),
     ...(weekend ? { weekend: true } : {}),
+    ...(topicOnly ? { topicOnly: true } : {}),
     ...(intent === "needs_staff" ? { urgent: parsed.data.urgent === true } : {}),
     source: "model",
     ...(date && date > window.lastDate ? { tooFar: true } : {}),

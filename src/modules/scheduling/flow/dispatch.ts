@@ -41,6 +41,11 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
   }
 
   const period = i.period ?? null;
+  // Um horário citado com os horários de um dia na tela e um agendamento futuro: o dia da tela e o horário são a remarcação (BR-SCH-05)
+  if (s?.step === "choose_slot" && i.time && !i.date && i.option === null && (i.intent === "book" || i.intent === "availability")) {
+    const day = daysOnScreen(run)[0];
+    if (day && (await currentAppointment(run))) return startReschedule(run, day, i.time, period);
+  }
   switch (i.intent) {
     case "book":
       return startBook(run, i.date, i.time ?? null, period, i.weekend === true);

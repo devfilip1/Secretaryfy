@@ -108,6 +108,7 @@ await app.register(
     connection: connectionStore,
     publish: bus.publish,
     catalog,
+    clinic,
     log: app.log,
   }),
 );
@@ -122,6 +123,7 @@ await app.register(
     rules: rulesStore,
     booking,
     catalog,
+    clinic,
     reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
   }),
 );

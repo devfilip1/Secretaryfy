@@ -1,6 +1,7 @@
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { Interpretation, When } from "../interpret.js";
-import { asksForWhen, isChoiceLike, mayBeNoise } from "../intents.js";
+import { asksForWhen, isChoiceLike, mayBeNoise, type Intent } from "../intents.js";
+import type { Agreement } from "./agreement.js";
 
 /** Quando a chamada focada de horário/parte do dia/dia deve rodar */
 export function wantsWhen(interpretation: Interpretation, step: SchedulingStep | null | undefined): boolean {
@@ -71,4 +72,26 @@ export function wantsSense(interpretation: Interpretation): boolean {
 export function applySense(interpretation: Interpretation, makesNoSense: boolean | null): Interpretation {
   if (makesNoSense !== true || !mayBeNoise(interpretation.intent)) return interpretation;
   return { ...interpretation, intent: "unclear" as const };
+}
+
+/** Intenção que vira resposta de sim ou não: a resposta limpa os campos que o modelo inventou para a pergunta */
+const answered = (interpretation: Interpretation, intent: Intent): Interpretation => ({
+  ...interpretation,
+  intent,
+  option: null,
+  date: null,
+  time: null,
+  topicOnly: false,
+});
+
+/**
+ * Sim ou não numa confirmação, quando a intenção só repetia o assunto da pergunta (topicOnly, ver validate.ts): concordância vira sim
+ * e recusa vira não. Sem resposta clara (neither ou falha), a intenção do modelo fica, mas nunca vira sim; no cancelamento, que apaga
+ * o horário, vira não entendi, para o assistente perguntar de novo. Devolve o mesmo objeto quando a intenção não é só o assunto.
+ */
+export function applyAgreement(interpretation: Interpretation, step: SchedulingStep | null, agreement: Agreement | null): Interpretation {
+  if (!interpretation.topicOnly) return interpretation;
+  if (agreement === "agree") return answered(interpretation, "yes");
+  if (agreement === "refuse") return answered(interpretation, "no");
+  return step === "confirm_cancel" ? answered(interpretation, "unclear") : interpretation;
 }
