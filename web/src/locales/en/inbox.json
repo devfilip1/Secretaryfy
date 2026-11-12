@@ -26,6 +26,8 @@
   "assistant": {
     "active": "Assistant active",
     "paused": "Assistant paused",
+    "activeShort": "Active",
+    "pausedShort": "Paused",
     "pause": "Pause",
     "resume": "Resume"
   },

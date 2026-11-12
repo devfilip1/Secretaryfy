@@ -182,7 +182,7 @@ export function CalendarPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Button variant="destructive" onClick={disconnect} disabled={busy}>
+              <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={disconnect} disabled={busy}>
                 {t("disconnect")}
               </Button>
             </>
@@ -256,7 +256,7 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
           return (
             <div
               key={key}
-              className="grid min-h-10 grid-cols-[130px_auto_auto_auto_1fr] items-center gap-2 px-3 py-1.5 max-md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] max-md:gap-x-2 max-md:gap-y-1"
+              className="grid min-h-10 grid-cols-[130px_auto_auto_auto_1fr] items-center gap-2 px-3 py-1.5 max-md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-md:gap-x-2 max-md:gap-y-1"
             >
               <label className="flex items-center gap-2 max-md:col-span-full">
                 <input type="checkbox" checked={!!hours} onChange={(e) => setDay(key, e.target.checked ? {} : null)} />
@@ -267,15 +267,15 @@ function RulesForm({ initial, onSaved }: { initial: CalendarRules; onSaved: (r: 
                   <Input
                     type="time"
                     aria-label={t("rules.startOf", { day })}
-                    className="tnum w-auto max-md:w-full"
+                    className="tnum w-auto max-md:w-full max-md:px-2"
                     value={hours.start}
                     onChange={(e) => setDay(key, { start: e.target.value })}
                   />
-                  <span className="text-muted-foreground">{t("rules.to")}</span>
+                  <span className="text-muted-foreground max-md:hidden">{t("rules.to")}</span>
                   <Input
                     type="time"
                     aria-label={t("rules.endOf", { day })}
-                    className="tnum w-auto max-md:w-full"
+                    className="tnum w-auto max-md:w-full max-md:px-2"
                     value={hours.end}
                     onChange={(e) => setDay(key, { end: e.target.value })}
                   />

@@ -26,7 +26,7 @@ export function DayHeader({ label, index, last, onMove, onToday }: DayHeaderProp
         </Button>
       </div>
       <strong className="min-w-0 truncate text-center">{label}</strong>
-      <Button variant="ghost" size="sm" disabled={index === 0} onClick={onToday}>
+      <Button variant="ghost" size="sm" className="text-foreground disabled:opacity-100 disabled:hover:bg-transparent" disabled={index === 0} onClick={onToday}>
         {t("agenda.today")}
       </Button>
     </div>

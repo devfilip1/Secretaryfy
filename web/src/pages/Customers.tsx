@@ -51,10 +51,14 @@ export function CustomersPage() {
     if (event.type === "customers.updated" || event.type === "reconnected") load();
   });
 
-  /** Dia e hora do agendamento no fuso da clínica, com o serviço se houver. */
-  const label = (a: CustomerAppointment) => {
+  /** Dia e hora do agendamento no fuso da clínica (a tabela mostra o serviço em outra linha). */
+  const whenLabel = (a: CustomerAppointment) => {
     const when = new Date(a.startsAt);
-    const at = t("appointmentAt", { day: formats.day.format(when), time: formats.time.format(when) });
+    return t("appointmentAt", { day: formats.day.format(when), time: formats.time.format(when) });
+  };
+  /** Dia e hora com o serviço na mesma linha, para a ficha do cliente. */
+  const label = (a: CustomerAppointment) => {
+    const at = whenLabel(a);
     return a.service ? t("appointmentWithService", { when: at, service: a.service }) : at;
   };
 
@@ -116,7 +120,8 @@ export function CustomersPage() {
           />
         </div>
         {errorText && <Notice role="alert">{errorText}</Notice>}
-        <div className="grid overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        {/* overflow-hidden quebraria o sticky da ficha no desktop: o recorte dos cantos fica só no celular */}
+        <div className="grid rounded-xl border border-border bg-card max-md:overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <div className={cn("min-w-0", selected && "max-md:hidden")}>
             {customers.length === 0 || shown.length === 0 ? (
               <p className="py-12 text-center text-pretty text-muted-foreground">
@@ -140,7 +145,7 @@ export function CustomersPage() {
                       <CustomerRow
                         customer={c}
                         next={nextAppointment(c)}
-                        label={label}
+                        whenLabel={whenLabel}
                         selected={selected?.id === c.id}
                         onSelect={() => setSelectedId(c.id)}
                       />
@@ -155,24 +160,28 @@ export function CustomersPage() {
               </>
             )}
           </div>
-          <div className={cn("min-w-0 md:border-l md:border-border", !selected && "hidden md:flex md:items-center md:justify-center")}>
-            {selected ? (
-              <CustomerDetail
-                key={selected.id}
-                customer={selected}
-                next={nextAppointment(selected)}
-                formats={formats}
-                label={label}
-                onSaved={replace}
-                onDelete={() => remove(selected)}
-                deleting={deleting === selected.id}
-                onBack={() => setSelectedId(null)}
-              />
-            ) : (
-              <Muted as="p" className="p-8 text-center">
-                {t("pickOne")}
-              </Muted>
-            )}
+          <div className={cn("min-w-0 md:border-l md:border-border", !selected && "max-md:hidden")}>
+            {/* No desktop a ficha acompanha a rolagem da página e rola por dentro, então "Excluir cadastro" fica ao alcance */}
+            <div className="md:sticky md:top-4 md:max-h-[calc(100vh-2rem)] md:overflow-y-auto">
+              {selected ? (
+                <CustomerDetail
+                  key={selected.id}
+                  customer={selected}
+                  next={nextAppointment(selected)}
+                  formats={formats}
+                  label={label}
+                  onSaved={replace}
+                  onDelete={() => remove(selected)}
+                  deleting={deleting === selected.id}
+                  onBack={() => setSelectedId(null)}
+                />
+              ) : (
+                // Vazio: texto no terço superior da coluna, não no meio de uma lista longa
+                <Muted as="p" className="px-8 pt-[30vh] text-center">
+                  {t("pickOne")}
+                </Muted>
+              )}
+            </div>
           </div>
         </div>
       </div>

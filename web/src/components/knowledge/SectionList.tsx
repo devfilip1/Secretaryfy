@@ -85,7 +85,7 @@ export function SectionList({
   const hasClinic = sections.some((section) => section.kind === "clinic");
 
   return (
-    <div className="grid gap-6">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
       {!hasClinic && <ClinicHint onAdd={onAdd} />}
       {sections.length === 0 ? (
         <EmptyState onAdd={onAdd} />
@@ -95,11 +95,11 @@ export function SectionList({
             const rows = sections.filter((section) => section.kind === kind);
             if (rows.length === 0) return null;
             return (
-              <section key={kind} aria-labelledby={`knowledge-group-${kind}`} className="grid gap-1 border-t border-border pt-5 first:border-t-0 first:pt-0">
+              <section key={kind} aria-labelledby={`knowledge-group-${kind}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-border pt-5 first:border-t-0 first:pt-0">
                 <h3 id={`knowledge-group-${kind}`} className="px-2 pb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {t(KIND_GROUP_KEY[kind])}
                 </h3>
-                <ul className="grid gap-0.5">
+                <ul className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
                   {rows.map((section) => (
                     <SectionRow key={section.key} section={section} onEdit={onEdit} onDelete={() => setPendingDelete(section)} />
                   ))}
@@ -141,24 +141,24 @@ function SectionRow({ section, onEdit, onDelete }: { section: KnowledgeRow; onEd
           <Icon className="size-5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold break-words text-balance">{section.title}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate font-semibold">{section.title}</span>
             {section.kind === "treatment" && !isBookable(section) && (
-              <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">{t("list.notBookable")}</span>
+              <span className="shrink-0 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium whitespace-nowrap text-warn">{t("list.notBookable")}</span>
             )}
           </span>
           {subtitle && <span className="block truncate text-sm text-muted-foreground">{subtitle}</span>}
         </span>
         {meta && (meta.duration || meta.price) && (
-          <span className="flex max-w-[8rem] shrink-0 flex-col items-end gap-0.5 text-right text-sm tnum">
+          <span className="flex max-w-[45%] shrink-0 flex-col items-end gap-0.5 text-right text-sm whitespace-nowrap tnum md:max-w-none">
             {meta.duration && (
-              <span className="inline-flex max-w-full items-center gap-1 text-muted-foreground">
+              <span className="inline-flex max-w-full min-w-0 items-center gap-1 text-muted-foreground">
                 <Clock className="size-3.5 shrink-0" aria-hidden="true" />
                 <span className="truncate">{meta.duration}</span>
               </span>
             )}
             {meta.price && (
-              <span className="inline-flex max-w-full items-center gap-1 font-medium">
+              <span className="inline-flex max-w-full min-w-0 items-center gap-1 font-medium">
                 <Tag className="size-3.5 shrink-0" aria-hidden="true" />
                 <span className="truncate">{meta.price}</span>
               </span>

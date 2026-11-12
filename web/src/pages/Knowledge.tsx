@@ -43,7 +43,7 @@ export function KnowledgePage() {
               {t("tabs.help")}
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="sections" className="grid gap-5 pt-4">
+          <TabsContent value="sections" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 pt-4">
             <PublishBar />
             {hasSections && (
               <div className="flex justify-end">

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { AGENDA_RANGES, type AgendaRange } from "./agenda-range";
 
 interface RangeSwitchProps {
@@ -17,10 +18,13 @@ export function RangeSwitch({ value, onChange }: RangeSwitchProps) {
         <Button
           key={range}
           size="sm"
-          variant={range === value ? "secondary" : "ghost"}
+          variant="ghost"
           aria-pressed={range === value}
           onClick={() => onChange(range)}
-          className="min-w-0 flex-1 whitespace-nowrap"
+          className={cn(
+            "min-w-0 flex-1 whitespace-nowrap",
+            range === value ? "bg-primary/15 font-semibold text-foreground hover:bg-primary/20" : "text-muted-foreground",
+          )}
         >
           {labels[range]}
         </Button>

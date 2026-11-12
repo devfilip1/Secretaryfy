@@ -117,13 +117,20 @@ export function CustomerDetail({
         </div>
       </div>
 
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-lg border border-border bg-card p-3.5 text-sm">
-        <dt className="text-muted-foreground">{t("fields.phone")}</dt>
-        <dd className="tnum m-0 wrap-anywhere">{formatPhone(c.phone)}</dd>
-        <dt className="text-muted-foreground">{t("fields.next")}</dt>
-        <dd className="m-0 wrap-anywhere">{next ? label(next) : t("noUpcoming")}</dd>
-        <dt className="text-muted-foreground">{t("fields.total")}</dt>
-        <dd className="tnum m-0">{t("totalAppointments", { count: total })}</dd>
+      {/* Rótulo em cima do valor: a coluna do valor ocupa a largura toda e o telefone e "Nenhum horário futuro" não quebram */}
+      <dl className="grid gap-3 rounded-lg border border-border bg-card p-3.5 text-sm">
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">{t("fields.phone")}</dt>
+          <dd className="tnum m-0 whitespace-nowrap">{formatPhone(c.phone)}</dd>
+        </div>
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">{t("fields.next")}</dt>
+          <dd className="m-0 wrap-anywhere">{next ? label(next) : t("noUpcoming")}</dd>
+        </div>
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">{t("fields.total")}</dt>
+          <dd className="tnum m-0">{t("totalAppointments", { count: total })}</dd>
+        </div>
       </dl>
 
       {message && (

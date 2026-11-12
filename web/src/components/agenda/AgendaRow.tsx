@@ -49,14 +49,22 @@ export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfir
       <span aria-hidden="true" className={cn("w-1 shrink-0 self-stretch rounded-full", RAIL[status])} />
       <div className="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate font-semibold">{a.customerName}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-semibold">{a.customerName}</span>
+            {tag && (
+              <Badge variant={tag.tone === "warn" ? "warn" : "secondary"} className={cn("shrink-0 py-px font-normal", TAG_TONE[tag.tone])} title={tag.title}>
+                {tag.text}
+              </Badge>
+            )}
+          </span>
           <Muted className="tnum">
             {range} · {t("minutes", { minutes: a.minutes })}
           </Muted>
-          <Muted>
+          {/* Espaços e hífen do telefone viram não separáveis: o número não quebra no meio na tela estreita. */}
+          <Muted className="tnum">
             {t(a.origin === "panel" ? "serviceLineHere" : "serviceLine", {
               service: a.service ?? "-",
-              phone: formatPhone(a.phone),
+              phone: formatPhone(a.phone).replace(/ /g, " ").replace(/-/g, "‑"),
             })}
           </Muted>
           {a.notes && (
@@ -66,26 +74,29 @@ export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfir
             </Muted>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm md:justify-end">
-          {tag && (
-            <Badge variant={tag.tone === "warn" ? "warn" : "secondary"} className={cn("py-px font-normal", TAG_TONE[tag.tone])} title={tag.title}>
-              {tag.text}
-            </Badge>
-          )}
-          {!a.confirmedAt && (
-            <Button
-              variant={a.reminder.label === "remind_manually" ? "default" : "secondary"}
-              onClick={onConfirm}
-              disabled={busy}
-              title={t("confirm.hint")}
-            >
-              {busy ? t("confirm.busy") : t("confirm.button")}
+        {/* Colunas fixas: confirmar, cancelar e abrir conversa ficam na mesma posição em todas as linhas. Na tela estreita, 2 botões lado a lado e o link embaixo. */}
+        <div className="grid grid-cols-2 gap-2 text-sm md:shrink-0 md:grid-cols-[7.5rem_6.5rem_10rem]">
+          <div className="flex justify-end">
+            {!a.confirmedAt && (
+              <Button
+                variant={a.reminder.label === "remind_manually" ? "default" : "secondary"}
+                className="w-full md:w-auto"
+                onClick={onConfirm}
+                disabled={busy}
+                title={t("confirm.hint")}
+              >
+                {busy ? t("confirm.busy") : t("confirm.button")}
+              </Button>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" className="w-full text-destructive md:w-auto" onClick={onCancel}>
+              {t("cancel")}
             </Button>
-          )}
-          <Button variant="outline" className="text-destructive" onClick={onCancel}>
-            {t("cancel")}
-          </Button>
-          {a.conversationId && <a href={`#/?c=${a.conversationId}`}>{t("openConversation")}</a>}
+          </div>
+          <div className="col-span-2 text-center md:col-span-1 md:text-right">
+            {a.conversationId && <a href={`#/?c=${a.conversationId}`}>{t("openConversation")}</a>}
+          </div>
         </div>
       </div>
     </li>

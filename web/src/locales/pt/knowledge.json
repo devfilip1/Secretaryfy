@@ -213,7 +213,17 @@
       "f3": "Como funciona",
       "f4": "Duração e Preço",
       "f5": "Resultado",
-      "f6": "Tempo de recuperação"
+      "f6": "Tempo de recuperação",
+      "examples": {
+        "f1": "Limpeza Dental - O Primeiro Passo para um Sorriso Saudável",
+        "f2Title": "Ideal para quem quer",
+        "f2a": "Sensação imediata de boca limpa",
+        "f2b": "Hálito mais fresco",
+        "f3": "Como funciona: Remoção de placa e tártaro com ultrassom, seguida de polimento.",
+        "f4": "Duração: 30 a 50 minutos   |   Preço: R$ 40 a R$ 85 (valor final definido na avaliação)",
+        "f5": "Resultado: Imediato, já na primeira sessão",
+        "f6": "Recuperação: 3 a 7 dias"
+      }
     },
     "texts": {
       "title": "O que significa cada campo de texto",

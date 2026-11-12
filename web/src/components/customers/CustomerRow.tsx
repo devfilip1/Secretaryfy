@@ -6,24 +6,32 @@ import { cn } from "@/lib/utils";
 import { initialsOf } from "./customer-initials";
 
 /** Colunas da tabela no desktop: nome, telefone e próxima consulta. Cabeçalho e linhas usam a mesma grade. */
-export const CUSTOMER_ROW_GRID = "md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)]";
+export const CUSTOMER_ROW_GRID = "md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.4fr)]";
 
 /** Linha da lista: no celular, nome com telefone e próximo horário; no desktop, uma linha da tabela. */
 export function CustomerRow({
   customer: c,
   next,
-  label,
+  whenLabel,
   selected,
   onSelect,
 }: {
   customer: Customer;
   next: CustomerAppointment | null;
-  label: (a: CustomerAppointment) => string;
+  whenLabel: (a: CustomerAppointment) => string;
   selected: boolean;
   onSelect: () => void;
 }) {
   const { t } = useTranslation("customers");
-  const nextText = next ? label(next) : t("noUpcoming");
+  // Dia e hora na primeira linha, serviço embaixo em cinza; só corta se faltar espaço
+  const nextLines = next ? (
+    <>
+      <span className="truncate whitespace-nowrap">{whenLabel(next)}</span>
+      {next.service && <span className="truncate text-xs text-muted-foreground">{next.service}</span>}
+    </>
+  ) : (
+    <span className="truncate whitespace-nowrap">{t("noUpcoming")}</span>
+  );
   return (
     <button
       type="button"
@@ -41,13 +49,13 @@ export function CustomerRow({
         </span>
         <span className="grid min-w-0 gap-0.5">
           <span className="truncate font-semibold">{c.name}</span>
-          <span className="tnum truncate text-sm text-muted-foreground md:hidden">{formatPhone(c.phone)}</span>
-          <span className="truncate text-sm text-muted-foreground md:hidden">{nextText}</span>
+          <span className="tnum truncate whitespace-nowrap text-sm text-muted-foreground md:hidden">{formatPhone(c.phone)}</span>
+          <span className="grid min-w-0 gap-0.5 text-sm text-muted-foreground md:hidden">{nextLines}</span>
         </span>
       </span>
       <ChevronRight className="size-4 text-muted-foreground md:hidden" aria-hidden="true" />
-      <span className="tnum hidden truncate text-muted-foreground md:block">{formatPhone(c.phone)}</span>
-      <span className="hidden truncate text-muted-foreground md:block">{nextText}</span>
+      <span className="tnum hidden truncate whitespace-nowrap text-muted-foreground md:block">{formatPhone(c.phone)}</span>
+      <span className="hidden min-w-0 grid-cols-1 gap-0.5 text-muted-foreground md:grid">{nextLines}</span>
     </button>
   );
 }
