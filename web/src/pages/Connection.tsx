@@ -4,6 +4,7 @@ import { ApiError, disconnect, requestQr, type Connection } from "../api";
 import { useFormats } from "../i18n/formats";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Muted } from "../components/Muted";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -40,6 +41,7 @@ export function ConnectionPage({
   const [error, setError] = useState<QrError | null>(null);
   const [busy, setBusy] = useState(false);
   const connected = connection?.state === "open";
+  const { confirm, dialog } = useConfirm();
 
   const [requesting, setRequesting] = useState(false);
 
@@ -73,7 +75,13 @@ export function ConnectionPage({
   }, [loaded]);
 
   async function onDisconnect() {
-    if (!window.confirm(t("confirmDisconnect"))) return;
+    const ok = await confirm({
+      title: t("confirmDisconnectTitle"),
+      description: t("confirmDisconnect"),
+      confirmLabel: t("confirmDisconnectAction"),
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await disconnect();
@@ -89,6 +97,7 @@ export function ConnectionPage({
 
   return (
     <Page>
+      {dialog}
       <div className="grid w-[min(520px,100%)] gap-4">
         <StatusHero connection={connection} busy={busy} onDisconnect={onDisconnect} />
         {!connected && (

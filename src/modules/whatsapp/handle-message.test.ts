@@ -67,7 +67,7 @@ function fakes(
     hasSchedulingSession: async () => options.scheduling ?? false,
   });
   return {
-    handle: (m: IncomingMessage) => handle({ conversationId: "c1", message: m }, log),
+    handle: (m: IncomingMessage, burst?: { waited: boolean }) => handle({ conversationId: "c1", message: m }, log, burst),
     asked,
     sent,
     texts: () => sent.map((x) => [x.phone, x.text]),
@@ -244,6 +244,21 @@ test("resposta igual com todas as aberturas já enviadas: nada sai, e o registro
   await f.handle(MESSAGE);
   assert.deepEqual(f.sent, []);
   assert.equal(f.errors.length, 1);
+});
+
+test("resposta igual que já começa com uma abertura: a abertura não se repete na frente (\"Claro! Claro!\")", async () => {
+  const [opening, other] = testTexts.again;
+  const said = `${opening} Tenho horários livres nestes dias.`;
+  const f = fakes({ reply: async () => ({ text: said }), recent: [said] });
+  await f.handle(MESSAGE);
+  assert.deepEqual(f.sent.map((x) => x.text), [`${other}\n${said}`]);
+});
+
+test("rodada que esperou outra resposta não tem a insistência contada contra ela (BR-CNV-03)", async () => {
+  const f = fakes({ reply: async () => ({ text: "Claro, qual horário?" }) });
+  await f.handle(MESSAGE, { waited: true });
+  await f.handle(MESSAGE, { waited: false });
+  assert.deepEqual(f.sent.map((x) => x.bypass), [["unanswered"], []]);
 });
 
 test("splitReply respeita o limite de partes pedido", () => {

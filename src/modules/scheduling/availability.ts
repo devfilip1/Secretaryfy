@@ -124,6 +124,11 @@ export function isSlotAvailable(start: Date, ctx: Context): boolean {
   return slotsForDay(date, ctx).some((s) => s.getTime() === start.getTime());
 }
 
+/** A ocupação sem o próprio horário de um agendamento que se edita: ele não conta contra a edição. */
+export function busyWithout(busy: Interval[], own: { startsAt: Date; endsAt: Date }): Interval[] {
+  return busy.filter((i) => i.start.getTime() !== own.startsAt.getTime() || i.end.getTime() !== own.endsAt.getTime());
+}
+
 /** Duração máxima que a equipe pode dar a um horário (painel, ADR 0015): nunca mais que isto. */
 export const MAX_APPOINTMENT_MINUTES = 480;
 /** A duração escolhida pela equipe anda de 5 em 5 minutos, e o mínimo é um passo. */

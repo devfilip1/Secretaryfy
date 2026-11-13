@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import type { SchedulingSessionRow } from "../../../db/schema.js";
-import { asksPeriodOfScreen, carriesACitedDay, isTooFar } from "../intents.js";
+import { asksPeriodOfScreen, canFilterTime, carriesACitedDay, isTooFar } from "../intents.js";
 import type { FlowResult } from "../flow.js";
 import type { Interpretation } from "../interpret.js";
 import { currentAppointment, cancel, keep, move, startCancel, startReschedule } from "./appointment.js";
@@ -12,6 +12,7 @@ import {
   offerDayOrTime,
   offerDays,
   offerWeekend,
+  offerWindow,
   periodOfScreen,
   sameDayAsOptions,
   selectSlot,
@@ -30,6 +31,12 @@ export async function dispatch(run: Run, i: Interpretation): Promise<FlowResult>
 
   if (i.intent === "stop") return run.finish(run.replies.stopped());
   if (i.tooFar && isTooFar(i.intent)) return tooFar(run);
+  // Janela de horários do dia ("depois das 15", "mais cedo que 9", "o último"): o dia é o citado, ou o da tela (flow/window.ts)
+  if (i.timeWindow && i.option == null && canFilterTime(i.intent)) {
+    const onScreen = s?.step === "choose_slot" ? run.optionSlots(s.options) : [];
+    const day = i.date ?? (onScreen[0] ? run.isoDate(onScreen[0]) : null);
+    if (day) return offerWindow(run, day, i.timeWindow, onScreen);
+  }
   // "de tarde" com os horários do dia na tela: a parte do dia desse mesmo dia
   if (s?.step === "choose_slot" && i.period && i.option === null && !i.date && !i.time && asksPeriodOfScreen(i.intent)) {
     return periodOfScreen(run, i.period);
@@ -148,11 +155,11 @@ async function misunderstood(run: Run): Promise<FlowResult> {
     },
     run.now,
   );
-  return { reply: run.replies.unclear(repeatPrompt(run, s)) };
+  return { reply: run.replies.unclear(pendingPrompt(run, s)) };
 }
 
 /** A pergunta da etapa, repetida depois de um "não entendi". */
-function repeatPrompt(run: Run, s: SchedulingSessionRow): string {
+export function pendingPrompt(run: Run, s: SchedulingSessionRow): string {
   switch (s.step) {
     case "choose_day":
       return run.replies.offerDays(run.optionDays(s.options), run.tz, run.replies.daysIntro());

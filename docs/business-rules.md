@@ -13,8 +13,8 @@ The same event delivered twice, even after a restart, is stored once and answere
 - **Where:** unique `messages.wa_message_id`, insert with `on conflict do nothing` in [inbox/repository.ts](../src/modules/inbox/repository.ts)
 
 ### BR-CNV-03 · Consecutive messages get one reply
-The assistant waits for 4 s of silence (`ANTIBAN_DEBOUNCE_MS`) and answers everything the patient sent since its last reply in one go.
-- **Where:** [debounce.ts](../src/modules/antiban/debounce.ts), `debouncer` in [evolution-webhook.ts](../src/routes/evolution-webhook.ts)
+The assistant waits for 3 s of silence (`ANTIBAN_DEBOUNCE_MS`) and answers everything the patient sent since its last reply in one go. Two rounds of the same conversation never run at once: a message that arrives during a reply is answered next, in order.
+- **Where:** [debounce.ts](../src/modules/antiban/debounce.ts), [burst.ts](../src/modules/whatsapp/burst.ts) (`createBursts`, wired in [evolution-webhook.ts](../src/routes/evolution-webhook.ts))
 
 ### BR-CNV-04 · A message goes to scheduling or to the brochure
 Every message is interpreted first. Booking-related intents (book, availability, cancel, reschedule, my appointment) and any message during a scheduling session go to scheduling; the rest goes to the brochure (RAG). A brochure question in the middle of a booking is still answered by the brochure.
@@ -91,6 +91,10 @@ A booking made by staff runs the same checks as the assistant (rules, free times
 - **Where:** `bookSlot` in [booking.ts](../src/modules/scheduling/booking.ts); `normalizePhone` in [phone.ts](../src/modules/scheduling/phone.ts)
 
 > ⚠️ Known limitation: the `+` is dropped before counting, so any 10–11 digit input is read as Brazilian. A US or Canadian number (`+1` plus 10 digits, 11 digits in total) becomes `551…` and can't be booked from the panel. Other countries with 12–15 digits work. See [phone.test.ts](../src/modules/scheduling/phone.test.ts).
+
+### BR-SCH-26 · Staff edit a booked appointment in place, without a message
+The team changes the start, the length (15 to 240 minutes, steps of 5), the treatment and the customer's name of a future booked appointment. The calendar is read first, so an event deleted in Google cancels the appointment instead of being edited. The new interval must be free with the appointment itself not counted, inside the rules and the staff window, as a new booking is. The database is written first (the unique start decides a taken time) and then the Google event; if Google fails, the database goes back to the previous values and nothing changes. A new day removes the confirmation and recalculates the reminder for the new time; a change within the same day keeps a confirmation. A new name is the customer's name: the conversation, the registry and the future appointments of that phone follow it ([BR-NAM-04](#br-nam-04--editing-a-name-updates-everything-ahead)). No WhatsApp message is sent.
+- **Where:** `updateAppointment` in [booking.ts](../src/modules/scheduling/booking.ts); the route in [panel-appointments.ts](../src/routes/panel-appointments.ts); the name rule in [rename.ts](../src/modules/customers/rename.ts)
 
 ### BR-SCH-13 · Replies may be reworded, facts may not
 
@@ -198,6 +202,24 @@ When the phone already has a future appointment, the time the patient chooses mo
 ### BR-SCH-25 · No em dash in the assistant's texts
 The scheduling replies in both languages have no em dash or en dash. The humanizer's rewrite prompt forbids them, and `guardRewrite` refuses a rewrite that adds one unless the fixed text already had it. Brochure answers come from the RAG service and are not checked by this rule. Calendar titles and panel labels are not assistant texts.
 - **Where:** `guardRewrite` and the rewrite prompt in [humanize.ts](../src/modules/scheduling/humanize.ts)
+
+### BR-SCH-27 · A time window narrows the times of one day
+A customer who narrows the times of a day ("depois das 15", "antes das 11", "mais cedo que 9", "por volta das 10", "o último" with times on screen) gets only the free times that fit. The model returns `timeWindow` with `after`, `before`, `near` and `pick` (a clock time, `first` or `last` for the ends of the list on screen, `earliest` or `latest` for a pick); the code resolves them in `flow/window.ts`. The bounds are strict: "depois das 15" does not include 15:00, and "antes das 11" does not include 11:00. `near` shows the free times closest to that time. The day is the one the customer names, or the day on screen. When no free time falls in the window, the assistant says so ("Infelizmente não temos horário nessa condição") and shows the nearest free times. A focused time or part of the day never overrides a window: the window is the reading of that time. A model `question` that carries a window at a scheduling step becomes `availability`, so it is never a brochure answer. A single exact clock time is never a window; it goes to `time`.
+- **Where:** `pickInWindow` and `boundsOf` in [flow/window.ts](../src/modules/scheduling/flow/window.ts); `offerWindow` and the `timeWindow` branch in [flow/dispatch.ts](../src/modules/scheduling/flow/dispatch.ts); `validWindow` and the question rule in [interpret/validate.ts](../src/modules/scheduling/interpret/validate.ts); `applyWhen` in [understanding/resolve.ts](../src/modules/scheduling/understanding/resolve.ts); the schema and the rule text in [interpret/prompt.ts](../src/modules/scheduling/interpret/prompt.ts)
+
+### BR-SCH-28 · A name given after the follow-up question keeps the screen
+The assistant sometimes asks the customer's name at the end of a brochure answer ("A propósito, qual é o seu nome?"). When the customer then answers with only their name, while days or times are on screen, the assistant acknowledges it ("Obrigado, Joana! Vamos continuar de onde paramos:") and repeats the pending question of that screen. The name is never read as a day, a time or an option. A message that also picks a day, time, option, part of the day or window is not "only a name" and follows the normal path.
+- **Where:** `nameKept` in [replies.pt.ts](../src/modules/scheduling/replies.pt.ts) and [replies.en.ts](../src/modules/scheduling/replies.en.ts); the `onlyAName` branch of [router.ts](../src/modules/scheduling/router.ts) and `resumeScreen` in [flow.ts](../src/modules/scheduling/flow.ts)
+
+### BR-SCH-29 · The fixed services show in the clinic language
+The "which service?" list shows each service in the clinic's language: the treatments with their titles, the follow-up visit as "Retorno" or "Follow-up visit", and the general assessment as "Não tenho certeza (avaliação geral)" in Portuguese or "Not sure (general assessment)" in English. A fixed service is stored by its key (`FollowUp`, `Assessment`), so the language of the list never changes what is saved.
+- **Where:** `fixedLabel` and `createCatalog` in [catalog.ts](../src/modules/scheduling/catalog.ts); `chooseService` in [replies.pt.ts](../src/modules/scheduling/replies.pt.ts) and [replies.en.ts](../src/modules/scheduling/replies.en.ts)
+
+### BR-SCH-30 · A generic visit is never a follow-up, and a named assessment goes to the days
+- A generic request for a consultation or a visit ("quero marcar uma consulta"), or a health problem or symptom, is not a treatment. It is never the follow-up visit (Retorno) either: the follow-up is only for a customer who says they are coming back for a revisit, return or check-up of a treatment they already had.
+- The general assessment is chosen only when the customer names it ("queria marcar uma avaliação geral", "quero fazer um check-up" with no treatment in it). The focused call must quote the customer's own words, and the quote must be in the customer's messages (BR-SCH-10). Then booking goes straight to the days, without asking the service. Without a quote, or with a generic request, the service stays empty and the assistant asks for it from the list.
+- The general assessment is never chosen when the clinic does not offer it (BR-SCH-10): it is then not in the focused call's list at all.
+- **Where:** `mentionedService` in [interpret.ts](../src/modules/scheduling/interpret.ts) and `mentionPrompt` / `mentionFormat` in [interpret/prompt.ts](../src/modules/scheduling/interpret/prompt.ts); `carry.service` in [flow/run.ts](../src/modules/scheduling/flow/run.ts); `startBook` in [flow/booking.ts](../src/modules/scheduling/flow/booking.ts)
 
 ### BR-REM-04 · YES confirms, NO offers to reschedule
 Right after a reminder (no booking dialogue open, at most one patient message since), YES or phrases like "see you then" confirm the appointment; NO starts the reschedule offer. Staff can also confirm from the panel.

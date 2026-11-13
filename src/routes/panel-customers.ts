@@ -6,6 +6,7 @@ import type { CalendarGateway } from "../modules/google/gateway.js";
 import type { Publish } from "../modules/inbox/events.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
 import type { InboxService } from "../modules/inbox/service.js";
+import { createCustomerRename } from "../modules/customers/rename.js";
 import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.js";
 import type { Language } from "../modules/scheduling/dates.js";
 import type { SchedulingStore } from "../modules/scheduling/sessions.js";
@@ -74,24 +75,7 @@ export function panelCustomersRoutes({
     return rows.map((r) => present(r, conversations.get(r.phone) ?? null, catalog, language));
   }
 
-  /**
-   * O nome novo vale para a conversa e para os horários futuros, inclusive no título do evento (FR-007, FR-008). Uma
-   * falha no Google não desfaz nada: devolve false para o painel avisar.
-   */
-  async function propagateName(phone: string, name: string): Promise<boolean> {
-    await inbox.setCustomerNameByPhone(phone, name);
-    let calendarUpdated = true;
-    for (const appt of await store.futureBookedByPhone(phone, now())) {
-      await store.setCustomerName(appt.id, name);
-      try {
-        await calendar.renameEvent(appt.googleEventId, `${name} — ${catalog.label(appt.service ?? ASSESSMENT, clinic.language)}`);
-      } catch (err) {
-        calendarUpdated = false;
-        log.warn({ appointmentId: appt.id, err }, "não foi possível renomear o evento na agenda");
-      }
-    }
-    return calendarUpdated;
-  }
+  const { propagateName } = createCustomerRename({ inbox, store, calendar, catalog, clinic, log, now });
 
   return async function (app: FastifyInstance) {
     app.get("/api/customers", async (req, reply) => {

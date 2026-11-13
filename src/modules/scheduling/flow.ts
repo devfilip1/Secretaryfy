@@ -6,7 +6,7 @@ import { CalendarUnavailable, type CalendarGateway } from "../google/gateway.js"
 import type { InboxService } from "../inbox/service.js";
 import { createBooking, DEFAULT_REMINDER_LEAD_MINUTES } from "./booking.js";
 import type { ServiceCatalog } from "./catalog.js";
-import { dispatch } from "./flow/dispatch.js";
+import { dispatch, pendingPrompt } from "./flow/dispatch.js";
 import { Run } from "./flow/run.js";
 import type { Interpretation } from "./interpret.js";
 import type { Replies } from "./replies.js";
@@ -56,6 +56,37 @@ export function createSchedulingFlow({
 }: Deps) {
   // A marcação em si é a mesma do painel (specs/006 research.md R2)
   const booking = createBooking({ calendar, connection, rules: rulesStore, store, inbox, customers, catalog, clinic, log, now: clock, reminderLeadMinutes });
+  /** A corrida do pedido; null se a agenda não está conectada (a sessão então se encerra) */
+  async function runFor(
+    conversation: ConversationRow,
+    session: SchedulingSessionRow | null,
+    knownName: string | null,
+    mentionedService: string | null,
+  ): Promise<Run | null> {
+    const conn = await connection.getForUse();
+    if (!conn || conn.status !== "connected") {
+      await store.clearSession(conversation.id);
+      return null;
+    }
+    return new Run({
+      calendar,
+      store,
+      inbox,
+      booking,
+      reminderLeadMinutes,
+      replies,
+      catalog,
+      conversation,
+      session,
+      knownName,
+      mentionedService,
+      now: clock(),
+      tz: conn.timeZone,
+      calendarId: conn.calendarId,
+      rules: await rulesStore.get(),
+    });
+  }
+
   return {
     async handle({
       conversation,
@@ -72,28 +103,8 @@ export function createSchedulingFlow({
       /** O tratamento citado por último na conversa (specs/005 FR-010) */
       mentionedService?: string | null;
     }): Promise<FlowResult> {
-      const conn = await connection.getForUse();
-      if (!conn || conn.status !== "connected") {
-        await store.clearSession(conversation.id);
-        return { reply: replies.calendarUnavailable() };
-      }
-      const run = new Run({
-        calendar,
-        store,
-        inbox,
-        booking,
-        reminderLeadMinutes,
-        replies,
-        catalog,
-        conversation,
-        session,
-        knownName,
-        mentionedService,
-        now: clock(),
-        tz: conn.timeZone,
-        calendarId: conn.calendarId,
-        rules: await rulesStore.get(),
-      });
+      const run = await runFor(conversation, session, knownName, mentionedService);
+      if (!run) return { reply: replies.calendarUnavailable() };
       try {
         return await dispatch(run, interpretation);
       } catch (err) {
@@ -101,6 +112,20 @@ export function createSchedulingFlow({
         if (err instanceof CalendarUnavailable) return { reply: replies.calendarUnavailable() };
         throw err;
       }
+    },
+    /** Um nome dito no meio da escolha (pedido de nome da primeira resposta): a pergunta da etapa volta, sem mudar a sessão */
+    async resumeScreen({
+      conversation,
+      session,
+      knownName,
+    }: {
+      conversation: ConversationRow;
+      session: SchedulingSessionRow;
+      knownName: string;
+    }): Promise<FlowResult> {
+      const run = await runFor(conversation, session, knownName, null);
+      if (!run) return { reply: replies.calendarUnavailable() };
+      return { reply: pendingPrompt(run, session) };
     },
   };
 }

@@ -12,6 +12,7 @@ import { CUSTOMER_ROW_GRID, CustomerRow } from "../components/customers/Customer
 import { CustomersPagination } from "../components/customers/CustomersPagination";
 import { serverErrorKey, type ErrorMessage } from "../components/customers/customer-errors";
 import { paginate } from "../components/customers/pagination";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Muted } from "../components/Muted";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -36,6 +37,7 @@ export function CustomersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const formats = useFormats(timeZone);
+  const { confirm, dialog } = useConfirm();
   const errorText = error ? (error.values ? t(error.key, error.values) : t(error.key)) : null;
 
   const load = useCallback(() => {
@@ -81,7 +83,12 @@ export function CustomersPage() {
   }
 
   async function remove(c: Customer) {
-    const ok = window.confirm(t("confirmDelete", { name: c.name, phone: formatPhone(c.phone) }));
+    const ok = await confirm({
+      title: t("confirmDeleteTitle"),
+      description: t("confirmDelete", { name: c.name, phone: formatPhone(c.phone) }),
+      confirmLabel: t("confirmDeleteAction"),
+      destructive: true,
+    });
     if (!ok) return;
     setDeleting(c.id);
     try {
@@ -99,6 +106,7 @@ export function CustomersPage() {
 
   return (
     <Page>
+      {dialog}
       <div className="grid w-[min(1080px,100%)] gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">

@@ -68,7 +68,7 @@ const envSchema = z.object({
   ANTIBAN_THINK_MAX_MS: count(3000),
   ANTIBAN_TYPING_MIN_MS: count(2000),
   ANTIBAN_TYPING_MAX_MS: count(12000),
-  ANTIBAN_DEBOUNCE_MS: count(4000),
+  ANTIBAN_DEBOUNCE_MS: count(3000),
   ANTIBAN_PER_MINUTE: count(8),
   ANTIBAN_PER_HOUR: count(200),
   ANTIBAN_GAP_MIN_MS: count(2000),

@@ -218,6 +218,14 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
       if (interpretation.intent === "give_name" && !session) return { text: replies.nameReceived(name) };
     }
 
+    // Nome dito em resposta ao pedido de nome da primeira resposta, com horários ou dias na tela: o nome já ficou gravado acima,
+    // e a pergunta da etapa volta, sem reler a lista ("Sou Joao" não é um dia). Sem nome, ou com um horário, dia ou opção, segue o caminho normal
+    const onlyAName = interpretation.intent !== "stop" && !interpretation.option && !interpretation.date && !interpretation.time && !interpretation.timeWindow && !interpretation.period && !interpretation.weekend;
+    if (session && (session.step === "choose_day" || session.step === "choose_slot") && awaitingName && name && onlyAName) {
+      const resumed = await flow.resumeScreen({ conversation, session, knownName: name });
+      return { text: `${replies.nameKept(name)}\n\n${resumed.reply}` };
+    }
+
     const scheduling = session ? interpretation.intent !== "question" : startsScheduling(interpretation.intent);
     if (!scheduling) return fromBrochure(interpretation.intent === "question");
 

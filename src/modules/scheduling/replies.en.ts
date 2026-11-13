@@ -36,6 +36,10 @@ export function createEnglishReplies({ clinic, catalog }: { clinic: Pick<ClinicC
       return `I have nothing free in the ${PERIOD_EN[period]} on ${formatDayLong(date, tz)}, but these are open:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nWhich one would you like? ${tail}`;
     },
 
+    noneInWindow(date: string, slots: Date[], tz: string) {
+      return `Unfortunately we have no time like that on ${formatDayLong(date, tz)}. The closest times are:\n${bullets(slots.map((s) => formatTime(s, tz)))}\nI can also check another day if you like.`;
+    },
+
     slotNotOffered(date: string, slots: Date[], tz: string) {
       return `Unfortunately we do not have that time! Would another one work for you on ${formatDayLong(date, tz)}?
 ${bullets(slots.map((s) => formatTime(s, tz)))}
@@ -80,7 +84,7 @@ I can also check another day if you like.`;
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure (general assessment)" : s.label));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Not sure (general assessment)" : catalog.label(s.name, "en")));
       return `${who ? `${who}, which` : "Which"} service is this appointment for?\n${bullets(lines)}\nJust tell me which one.`;
     },
 
@@ -159,6 +163,11 @@ I can also check another day if you like.`;
       const who = firstName(name);
       const options = [`Nice to meet you, ${who}! How can I help you?`, `Thanks, ${who}! How can I help you today?`];
       return options[Math.floor(random() * options.length)];
+    },
+
+    /** O nome veio como resposta ao pedido, com um horário ou uma lista na tela: confirma o nome e volta a essa tela logo depois */
+    nameKept(name: string) {
+      return `Thanks, ${firstName(name)}! Let's pick up where we left off:`;
     },
 
     /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */

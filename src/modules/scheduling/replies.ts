@@ -39,6 +39,8 @@ export interface Replies {
   stopped(): string;
   askNameFollowUp(random?: () => number): string;
   nameReceived(name: string, random?: () => number): string;
+  /** O nome veio como resposta ao pedido, com um horário ou uma lista na tela: confirma o nome e volta a essa tela logo depois */
+  nameKept(name: string): string;
   goodbye(random?: () => number, name?: string | null): string;
   unclear(repeat: string): string;
   handoff(): string;
@@ -57,6 +59,8 @@ export interface Replies {
   salutation(hour: number): string;
   /** O cliente pediu um horário que não está na lista do dia: avisa com gentileza e oferece os que existem */
   slotNotOffered(date: string, slots: Date[], tz: string): string;
+  /** Nenhum horário livre na janela pedida ("depois das 15", "mais cedo que 9"): avisa e mostra os mais próximos dela */
+  noneInWindow(date: string, slots: Date[], tz: string): string;
   /** Abre a resposta que repete, palavra por palavra, uma que já demos (a proteção descartaria o texto igual) */
   again(random?: () => number): string;
   /** O texto já começa com uma das aberturas de again(): não se põe outra na frente ("Claro!" duas vezes) */

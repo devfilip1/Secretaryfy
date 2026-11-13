@@ -10,6 +10,8 @@ export interface CalendarGateway {
   moveEvent(eventId: string, start: Date, end: Date): Promise<void>;
   /** Troca só o título do evento (nome do cliente editado, specs/006). Sem erro se o evento já não existe. */
   renameEvent(eventId: string, summary: string): Promise<void>;
+  /** Edição pelo painel: título, descrição e horário juntos. Erro se o evento já não existe. */
+  updateEvent(eventId: string, patch: EventPatch): Promise<void>;
   /** Sem erro se o evento já não existe. */
   deleteEvent(eventId: string): Promise<void>;
 }
@@ -40,6 +42,13 @@ export interface NewEvent {
   timeZone: string;
   /** Vão para extendedProperties.private */
   properties: Record<string, string>;
+}
+
+export interface EventPatch {
+  summary: string;
+  description: string;
+  start: Date;
+  end: Date;
 }
 
 /** A agenda não respondeu, está desconectada ou recusou a chamada. */

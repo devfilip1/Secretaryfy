@@ -7,6 +7,13 @@ import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense
 const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: "book", option: null, date: null, name: null, source: "model", ...over });
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
 
+test("com uma janela de horários, a chamada focada não roda e o horário dela não muda a interpretação", () => {
+  const windowed = base({ intent: "availability", timeWindow: { notAfter: "12:00" } });
+  assert.equal(wantsWhen(windowed, "choose_slot"), false);
+  assert.equal(applyWhen(windowed, when({ time: "12:00", namesDay: true }), "choose_slot"), windowed);
+  assert.equal(applyWhen(windowed, when({ period: "morning", namesDay: false }), "choose_slot"), windowed);
+});
+
 test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => {
   const cases: [Intent, SchedulingStep | null, boolean][] = [
     ["book", null, true],

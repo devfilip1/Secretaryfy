@@ -11,6 +11,7 @@ import { reminderLabel } from "../modules/reminders/status.js";
 import {
   availableDays,
   bookingWindow,
+  busyWithout,
   dayStatuses,
   MAX_APPOINTMENT_MINUTES,
   MINUTES_STEP,
@@ -25,17 +26,18 @@ import { ASSESSMENT, type ServiceCatalog } from "../modules/scheduling/catalog.j
 import type { Language } from "../modules/scheduling/dates.js";
 import type { SchedulingStore, UpcomingAppointment } from "../modules/scheduling/sessions.js";
 import type { ClinicContext } from "../modules/clinic/context.js";
+import { createCustomerRename } from "../modules/customers/rename.js";
 import { panelLanguage } from "./panel-language.js";
 
 interface Deps {
-  store: Pick<SchedulingStore, "listUpcoming" | "findAppointment" | "confirm">;
+  store: Pick<SchedulingStore, "listUpcoming" | "findAppointment" | "confirm" | "futureBookedByPhone" | "setCustomerName">;
   inboxRepo: Pick<InboxRepository, "conversationIdsByPhone" | "findConversationByPhone">;
-  inbox: Pick<InboxService, "recordSystem">;
-  customers: Pick<CustomerRepository, "findByPhone">;
-  calendar: Pick<CalendarGateway, "busy">;
+  inbox: Pick<InboxService, "recordSystem" | "setCustomerNameByPhone">;
+  customers: Pick<CustomerRepository, "findByPhone" | "update">;
+  calendar: Pick<CalendarGateway, "busy" | "renameEvent">;
   connection: Pick<ConnectionStore, "getForUse">;
   rules: Pick<RulesStore, "get">;
-  booking: Pick<Booking, "bookSlot" | "currentAppointment" | "cancelAppointment">;
+  booking: Pick<Booking, "bookSlot" | "currentAppointment" | "cancelAppointment" | "updateAppointment">;
   reminderLeadMinutes: number;
   /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
   catalog: ServiceCatalog;
@@ -45,9 +47,15 @@ interface Deps {
 }
 
 const idParams = z.object({ id: z.uuid() });
-const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional() });
-const startsQuery = z.object({ date: z.iso.date() });
-const daysQuery = z.object({ service: z.string().optional() });
+// Edição pelo painel: duração de 15 a 240 minutos, de 5 em 5 (como as configurações da clínica)
+const EDIT_MIN_MINUTES = 15;
+const EDIT_MAX_MINUTES = 240;
+const editMinutes = z.number().int().min(EDIT_MIN_MINUTES).max(EDIT_MAX_MINUTES).multipleOf(MINUTES_STEP);
+// excludeAppointmentId: o horário que se edita conta como livre (a própria marcação não ocupa a agenda da edição)
+const editingQuery = { excludeAppointmentId: z.uuid().optional(), minutes: z.coerce.number().pipe(editMinutes).optional() };
+const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional(), ...editingQuery });
+const startsQuery = z.object({ date: z.iso.date(), ...editingQuery });
+const daysQuery = z.object({ service: z.string().optional(), ...editingQuery });
 const lookupQuery = z.object({ phone: z.string() });
 // Quantos dias a partir de hoje a aba pede (Dia e 7 dias usam 7; Mês, 31); o padrão é o de sempre
 // from=today inclui os horários de hoje que já passaram (a régua do topo de Conversas); sem ele, só os futuros
@@ -72,6 +80,7 @@ export function panelAppointmentsRoutes({
 }: Deps) {
   /** Fuso da agenda conectada; sem agenda, o de reserva. */
   const timeZoneOf = () => clinicTimeZone(connection);
+  const { propagateName } = createCustomerRename({ inbox, store, calendar, catalog, clinic, now: clock });
 
   function present(appt: AppointmentRow | UpcomingAppointment, extra: { now: Date; timeZone: string; conversationId: string | null; language: Language }) {
     const { now, timeZone, conversationId, language } = extra;
@@ -124,11 +133,13 @@ export function panelAppointmentsRoutes({
    * Regras, ocupação e janela para calcular horários livres, como o assistente (FR-013), com a janela da equipe
    * (um ano): a ocupação cobre os dias que o painel pode marcar.
    */
-  async function availabilityContext(timeZone: string) {
+  async function availabilityContext(timeZone: string, excludeAppointmentId?: string) {
     const rules = await rulesStore.get();
     const now = clock();
     const window = bookingWindow({ rules, now, timeZone, maxDaysAhead: STAFF_MAX_DAYS_AHEAD });
-    const busy = await calendar.busy(window.from, window.to);
+    let busy = await calendar.busy(window.from, window.to);
+    const own = excludeAppointmentId ? await store.findAppointment(excludeAppointmentId) : null;
+    if (own) busy = busyWithout(busy, own);
     return { rules, now, timeZone, busy, window, maxDaysAhead: STAFF_MAX_DAYS_AHEAD };
   }
 
@@ -136,8 +147,12 @@ export function panelAppointmentsRoutes({
    * Os horários oferecidos no dia, na duração pedida: a do tratamento, a padrão, ou a escolhida pela equipe (ADR 0015),
    * como o assistente os oferece. Devolve a duração usada.
    */
-  async function slotsOn(date: string, timeZone: string, { service, minutes: asked }: { service?: string; minutes?: number } = {}) {
-    const ctx = await availabilityContext(timeZone);
+  async function slotsOn(
+    date: string,
+    timeZone: string,
+    { service, minutes: asked, excludeAppointmentId }: { service?: string; minutes?: number; excludeAppointmentId?: string } = {},
+  ) {
+    const ctx = await availabilityContext(timeZone, excludeAppointmentId);
     const minutes = asked ?? (service ? catalog.minutes(service) : undefined) ?? ctx.rules.slotMinutes;
     return { minutes, slots: naturalSlotsForDay(date, { ...ctx, minutes }).map((s) => s.toISOString()) };
   }
@@ -165,6 +180,17 @@ export function panelAppointmentsRoutes({
     // Só a equipe escolhe a duração: de 5 em 5 minutos, até 480
     minutes: z.number().int().min(MINUTES_STEP).max(MAX_APPOINTMENT_MINUTES).multipleOf(MINUTES_STEP).optional(),
   });
+
+  // Edição: os campos que vierem; pelo menos um. Serviço no catálogo, como na marcação
+  const editBody = z
+    .object({
+      start: z.iso.datetime({ offset: true }).optional(),
+      minutes: editMinutes.optional(),
+      service: z.string().refine((v) => catalog.list().some((s) => s.name === v), "choose one of the clinic's services").optional(),
+      name: z.string().trim().min(1, "enter the customer's name").max(120).optional(),
+    })
+    .strict()
+    .refine((b) => Object.values(b).some((v) => v !== undefined), "send at least one change");
 
   return async function (app: FastifyInstance) {
     // --- Aba Appointments (US1) ---
@@ -227,8 +253,8 @@ export function panelAppointmentsRoutes({
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
       return guard(reply, async () => {
-        const ctx = await availabilityContext(conn.timeZone);
-        const minutes = query.data.service ? catalog.minutes(query.data.service) : undefined;
+        const ctx = await availabilityContext(conn.timeZone, query.data.excludeAppointmentId);
+        const minutes = query.data.minutes ?? (query.data.service ? catalog.minutes(query.data.service) : undefined);
         // Os dias do chip são os da janela do paciente; o estado de cada dia cobre até maxDate
         const { window } = ctx;
         return {
@@ -247,7 +273,11 @@ export function panelAppointmentsRoutes({
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
       return guard(reply, async () => {
-        const { minutes, slots } = await slotsOn(query.data.date, conn.timeZone, { service: query.data.service });
+        const { minutes, slots } = await slotsOn(query.data.date, conn.timeZone, {
+          service: query.data.service,
+          minutes: query.data.minutes,
+          excludeAppointmentId: query.data.excludeAppointmentId,
+        });
         return { date: query.data.date, slots, minutes };
       });
     });
@@ -259,7 +289,7 @@ export function panelAppointmentsRoutes({
       const conn = await usableCalendar(reply);
       if (!conn) return reply;
       return guard(reply, async () => {
-        const starts = startsWithRoom(query.data.date, await availabilityContext(conn.timeZone));
+        const starts = startsWithRoom(query.data.date, await availabilityContext(conn.timeZone, query.data.excludeAppointmentId));
         return {
           date: query.data.date,
           starts: starts.map(({ start, maxMinutes }) => ({ start: start.toISOString(), maxMinutes })),
@@ -320,6 +350,50 @@ export function panelAppointmentsRoutes({
             const { slots } = await slotsOn(date, timeZone, { service, minutes });
             return reply.code(409).send({ error: "slot_taken", date, slots });
           }
+        }
+      });
+    });
+
+    // Edição pela equipe: horário, duração, tratamento e nome; sem mensagem ao cliente. Um nome novo vale para o cliente
+    // inteiro, como em PATCH /api/customers (propagateName)
+    app.patch("/api/appointments/:id", async (req, reply) => {
+      const language = panelLanguage(req.query, clinic.language);
+      if (!language) return reply.code(422).send({ error: "invalid_query" });
+      const params = idParams.safeParse(req.params);
+      if (!params.success) return reply.code(404).send({ error: "not_found" });
+      const body = editBody.safeParse(req.body);
+      if (!body.success) {
+        const issues = body.error.issues.map((i) => ({ path: i.path.join("."), message: i.message }));
+        return reply.code(422).send({ error: "invalid_body", issues });
+      }
+      const { start, minutes, service, name } = body.data;
+      const before = await store.findAppointment(params.data.id);
+      if (!before) return reply.code(404).send({ error: "not_found" });
+      const conversation = await inboxRepo.findConversationByPhone(before.phone);
+
+      return guard(reply, async () => {
+        const result = await booking.updateAppointment({
+          id: before.id,
+          changes: { start: start ? new Date(start) : undefined, minutes, service, name },
+          conversationId: conversation?.id ?? null,
+        });
+        switch (result.kind) {
+          case "updated": {
+            if (name !== undefined && name !== before.customerName) {
+              const record = await customers.findByPhone(before.phone);
+              if (record) await customers.update(record.id, { name }, clock());
+              await propagateName(before.phone, name);
+            }
+            return { appointment: await presentOne(result.appointment, language) };
+          }
+          case "not_found":
+            return reply.code(404).send({ error: "not_found" });
+          case "not_editable":
+            return reply.code(409).send({ error: "not_editable" });
+          case "slot_taken":
+            return reply.code(409).send({ error: "slot_taken" });
+          case "calendar_unavailable":
+            return reply.code(503).send({ error: "calendar_unavailable" });
         }
       });
     });

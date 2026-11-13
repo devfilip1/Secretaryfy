@@ -8,7 +8,9 @@
   },
   "deleteAll": {
     "button": "Delete all conversations",
-    "confirm": "Delete all conversations and their messages? This cannot be undone."
+    "title": "Delete all conversations?",
+    "confirm": "Delete all conversations and their messages? This cannot be undone.",
+    "action": "Delete all"
   },
   "deleteOne": {
     "button": "Delete conversation",

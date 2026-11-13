@@ -41,6 +41,8 @@
   "noAppointments": "Nenhum agendamento ligado a este cadastro.",
   "cancelled": "cancelado",
   "noConversation": "Nenhuma conversa de WhatsApp com este cliente",
+  "confirmDeleteTitle": "Excluir cliente?",
+  "confirmDeleteAction": "Excluir cadastro",
   "confirmDelete": "Excluir o cadastro de {{name}} ({{phone}})?\n\nOs agendamentos já marcados continuam no Google Agenda. Se o cliente marcar de novo, ele volta a ser cadastrado.",
   "saved": {
     "name": "Nome salvo.",

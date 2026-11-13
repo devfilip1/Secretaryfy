@@ -18,6 +18,7 @@ export function createFakeCalendar({
     getEvent: 0,
     moveEvent: 0,
     renameEvent: 0,
+    updateEvent: 0,
     deleteEvent: 0,
   };
   let nextError: Error | null = null;
@@ -69,6 +70,12 @@ export function createFakeCalendar({
       maybeFail("renameEvent");
       const e = events.get(eventId);
       if (e) events.set(eventId, { ...e, summary });
+    },
+    async updateEvent(eventId, patch) {
+      maybeFail("updateEvent");
+      const e = events.get(eventId);
+      if (!e) throw new CalendarUnavailable("evento não encontrado");
+      events.set(eventId, { ...e, ...patch });
     },
     async deleteEvent(eventId) {
       maybeFail("deleteEvent");

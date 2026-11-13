@@ -538,3 +538,77 @@ test("POST cancel: 404 para inexistente, não uuid, já cancelado e já passado;
   assert.equal(off.statusCode, 409);
   assert.equal(off.json().error, "calendar_disconnected");
 });
+
+// --- Edição pelo painel (ADR 0015): duração, horário, tratamento e nome ---
+
+const bookAt = async (local: string, phone = "71 99999-9999") => {
+  const res = await book({ ...VALID, phone, start: at(local).toISOString(), minutes: 60 });
+  assert.equal(res.statusCode, 201);
+  return res.json().appointment.id as string;
+};
+const patch = (id: string, body: Record<string, unknown>) => app.inject({ method: "PATCH", url: `/api/appointments/${id}`, payload: body });
+
+test("PATCH: a duração muda; mais longa sobre outra marcação é 409; mais curta vale", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  await bookAt("2026-10-22T11:30", "71 98888-7777");
+
+  assert.equal((await patch(id, { minutes: 150 })).statusCode, 409);
+  const shorter = await patch(id, { minutes: 30 });
+  assert.equal(shorter.statusCode, 200);
+  assert.equal(shorter.json().appointment.minutes, 30);
+  assert.equal(shorter.json().appointment.endsAt, at("2026-10-22T10:30").toISOString());
+});
+
+test("PATCH: mover para horário livre; mover para horário tomado é 409 slot_taken", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  const moved = await patch(id, { start: at("2026-10-22T14:00").toISOString() });
+  assert.equal(moved.statusCode, 200);
+  assert.equal(moved.json().appointment.startsAt, at("2026-10-22T14:00").toISOString());
+
+  await bookAt("2026-10-22T16:00", "71 98888-7777");
+  const taken = await patch(id, { start: at("2026-10-22T16:00").toISOString() });
+  assert.equal(taken.statusCode, 409);
+  assert.equal(taken.json().error, "slot_taken");
+});
+
+test("PATCH para outro dia tira a confirmação; no mesmo dia ela fica", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  await app.inject({ method: "POST", url: `/api/appointments/${id}/confirm` });
+
+  const sameDay = await patch(id, { start: at("2026-10-22T14:00").toISOString() });
+  assert.notEqual(sameDay.json().appointment.confirmedAt, null);
+
+  const nextDay = await patch(id, { start: at("2026-10-23T10:00").toISOString() });
+  assert.equal(nextDay.json().appointment.confirmedAt, null);
+});
+
+test("PATCH: cancelado é 409; inexistente é 404", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  await app.inject({ method: "POST", url: `/api/appointments/${id}/cancel` });
+  assert.equal((await patch(id, { minutes: 90 })).statusCode, 409);
+  assert.equal((await patch(globalThis.crypto.randomUUID(), { minutes: 90 })).statusCode, 404);
+});
+
+test("PATCH com nome novo: a linha, o cadastro e o título do evento seguem o nome", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  const res = await patch(id, { name: "Maria Nova" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().appointment.customerName, "Maria Nova");
+  assert.equal((await customers.findByPhone(PHONE))!.name, "Maria Nova");
+  assert.ok([...fake.events.values()].some((e) => e.summary === "Maria Nova — Dental Cleaning"));
+});
+
+test("PATCH inválido (vazio, duração fora de 15 a 240 ou de 5 em 5, serviço fora do catálogo): 422", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  for (const body of [{}, { minutes: 10 }, { minutes: 245 }, { minutes: 62 }, { service: "Botox" }, { name: " " }]) {
+    assert.equal((await patch(id, body)).statusCode, 422, JSON.stringify(body));
+  }
+});
+
+test("GET /api/booking/starts?excludeAppointmentId: o próprio horário conta como livre", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  const starts = async (query: string) =>
+    (await app.inject({ url: `/api/booking/starts?date=2026-10-22${query}` })).json().starts.map((s: { start: string }) => s.start);
+  assert.ok(!(await starts("")).includes(at("2026-10-22T10:00").toISOString()));
+  assert.ok((await starts(`&excludeAppointmentId=${id}`)).includes(at("2026-10-22T10:00").toISOString()));
+});

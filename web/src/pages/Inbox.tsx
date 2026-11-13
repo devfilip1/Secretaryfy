@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { clearConversations, listConversations, type Conversation } from "../api";
+import { useConfirm } from "../components/ConfirmDialog";
 import { ConversationList } from "../components/ConversationList";
 import { ConversationView } from "../components/ConversationView";
 import { TodayStrip } from "../components/day-ruler/TodayStrip";
+import { Notice } from "../components/Notice";
 import { useInboxEvents } from "../useEvents";
 
 const byRecent = (a: Conversation, b: Conversation) => b.lastMessageAt.localeCompare(a.lastMessageAt);
@@ -20,6 +22,8 @@ export function Inbox({ connected }: { connected: boolean }) {
   const [loaded, setLoaded] = useState(false);
   const [selectedId, setSelected] = useState<string | null>(conversationFromHash);
   const query = useRef("");
+  const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   // Abrir ou fechar uma conversa fica no endereço, sem navegar: voltar para a aba e o link de outra tela funcionam
   const setSelectedId = useCallback((id: string | null) => {
@@ -83,14 +87,21 @@ export function Inbox({ connected }: { connected: boolean }) {
   }
 
   async function onClearAll() {
-    if (!window.confirm(t("deleteAll.confirm"))) return;
+    const ok = await confirm({
+      title: t("deleteAll.title"),
+      description: t("deleteAll.confirm"),
+      confirmLabel: t("deleteAll.action"),
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await clearConversations();
       // O evento conversations.cleared também limpa a lista; aqui não depende dele chegar
       setConversations([]);
       setSelectedId(null);
+      setError(null);
     } catch {
-      window.alert(t("errors.deleteAll"));
+      setError(t("errors.deleteAll"));
     }
   }
 
@@ -102,7 +113,9 @@ export function Inbox({ connected }: { connected: boolean }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {dialog}
       <TodayStrip attentionPhones={attentionPhones} />
+      {error && <Notice role="alert">{error}</Notice>}
       <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
         <ConversationList
           conversations={shown}

@@ -9,11 +9,12 @@ interface DayTimelineProps {
   tagOf: (a: Appointment) => ReminderTag | null;
   confirmingId: string | null;
   onConfirm: (a: Appointment) => void;
+  onEdit: (a: Appointment) => void;
   onCancel: (a: Appointment) => void;
 }
 
 /** Linha do tempo de um dia: uma linha por consulta, na ordem do horário (ver dayItems). */
-export function DayTimeline({ items, formats, tagOf, confirmingId, onConfirm, onCancel }: DayTimelineProps) {
+export function DayTimeline({ items, formats, tagOf, confirmingId, onConfirm, onEdit, onCancel }: DayTimelineProps) {
   return (
     <ul>
       {items.map((a) => (
@@ -25,6 +26,7 @@ export function DayTimeline({ items, formats, tagOf, confirmingId, onConfirm, on
           formats={formats}
           busy={confirmingId === a.id}
           onConfirm={() => onConfirm(a)}
+          onEdit={() => onEdit(a)}
           onCancel={() => onCancel(a)}
         />
       ))}

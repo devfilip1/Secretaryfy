@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { testCatalog } from "../../test/catalog.js";
 import { createReplies, type Replies } from "./replies.js";
 import { createClinicContext } from "../clinic/context.js";
+import { ASSESSMENT, createCatalog } from "./catalog.js";
 
 const tz = "America/Bahia";
 const start = new Date("2026-10-21T13:00:00Z");
@@ -36,6 +37,7 @@ function everyCall(r: Replies): Record<Exclude<keyof Replies, "startsWithAgain">
     stopped: () => r.stopped(),
     askNameFollowUp: () => r.askNameFollowUp(() => 0),
     nameReceived: () => r.nameReceived("Maria", () => 0),
+    nameKept: () => r.nameKept("Maria"),
     goodbye: () => r.goodbye(() => 0),
     unclear: () => r.unclear("Como posso ajudar?"),
     handoff: () => r.handoff(),
@@ -90,6 +92,14 @@ test("listas em pt com bolinhas (•), com dias por extenso e as linhas de horá
   assert.match(times, /\n• 09:00\n• 10:00\n/);
   assert.match(pt.chooseService(), /\n• Dental Cleaning\n/);
   assert.match(pt.chooseService(), /\n• Não tenho certeza \(avaliação geral\)\n/);
+});
+
+test("retorno ligado em pt: a lista mostra Retorno, não o rótulo em inglês", () => {
+  const clinic = createClinicContext({ name: "Clínica Sorriso", kind: "dental clinic", language: "pt", offerAssessment: false, offerFollowUp: true });
+  const catalog = createCatalog(testCatalog.list().filter((s) => s.name !== ASSESSMENT), clinic);
+  const list = createReplies({ clinic, catalog }).chooseService();
+  assert.match(list, /\n• Retorno\n/);
+  assert.doesNotMatch(list, /Follow-up visit/);
 });
 
 test("confirmação e lembrete pedem confirmação", () => {

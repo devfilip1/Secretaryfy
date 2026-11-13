@@ -49,7 +49,8 @@
   },
   "notice": {
     "booked": "Agendamos {{name}} para {{day}} às {{time}}.",
-    "cancelled": "Cancelamos o agendamento de {{name}}, {{day}} às {{time}}."
+    "cancelled": "Cancelamos o agendamento de {{name}}, {{day}} às {{time}}.",
+    "edited": "Atualizamos o agendamento de {{name}} para {{day}} às {{time}}."
   },
   "errors": {
     "generic": "Algo deu errado. Tente de novo.",
@@ -107,7 +108,7 @@
   "duration": {
     "error": {
       "format": "Informe a duração, como 45, 2h ou 1h30.",
-      "min": "O mínimo é 5 minutos.",
+      "min": "O mínimo é {{min}} minutos.",
       "step": "Use um múltiplo de 5 minutos.",
       "max": "O maior tempo livre a partir deste horário é {{max}}."
     }
@@ -117,5 +118,12 @@
     "fullyBooked": "Lotado",
     "ariaFree": "{{date}}, horários livres",
     "ariaFull": "{{date}}, lotado"
+  },
+  "edit": {
+    "button": "Editar",
+    "title": "Editar agendamento",
+    "description": "{{name}}. Horário, duração, serviço e nome são salvos na agenda. Nenhuma mensagem é enviada ao cliente.",
+    "save": "Salvar alterações",
+    "busy": "Salvando…"
   }
 }

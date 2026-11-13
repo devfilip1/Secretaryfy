@@ -18,6 +18,12 @@ export const SESSION_TTL_MS = 30 * 60_000;
 export type SessionDraft = Pick<SchedulingSessionRow, "conversationId" | "flow" | "step"> &
   Partial<Pick<SchedulingSessionRow, "options" | "selectedStart" | "customerName" | "service" | "appointmentId" | "misunderstoodCount">>;
 
+/** Campos que a edição pelo painel grava (horário, tratamento, nome, lembrete e confirmação). */
+export type EditFields = Pick<
+  AppointmentRow,
+  "startsAt" | "endsAt" | "service" | "customerName" | "reminderStatus" | "reminderReason" | "reminderSentAt" | "confirmedAt" | "confirmedBy"
+>;
+
 /** Horário da aba de agendamentos, com as anotações e o nome do cadastro do cliente (specs/006). */
 export type UpcomingAppointment = AppointmentRow & { notes: string | null; registeredName: string | null };
 
@@ -173,6 +179,20 @@ export function createSchedulingStore(db: Db) {
       }
     },
 
+    /**
+     * Grava a edição do agendamento; quem chama decide lembrete e confirmação. Devolve false se o novo horário já estiver
+     * tomado por outro agendamento (índice único do horário).
+     */
+    async editBooking(id: string, fields: EditFields): Promise<boolean> {
+      try {
+        await db.update(appointments).set({ ...fields, updatedAt: new Date() }).where(eq(appointments.id, id));
+        return true;
+      } catch (err) {
+        if (isUniqueViolation(err)) return false;
+        throw err;
+      }
+    },
+
     // --- Lembrete e confirmação (specs/006 US4) ---
 
     /** Horários marcados com lembrete pendente que começam até `until`, em ordem. */
@@ -259,6 +279,7 @@ const APPOINTMENT_WRITES = [
   "setCustomerName",
   "markCancelled",
   "updateTimes",
+  "editBooking",
   "markReminderSent",
   "setReminderReason",
   "markReminderNotSent",

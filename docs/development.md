@@ -140,7 +140,7 @@ Notes:
 - Everything is in memory. Restarting either process disconnects the number: connect again in the panel.
 - The fake sends webhook events to the app at `http://localhost:${PORT}` (the server's `PORT`), not to `WEBHOOK_BASE_URL`, which only resolves inside Docker.
 - Logout from the panel does not send a 401 event, so conversations are kept.
-- The anti-ban pacing still applies: the 4 s debounce, read/think/typing delays, the per-minute and per-hour limits, and the warm-up for a number less than 14 days old. The fake caps the typing wait at 3 s, and the real delay is logged. To go faster in development, copy this block into `.env` (not into the code). Restart `npm run dev` after changing it:
+- The anti-ban pacing still applies: the 3 s debounce, read/think/typing delays, the per-minute and per-hour limits, and the warm-up for a number less than 14 days old. The fake caps the typing wait at 3 s, and the real delay is logged. To go faster in development, copy this block into `.env` (not into the code). Restart `npm run dev` after changing it:
 
 ```bash
 # Development only: shorter pauses and no warm-up, same code paths as production
