@@ -4,6 +4,17 @@ import type { Intent } from "../intents.js";
 import type { ChatMessage } from "../ollama.js";
 import type { DayPeriod } from "../understanding/when.js";
 
+/**
+ * Janela de horários de um dia, pedida pelo cliente ("depois das 15", "mais cedo que 9", "o último"). Cada ponta é "HH:MM",
+ * ou "first"/"last" (o primeiro e o último horário na tela). notBefore e notAfter são estritos; near é o horário de referência.
+ */
+export interface TimeWindow {
+  notBefore?: string | null;
+  notAfter?: string | null;
+  near?: string | null;
+  pick?: "earliest" | "latest" | null;
+}
+
 export interface Interpretation {
   intent: Intent;
   /** Número da opção escolhida (intent = choose) */
@@ -14,6 +25,8 @@ export interface Interpretation {
   time?: string | null;
   /** Parte do dia que o cliente pediu sem citar um horário ('de manhã', 'à tarde', 'à noite'); ausente se não pediu */
   period?: DayPeriod | null;
+  /** Janela de horários do dia (flow/window.ts); ausente se o cliente não pediu uma. Nunca vem junto de um horário exato (time) */
+  timeWindow?: TimeWindow | null;
   name: string | null;
   /** Nome do serviço do catálogo (a chave do tratamento, ou um serviço fixo: ASSESSMENT, FOLLOW_UP) que o modelo deu, em qualquer intenção; ausente se não deu */
   service?: string | null;

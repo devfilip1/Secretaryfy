@@ -41,6 +41,8 @@
   "noAppointments": "No appointments linked to this record.",
   "cancelled": "cancelled",
   "noConversation": "No WhatsApp conversation with this customer",
+  "confirmDeleteTitle": "Delete customer?",
+  "confirmDeleteAction": "Delete record",
   "confirmDelete": "Delete the record for {{name}} ({{phone}})?\n\nAppointments already booked stay on Google Calendar. If the customer books again, they are added back.",
   "saved": {
     "name": "Name saved.",

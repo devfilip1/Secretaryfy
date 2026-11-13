@@ -11,6 +11,7 @@
   "calendarLabel": "Calendar used for bookings",
   "calendarPrimary": "{{name}} (primary)",
   "disconnect": "Disconnect",
+  "disconnectTitle": "Disconnect Google Calendar?",
   "disconnectConfirm": "Disconnect the calendar? The assistant stops offering and booking times until you connect again.",
   "notices": {
     "connected": "Calendar connected.",

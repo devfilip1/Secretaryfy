@@ -31,11 +31,11 @@ export function parseDuration(value: number | string): number | null {
   return null;
 }
 
-/** Por que a duração digitada não vale, ou null se ela vale. `max` é o tempo livre a partir do horário. */
-export function validateDuration(value: number | string, max: number): DurationError | null {
+/** Por que a duração digitada não vale, ou null se ela vale. `max` é o tempo livre a partir do horário; `min`, o mínimo do caso (o padrão é 5). */
+export function validateDuration(value: number | string, max: number, min: number = MIN_DURATION): DurationError | null {
   const minutes = parseDuration(value);
   if (minutes === null) return { code: "format" };
-  if (minutes < MIN_DURATION) return { code: "min" };
+  if (minutes < min) return { code: "min" };
   if (minutes % DURATION_STEP !== 0) return { code: "step" };
   if (minutes > max) return { code: "max", max };
   return null;

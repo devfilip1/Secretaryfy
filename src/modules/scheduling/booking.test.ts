@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { CalendarUnavailable } from "../google/gateway.js";
 import { after, before, beforeEach, test } from "node:test";
 import { sql } from "drizzle-orm";
 import { appointments, messages } from "../../db/schema.js";
@@ -259,4 +260,48 @@ test("evento apagado no Google antes do cancelamento: not_found, o horário fica
   assert.deepEqual([appt.status, appt.cancelledBy], ["cancelled", "calendar"]);
   const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
   assert.deepEqual(notes.at(-1), { kind: "cancelled_in_calendar", start: "2026-10-22T13:00:00.000Z", timeZone: "America/Bahia" });
+});
+
+// --- Edição (ADR 0015) ---
+
+const bookedId = async () => {
+  const result = await slot("2026-10-22T10:00", { minutes: 60 });
+  assert.equal(result.kind, "booked");
+  return result.kind === "booked" ? result.appointment.id : "";
+};
+
+test("edita: a duração nova vale no Google e no banco; o próprio horário não ocupa a edição", async () => {
+  const id = await bookedId();
+  const result = await booking.updateAppointment({ id, changes: { minutes: 90 }, conversationId: null });
+  assert.equal(result.kind, "updated");
+  const [event] = [...fake.events.values()];
+  assert.equal(event.end.getTime(), at("2026-10-22T11:30").getTime());
+  const [row] = await testDb.db.select().from(appointments);
+  assert.equal(row.endsAt.getTime(), at("2026-10-22T11:30").getTime());
+});
+
+test("edita para outro dia: a confirmação cai e o lembrete é recalculado para o horário novo", async () => {
+  const id = await bookedId();
+  await store.confirm(id, "operator", NOW);
+  const result = await booking.updateAppointment({ id, changes: { start: at("2026-10-23T10:00") }, conversationId: null });
+  assert.equal(result.kind, "updated");
+  const [row] = await testDb.db.select().from(appointments);
+  assert.equal(row.confirmedAt, null);
+  assert.equal(row.reminderStatus, "pending");
+});
+
+test("o Google recusa a edição: o banco volta ao horário anterior", async () => {
+  const id = await bookedId();
+  const original = fake.gateway.updateEvent;
+  fake.gateway.updateEvent = async () => {
+    throw new CalendarUnavailable("Google fora do ar");
+  };
+  try {
+    const result = await booking.updateAppointment({ id, changes: { minutes: 120 }, conversationId: null });
+    assert.equal(result.kind, "calendar_unavailable");
+  } finally {
+    fake.gateway.updateEvent = original;
+  }
+  const [row] = await testDb.db.select().from(appointments);
+  assert.equal(row.endsAt.getTime(), at("2026-10-22T11:00").getTime());
 });

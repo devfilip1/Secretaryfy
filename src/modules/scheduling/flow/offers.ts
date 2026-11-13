@@ -2,7 +2,8 @@ import { DateTime } from "luxon";
 import type { AppointmentRow } from "../../../db/schema.js";
 import { availableDays, naturalSlotsForDay, slotsForDay } from "../availability.js";
 import type { FlowResult } from "../flow.js";
-import type { DayPeriod } from "../interpret.js";
+import type { DayPeriod, TimeWindow } from "../interpret.js";
+import { boundsOf, pickInWindow } from "./window.js";
 import type { Rules } from "../rules.js";
 import { slotsInPeriod, slotsNearPeriod } from "./period.js";
 import type { Run } from "./run.js";
@@ -59,6 +60,18 @@ export async function offerDay(run: Run, date: string, period: DayPeriod | null 
   }
   if (period) return offerPeriod(run, date, slots, period, onScreen);
   return offerSlots(run, date, slots);
+}
+
+/** Horários de um dia dentro da janela pedida (flow/window.ts); sem nenhum, avisa e mostra os mais próximos dela. */
+export async function offerWindow(run: Run, date: string, window: TimeWindow, onScreen: Date[]): Promise<FlowResult> {
+  if (date > run.window.lastDate) return tooFar(run);
+  const slots = await offerableOn(run, date);
+  const picked = pickInWindow(slots, boundsOf(window, date, onScreen, run.tz), PAGE);
+  // Sem nenhum horário livre no dia, vale a oferta do dia (fechado, cheio ou dias mais próximos)
+  if (picked.shown.length === 0) return offerDay(run, date);
+  await saveSlots(run, picked.shown);
+  if (!picked.matched) return { reply: run.replies.noneInWindow(date, picked.shown, run.tz) };
+  return { reply: run.replies.offerSlots(date, picked.shown, run.tz, picked.more) };
 }
 
 /** Todos os sábados e domingos da janela de agendamento, do primeiro que ainda vem. */

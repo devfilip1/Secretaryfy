@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SessionOption } from "../../db/schema.js";
 import { testCatalog } from "../../test/catalog.js";
-import { ASSESSMENT } from "./catalog.js";
+import { ASSESSMENT, createCatalog, type ServiceCatalog } from "./catalog.js";
 import { testClinic } from "../../test/clinic.js";
 import { createInterpreter, nameInText, type InterpretInput } from "./interpret.js";
 import { createOllamaClient, InterpreterUnavailable, type ChatMessage } from "./ollama.js";
@@ -10,14 +10,14 @@ import { createOllamaClient, InterpreterUnavailable, type ChatMessage } from "./
 type Body = { model: string; format: object; options: { temperature: number }; stream: boolean; messages: ChatMessage[] };
 
 /** Ollama falso: guarda o corpo recebido e devolve `reply` como conteúdo da mensagem. */
-function fakeOllama(reply: unknown | (() => never)) {
+function fakeOllama(reply: unknown | (() => never), catalog: ServiceCatalog = testCatalog) {
   const bodies: Body[] = [];
   const fetch = (async (_url: string, init: RequestInit) => {
     bodies.push(JSON.parse(String(init.body)));
     if (typeof reply === "function") (reply as () => never)();
     return new Response(JSON.stringify({ message: { role: "assistant", content: typeof reply === "string" ? reply : JSON.stringify(reply) } }));
   }) as typeof globalThis.fetch;
-  const interpreter = createInterpreter({ clinic: testClinic, catalog: testCatalog, ollama: createOllamaClient({ url: "http://ollama.test", model: "m", timeoutMs: 1000, fetch }) });
+  const interpreter = createInterpreter({ clinic: testClinic, catalog, ollama: createOllamaClient({ url: "http://ollama.test", model: "m", timeoutMs: 1000, fetch }) });
   return { interpreter, bodies };
 }
 
@@ -41,6 +41,40 @@ function input(overrides: Partial<InterpretInput> = {}): InterpretInput {
     ...overrides,
   };
 }
+
+// Horários de 19/11 na tela (Salvador, UTC-3): 10:00 a 15:00
+const slotsOnScreen: SessionOption[] = [10, 11, 12, 13, 14, 15].map((h, k) => ({ n: k + 1, kind: "slot", start: `2026-11-19T${String(h + 3).padStart(2, "0")}:00:00.000Z` }) as SessionOption);
+
+test("pergunta sobre quais horários existem na tela é disponibilidade com janela, nunca pergunta (qualquer jeito de dizer)", async () => {
+  const cases: { text: string; notBefore?: string; notAfter?: string }[] = [
+    { text: "teria mais cedo que 9?", notAfter: "09:00" },
+    { text: "tem algo antes das 10?", notAfter: "10:00" },
+    { text: "e depois das 15?", notBefore: "15:00" },
+  ];
+  for (const { text, notBefore, notAfter } of cases) {
+    // O modelo errou a intenção (question) e pôs a janela: o código a aceita como pedido de horário
+    const { interpreter } = fakeOllama({ intent: "question", option: null, date: null, name: null, timeWindow: { after: notBefore ?? null, before: notAfter ?? null, near: null, pick: null } });
+    const i = await interpreter.interpret(input({ text, step: "choose_slot", options: slotsOnScreen }));
+    assert.equal(i.intent, "availability", text);
+    assert.equal(i.timeWindow?.notBefore ?? null, notBefore ?? null, text);
+    assert.equal(i.timeWindow?.notAfter ?? null, notAfter ?? null, text);
+  }
+});
+
+// O modelo pôs o mesmo horário no campo de horário e na ponta "antes": a janela vale, e não é um horário exato
+test("disponibilidade com uma ponta de janela não traz horário exato", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, name: null, time: "11:00", timeWindow: { after: null, before: "11:00", near: null, pick: null } });
+  const i = await interpreter.interpret(input({ text: "pode ser antes das 11?", step: "choose_slot", options: slotsOnScreen }));
+  assert.equal(i.intent, "availability");
+  assert.equal(i.time, undefined);
+  assert.equal(i.timeWindow?.notAfter, "11:00");
+});
+
+test("pergunta de informação da clínica, sem janela, continua pergunta mesmo com horários na tela", async () => {
+  const { interpreter } = fakeOllama({ intent: "question", option: null, date: null, name: null, timeWindow: null });
+  const i = await interpreter.interpret(input({ text: "quanto custa a limpeza?", step: "choose_slot", options: slotsOnScreen }));
+  assert.equal(i.intent, "question");
+});
 
 test("regras resolvem números, sim/não e datas simples sem chamar o modelo", async () => {
   const { interpreter, bodies } = fakeOllama({ intent: "unclear", option: null, date: null, name: null });
@@ -340,7 +374,7 @@ test("nameInText ignora acento e caixa e exige todas as palavras do nome", () =>
 
 // --- tratamento citado na conversa: uma chamada focada, sem regras por palavra ---
 
-test("mentionedService devolve o tratamento que o modelo escolheu, pelo rótulo do catálogo, sem a avaliação geral na lista", async () => {
+test("mentionedService devolve o tratamento que o modelo escolheu, pelo rótulo do catálogo, com a avaliação geral na lista", async () => {
   const { interpreter, bodies } = fakeOllama({ service: "Dental Cleaning", quote: "dental cleaning" });
   const history: ChatMessage[] = [
     { role: "user", content: "Do you do dental cleaning?" },
@@ -356,7 +390,7 @@ test("mentionedService devolve o tratamento que o modelo escolheu, pelo rótulo 
   assert.deepEqual(body.messages.slice(1), [...history, { role: "user", content: "I'd like to book an appointment" }]);
   const format = body.format as { properties: { service: { enum: unknown[] } }; required: string[] };
   assert.ok(format.properties.service.enum.includes("Teeth Whitening"));
-  assert.ok(!format.properties.service.enum.includes("General assessment"));
+  assert.ok(format.properties.service.enum.includes("General assessment"));
   assert.deepEqual(format.required, ["quote", "service"]);
 });
 
@@ -374,13 +408,11 @@ test("mentionedService só vale com a citação escrita pelo cliente: sem citaç
   assert.equal(await assistantOnly.mentionedService({ history: h2, text: "I want to book" }), null);
 });
 
-test("mentionedService: null, rótulo fora do catálogo, avaliação geral, JSON inválido ou Ollama fora do ar viram null sem lançar", async () => {
+test("mentionedService: null, rótulo fora do catálogo, JSON inválido ou Ollama fora do ar viram null sem lançar", async () => {
   const none = fakeOllama({ service: null, quote: null }).interpreter;
   assert.equal(await none.mentionedService({ history: [], text: "hi there" }), null);
   const unknown = fakeOllama({ service: "hair transplant", quote: "hair" }).interpreter;
   assert.equal(await unknown.mentionedService({ history: [], text: "hair?" }), null);
-  const assessment = fakeOllama({ service: "General assessment", quote: "not sure" }).interpreter;
-  assert.equal(await assessment.mentionedService({ history: [], text: "not sure" }), null);
   const broken = fakeOllama("isto não é json").interpreter;
   assert.equal(await broken.mentionedService({ history: [], text: "hmm" }), null);
 
@@ -391,6 +423,29 @@ test("mentionedService: null, rótulo fora do catálogo, avaliação geral, JSON
   const log = { error: (obj: object) => logged.push(obj) };
   assert.equal(await down.mentionedService({ history: [], text: "hmm", log }), null);
   assert.equal(logged.length, 1);
+});
+
+test("avaliação geral: vale só quando o cliente a nomeia com a citação dele; sem citação, fora das mensagens, ou não oferecida, é null", async () => {
+  const named = fakeOllama({ service: "General assessment", quote: "avaliação geral" }).interpreter;
+  assert.equal(await named.mentionedService({ history: [], text: "Oi, queria marcar uma avaliação geral" }), ASSESSMENT);
+  const unquoted = fakeOllama({ service: "General assessment", quote: null }).interpreter;
+  assert.equal(await unquoted.mentionedService({ history: [], text: "quero marcar uma consulta" }), null);
+  const invented = fakeOllama({ service: "General assessment", quote: "check-up" }).interpreter;
+  assert.equal(await invented.mentionedService({ history: [], text: "quero marcar uma consulta" }), null);
+
+  const treatments = testCatalog.list().filter((s) => s.name !== ASSESSMENT);
+  const notOffered = createCatalog(treatments, { offerAssessment: false, offerFollowUp: false, assessmentMinutes: null, followUpMinutes: null });
+  const off = fakeOllama({ service: "General assessment", quote: "avaliação geral" }, notOffered);
+  assert.equal(await off.interpreter.mentionedService({ history: [], text: "queria marcar uma avaliação geral" }), null);
+});
+
+test("avaliação geral não oferecida sai do enum do pedido focado", async () => {
+  const treatments = testCatalog.list().filter((s) => s.name !== ASSESSMENT);
+  const notOffered = createCatalog(treatments, { offerAssessment: false, offerFollowUp: false, assessmentMinutes: null, followUpMinutes: null });
+  const { interpreter, bodies } = fakeOllama({ service: null, quote: null }, notOffered);
+  await interpreter.mentionedService({ history: [], text: "oi" });
+  const format = bodies[0].format as { properties: { service: { enum: unknown[] } } };
+  assert.ok(!format.properties.service.enum.includes("General assessment"));
 });
 
 // --- sim ou não numa confirmação: o assunto lido pelo modelo não é sim; o interpretador só marca topicOnly (quem decide é a concordância) ---

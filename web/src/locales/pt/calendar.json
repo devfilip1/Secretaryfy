@@ -11,6 +11,7 @@
   "calendarLabel": "Agenda usada para as consultas",
   "calendarPrimary": "{{name}} (principal)",
   "disconnect": "Desconectar",
+  "disconnectTitle": "Desconectar o Google Agenda?",
   "disconnectConfirm": "Desconectar a agenda? O assistente deixa de oferecer e marcar horários até você conectar de novo.",
   "notices": {
     "connected": "Agenda conectada.",

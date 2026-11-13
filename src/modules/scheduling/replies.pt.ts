@@ -43,6 +43,10 @@ export function createPortugueseReplies({ clinic, catalog }: { clinic: Pick<Clin
       return `Não tenho horário livre ${PERIOD_PT[period]} ${onDay(date, tz)}, mas tenho estes:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
     },
 
+    noneInWindow(date: string, slots: Date[], tz: string) {
+      return `Infelizmente não temos horário nessa condição ${onDay(date, tz)}. Os mais próximos são:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nSe preferir outro dia, é só pedir.`;
+    },
+
     slotNotOffered(date: string, slots: Date[], tz: string) {
       return `Infelizmente não temos esse horário! Teria outro que funcione para você ${onDay(date, tz)}?
 ${bullets(slots.map((s) => formatTime(s, tz, pt)))}
@@ -88,7 +92,7 @@ Se preferir outro dia, é só pedir.`;
     /** Lista numerada dos serviços (specs/005, etapa choose_service). */
     chooseService(name?: string | null) {
       const who = firstName(name);
-      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza (avaliação geral)" : s.label));
+      const lines = catalog.list().map((s) => (s.name === ASSESSMENT ? "Não tenho certeza (avaliação geral)" : catalog.label(s.name, "pt")));
       return `${who ? `${who}, para` : "Para"} qual serviço é este agendamento?\n${bullets(lines)}\nÉ só me dizer qual.`;
     },
 
@@ -167,6 +171,11 @@ Se preferir outro dia, é só pedir.`;
       const who = firstName(name);
       const options = [`Prazer, ${who}! Como posso ajudar?`, `Obrigado, ${who}! Como posso ajudar hoje?`];
       return options[Math.floor(random() * options.length)];
+    },
+
+    /** O nome veio como resposta ao pedido, com um horário ou uma lista na tela: confirma o nome e volta a essa tela logo depois */
+    nameKept(name: string) {
+      return `Obrigado, ${firstName(name)}! Vamos continuar de onde paramos:`;
     },
 
     /** O cliente agradeceu ou se despediu: sem convite para agendar, só a despedida. */

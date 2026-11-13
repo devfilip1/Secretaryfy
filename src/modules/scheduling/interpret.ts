@@ -1,5 +1,5 @@
 import type { ClinicContext } from "../clinic/context.js";
-import { ASSESSMENT, type ServiceCatalog } from "./catalog.js";
+import type { ServiceCatalog } from "./catalog.js";
 import type { ChatMessage, OllamaClient } from "./ollama.js";
 import { createOptionExtractor } from "./understanding/option.js";
 import { createAgreementReader } from "./understanding/agreement.js";
@@ -16,7 +16,7 @@ export type { DayPeriod, When } from "./understanding/when.js";
 export { INTENTS } from "./intents.js";
 export type { Intent } from "./intents.js";
 export { cleanName, nameInText } from "./interpret/names.js";
-export type { Interpretation, InterpretInput } from "./interpret/types.js";
+export type { Interpretation, InterpretInput, TimeWindow } from "./interpret/types.js";
 
 const HISTORY_LIMIT = 20;
 
@@ -80,8 +80,7 @@ export function createInterpreter({
         if (!parsed.success || parsed.data.service === null) return null;
         // Sem uma citação que esteja nas mensagens do cliente, o modelo está chutando (ex.: o primeiro da lista)
         if (!quotedByCustomer(parsed.data.quote, history, text)) return null;
-        const name = catalog.byLabel(parsed.data.service);
-        return name === ASSESSMENT ? null : name;
+        return catalog.byLabel(parsed.data.service);
       } catch (err) {
         log?.error({ err: (err as Error).message }, "tratamento citado indisponível");
         return null;

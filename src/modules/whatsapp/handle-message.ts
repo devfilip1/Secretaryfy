@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Gate } from "../antiban/gate.js";
+import type { BlockReason } from "../antiban/queue.js";
 import { matchCommand } from "../antiban/opt-out.js";
 import type { FixedTexts } from "../antiban/texts.js";
 import type { SystemNote } from "../inbox/system-note.js";
@@ -98,6 +99,9 @@ export function createRagReplier(ask: (question: string) => Promise<RagAnswer>, 
   return async ({ message }, log) => ({ text: await answer(message.text ?? "", log, message.phone), split: true });
 }
 
+/** A primeira palavra, em minúsculas e sem pontuação: "Claro!" e "Claro, sim" começam com a mesma palavra */
+const firstWord = (text: string) => text.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") ?? "";
+
 interface Deps {
   reply: Replier;
   /** Todo envio passa pela proteção do número (specs/004) */
@@ -132,15 +136,20 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
    */
   async function unrepeated(conversationId: string, text: string): Promise<string | null> {
     const same = await gate.pickVariant(conversationId, [text]);
-    return same ?? gate.pickVariant(conversationId, texts.again.map((opening) => `${opening}\n${text}`));
+    // Uma abertura cuja primeira palavra já abre o texto ("Claro!" antes de "Claro! Tenho…") não entra: não se repete
+    const openings = texts.again.filter((opening) => firstWord(opening) !== firstWord(text));
+    return same ?? gate.pickVariant(conversationId, openings.map((opening) => `${opening}\n${text}`));
   }
 
   return async function handleMessage(
     { conversationId, message }: { conversationId: string; message: IncomingMessage },
     log: FastifyBaseLogger,
+    burst: { waited: boolean } = { waited: false },
   ): Promise<void> {
     const { phone } = message;
     if (message.type !== "text" || !message.text) return;
+    // Uma rodada que esperou outra resposta desta conversa é o cliente escrevendo enquanto respondíamos: não é insistência
+    const insistence: BlockReason[] = burst.waited ? ["unanswered"] : [];
 
     try {
       const command = matchCommand(message.text, { inSchedulingFlow: await hasSchedulingSession(conversationId) });
@@ -199,7 +208,7 @@ export function createMessageHandler({ reply, gate, inbox, hasSchedulingSession 
           log.error({ conversationId }, "resposta repetida sem abertura livre: não enviada");
           return;
         }
-        if ((await gate.sendAssistant({ conversationId, phone, text, ignorePause: answer.ignorePause })) !== "sent") return;
+        if ((await gate.sendAssistant({ conversationId, phone, text, ignorePause: answer.ignorePause, bypass: insistence })) !== "sent") return;
       }
     } catch (err) {
       log.error({ phone, err }, "falha ao registrar a resposta do assistente");

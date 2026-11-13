@@ -52,3 +52,7 @@ flowchart LR
 - [ ] Is the system meant to serve one clinic per deployment (as today: one calendar, one number, one operator password), or several?
 - [ ] How long should conversations and messages be kept (LGPD retention)? Today they are kept until the number is disconnected or the operator deletes them.
 - [ ] Should the assistant answer in Portuguese? Today it always answers in English, and Portuguese questions can retrieve the wrong brochure section.
+
+---
+
+Last updated: 2026-11-12, time windows, the name kept on the screen, fixed service labels and the named general assessment (business-rules.md BR-SCH-27 to BR-SCH-30); message bursts: 3 s quiet window, one round per conversation at a time, insistence not counted against a patient who wrote while we answered (message-pipeline.md, business-rules.md BR-CNV-03).

@@ -101,6 +101,16 @@ test("retorno citado na conversa vai direto aos dias, com o tempo do retorno", a
   assert.equal(h.catalog.minutes(FOLLOW_UP), 45);
 });
 
+test("avaliação geral citada na conversa vai direto aos dias, sem perguntar o serviço", async () => {
+  await useClinic({ offerAssessment: true });
+  const conv = await conversation();
+  h.mentioned = ASSESSMENT;
+  await say(conv, I("book"));
+  const session = await sessionOf(conv);
+  assert.equal(session!.step, "choose_day");
+  assert.equal(session!.service, ASSESSMENT);
+});
+
 test("a troca nas ofertas vale na mensagem seguinte, sem refazer o fluxo", async () => {
   const clinic = await useClinic({ offerAssessment: true });
   const first = await conversation();

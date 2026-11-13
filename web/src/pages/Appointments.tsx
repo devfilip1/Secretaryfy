@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirmAppointment, listAppointments, type Appointment, type ReminderLabel } from "../api";
 import { CancelAppointmentDialog } from "../components/CancelAppointmentDialog";
+import { EditAppointmentDialog } from "../components/EditAppointmentDialog";
 import { NewAppointment } from "../components/NewAppointment";
 import { DayHeader } from "../components/agenda/DayHeader";
 import { DayTimeline } from "../components/agenda/DayTimeline";
@@ -37,6 +38,7 @@ export function AppointmentsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
+  const [editing, setEditing] = useState<Appointment | null>(null);
   const [dayIndex, setDayIndex] = useState(0);
   const [range, setRange] = useState<AgendaRange>(readAgendaRange);
 
@@ -148,6 +150,32 @@ export function AppointmentsPage() {
             />
           )}
 
+          {editing && (
+            <EditAppointmentDialog
+              appointment={editing}
+              timeZone={data.timeZone}
+              formats={formats}
+              onKeep={() => setEditing(null)}
+              onSaved={(saved) => {
+                setNotice(
+                  t("notice.edited", {
+                    name: saved.customerName,
+                    day: formats.day.format(new Date(saved.startsAt)),
+                    time: formats.time.format(new Date(saved.startsAt)),
+                  }),
+                );
+                setError(null);
+                setEditing(null);
+                load();
+              }}
+              onGone={() => {
+                setError({ key: "errors.notBooked" });
+                setEditing(null);
+                load();
+              }}
+            />
+          )}
+
           {creating && (
             <NewAppointment
               onCancel={() => setCreating(false)}
@@ -185,6 +213,7 @@ export function AppointmentsPage() {
                   tagOf={reminderTag}
                   confirmingId={confirming}
                   onConfirm={(a) => confirm(a)}
+                  onEdit={(a) => setEditing(a)}
                   onCancel={(a) => setCancelling(a)}
                 />
               )}
@@ -199,6 +228,7 @@ export function AppointmentsPage() {
                   tagOf={reminderTag}
                   confirmingId={confirming}
                   onConfirm={(a) => confirm(a)}
+                  onEdit={(a) => setEditing(a)}
                   onCancel={(a) => setCancelling(a)}
                 />
               </section>

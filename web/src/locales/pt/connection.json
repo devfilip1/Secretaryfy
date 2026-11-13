@@ -1,6 +1,8 @@
 {
   "loading": "Carregando…",
+  "confirmDisconnectTitle": "Desconectar o WhatsApp?",
   "confirmDisconnect": "Desconectar este número do Secretaryfy? O assistente deixa de responder até você conectar de novo.",
+  "confirmDisconnectAction": "Desconectar",
   "tryAgain": "Tentar de novo",
   "status": {
     "open": "Conectado",

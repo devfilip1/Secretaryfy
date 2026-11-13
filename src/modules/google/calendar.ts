@@ -131,6 +131,25 @@ export function createGoogleCalendar({
       });
     },
 
+    updateEvent(eventId, patch) {
+      return withApi("editar evento", async (api, conn) => {
+        await api.events.patch(
+          {
+            calendarId: conn.calendarId,
+            eventId,
+            sendUpdates: "none",
+            requestBody: {
+              summary: patch.summary,
+              description: patch.description,
+              start: { dateTime: patch.start.toISOString(), timeZone: conn.timeZone },
+              end: { dateTime: patch.end.toISOString(), timeZone: conn.timeZone },
+            },
+          },
+          opts,
+        );
+      });
+    },
+
     renameEvent(eventId, summary) {
       return withApi("renomear evento", async (api, conn) => {
         try {

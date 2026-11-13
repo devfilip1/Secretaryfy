@@ -5,7 +5,7 @@ import type { IncomingMessage } from "../modules/whatsapp/evolution.js";
 import { testReplies as replies } from "./clinic.js";
 import type { SchedulingFlow } from "../modules/scheduling/flow.js";
 import type { Replies } from "../modules/scheduling/replies.js";
-import type { DayPeriod, Interpretation, InterpretInput, Interpreter } from "../modules/scheduling/interpret.js";
+import type { DayPeriod, Interpretation, InterpretInput, Interpreter, TimeWindow } from "../modules/scheduling/interpret.js";
 import type { Agreement } from "../modules/scheduling/understanding/agreement.js";
 import { InterpreterUnavailable } from "../modules/scheduling/ollama.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
@@ -45,6 +45,7 @@ export function setup({
   service = null,
   mentioned = null,
   time = null,
+  window = null,
   date = null,
   when = null,
   pick = null,
@@ -83,6 +84,8 @@ export function setup({
   messagesSinceReminder?: number;
   /** Horário que o interpretador devolve junto da intenção */
   time?: string | null;
+  /** Janela de horários que o interpretador devolve junto da intenção (timeWindow) */
+  window?: TimeWindow | null;
   /** Data que o interpretador devolve junto da intenção (o modelo às vezes a inventa) */
   date?: string | null;
   /** O que a chamada focada mentionedWhen acha (horário ou parte do dia); o padrão é nada */
@@ -122,7 +125,7 @@ export function setup({
     interpret: async (input) => {
       inputs.push(input);
       if (unavailable) throw new InterpreterUnavailable("Ollama fora do ar");
-      return { intent: intent!, option: null, date, name, urgent, service, source: "model", ...(time ? { time } : {}), ...(topicOnly ? { topicOnly: true } : {}) };
+      return { intent: intent!, option: null, date, name, urgent, service, source: "model", ...(time ? { time } : {}), ...(window ? { timeWindow: window } : {}), ...(topicOnly ? { topicOnly: true } : {}) };
     },
     mentionedWhen: async (input) => {
       whenCalls.push(input);
@@ -136,11 +139,17 @@ export function setup({
       return mentioned;
     },
   };
+  const resumed: { knownName: string }[] = [];
   const flow = {
     handle: async (input: { interpretation: Interpretation; knownName: string | null; mentionedService: string | null }) => {
       const { interpretation } = input;
       handled.push(input);
       return interpretation.intent === "unclear" ? { reply: "handoff", handoff: true } : { reply: flowReply };
+    },
+    /** O nome dito no pedido de nome, com a tela de horários ou dias: a pergunta da etapa volta (flow.resumeScreen) */
+    resumeScreen: async (input: { knownName: string }) => {
+      resumed.push(input);
+      return { reply: "tela pendente" };
     },
   } as unknown as SchedulingFlow;
 
@@ -198,5 +207,5 @@ export function setup({
     },
     humanize,
   });
-  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, asked, histories, mentionCalls, whenCalls, savedNames, askedAt, confirmed, notes, flagged, cleared };
+  return { reply: () => reply({ conversationId: "c1", message: { ...MESSAGE, text } }, log), inputs, handled, resumed, asked, histories, mentionCalls, whenCalls, savedNames, askedAt, confirmed, notes, flagged, cleared };
 }

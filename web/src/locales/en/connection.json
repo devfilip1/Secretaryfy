@@ -1,6 +1,8 @@
 {
   "loading": "Loading…",
+  "confirmDisconnectTitle": "Disconnect WhatsApp?",
   "confirmDisconnect": "Disconnect this number from Secretaryfy? The assistant stops replying until you connect again.",
+  "confirmDisconnectAction": "Disconnect",
   "tryAgain": "Try again",
   "status": {
     "open": "Connected",

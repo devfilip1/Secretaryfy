@@ -8,7 +8,9 @@
   },
   "deleteAll": {
     "button": "Apagar todas as conversas",
-    "confirm": "Apagar todas as conversas e suas mensagens? Isso não pode ser desfeito."
+    "title": "Apagar todas as conversas?",
+    "confirm": "Apagar todas as conversas e suas mensagens? Isso não pode ser desfeito.",
+    "action": "Apagar tudo"
   },
   "deleteOne": {
     "button": "Apagar conversa",

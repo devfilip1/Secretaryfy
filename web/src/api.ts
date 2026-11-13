@@ -270,22 +270,52 @@ export const confirmAppointment = (id: string, language: PanelLanguage) =>
   request<{ appointment: Appointment }>("POST", withLanguage(`/api/appointments/${id}/confirm`, language), {});
 /** Cancela o agendamento e remove o evento da agenda; não avisa o cliente. 404 not_found, 409 calendar_disconnected. */
 export const cancelAppointment = (id: string) => request<{ ok: true }>("POST", `/api/appointments/${id}/cancel`, {});
+/** Edição pelo painel: só os campos que mudaram. 409 slot_taken | not_editable; 404 not_found; 503 calendar_unavailable; 422 invalid_body. Sem mensagem ao cliente. */
+export interface AppointmentEdit {
+  start?: string;
+  minutes?: number;
+  service?: string;
+  name?: string;
+}
+export const updateAppointment = (id: string, body: AppointmentEdit, language: PanelLanguage) =>
+  request<{ appointment: Appointment }>("PATCH", withLanguage(`/api/appointments/${id}`, language), body);
+
+/**
+ * Filtros da agenda: o tratamento (duração do serviço), a duração escolhida pela equipe e o horário que se edita (ele
+ * conta como livre). Vazios não vão na query.
+ */
+export interface AvailabilityQuery {
+  date?: string;
+  service?: string;
+  minutes?: number;
+  excludeAppointmentId?: string;
+}
+const availabilityPath = (path: string, q: AvailabilityQuery) => {
+  const params = new URLSearchParams();
+  if (q.date) params.set("date", q.date);
+  if (q.service) params.set("service", q.service);
+  if (q.minutes !== undefined) params.set("minutes", String(q.minutes));
+  if (q.excludeAppointmentId) params.set("excludeAppointmentId", q.excludeAppointmentId);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+};
 
 // `status`: cada dia aberto da janela da equipe, livre ou lotado para a duração do serviço; dia fechado não aparece
-export const bookingDays = (service?: string) =>
+export const bookingDays = (q: AvailabilityQuery = {}) =>
   request<{ timeZone: string; days: string[]; minDate: string; maxDate: string; status: Record<string, "free" | "full"> }>(
     "GET",
-    `/api/booking/days${service ? `?service=${encodeURIComponent(service)}` : ""}`,
+    availabilityPath("/api/booking/days", q),
   );
-/** `slots`: horários sugeridos para a duração do serviço; `minutes`: a duração usada para eles. */
-export const bookingSlots = (date: string, service?: string) =>
-  request<{ date: string; slots: string[]; minutes: number }>("GET", `/api/booking/slots?date=${date}${service ? `&service=${encodeURIComponent(service)}` : ""}`);
+/** `slots`: horários sugeridos para a duração do serviço (ou a escolhida); `minutes`: a duração usada para eles. */
+export const bookingSlots = (q: AvailabilityQuery & { date: string }) =>
+  request<{ date: string; slots: string[]; minutes: number }>("GET", availabilityPath("/api/booking/slots", q));
 /** Cada início livre do dia, com o tempo livre até o próximo agendamento ou o fechamento (no máximo 480 min). */
 export interface BookingStart {
   start: string;
   maxMinutes: number;
 }
-export const bookingStarts = (date: string) => request<{ date: string; starts: BookingStart[] }>("GET", `/api/booking/starts?date=${date}`);
+export const bookingStarts = (q: AvailabilityQuery & { date: string }) =>
+  request<{ date: string; starts: BookingStart[] }>("GET", availabilityPath("/api/booking/starts", q));
 export const lookupPhone = (phone: string, language: PanelLanguage) =>
   request<{ phone: string; name: string | null; hasConversation: boolean; futureAppointment: Appointment | null }>(
     "GET",

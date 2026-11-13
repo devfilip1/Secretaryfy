@@ -189,7 +189,7 @@ export function createGate({
 
   /** Depois de não enviar: o motivo vai para o log, e alguns destacam a conversa (com laço, ela também é pausada). */
   async function afterBlock(conversationId: string, reason: BlockReason) {
-    log.info({ conversationId, reason }, "resposta não enviada pela proteção");
+    log.warn({ conversationId, reason }, "resposta não enviada pela proteção");
     const note = FLAGGED[reason];
     if (!note) return;
     await inbox.flagNeedsAttention(conversationId);

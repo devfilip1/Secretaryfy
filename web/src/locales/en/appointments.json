@@ -49,7 +49,8 @@
   },
   "notice": {
     "booked": "Booked {{name}} for {{day}} at {{time}}.",
-    "cancelled": "Cancelled the appointment of {{name}}, {{day}} at {{time}}."
+    "cancelled": "Cancelled the appointment of {{name}}, {{day}} at {{time}}.",
+    "edited": "Updated {{name}}’s appointment for {{day}} at {{time}}."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -107,7 +108,7 @@
   "duration": {
     "error": {
       "format": "Enter the duration, like 45, 2h or 1h30.",
-      "min": "The minimum is 5 minutes.",
+      "min": "The minimum is {{min}} minutes.",
       "step": "Use a multiple of 5 minutes.",
       "max": "The longest free time from this start is {{max}}."
     }
@@ -117,5 +118,12 @@
     "fullyBooked": "Fully booked",
     "ariaFree": "{{date}}, free times",
     "ariaFull": "{{date}}, fully booked"
+  },
+  "edit": {
+    "button": "Edit",
+    "title": "Edit appointment",
+    "description": "{{name}}. Time, duration, service and name are saved to the calendar. No message is sent to the customer.",
+    "save": "Save changes",
+    "busy": "Saving…"
   }
 }

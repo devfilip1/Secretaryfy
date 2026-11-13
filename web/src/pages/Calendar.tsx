@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field } from "../components/Field";
+import { useConfirm } from "../components/ConfirmDialog";
 import { Muted } from "../components/Muted";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -59,6 +60,7 @@ export function CalendarPage() {
   const [notice, setNotice] = useState(takeOAuthNotice);
   const [error, setError] = useState<ErrorKey | null>(null);
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     getCalendar()
@@ -95,7 +97,13 @@ export function CalendarPage() {
   }
 
   async function disconnect() {
-    if (!window.confirm(t("disconnectConfirm"))) return;
+    const ok = await confirm({
+      title: t("disconnectTitle"),
+      description: t("disconnectConfirm"),
+      confirmLabel: t("disconnect"),
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await disconnectCalendar();
@@ -119,6 +127,7 @@ export function CalendarPage() {
 
   return (
     <Page>
+      {dialog}
       <div className="grid w-[min(720px,100%)] gap-4 max-md:gap-3">
         {notice && (
           <Notice

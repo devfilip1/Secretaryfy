@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { setup, MESSAGE } from "../../test/router-harness.js";
+import { setup, MESSAGE, SESSION } from "../../test/router-harness.js";
 import { testReplies as replies } from "../../test/clinic.js";
 
 // --- Nome do cliente (specs/005, US1) ---
@@ -75,6 +75,38 @@ test("o pedido de nome volta uma vez, depois de algumas mensagens sem dizer; dep
   const enough = setup({ intent: "question", customerName: null, nameAsks: 2, nameAskedAt: asked, messagesSinceAsk: 9 });
   assert.equal((await enough.reply())?.followUp, undefined);
   assert.equal(enough.askedAt.length, 0);
+});
+
+// --- Nome dito em resposta ao pedido, com os horários do dia na tela ---
+
+const asked = new Date("2026-11-19T10:00:00Z");
+const onScreen = { ...SESSION, step: "choose_slot", options: [{ n: 1, kind: "slot", start: "2026-11-19T13:00:00Z" }] } as typeof SESSION;
+
+test("o nome dito depois do pedido, com horários na tela: grava o nome e a pergunta da etapa volta, sem reler a lista", async () => {
+  // O modelo leu "Sou Joao" como "outro dia": o nome é o que vale
+  const r = setup({ intent: "other_day", name: "Joao", session: onScreen, customerName: null, nameAskedAt: asked, messagesSinceAsk: 1 });
+  const reply = await r.reply();
+  assert.equal(reply?.text, `${replies.nameKept("Joao")}\n\ntela pendente`);
+  assert.deepEqual(r.savedNames, ["Joao"]);
+  assert.deepEqual(r.resumed.map((x) => x.knownName), ["Joao"]);
+  assert.equal(r.handled.length, 0);
+});
+
+test("a mensagem que não diz nome segue o caminho normal, sem gravar nada", async () => {
+  const r = setup({ intent: "other_day", name: null, session: onScreen, customerName: null, nameAskedAt: asked, messagesSinceAsk: 1 });
+  await r.reply();
+  assert.equal(r.resumed.length, 0);
+  assert.equal(r.handled.length, 1);
+  assert.deepEqual(r.savedNames, []);
+});
+
+test("nome junto de um horário ou de uma parada: não é só o nome, segue o caminho normal", async () => {
+  for (const extra of [{ intent: "choose" as const, time: "10:00" }, { intent: "stop" as const, name: "Joao" }]) {
+    const r = setup({ name: "Joao", session: onScreen, customerName: null, nameAskedAt: asked, messagesSinceAsk: 1, ...extra });
+    await r.reply();
+    assert.equal(r.resumed.length, 0, extra.intent);
+    assert.equal(r.handled.length, 1, extra.intent);
+  }
 });
 
 test("mensagens do debounce desde a nossa resposta saem do histórico e contam para o nome", async () => {

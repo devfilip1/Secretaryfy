@@ -5,6 +5,8 @@ import type { Agreement } from "./agreement.js";
 
 /** Quando a chamada focada de horário/parte do dia/dia deve rodar */
 export function wantsWhen(interpretation: Interpretation, step: SchedulingStep | null | undefined): boolean {
+  // Com uma janela de horários, a frase já foi lida: o horário dela é a própria janela (flow/window.ts), não um horário a conferir
+  if (interpretation.timeWindow) return false;
   // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
   return (
     asksForWhen(interpretation.intent) ||
@@ -27,6 +29,8 @@ export function citesWhen(when: When | null): boolean {
  * Devolve o mesmo objeto quando nada muda.
  */
 export function applyWhen(interpretation: Interpretation, when: When | null, step: SchedulingStep | null | undefined): Interpretation {
+  // Com uma janela de horários, o horário ou a parte do dia da chamada focada não muda a interpretação: a janela é a leitura desse horário, e o despacho a segue
+  if (interpretation.timeWindow) return interpretation;
   // O que a frase pede no tempo ("as 14h", "de manhã"): a parte do dia vence um horário que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
   const period = when?.period ?? null;
   // A chamada focada confere a citação no texto, então vale mais que o campo do modelo principal (que às vezes inventa um horário);

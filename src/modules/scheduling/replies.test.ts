@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { testReplies as replies } from "../../test/clinic.js";
+import { testCatalog } from "../../test/catalog.js";
+import { createClinicContext } from "../clinic/context.js";
+import { ASSESSMENT, createCatalog } from "./catalog.js";
+import { createReplies } from "./replies.js";
 
 const tz = "America/Bahia";
 
@@ -63,6 +67,14 @@ test("lista de serviços: os 8 tratamentos em bullets e a avaliação geral no f
   assert.equal(lines[8], "• Dental Veneers");
   assert.equal(lines[9], "• Not sure (general assessment)");
   assert.equal(lines[10], "Just tell me which one.");
+});
+
+test("retorno ligado em en: a lista mostra Follow-up visit, não Retorno", () => {
+  const clinic = createClinicContext({ name: "DentalSafe", kind: "dental clinic", language: "en", offerAssessment: false, offerFollowUp: true });
+  const catalog = createCatalog(testCatalog.list().filter((s) => s.name !== ASSESSMENT), clinic);
+  const list = createReplies({ clinic, catalog }).chooseService();
+  assert.match(list, /\n• Follow-up visit\n/);
+  assert.doesNotMatch(list, /Retorno/);
 });
 
 test("lembrete (specs/006): três variações diferentes, com dia, hora, serviço e pedido de confirmação, sem links", () => {

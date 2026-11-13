@@ -51,6 +51,8 @@ const ASKS_PERIOD_OF_SCREEN_INTENTS: readonly Intent[] = ["choose", "availabilit
 const CARRY_A_CITED_DAY_INTENTS: readonly Intent[] = ["other_day", "more", "unclear"];
 /** Podem ser só palavras sem sentido: a chamada de sentido (understanding/sense.ts) confere, e só rebaixa para não entendi (applySense, em resolve.ts) */
 const MAY_BE_NOISE_INTENTS: readonly Intent[] = ["rude", "manipulation", "off_topic"];
+/** Podem levar uma janela de horários do dia (timeWindow, em validate.ts), filtrada em flow/window.ts */
+const CAN_FILTER_TIME_INTENTS: readonly Intent[] = ["choose", "more", "availability", "book", "unclear"];
 
 /** Os grupos por nome, só para o teste de intents.test.ts fotografar os membros; o código usa os predicados */
 export const INTENT_GROUPS = {
@@ -64,6 +66,7 @@ export const INTENT_GROUPS = {
   ASKS_PERIOD_OF_SCREEN: ASKS_PERIOD_OF_SCREEN_INTENTS,
   MAY_BE_NOISE: MAY_BE_NOISE_INTENTS,
   CARRY_A_CITED_DAY: CARRY_A_CITED_DAY_INTENTS,
+  CAN_FILTER_TIME: CAN_FILTER_TIME_INTENTS,
 } as const;
 
 /** Pede um dia ou um horário (ver ASKS_FOR_WHEN_INTENTS) */
@@ -86,3 +89,5 @@ export const asksPeriodOfScreen = (intent: Intent): boolean => ASKS_PERIOD_OF_SC
 export const carriesACitedDay = (intent: Intent): boolean => CARRY_A_CITED_DAY_INTENTS.includes(intent);
 /** Pode ser só palavras sem sentido (ver MAY_BE_NOISE_INTENTS) */
 export const mayBeNoise = (intent: Intent): boolean => MAY_BE_NOISE_INTENTS.includes(intent);
+/** Pode levar uma janela de horários do dia (ver CAN_FILTER_TIME_INTENTS) */
+export const canFilterTime = (intent: Intent): boolean => CAN_FILTER_TIME_INTENTS.includes(intent);

@@ -32,11 +32,12 @@ interface AgendaRowProps {
   formats: ReturnType<typeof useFormats>;
   busy: boolean;
   onConfirm: () => void;
+  onEdit: () => void;
   onCancel: () => void;
 }
 
 /** Uma consulta na linha do tempo: horário, faixa da situação, paciente, serviço, lembrete e ações. */
-export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfirm, onCancel }: AgendaRowProps) {
+export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfirm, onEdit, onCancel }: AgendaRowProps) {
   const { t } = useTranslation("appointments");
   const start = new Date(a.startsAt);
   const range = t("range", { start: formats.time.format(start), end: formats.time.format(new Date(a.endsAt)) });
@@ -74,8 +75,8 @@ export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfir
             </Muted>
           )}
         </div>
-        {/* Colunas fixas: confirmar, cancelar e abrir conversa ficam na mesma posição em todas as linhas. Na tela estreita, 2 botões lado a lado e o link embaixo. */}
-        <div className="grid grid-cols-2 gap-2 text-sm md:shrink-0 md:grid-cols-[7.5rem_6.5rem_10rem]">
+        {/* Colunas fixas: confirmar, editar, cancelar e abrir conversa ficam na mesma posição em todas as linhas. Na tela estreita, 2 botões lado a lado e o link embaixo. */}
+        <div className="grid grid-cols-2 gap-2 text-sm md:shrink-0 md:grid-cols-[7.5rem_5.5rem_6.5rem_10rem]">
           <div className="flex justify-end">
             {!a.confirmedAt && (
               <Button
@@ -88,6 +89,11 @@ export function AgendaRow({ appointment: a, status, tag, formats, busy, onConfir
                 {busy ? t("confirm.busy") : t("confirm.button")}
               </Button>
             )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" className="w-full md:w-auto" onClick={onEdit}>
+              {t("edit.button")}
+            </Button>
           </div>
           <div className="flex justify-end">
             <Button variant="outline" className="w-full text-destructive md:w-auto" onClick={onCancel}>
