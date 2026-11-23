@@ -55,4 +55,4 @@ flowchart LR
 
 ---
 
-Last updated: 2026-11-12, time windows, the name kept on the screen, fixed service labels and the named general assessment (business-rules.md BR-SCH-27 to BR-SCH-30); message bursts: 3 s quiet window, one round per conversation at a time, insistence not counted against a patient who wrote while we answered (message-pipeline.md, business-rules.md BR-CNV-03).
+Last updated: 2026-11-23, time windows, the name kept on the screen, fixed service labels and the named general assessment (business-rules.md BR-SCH-27 to BR-SCH-30); message bursts: 3 s quiet window, one round per conversation at a time, insistence not counted against a patient who wrote while we answered (message-pipeline.md, business-rules.md BR-CNV-03).
