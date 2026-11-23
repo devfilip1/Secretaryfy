@@ -62,6 +62,18 @@ const weekendCases: [string, boolean][] = [
   ["tem horario sab?", false],
   ["abrem aos domingos?", false],
   ["do you open on Saturdays?", false],
+  // Frases de fora (holdout): nenhuma está nos prompts nem nas tabelas anteriores
+  ["tem expediente no final de semana?", true],
+  ["vcs trabalham sab e dom?", true],
+  ["fds vcs abrem?", true],
+  ["are you available on Saturday and Sunday?", true],
+  ["tem atendimento nos finais de semana?", true],
+  ["weekend hours?", true],
+  ["domingo tem plantão?", false],
+  ["posso marcar pra sábado que vem?", false],
+  ["abre sábado de manhã?", false],
+  ["do you see patients on Sundays?", false],
+  ["sextas à noite vocês atendem?", false],
 ];
 
 // [frase, posição esperada na lista de opções (ou null)]

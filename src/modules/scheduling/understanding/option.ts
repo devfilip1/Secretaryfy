@@ -11,13 +11,13 @@ const pickFormat = {
 const pickPrompt = (count: number) =>
   [
     `The customer is choosing one of ${count} numbered options the assistant just showed in the chat.`,
-    `Answer "option" with the number of the option the customer picks, counting from 1 ("the first one" and "the earliest" are 1, "the second" is 2, "o último" and "the last one" are ${count}), or null when the message does not pick one of them by its position or number.`,
+    `Answer "option" with the number of the option the customer picks, counting from 1 ("the first one" and "the earliest" are 1, "the second" is 2, "a última" and "the final one" are ${count}), or null when the message does not pick one of them by its position or number.`,
     'The pick must be written as a position or a number ("first", "second", "last", "primeiro", "último", "the 2"). Copy those words into "quote" (null when there are none).',
-    'These are NOT picks, answer null: another day ("outro dia", "another day"), more options ("mais horários", "more times"), a part of the day ("à tarde", "in the morning"), a weekday, a clock time, a question, a name, yes or no. Do not guess.',
+    'These are NOT picks, answer null: another day ("um dia diferente", "another day"), more options ("horários adicionais", "more times"), a part of the day ("de tarde", "in the morning"), a weekday, a clock time, a question, a name, yes or no. Do not guess.',
   ].join("\n");
 
 /**
- * Qual das opções numeradas da tela o cliente escolheu pela posição ("the first one", "o último"), numa chamada focada:
+ * Qual das opções numeradas da tela o cliente escolheu pela posição ("the first one", "a derradeira"), numa chamada focada:
  * o modelo às vezes devolve o dia no lugar da opção. A citação tem de estar na mensagem e o número tem de existir. Qualquer falha vira null.
  */
 export function createOptionExtractor({ ollama }: { ollama: Pick<OllamaClient, "chat"> }) {

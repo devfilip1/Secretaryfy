@@ -13,9 +13,9 @@ const agreementFormat = {
 };
 const AGREEMENT_PROMPT = [
   "You read one WhatsApp message that a customer sent to a clinic's booking assistant. The assistant had just asked the customer a yes or no question.",
-  'Answer "agree" when the message accepts, in any wording, in any language ("pode sim camarada", "fechado", "bora", "yes, go ahead").',
+  'Answer "agree" when the message accepts, in any wording, in any language ("topo sim, manda ver", "fechado", "bora", "yes, go ahead").',
   'Answer "refuse" when the message declines, in any wording ("de jeito nenhum", "nope, keep it", "não quero", "não precisa").',
-  'Answer "neither" when the message is a question ("quanto custa?"), a request to change something (another day, another time, another treatment), a message with no answer to the question, or unrelated to it. A message that only repeats the subject of the question without yes or no ("cancelar", "remarcar") is "neither".',
+  'Answer "neither" when the message is a question ("quanto sai isso?"), a request to change something (another day, another time, another treatment), a message with no answer to the question, or unrelated to it. A message that only repeats the subject of the question without yes or no ("cancelar", "remarcar") is "neither".',
   "Do not guess: when the message does not clearly accept or decline, answer neither.",
 ].join("\n");
 

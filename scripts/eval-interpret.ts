@@ -82,6 +82,11 @@ const cases: Case[] = [
   c(null, "queria marcar uma consulta na sexta", "book", { date: "2026-10-23" }),
   c(null, "vcs abrem domingo?", "availability", { date: "2026-10-25" }),
   c(null, "vocês atendem no fim de semana?", "availability", { date: null, weekend: true }),
+  // Frases de fora (holdout), fora dos prompts
+  c(null, "tem atendimento nos finais de semana?", "availability", { date: null, weekend: true }),
+  c(null, "fds vcs abrem?", "availability", { date: null, weekend: true }),
+  c(null, "abre sábado de manhã?", "availability", { date: "2026-10-24" }),
+  c(null, "do you see patients on Sundays?", "availability", { date: "2026-10-25" }),
   // Um dia da semana nomeado nunca é o fim de semana, mesmo que o modelo diga "weekend"
   c(null, "quais horarios da segunda de tarde", "availability", { weekend: false }),
   c(null, PT ? "quero marcar uma limpeza" : "I would like to book a cleaning", "book", { service: PT ? "limpeza-dental" : "Dental Cleaning" }),
