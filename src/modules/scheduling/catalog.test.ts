@@ -106,11 +106,19 @@ test("catálogo dos testes: nove serviços, o nome igual ao rótulo e a avaliaç
 
 const CHUNKS = new URL("../../../rag/data/index/section/chunks.json", import.meta.url);
 
-test("o catálogo dos testes cobre todos os tratamentos do folheto", { skip: !existsSync(CHUNKS) && "índice do RAG não gerado" }, () => {
+/** Títulos (primeira linha de cada trecho) do índice gerado; vazio quando ele não existe. */
+const indexTitles: string[] = existsSync(CHUNKS)
+  ? (JSON.parse(readFileSync(CHUNKS, "utf8")) as { content: string }[]).map((c) => c.content.split("\n")[0].split(" — ")[0].trim())
+  : [];
+
+/** O índice tem de ser o do folheto que o catálogo de teste espelha (DentalSafe); outro índice (outra clínica ou língua) pula o teste. */
+const brochureSkip: string | false = !existsSync(CHUNKS)
+  ? "índice do RAG não gerado"
+  : !indexTitles.includes("DentalSafe") && "índice do RAG de outra clínica/língua";
+
+test("o catálogo dos testes cobre todos os tratamentos do folheto", { skip: brochureSkip }, () => {
   const notTreatments = new Set(["DentalSafe", "Why Choose DentalSafe?", "Schedule Your Assessment Today"]);
-  const titles = (JSON.parse(readFileSync(CHUNKS, "utf8")) as { content: string }[])
-    .map((c) => c.content.split("\n")[0].split(" — ")[0].trim())
-    .filter((t) => !notTreatments.has(t));
+  const titles = indexTitles.filter((t) => !notTreatments.has(t));
   const names = list().map((s) => s.name);
   for (const title of new Set(titles)) assert.ok(names.includes(title), `${title} não está no catálogo`);
 });

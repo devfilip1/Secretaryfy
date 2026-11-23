@@ -18,3 +18,4 @@ web/dist/
 rag/evaluation/runs/*/
 !rag/evaluation/runs/experiments/
 .ashlrcode/genome/
+rag/evaluation/runs/experiments/*.csv
