@@ -34,6 +34,7 @@ function keyAndParams(
   switch (note.kind) {
     case "booked":
     case "booked_from_panel":
+    case "edited_from_panel":
       return [note.kind, { when: at(note.start), minutes: note.minutes, service: serviceText(note.service) }];
     case "rescheduled":
       return [note.kind, { from: at(note.from), to: at(note.to) }];

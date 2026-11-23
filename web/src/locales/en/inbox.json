@@ -103,6 +103,7 @@
     "at": "{{day}} at {{time}}",
     "booked": "Booked by the assistant: {{when}} ({{minutes}} min), {{service}}",
     "booked_from_panel": "Booked from the panel: {{when}} ({{minutes}} min), {{service}}",
+    "edited_from_panel": "Edited from the panel: {{when}} ({{minutes}} min), {{service}}",
     "rescheduled": "Rescheduled by the assistant: {{from}} → {{to}}",
     "cancelled_by_customer": "Cancelled by the customer: {{when}}",
     "cancelled_by_staff": "Cancelled from the panel: {{when}}",

@@ -27,6 +27,7 @@ export function toneOfNote(note: SystemNote | null): NoteTone {
     case "opted_in":
       return "ok";
     case "rescheduled":
+    case "edited_from_panel":
     case "reactivated_by_operator":
       return "info";
     default: {

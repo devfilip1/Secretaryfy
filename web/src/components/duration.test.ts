@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { defaultDuration, endOfRoom, formatMinutes, parseDuration, validateDuration } from "./duration";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { defaultDuration, endOfRoom, formatMinutes, MAX_DURATION, parseDuration, validateDuration } from "./duration";
+
+describe("MAX_DURATION", () => {
+  it("é o mesmo limite da marcação pela equipe no servidor (MAX_APPOINTMENT_MINUTES)", () => {
+    const server = readFileSync(fileURLToPath(new URL("../../../src/modules/scheduling/availability.ts", import.meta.url)), "utf8");
+    assert.equal(Number(/MAX_APPOINTMENT_MINUTES = (\d+)/.exec(server)?.[1]), MAX_DURATION);
+  });
+});
 
 describe("validateDuration", () => {
   it("aceita múltiplos de 5 de 5 até o máximo", () => {

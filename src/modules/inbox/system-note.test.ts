@@ -10,6 +10,7 @@ test("cada tipo de registro tem o mesmo texto em inglês de antes da tipagem", (
   const table: [SystemNote, string][] = [
     [{ kind: "booked", start, minutes: 60, service: "Dental Cleaning", timeZone }, "Booked by the assistant: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning"],
     [{ kind: "booked_from_panel", start, minutes: 60, service: "Dental Cleaning", timeZone }, "Booked from the panel: Wed, Oct 21 at 10:00 AM (60 min), Dental Cleaning"],
+    [{ kind: "edited_from_panel", start, minutes: 45, service: "Assessment", timeZone }, "Edited from the panel: Wed, Oct 21 at 10:00 AM (45 min), General assessment"],
     [{ kind: "rescheduled", from: start, to: later, timeZone }, "Rescheduled by the assistant: Wed, Oct 21 at 10:00 AM → Fri, Oct 23 at 2:00 PM"],
     [{ kind: "cancelled_by_customer", start, timeZone }, "Cancelled by the customer: Wed, Oct 21 at 10:00 AM"],
     [{ kind: "cancelled_by_staff", start, timeZone }, "Cancelled from the panel: Wed, Oct 21 at 10:00 AM"],

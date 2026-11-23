@@ -6,6 +6,7 @@ import type { CustomerRepository } from "../modules/customers/repository.js";
 import { clinicTimeZone, type ConnectionStore } from "../modules/google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../modules/google/gateway.js";
 import type { InboxRepository } from "../modules/inbox/repository.js";
+import type { Publish } from "../modules/inbox/events.js";
 import type { InboxService } from "../modules/inbox/service.js";
 import { reminderLabel } from "../modules/reminders/status.js";
 import {
@@ -39,6 +40,8 @@ interface Deps {
   rules: Pick<RulesStore, "get">;
   booking: Pick<Booking, "bookSlot" | "currentAppointment" | "cancelAppointment" | "updateAppointment">;
   reminderLeadMinutes: number;
+  /** Avisa as abas (o cadastro de clientes muda quando a edição troca o nome) */
+  publish: Publish;
   /** Os tratamentos que se podem marcar (catalog.ts): a lista do painel e a validação da marcação */
   catalog: ServiceCatalog;
   /** Idioma da clínica, padrão dos rótulos quando o painel não pede um (`?language=`) */
@@ -47,10 +50,8 @@ interface Deps {
 }
 
 const idParams = z.object({ id: z.uuid() });
-// Edição pelo painel: duração de 15 a 240 minutos, de 5 em 5 (como as configurações da clínica)
-const EDIT_MIN_MINUTES = 15;
-const EDIT_MAX_MINUTES = 240;
-const editMinutes = z.number().int().min(EDIT_MIN_MINUTES).max(EDIT_MAX_MINUTES).multipleOf(MINUTES_STEP);
+// Edição pelo painel: a mesma duração da marcação pela equipe (de 5 em 5, até MAX_APPOINTMENT_MINUTES)
+const editMinutes = z.number().int().min(MINUTES_STEP).max(MAX_APPOINTMENT_MINUTES).multipleOf(MINUTES_STEP);
 // excludeAppointmentId: o horário que se edita conta como livre (a própria marcação não ocupa a agenda da edição)
 const editingQuery = { excludeAppointmentId: z.uuid().optional(), minutes: z.coerce.number().pipe(editMinutes).optional() };
 const slotsQuery = z.object({ date: z.iso.date(), service: z.string().optional(), ...editingQuery });
@@ -74,6 +75,7 @@ export function panelAppointmentsRoutes({
   rules: rulesStore,
   booking,
   reminderLeadMinutes,
+  publish,
   catalog,
   clinic,
   now: clock = () => new Date(),
@@ -383,6 +385,7 @@ export function panelAppointmentsRoutes({
               const record = await customers.findByPhone(before.phone);
               if (record) await customers.update(record.id, { name }, clock());
               await propagateName(before.phone, name);
+              publish({ type: "customers.updated" });
             }
             return { appointment: await presentOne(result.appointment, language) };
           }

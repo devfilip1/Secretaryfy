@@ -3,6 +3,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "../../db/schema.js";
 import { schedulingRules, type SchedulingRulesRow, type WeeklyHours } from "../../db/schema.js";
+import { RULES_ISSUE_CODES, type RulesIssueCode } from "./rules-issue-codes.js";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -59,21 +60,7 @@ export const rulesSchema = z
     }
   });
 
-/** Códigos dos problemas das regras. O painel traduz cada um em `rules.issue.<código>`; web/src/pages/rules-issue-codes.ts espelha esta lista. */
-export const RULES_ISSUE_CODES = [
-  "no_open_day",
-  "end_before_start",
-  "day_shorter_than_appointment",
-  "invalid_format",
-  "invalid_type",
-  "too_small",
-  "too_big",
-  "not_multiple_of",
-  "unrecognized_keys",
-  "invalid",
-] as const;
-
-export type RulesIssueCode = (typeof RULES_ISSUE_CODES)[number];
+export { RULES_ISSUE_CODES, type RulesIssueCode };
 
 /** Problema como vai na resposta 422 `invalid_rules`. `message` é o texto em inglês, usado como fallback. */
 export interface RulesIssueView {

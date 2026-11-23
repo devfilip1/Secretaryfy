@@ -6,14 +6,10 @@ import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DayField, DurationField, NameAndServiceFields, StartField, type DayRange } from "./booking-pickers";
-import { parseDuration, validateDuration, formatMinutes } from "./duration";
+import { MAX_DURATION, MIN_DURATION, parseDuration, validateDuration, formatMinutes } from "./duration";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
 import { Title } from "./Title";
-
-/** A duração de uma consulta editada: de 15 a 240 minutos, de 5 em 5 (como as configurações da clínica). */
-const EDIT_MIN_MINUTES = 15;
-const EDIT_MAX_MINUTES = 240;
 
 /** Dia (YYYY-MM-DD) de um horário no fuso da clínica. */
 const dayIn = (iso: string, timeZone: string) => new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
@@ -60,7 +56,7 @@ export function EditAppointmentDialog({
 
   // Duração válida para consultar a agenda (a que o painel vai salvar); vazia ou fora da faixa, usa a do tratamento
   const parsed = parseDuration(duration);
-  const askedMinutes = parsed !== null && validateDuration(duration, EDIT_MAX_MINUTES, EDIT_MIN_MINUTES) === null ? parsed : undefined;
+  const askedMinutes = parsed !== null && validateDuration(duration, MAX_DURATION, MIN_DURATION) === null ? parsed : undefined;
 
   useEffect(() => {
     listServices(language)
@@ -115,8 +111,8 @@ export function EditAppointmentDialog({
   // Tempo livre do início escolhido: o da lista; o próprio horário atual, sem lista, vale a duração que ele já tem
   const chosen = start ? starts?.find((s) => s.start === start) : undefined;
   const freeMinutes = start ? (chosen?.maxMinutes ?? (start === appointment.startsAt ? appointment.minutes : 0)) : 0;
-  const maxMinutes = Math.min(freeMinutes, EDIT_MAX_MINUTES);
-  const durationError = start ? validateDuration(duration, maxMinutes, EDIT_MIN_MINUTES) : null;
+  const maxMinutes = Math.min(freeMinutes, MAX_DURATION);
+  const durationError = start ? validateDuration(duration, maxMinutes, MIN_DURATION) : null;
 
   // O que mudou: só o que mudou vai para o servidor
   const startChanged = start !== null && start !== appointment.startsAt;
@@ -185,7 +181,7 @@ export function EditAppointmentDialog({
               formats={formats}
               start={start}
               maxMinutes={maxMinutes}
-              minMinutes={EDIT_MIN_MINUTES}
+              minMinutes={MIN_DURATION}
               duration={duration}
               onChange={setDuration}
             />

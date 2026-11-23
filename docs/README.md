@@ -54,4 +54,4 @@ flowchart LR
 
 ---
 
-Last updated: 2026-11-23, time windows, the name kept on the screen, fixed service labels and the named general assessment (business-rules.md BR-SCH-27 to BR-SCH-30); message bursts: 3 s quiet window, one round per conversation at a time, insistence not counted against a patient who wrote while we answered (message-pipeline.md, business-rules.md BR-CNV-03).
+Last updated: 2026-11-23, a time window needs a bound the customer asked for (business-rules.md BR-SCH-31), panel edits in steps of 5 up to 480 minutes with an off-grid start kept and the `edited_from_panel` note (BR-SCH-26, api.md); time windows, the name kept on the screen, fixed service labels and the named general assessment (business-rules.md BR-SCH-27 to BR-SCH-30); message bursts: 3 s quiet window, one round per conversation at a time, insistence not counted against a patient who wrote while we answered (message-pipeline.md, business-rules.md BR-CNV-03).

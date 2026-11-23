@@ -33,29 +33,49 @@ export function bookingWindow({ rules, now, timeZone, maxDaysAhead }: Pick<Conte
 const overlaps = (start: Date, end: Date, busy: Interval[]) => busy.some((b) => b.start < end && b.end > start);
 
 /**
- * Horários livres de um dia (YYYY-MM-DD no fuso da clínica): inícios na grade das regras (`gridMinutes`) em que o
- * atendimento cabe no horário de funcionamento (FR-009), depois da antecedência mínima e sem sobrepor nenhum
- * intervalo ocupado (FR-010).
+ * Se um atendimento que começa em `start` (com a duração de `ctx.minutes`, ou a da regra) cabe na agenda, sem olhar a
+ * grade: janela de dias, funcionamento até o fechamento, antecedência mínima e ocupação (FR-009, FR-010). `slotsForDay`
+ * usa este mesmo predicado por início da grade; a edição de um horário que fica no lugar usa sem a grade.
  */
-export function slotsForDay(date: string, { rules, busy, now, timeZone, minutes, maxDaysAhead }: Context): Date[] {
-  const length = minutes ?? rules.slotMinutes;
+export function fitsOpenHours(start: Date, ctx: Context): boolean {
+  const { rules, busy, now, timeZone, maxDaysAhead } = ctx;
+  const length = ctx.minutes ?? rules.slotMinutes;
+  const day = DateTime.fromJSDate(start, { zone: timeZone });
+  const date = day.toISODate()!;
+  const window = bookingWindow({ rules, now, timeZone, maxDaysAhead });
+  if (date < window.firstDate || date > window.lastDate) return false;
+  const hours = rules.weeklyHours[String(day.weekday) as keyof Rules["weeklyHours"]];
+  if (!hours) return false;
+  const open = DateTime.fromISO(`${date}T${hours.start}`, { zone: timeZone }).toMillis();
+  const close = DateTime.fromISO(`${date}T${hours.end}`, { zone: timeZone }).toMillis();
+  const end = new Date(start.getTime() + length * 60_000);
+  if (start.getTime() < open || end.getTime() > close) return false;
+  if (start.getTime() < now.getTime() + rules.minNoticeMinutes * 60_000) return false;
+  return !overlaps(start, end, busy);
+}
+
+/**
+ * Horários livres de um dia (YYYY-MM-DD no fuso da clínica): inícios na grade das regras (`gridMinutes`) em que o
+ * atendimento cabe (`fitsOpenHours`).
+ */
+export function slotsForDay(date: string, ctx: Context): Date[] {
+  const { rules, now, timeZone, maxDaysAhead } = ctx;
   const window = bookingWindow({ rules, now, timeZone, maxDaysAhead });
   if (date < window.firstDate || date > window.lastDate) return [];
 
+  const length = ctx.minutes ?? rules.slotMinutes;
   const day = DateTime.fromISO(date, { zone: timeZone });
   const hours = rules.weeklyHours[String(day.weekday) as keyof Rules["weeklyHours"]];
   if (!day.isValid || !hours) return [];
 
   const open = DateTime.fromISO(`${date}T${hours.start}`, { zone: timeZone });
   const close = DateTime.fromISO(`${date}T${hours.end}`, { zone: timeZone });
-  const earliest = now.getTime() + rules.minNoticeMinutes * 60_000;
 
   const slots: Date[] = [];
   // Passo em minutos absolutos: na troca de horário de verão nada se repete nem some
   for (let start = open; start.plus({ minutes: length }) <= close; start = start.plus({ minutes: rules.gridMinutes })) {
     const s = start.toJSDate();
-    const e = start.plus({ minutes: length }).toJSDate();
-    if (s.getTime() >= earliest && !overlaps(s, e, busy)) slots.push(s);
+    if (fitsOpenHours(s, ctx)) slots.push(s);
   }
   return slots;
 }

@@ -125,6 +125,7 @@ await app.register(
     catalog,
     clinic,
     reminderLeadMinutes: env.REMINDER_LEAD_MINUTES,
+    publish: bus.publish,
   }),
 );
 await app.register(

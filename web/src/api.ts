@@ -1,5 +1,6 @@
 import type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
 import type { ConversationJson, MessageJson } from "@server/modules/inbox/presenters";
+import type { RulesIssueCode } from "@server/modules/scheduling/rules-issue-codes";
 import type { PanelLanguage } from "./i18n/language";
 
 // Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
@@ -148,7 +149,7 @@ export interface RulesIssue {
   /** Texto em inglês do servidor, usado quando o código não tem tradução */
   message: string;
   /** Código estável (rules.issue.<código> no calendar.json) */
-  code: string;
+  code: RulesIssueCode;
   params?: Record<string, unknown>;
 }
 
