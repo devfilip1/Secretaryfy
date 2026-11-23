@@ -7,6 +7,7 @@ import type { SystemNote } from "../api";
 export const SYSTEM_NOTE_KINDS = [
   "booked",
   "booked_from_panel",
+  "edited_from_panel",
   "rescheduled",
   "cancelled_by_customer",
   "cancelled_by_staff",

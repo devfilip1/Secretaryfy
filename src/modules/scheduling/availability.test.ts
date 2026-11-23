@@ -5,6 +5,8 @@ import {
   availableDays,
   bookingWindow,
   dayStatuses,
+  fitsOpenHours,
+  isSlotAvailable,
   naturalSlotsForDay,
   slotsForDay,
   startsWithRoom,
@@ -185,6 +187,16 @@ test("sem nenhum horário natural, todos os livres valem", () => {
   const r = rules({ gridMinutes: 15, weeklyHours: { "3": { start: "09:00", end: "10:00" } } });
   const busy = [{ start: at("2026-10-21T09:00"), end: at("2026-10-21T09:15") }];
   assert.deepEqual(naturalSlotsForDay("2026-10-21", { rules: r, busy, now, timeZone, minutes: 30 }).length > 0, true);
+});
+
+test("fitsOpenHours: horário fora da grade cabe pelo funcionamento, antecedência e ocupação, sem a grade", () => {
+  const ctx = { rules: rules({ gridMinutes: 60 }), busy: [{ start: at("2026-10-21T12:00"), end: at("2026-10-21T13:00") }], now, timeZone, minutes: 60 };
+  // 10:10 não está na grade de 60, mas cabe no funcionamento (09:00 a 18:00) e não sobrepõe a ocupação
+  assert.equal(isSlotAvailable(at("2026-10-21T10:10"), ctx), false);
+  assert.equal(fitsOpenHours(at("2026-10-21T10:10"), ctx), true);
+  assert.equal(fitsOpenHours(at("2026-10-21T11:30"), ctx), false); // 11:30 a 12:30 sobrepõe 12:00
+  assert.equal(fitsOpenHours(at("2026-10-21T17:30"), ctx), false); // passa do fechamento
+  assert.equal(fitsOpenHours(at("2026-10-20T15:30"), ctx), false); // antecedência mínima de hoje
 });
 
 test("dayStatuses: dia com horário livre é free; com a agenda ocupada o dia inteiro, full", () => {

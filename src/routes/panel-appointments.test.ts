@@ -65,6 +65,7 @@ async function panelWith(catalog: ServiceCatalog, language: "en" | "pt" = "en"):
       inboxRepo: repo,
       booking: createBooking(deps),
       reminderLeadMinutes: 1440,
+      publish: (e) => events.push(e),
       catalog,
       clinic: { language },
     }),
@@ -598,11 +599,27 @@ test("PATCH com nome novo: a linha, o cadastro e o título do evento seguem o no
   assert.ok([...fake.events.values()].some((e) => e.summary === "Maria Nova — Dental Cleaning"));
 });
 
-test("PATCH inválido (vazio, duração fora de 15 a 240 ou de 5 em 5, serviço fora do catálogo): 422", async () => {
+test("PATCH: a duração vai de 5 a 480 minutos, como a marcação; fora disso ou fora de 5 em 5, 422", async () => {
   const id = await bookAt("2026-10-22T10:00");
-  for (const body of [{}, { minutes: 10 }, { minutes: 245 }, { minutes: 62 }, { service: "Botox" }, { name: " " }]) {
+  assert.equal((await patch(id, { minutes: 5 })).statusCode, 200);
+  assert.equal((await patch(id, { minutes: 480 })).statusCode, 200);
+  for (const minutes of [0, 2, 62, 485]) assert.equal((await patch(id, { minutes })).statusCode, 422, String(minutes));
+});
+
+test("PATCH inválido (vazio, serviço fora do catálogo, nome vazio): 422", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  for (const body of [{}, { service: "Botox" }, { name: " " }]) {
     assert.equal((await patch(id, body)).statusCode, 422, JSON.stringify(body));
   }
+});
+
+test("PATCH: a aba de clientes é avisada (customers.updated) só quando o nome muda", async () => {
+  const id = await bookAt("2026-10-22T10:00");
+  events = [];
+  await patch(id, { minutes: 90 });
+  assert.ok(!events.some((e) => e.type === "customers.updated"));
+  assert.equal((await patch(id, { name: "Maria Nova" })).statusCode, 200);
+  assert.ok(events.some((e) => e.type === "customers.updated"));
 });
 
 test("GET /api/booking/starts?excludeAppointmentId: o próprio horário conta como livre", async () => {

@@ -103,6 +103,7 @@
     "at": "{{day}} às {{time}}",
     "booked": "Agendado pelo assistente: {{when}} ({{minutes}} min), {{service}}",
     "booked_from_panel": "Agendado pelo painel: {{when}} ({{minutes}} min), {{service}}",
+    "edited_from_panel": "Editado pelo painel: {{when}} ({{minutes}} min), {{service}}",
     "rescheduled": "Remarcado pelo assistente: {{from}} → {{to}}",
     "cancelled_by_customer": "Cancelado pelo cliente: {{when}}",
     "cancelled_by_staff": "Cancelado pelo painel: {{when}}",

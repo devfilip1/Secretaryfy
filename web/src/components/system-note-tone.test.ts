@@ -9,6 +9,7 @@ const EXPECTED: Record<(typeof SYSTEM_NOTE_KINDS)[number], NoteTone> = {
   booked: "ok",
   booked_from_panel: "ok",
   rescheduled: "info",
+  edited_from_panel: "info",
   cancelled_by_customer: "warn",
   cancelled_by_staff: "warn",
   cancelled_in_calendar: "warn",

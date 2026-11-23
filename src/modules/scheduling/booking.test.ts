@@ -280,6 +280,42 @@ test("edita: a duração nova vale no Google e no banco; o próprio horário nã
   assert.equal(row.endsAt.getTime(), at("2026-10-22T11:30").getTime());
 });
 
+test("edição com conversa: registra a nota edited_from_panel com o novo horário e duração; sem conversa, nenhuma", async () => {
+  const conv = await repo.upsertConversation({ phone: PHONE, name: ".", at: NOW, preview: "Oi" });
+  const id = await bookedId();
+  const result = await booking.updateAppointment({ id, changes: { minutes: 90 }, conversationId: conv.id });
+  assert.equal(result.kind, "updated");
+  const notes = (await testDb.db.select().from(messages)).map((m) => m.note);
+  assert.deepEqual(notes, [{ kind: "edited_from_panel", start: "2026-10-22T13:00:00.000Z", minutes: 90, service: "Teeth Whitening", timeZone: "America/Bahia" }]);
+
+  await booking.updateAppointment({ id, changes: { minutes: 60 }, conversationId: null });
+  assert.equal((await testDb.db.select().from(messages)).length, 1);
+});
+
+test("edição de só a duração de um horário fora da grade vale, sem conferir o início; mudar o início para fora da grade é slot_taken", async () => {
+  const id = await bookedId();
+  // Gravado fora da grade de 15 min (10:10), como se tivesse vindo de outro meio
+  const off = at("2026-10-22T10:10");
+  const offEnd = new Date(off.getTime() + 60 * 60_000);
+  const [eventId] = [...fake.events.keys()];
+  await fake.gateway.moveEvent(eventId, off, offEnd);
+  await store.updateTimes(id, off, offEnd, "pending");
+
+  const longer = await booking.updateAppointment({ id, changes: { minutes: 90 }, conversationId: null });
+  assert.equal(longer.kind, "updated");
+  assert.equal([...fake.events.values()][0].end.getTime(), at("2026-10-22T11:40").getTime());
+
+  const moved = await booking.updateAppointment({ id, changes: { start: at("2026-10-22T14:10") }, conversationId: null });
+  assert.equal(moved.kind, "slot_taken");
+});
+
+test("edição de só a duração ainda confere a ocupação: outro compromisso no caminho é slot_taken", async () => {
+  const id = await bookedId();
+  fake.block(at("2026-10-22T11:00"), at("2026-10-22T11:30"));
+  const result = await booking.updateAppointment({ id, changes: { minutes: 90 }, conversationId: null });
+  assert.equal(result.kind, "slot_taken");
+});
+
 test("edita para outro dia: a confirmação cai e o lembrete é recalculado para o horário novo", async () => {
   const id = await bookedId();
   await store.confirm(id, "operator", NOW);

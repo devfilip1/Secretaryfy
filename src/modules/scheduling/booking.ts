@@ -7,7 +7,7 @@ import type { ConnectionStore } from "../google/connection.js";
 import { CalendarUnavailable, type CalendarGateway } from "../google/gateway.js";
 import type { InboxService } from "../inbox/service.js";
 import { initialReminderStatus } from "../reminders/status.js";
-import { busyWithout, isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
+import { busyWithout, fitsOpenHours, isSlotAvailable, STAFF_MAX_DAYS_AHEAD } from "./availability.js";
 import { withCalendarLock } from "./lock.js";
 import { ASSESSMENT, isFixedService, type ServiceCatalog } from "./catalog.js";
 import type { SystemNote } from "../inbox/system-note.js";
@@ -19,6 +19,7 @@ export const DEFAULT_REMINDER_LEAD_MINUTES = 1440;
 
 /** Dia (YYYY-MM-DD) de um horário no fuso da clínica. */
 const dayOf = (at: Date, timeZone: string) => DateTime.fromJSDate(at, { zone: timeZone }).toISODate();
+
 
 export type BookResult =
   | { kind: "booked"; appointment: AppointmentRow }
@@ -274,7 +275,7 @@ export function createBooking({
     }: {
       id: string;
       changes: { start?: Date; minutes?: number; service?: string; name?: string };
-      /** Conversa do telefone, se houver: recebe o aviso de cancelado no Google */
+      /** Conversa do telefone, se houver: recebe o aviso de cancelado no Google e o registro da edição */
       conversationId: string | null;
     }): Promise<UpdateResult> {
       const conn = await connection.getForUse();
@@ -296,12 +297,16 @@ export function createBooking({
         const customerName = changes.name ?? appt.customerName;
 
         const busy = busyWithout(await calendar.busy(startsAt, endsAt), appt);
-        if (!isSlotAvailable(startsAt, { rules, busy, now, timeZone, minutes, maxDaysAhead: STAFF_MAX_DAYS_AHEAD })) return { kind: "slot_taken" };
+        // Horário que muda confere a grade; o que fica no lugar confere só o encaixe (fitsOpenHours)
+        const rescheduled = startsAt.getTime() !== appt.startsAt.getTime();
+        const fits = rescheduled
+          ? isSlotAvailable(startsAt, { rules, busy, now, timeZone, minutes, maxDaysAhead: STAFF_MAX_DAYS_AHEAD })
+          : fitsOpenHours(startsAt, { rules, busy, now, timeZone, minutes, maxDaysAhead: STAFF_MAX_DAYS_AHEAD });
+        if (!fits) return { kind: "slot_taken" };
 
         // Lembrete e confirmação: o dia mudando tira a confirmação; o horário mudando, recalcula o lembrete (exceto se
         // continua confirmado no mesmo dia)
         const movedDay = dayOf(startsAt, timeZone) !== dayOf(appt.startsAt, timeZone);
-        const rescheduled = startsAt.getTime() !== appt.startsAt.getTime();
         const keepConfirmation = appt.confirmedAt !== null && !movedDay;
         const previous: EditFields = {
           startsAt: appt.startsAt,
@@ -333,6 +338,12 @@ export function createBooking({
           if (!(err instanceof CalendarUnavailable)) throw err;
           await store.editBooking(appt.id, previous);
           return { kind: "calendar_unavailable" };
+        }
+        if (conversationId) {
+          const serviceKey = service ?? ASSESSMENT;
+          const noteService = isFixedService(serviceKey) ? serviceKey : title;
+          const note: SystemNote = { kind: "edited_from_panel", start: startsAt.toISOString(), minutes, service: noteService, timeZone };
+          await inbox.recordSystem(conversationId, note);
         }
         return { kind: "updated", appointment: { ...appt, ...fields } };
       });

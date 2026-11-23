@@ -9,6 +9,8 @@ import { formatDayTime } from "../scheduling/dates.js";
 export type SystemNote =
   | { kind: "booked"; start: string; minutes: number; service: string; timeZone: string }
   | { kind: "booked_from_panel"; start: string; minutes: number; service: string; timeZone: string }
+  /** Horário editado pela equipe no painel (início, duração ou tratamento): o novo horário e a nova duração */
+  | { kind: "edited_from_panel"; start: string; minutes: number; service: string; timeZone: string }
   | { kind: "rescheduled"; from: string; to: string; timeZone: string }
   | { kind: "cancelled_by_customer"; start: string; timeZone: string }
   | { kind: "cancelled_by_staff"; start: string; timeZone: string }
@@ -61,6 +63,8 @@ export function systemNoteText(note: SystemNote): string {
       return `Booked by the assistant: ${when(note.start, note.timeZone)} (${note.minutes} min), ${serviceEn(note.service)}`;
     case "booked_from_panel":
       return `Booked from the panel: ${when(note.start, note.timeZone)} (${note.minutes} min), ${serviceEn(note.service)}`;
+    case "edited_from_panel":
+      return `Edited from the panel: ${when(note.start, note.timeZone)} (${note.minutes} min), ${serviceEn(note.service)}`;
     case "rescheduled":
       return `Rescheduled by the assistant: ${when(note.from, note.timeZone)} → ${when(note.to, note.timeZone)}`;
     case "cancelled_by_customer":

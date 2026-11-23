@@ -2,6 +2,8 @@
 
 export const DURATION_STEP = 5;
 export const MIN_DURATION = 5;
+/** Tempo máximo de um horário pela equipe: o mesmo de MAX_APPOINTMENT_MINUTES (src/modules/scheduling/availability.ts). */
+export const MAX_DURATION = 480;
 
 /** Motivo de a duração não valer; o texto é traduzido pelo componente. `max` vem só no caso "max". */
 export type DurationError = { code: "format" | "min" | "step" | "max"; max?: number };
