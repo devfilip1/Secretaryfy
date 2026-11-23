@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { SchedulingStep } from "../../../db/schema.js";
 import type { Intent, Interpretation, When } from "../interpret.js";
-import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "./resolve.js";
+import { applyAgreement, applyPick, applySense, applyWhen as applyWhenIn, needsPick, wantsSense, wantsWhen } from "./resolve.js";
 
 const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: "book", option: null, date: null, name: null, source: "model", ...over });
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
+/** Hoje é quinta, 19/11/2026, em Salvador; a frase é o texto que applyWhen confere (sem texto, nenhum dia citado) */
+const NOW = new Date("2026-11-19T12:00:00-03:00");
+const applyWhen = (interpretation: Interpretation, focused: When | null, step: SchedulingStep | null | undefined, text = "") =>
+  applyWhenIn(interpretation, focused, step, { text, now: NOW, timeZone: "America/Bahia" });
 
 test("com uma janela que a frase pede (bound), a chamada focada roda e o horário ou a parte dela não mudam a interpretação", () => {
   const windowed = base({ intent: "availability", timeWindow: { notAfter: "12:00" } });
@@ -113,6 +117,29 @@ test("applyWhen: fora de choose_slot, ou com intenção fora da lista, a intenç
   assert.equal(byOtherIntent.time, "14:00");
 });
 
+test("weekend: a frase que cita uma data ou um dia da semana sozinho não vira fim de semana", () => {
+  const focused = when({ weekend: true, namesDay: true });
+  assert.equal(applyWhen(base({ intent: "availability" }), focused, null, "tem vaga dia 25?").weekend, undefined);
+  assert.equal(applyWhen(base({ intent: "availability" }), focused, null, "tem sábado?").weekend, undefined);
+});
+
+test("weekend: sem data nem dia sozinho, a data inventada some e o fim de semana fica", () => {
+  const result = applyWhen(base({ intent: "availability", date: "2026-11-21" }), when({ weekend: true, namesDay: false }), null, "vocês atendem no fim de semana?");
+  assert.deepEqual([result.date, result.weekend, result.intent], [null, true, "availability"]);
+});
+
+test("weekend: sábado e domingo juntos pelo nome são o fim de semana, e a data some", () => {
+  const result = applyWhen(base({ intent: "availability", date: "2026-11-21" }), when({ weekend: true }), null, "tem horário sábado e domingo?");
+  assert.deepEqual([result.date, result.weekend], [null, true]);
+});
+
+test("weekend: não entendi vira disponibilidade; chamada que diz falso não muda nada", () => {
+  const unclear = applyWhen(base({ intent: "unclear" }), when({ weekend: true }), null, "e no fim de semana?");
+  assert.equal(unclear.intent, "availability");
+  const interpretation = base({ intent: "availability", date: "2026-11-21" });
+  assert.equal(applyWhen(interpretation, when({ weekend: false, namesDay: true }), null, "vocês atendem no fim de semana?"), interpretation);
+});
+
 test("applyWhen: nada muda devolve o mesmo objeto", () => {
   const interpretation = base({ time: "10:00" });
   assert.equal(applyWhen(interpretation, when({ namesDay: true, time: "10:00" }), "choose_slot"), interpretation);
@@ -132,6 +159,7 @@ test("needsPick: com opções na tela, intenção de escolha ou não entendida (
     [base({ intent: "unclear", date: "2026-10-21" }), 3, false],
     [base({ intent: "book" }), 3, false],
     [base({ intent: "more" }), 3, false],
+    [base({ intent: "choose", weekend: true }), 3, false],
   ];
   for (const [interpretation, count, expected] of cases) assert.equal(needsPick(interpretation, count), expected, `${interpretation.intent} ${count}`);
 });

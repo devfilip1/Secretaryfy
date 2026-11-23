@@ -33,3 +33,13 @@ test("'antes das 12, de manhã': a parte do dia que a chamada focada acha não v
   assert.equal(i.period ?? null, null);
   assert.equal(i.option, null);
 });
+
+test("'vocês atendem no fim de semana?' com data inventada pelo modelo: a data some e o fim de semana vai ao fluxo", async () => {
+  const r = setup({ intent: "availability", text: "vocês atendem no fim de semana?", date: "2026-11-21", when: { time: null, period: null, namesDay: false, weekend: true } });
+  await r.reply();
+  const i = r.handled[0].interpretation;
+  assert.equal(i.date, null);
+  assert.equal(i.weekend, true);
+  assert.equal(i.intent, "availability");
+  assert.equal(r.whenCalls.length, 1, "a chamada focada roda para a disponibilidade sem data");
+});

@@ -74,6 +74,13 @@ test("bound verdadeiro vem marcado; sem bound, o resultado não traz o campo", a
   assert.deepEqual(await exact({ text: "quero marcar às 14h" }), { time: "14:00", period: null, namesDay: false });
 });
 
+test("weekend verdadeiro passa adiante; sem weekend, o resultado não traz o campo", async () => {
+  const weekend = createWhenExtractor({ ollama: fakeOllama({ period_quote: null, period: null, hour_quote: null, time: null, ...noDay, weekend: true }) });
+  assert.deepEqual(await weekend({ text: "vocês atendem no fim de semana?" }), { time: null, period: null, namesDay: false, weekend: true });
+  const no = createWhenExtractor({ ollama: fakeOllama({ period_quote: null, period: null, hour_quote: null, time: null, ...noDay, weekend: false }) });
+  assert.deepEqual(await no({ text: "quero marcar" }), { time: null, period: null, namesDay: false });
+});
+
 test("saída fora do esquema vira nulo nos três campos", async () => {
   const when = createWhenExtractor({ ollama: fakeOllama(null) });
   assert.deepEqual(await when({ text: "quero marcar" }), { time: null, period: null, namesDay: null });
