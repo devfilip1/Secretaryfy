@@ -3,7 +3,7 @@ import { test } from "node:test";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { WeeklyHours } from "../db/schema.js";
 import { hoursLines } from "../modules/knowledge/hours.js";
-import { parseBrochure } from "../modules/knowledge/import-markdown.js";
+import { importBrochure } from "../modules/knowledge/import-markdown.js";
 import { toDocument, toSections } from "../modules/knowledge/render.js";
 import { knowledgeRowSchema } from "../modules/knowledge/types.js";
 import type { Language } from "../modules/scheduling/dates.js";
@@ -13,9 +13,9 @@ import { knowledgeInternalRoutes } from "./knowledge-internal.js";
 
 const TOKEN = "t".repeat(32);
 const CLINIC = "Sorriso Pleno";
-const rows = parseBrochure(
+const rows = importBrochure(
   "## Limpeza Dental — O primeiro passo\nO que você ganha:\n- Boca limpa\nComo funciona: Ultrassom.\nDuração: 30 min   |   Preço: R$ 40\nResultado: Imediato\n\n## Sobre nós\nLinha um\n",
-);
+).rows;
 
 async function appWith(
   token: string,
@@ -73,7 +73,7 @@ test("200 with the contract: name, version and sections", async () => {
 });
 
 test("the version follows the hours of the rules, since the clinic section carries them", async () => {
-  const clinicRows = parseBrochure("## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\nCONTATO\nagenda@teste.example\n");
+  const clinicRows = importBrochure("## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\nCONTATO\nagenda@teste.example\n").rows;
   const changed = { ...CLINIC_HOURS, "6": { start: "09:00", end: "12:00" } };
   const before = await appWith(TOKEN, "pt", clinicRows, CLINIC_HOURS);
   const after = await appWith(TOKEN, "pt", clinicRows, changed);

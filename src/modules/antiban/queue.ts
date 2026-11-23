@@ -73,5 +73,3 @@ export function createSendQueue({ now, waitForSlot }: { now: () => Date; waitFor
     },
   };
 }
-
-export type SendQueue = ReturnType<typeof createSendQueue>;

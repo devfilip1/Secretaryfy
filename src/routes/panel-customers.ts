@@ -53,8 +53,6 @@ function present(row: CustomerWithAppointments, conversationId: string | null, c
   };
 }
 
-export type CustomerJson = ReturnType<typeof present>;
-
 /** Aba Customers do painel: o cadastro feito pelo assistente (specs/005), para consultar, editar (specs/006) e excluir. */
 export function panelCustomersRoutes({
   customers,

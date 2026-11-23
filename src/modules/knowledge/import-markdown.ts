@@ -191,8 +191,3 @@ export function importBrochure(markdown: string): { rows: KnowledgeRow[]; droppe
   });
   return { rows: withUniqueKeys(rows).map((row) => knowledgeRowSchema.parse(row)), droppedHours };
 }
-
-/** Converte a brochura em linhas de knowledge_sections (ver importBrochure). */
-export function parseBrochure(markdown: string): KnowledgeRow[] {
-  return importBrochure(markdown).rows;
-}

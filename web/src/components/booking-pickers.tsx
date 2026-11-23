@@ -8,8 +8,10 @@ import { FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { useFormats } from "../i18n/formats";
 import { toDate, toYmd } from "./date-string";
+import { Field } from "./Field";
 import { endOfRoom, formatMinutes, MIN_DURATION, parseDuration, validateDuration, type DurationError } from "./duration";
 import { durationPresets, groupByDayPart, type DayPart } from "./time-groups";
 import { Muted } from "./Muted";
@@ -22,6 +24,46 @@ export type DayRange = { minDate: string; maxDate: string };
 /** Horário, dia ou duração escolhidos: o selecionado fica preenchido (primary); os outros ficam secundários. */
 export function Choice({ selected, ...props }: ComponentProps<typeof Button> & { selected: boolean }) {
   return <Button type="button" size="sm" variant={selected ? "default" : "secondary"} {...props} />;
+}
+
+/** Nome do cliente e tratamento: os dois campos da marcação e da edição (dentro do grid de cada tela). */
+export function NameAndServiceFields({
+  name,
+  onNameChange,
+  services,
+  service,
+  onServiceChange,
+}: {
+  name: string;
+  onNameChange: (name: string) => void;
+  services: { name: string; label: string }[] | null;
+  service: string;
+  onServiceChange: (service: string) => void;
+}) {
+  const { t } = useTranslation("appointments");
+  return (
+    <>
+      <Field>
+        {t("form.name")}
+        <Input value={name} maxLength={120} onChange={(e) => onNameChange(e.target.value)} />
+      </Field>
+      <Field>
+        {t("form.service")}
+        <Select value={service} onValueChange={onServiceChange}>
+          <SelectTrigger>
+            <SelectValue placeholder={services === null ? t("form.loadingServices") : undefined} />
+          </SelectTrigger>
+          <SelectContent>
+            {services?.map((s) => (
+              <SelectItem key={s.name} value={s.name}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    </>
+  );
 }
 
 /** Dias da janela: os chips, e o calendário com o estado de cada dia (livre ou lotado) para o serviço escolhido. */

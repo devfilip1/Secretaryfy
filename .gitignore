@@ -15,3 +15,6 @@ web/dist/
 
 # ashlr genome (gerado por máquina)
 .ashlrcode/genome/proposals.jsonl
+rag/evaluation/runs/*/
+!rag/evaluation/runs/experiments/
+.ashlrcode/genome/

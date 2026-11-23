@@ -40,5 +40,3 @@ export function createDebouncer<T>({
     },
   };
 }
-
-export type Debouncer<T> = ReturnType<typeof createDebouncer<T>>;

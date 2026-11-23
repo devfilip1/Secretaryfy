@@ -5,7 +5,7 @@ import type { SendOutcome } from "../antiban/gate.js";
 import { testTexts } from "../../test/clinic.js";
 import type { RagAnswer } from "../rag/client.js";
 import type { IncomingMessage } from "./evolution.js";
-import { createMessageHandler, createRagReplier, splitReply, type Replier } from "./handle-message.js";
+import { createMessageHandler, createRagAnswerer, splitReply, type Replier } from "./handle-message.js";
 
 const MESSAGE: IncomingMessage = {
   kind: "message",
@@ -17,6 +17,12 @@ const MESSAGE: IncomingMessage = {
   sentAt: new Date(),
 };
 const ANSWER: RagAnswer = { answer: "Braces cost $180–$450.", chunks: [], latency_s: 0.7, experiment: "section_hybrid" };
+
+/** O folheto como o handler recebe (era createRagReplier, usado só nos testes) */
+function ragReplier(ask: (question: string) => Promise<RagAnswer>, options: { unavailable: string }): Replier {
+  const answer = createRagAnswerer(ask, options);
+  return async ({ message }, log) => ({ text: await answer(message.text ?? "", log, message.phone), split: true });
+}
 
 function fakes(
   options: {
@@ -45,7 +51,7 @@ function fakes(
     texts: testTexts,
     reply:
       options.reply ??
-      createRagReplier(async (q) => {
+      ragReplier(async (q) => {
         asked.push(q);
         return options.ask ? options.ask() : ANSWER;
       }, { unavailable: testTexts.unavailable[0] }),

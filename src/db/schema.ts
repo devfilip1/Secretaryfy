@@ -285,10 +285,6 @@ export const clinicSettings = pgTable(
   ],
 );
 
-export type ContactPreferenceRow = typeof contactPreferences.$inferSelect;
-export type ConnectedNumberRow = typeof connectedNumbers.$inferSelect;
-export type ProtectionStateRow = typeof protectionState.$inferSelect;
-
 export type CustomerRow = typeof customers.$inferSelect;
 
 export type CalendarConnectionRow = typeof calendarConnection.$inferSelect;
@@ -300,6 +296,5 @@ export type SchedulingStep = SchedulingSessionRow["step"];
 
 export type ConversationRow = typeof conversations.$inferSelect;
 export type MessageRow = typeof messages.$inferSelect;
-export type MessageOrigin = MessageRow["origin"];
 export type MessageType = MessageRow["type"];
 export type MessageStatus = MessageRow["status"];

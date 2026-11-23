@@ -1,64 +1,20 @@
 import type { KnowledgeData, KnowledgeKind, KnowledgeRow } from "@server/modules/knowledge/types";
+import type { ConversationJson, MessageJson } from "@server/modules/inbox/presenters";
 import type { PanelLanguage } from "./i18n/language";
 
 // Cliente da API do painel. Contratos: specs/002-whatsapp-web-inbox/contracts/panel-api.md, specs/003-google-calendar-scheduling/contracts/panel-api.md
 // e specs/004-whatsapp-anti-ban/contracts/panel-api.md
 
+export type Conversation = ConversationJson;
+export type Message = MessageJson;
 // "system": registros do Secretaryfy no histórico, como um agendamento feito pelo assistente
-export type Origin = "customer" | "assistant" | "operator" | "phone" | "system";
-export type MessageType = "text" | "audio" | "image" | "video" | "document" | "sticker" | "location" | "contact" | "other";
+export type Origin = Message["origin"];
+export type MessageType = Message["type"];
 // "blocked": a proteção do número não enviou; o código do motivo vem em `error` (specs/004)
-export type MessageStatus = "received" | "sending" | "sent" | "failed" | "blocked";
+export type MessageStatus = Message["status"];
 
-export interface Conversation {
-  id: string;
-  phone: string;
-  name: string | null;
-  lastMessageAt: string;
-  lastMessagePreview: string;
-  unreadCount: number;
-  assistantPaused: boolean;
-  needsAttention: boolean;
-  /** O cliente pediu para não receber mensagens (specs/004) */
-  optedOut: boolean;
-}
-
-/**
- * Registro tipado do histórico (origin = system). Espelha src/modules/inbox/system-note.ts: o painel traduz o `kind`
- * com os dados; `text` continua com o texto em inglês do servidor (linhas antigas, logs).
- */
-export type SystemNote =
-  | { kind: "booked"; start: string; minutes: number; service: string; timeZone: string }
-  | { kind: "booked_from_panel"; start: string; minutes: number; service: string; timeZone: string }
-  | { kind: "rescheduled"; from: string; to: string; timeZone: string }
-  | { kind: "cancelled_by_customer"; start: string; timeZone: string }
-  | { kind: "cancelled_by_staff"; start: string; timeZone: string }
-  | { kind: "cancelled_in_calendar"; start: string; timeZone: string }
-  | { kind: "needs_staff"; urgent: boolean }
-  | { kind: "handoff" }
-  | { kind: "reminder_sent"; start: string; timeZone: string }
-  /** `reason` é o código do motivo (o mesmo do blockReason do common.json), não o texto */
-  | { kind: "reminder_not_sent"; start: string; reason: string; timeZone: string }
-  | { kind: "confirmed_by_customer"; start: string; timeZone: string }
-  | { kind: "confirmed_by_operator"; start: string; timeZone: string }
-  | { kind: "protection_blocked"; reason: ProtectionReason }
-  | { kind: "opted_out" }
-  | { kind: "opted_in" }
-  | { kind: "reactivated_by_operator" };
-
-export type ProtectionReason = "loop" | "daily_conversations" | "rate_limited" | "paused";
-
-export interface Message {
-  id: string;
-  origin: Origin;
-  type: MessageType;
-  text: string | null;
-  status: MessageStatus;
-  error: string | null;
-  /** Registro tipado (origin = system); null nas demais mensagens e nas linhas anteriores à coluna */
-  note: SystemNote | null;
-  sentAt: string;
-}
+// Tipos que o servidor define (src/modules/inbox/system-note.ts): o painel importa daqui, sem cópia.
+export type { ProtectionReason, SystemNote } from "@server/modules/inbox/system-note";
 
 export interface Connection {
   state: "open" | "connecting" | "close";

@@ -156,5 +156,3 @@ export function createReminderScheduler({
   };
   return scheduler;
 }
-
-export type ReminderScheduler = ReturnType<typeof createReminderScheduler>;

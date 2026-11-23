@@ -39,7 +39,6 @@ const envSchema = z.object({
   RAG_SERVICE_URL: z.url().default("http://127.0.0.1:8001"),
   RAG_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
 
   // Agendamento: o Ollama interpreta as mensagens do cliente (specs/003, research.md R2)
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),

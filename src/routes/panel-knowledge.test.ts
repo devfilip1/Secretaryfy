@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from "node:test";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { WeeklyHours } from "../db/schema.js";
 import { hoursLines } from "../modules/knowledge/hours.js";
-import { parseBrochure } from "../modules/knowledge/import-markdown.js";
+import { importBrochure } from "../modules/knowledge/import-markdown.js";
 import { toDocument } from "../modules/knowledge/render.js";
 import { createKnowledgeRepository, type KnowledgeRepository } from "../modules/knowledge/repository.js";
 import { RagUnavailableError } from "../modules/rag/client.js";
@@ -61,7 +61,7 @@ before(async () => {
 after(() => testDb.close());
 
 beforeEach(async () => {
-  await repo.replaceAll(parseBrochure(BROCHURE));
+  await repo.replaceAll(importBrochure(BROCHURE).rows);
   rag.indexedVersion = null;
   rag.down = false;
   rag.busy = false;

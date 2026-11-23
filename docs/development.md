@@ -60,7 +60,6 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `INTERNAL_TOKEN` | no | Bearer token of `GET /internal/knowledge` (the RAG's view of the brochure), 32+ characters; empty = the route does not exist |
 | `CALENDAR_MODE` | no | `google` (default) or `fake`: in-memory calendar for development only, see [Offline calendar](#offline-calendar) |
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
-| `ANTHROPIC_API_KEY` | yes | Any value; currently unused (see [open questions](README.md#open-questions)) |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
 | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`qwen3:8b`), timeout (20000) |
 | `HUMANIZE_REPLIES` | no | `1` (default) lets the model reword scheduling replies in a warm, kind tone (one extra model call, ~1 s; a code guard falls back to the fixed text). `0` turns it off |

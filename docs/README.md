@@ -47,7 +47,6 @@ flowchart LR
 ## Open questions
 
 - [ ] Where will this run in production? There is no Dockerfile for the server, no CI and no deploy setup yet. Several components assume a single process ([ADR 0007](decisions/0007-single-process-in-memory-coordination.md)).
-- [ ] `ANTHROPIC_API_KEY` is required at startup and `@anthropic-ai/sdk` is a dependency, but nothing calls the Claude API. Is a Claude integration planned, or should both be removed?
 - [ ] `package.json` describes the project as "assistant for sending emails and Google Calendar scheduling". Is email still in scope?
 - [ ] Is the system meant to serve one clinic per deployment (as today: one calendar, one number, one operator password), or several?
 - [ ] How long should conversations and messages be kept (LGPD retention)? Today they are kept until the number is disconnected or the operator deletes them.

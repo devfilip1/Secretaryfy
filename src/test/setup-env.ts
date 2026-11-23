@@ -10,7 +10,6 @@ const defaults: Record<string, string> = {
   EVOLUTION_API_KEY: "test",
   EVOLUTION_INSTANCE: "test",
   EVOLUTION_WEBHOOK_TOKEN: "test-webhook-token-0000",
-  ANTHROPIC_API_KEY: "test",
   OPERATOR_PASSWORD: "test-operator-password",
   OLLAMA_URL: "http://ollama.test",
   AGENT_MODEL: "test-model",
