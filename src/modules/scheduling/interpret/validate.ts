@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 import type { SchedulingStep, SessionOption } from "../../../db/schema.js";
 import type { ServiceCatalog } from "../catalog.js";
-import { findDatesInText, findExplicitDatesInText, namesTheWeekend, parseTimeOfDay, weekdaysNamedInText } from "../dates.js";
+import { clockTimeWritten, findDatesInText, findExplicitDatesInText, namesTheWeekend, parseTimeOfDay, weekdaysNamedInText } from "../dates.js";
 import { INTENTS, asksForWhen, canCarryAWhen, canFilterTime, carriesACitedDay, isStepOnly, picksOfferedDay, type Intent } from "../intents.js";
 import { normalize } from "../understanding/quote.js";
 import { cleanName, nameInText } from "./names.js";
@@ -79,14 +79,25 @@ function windowEnd(value: string | null | undefined, onScreen: boolean): string 
   return TIME_OF_DAY.test(value) ? value : null;
 }
 
+/**
+ * Ponta que o modelo inventou: um HH:MM que o cliente não escreveu na mensagem. Com os horários na tela, ela vira a ponta
+ * da tela ("last" para depois, "first" para antes), porque quem pede "mais tarde" quer o que vem depois do último horário.
+ * Sem horários na tela, fica como veio.
+ */
+function windowEdge(value: string | null | undefined, edge: "first" | "last", { onScreen, text }: { onScreen: boolean; text: string }): string | null {
+  const end = windowEnd(value, onScreen);
+  if (onScreen && end && TIME_OF_DAY.test(end) && !clockTimeWritten(text, end)) return edge;
+  return end;
+}
+
 /** Janela válida: formato, antes < depois quando as duas são horários, e um dia para ela; sem isso, nula */
 function validWindow(
   raw: z.infer<typeof windowOutput> | null | undefined,
-  { onScreen, hasDay, timed }: { onScreen: boolean; hasDay: boolean; timed: boolean },
+  { onScreen, hasDay, timed, text }: { onScreen: boolean; hasDay: boolean; timed: boolean; text: string },
 ): TimeWindow | null {
   if (!raw || !hasDay) return null;
-  const notBefore = windowEnd(raw.after, onScreen);
-  const notAfter = windowEnd(raw.before, onScreen);
+  const notBefore = windowEdge(raw.after, "last", { onScreen, text });
+  const notAfter = windowEdge(raw.before, "first", { onScreen, text });
   // Um horário exato vai pelo caminho dele (askedTime): a proximidade só vale sem ele
   const near = timed ? null : windowEnd(raw.near, onScreen);
   const pick = raw.pick ?? null;
@@ -182,7 +193,7 @@ export function validate(raw: unknown, { text, step, options, window, now, timeZ
   const onScreenTimes = step === "choose_slot" && options.some((o) => o.kind === "slot");
   const timeWindow =
     canFilterTime(intent) && option === null && !weekend
-      ? validWindow(parsed.data.timeWindow, { onScreen: onScreenTimes, hasDay: date !== null || step === "choose_slot", timed: time !== null })
+      ? validWindow(parsed.data.timeWindow, { onScreen: onScreenTimes, hasDay: date !== null || step === "choose_slot", timed: time !== null, text })
       : null;
   if (intent === "choose") {
     if (option !== null && !options.some((o) => o.n === option)) return result("unclear", { source: "model" });

@@ -89,7 +89,7 @@ export function setup({
   /** Data que o interpretador devolve junto da intenção (o modelo às vezes a inventa) */
   date?: string | null;
   /** O que a chamada focada mentionedWhen acha (horário ou parte do dia); o padrão é nada */
-  when?: { time: string | null; period: DayPeriod | null; namesDay?: boolean | null } | null;
+  when?: { time: string | null; period: DayPeriod | null; namesDay?: boolean | null; bound?: boolean } | null;
   /** Opção que a chamada focada acha na mensagem (mentionedOption) */
   pick?: number | null;
   /** Palavras sem sentido: a chamada de sentido (mentionedSense) acha que a mensagem não tem sentido; o padrão é não */

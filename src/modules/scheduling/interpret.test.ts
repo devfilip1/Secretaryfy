@@ -70,6 +70,28 @@ test("disponibilidade com uma ponta de janela não traz horário exato", async (
   assert.equal(i.timeWindow?.notAfter, "11:00");
 });
 
+// Uma ponta de horário que o cliente não escreveu é invenção do modelo: com horários na tela vira a ponta da tela
+test("ponta de janela inventada vira a ponta da tela; a que o cliente escreveu fica", async () => {
+  const cases: { text: string; after: string | null; before: string | null; notBefore: string | null; notAfter: string | null }[] = [
+    { text: "tem mais tarde?", after: "15:00", before: null, notBefore: "last", notAfter: null },
+    { text: "e depois das 16?", after: "16:00", before: null, notBefore: "16:00", notAfter: null },
+    { text: "teria mais cedo que 9?", after: null, before: "09:00", notBefore: null, notAfter: "09:00" },
+    { text: "tem mais cedo?", after: null, before: "10:00", notBefore: null, notAfter: "first" },
+  ];
+  for (const c of cases) {
+    const { interpreter } = fakeOllama({ intent: "availability", option: null, date: null, name: null, timeWindow: { after: c.after, before: c.before, near: null, pick: null } });
+    const i = await interpreter.interpret(input({ text: c.text, step: "choose_slot", options: slotsOnScreen }));
+    assert.equal(i.timeWindow?.notBefore ?? null, c.notBefore, c.text);
+    assert.equal(i.timeWindow?.notAfter ?? null, c.notAfter, c.text);
+  }
+});
+
+test("sem horários na tela, a ponta da janela fica como o modelo a deu (não há ponta da tela para usar)", async () => {
+  const { interpreter } = fakeOllama({ intent: "availability", option: null, date: "2026-10-21", name: null, timeWindow: { after: "17:00", before: null, near: null, pick: null } });
+  const i = await interpreter.interpret(input({ text: "amanhã tem mais tarde?", step: null, options: [] }));
+  assert.equal(i.timeWindow?.notBefore, "17:00");
+});
+
 test("pergunta de informação da clínica, sem janela, continua pergunta mesmo com horários na tela", async () => {
   const { interpreter } = fakeOllama({ intent: "question", option: null, date: null, name: null, timeWindow: null });
   const i = await interpreter.interpret(input({ text: "quanto custa a limpeza?", step: "choose_slot", options: slotsOnScreen }));
