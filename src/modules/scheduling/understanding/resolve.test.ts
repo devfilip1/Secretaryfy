@@ -7,11 +7,21 @@ import { applyAgreement, applyPick, applySense, applyWhen, needsPick, wantsSense
 const base = (over: Partial<Interpretation> = {}): Interpretation => ({ intent: "book", option: null, date: null, name: null, source: "model", ...over });
 const when = (over: Partial<When> = {}): When => ({ time: null, period: null, namesDay: null, ...over });
 
-test("com uma janela de horários, a chamada focada não roda e o horário dela não muda a interpretação", () => {
+test("com uma janela que a frase pede (bound), a chamada focada roda e o horário ou a parte dela não mudam a interpretação", () => {
   const windowed = base({ intent: "availability", timeWindow: { notAfter: "12:00" } });
-  assert.equal(wantsWhen(windowed, "choose_slot"), false);
-  assert.equal(applyWhen(windowed, when({ time: "12:00", namesDay: true }), "choose_slot"), windowed);
-  assert.equal(applyWhen(windowed, when({ period: "morning", namesDay: false }), "choose_slot"), windowed);
+  assert.equal(wantsWhen(windowed, "choose_slot"), true);
+  assert.equal(applyWhen(windowed, when({ time: "12:00", namesDay: true, bound: true }), "choose_slot"), windowed);
+  assert.equal(applyWhen(windowed, when({ period: "morning", namesDay: false, bound: true }), "choose_slot"), windowed);
+});
+
+test("com uma janela e um horário exato ou parte do dia sem limite, a janela some e o horário ou a parte ficam", () => {
+  const windowed = base({ intent: "book", timeWindow: { notBefore: "14:00" } });
+  const exact = applyWhen(windowed, when({ time: "14:00", namesDay: true, bound: false }), null);
+  assert.equal(exact.time, "14:00");
+  assert.equal(exact.timeWindow, null);
+  const part = applyWhen(base({ intent: "availability", timeWindow: { notAfter: "12:00" } }), when({ period: "morning", namesDay: true, bound: false }), null);
+  assert.equal(part.period, "morning");
+  assert.equal(part.timeWindow, null);
 });
 
 test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => {

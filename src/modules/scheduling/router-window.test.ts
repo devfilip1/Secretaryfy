@@ -13,7 +13,7 @@ const ON_SLOTS = {
 } as unknown as SchedulingSessionRow;
 
 test("'tem algo antes das 12?': a janela vai ao fluxo, e a hora que a chamada focada acha não vira escolha", async () => {
-  const r = setup({ intent: "availability", window: { notAfter: "12:00" }, session: ON_SLOTS, when: { time: "12:00", period: null, namesDay: true } });
+  const r = setup({ intent: "availability", window: { notAfter: "12:00" }, session: ON_SLOTS, when: { time: "12:00", period: null, namesDay: true, bound: true } });
   await r.reply();
   const i = r.handled[0].interpretation;
   assert.equal(i.intent, "availability");
@@ -21,11 +21,11 @@ test("'tem algo antes das 12?': a janela vai ao fluxo, e a hora que a chamada fo
   assert.equal(i.option, null);
   assert.equal(i.time ?? null, null);
   assert.equal(i.period ?? null, null);
-  assert.equal(r.whenCalls.length, 0, "a chamada focada não roda com a janela");
+  assert.equal(r.whenCalls.length, 1, "a chamada focada roda: a janela é o pedido, e a hora dela só a referencia");
 });
 
 test("'antes das 12, de manhã': a parte do dia que a chamada focada acha não vira escolha nem muda a janela", async () => {
-  const r = setup({ intent: "availability", window: { notAfter: "12:00" }, session: ON_SLOTS, when: { time: null, period: "morning", namesDay: false } });
+  const r = setup({ intent: "availability", window: { notAfter: "12:00" }, session: ON_SLOTS, when: { time: null, period: "morning", namesDay: false, bound: true } });
   await r.reply();
   const i = r.handled[0].interpretation;
   assert.equal(i.intent, "availability");

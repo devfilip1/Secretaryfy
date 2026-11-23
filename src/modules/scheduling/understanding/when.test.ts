@@ -67,6 +67,13 @@ test("namesDay é verdadeiro só quando a citação do dia está na mensagem", a
   assert.equal((await notInText({ text: "quero marcar às 14h" })).namesDay, false);
 });
 
+test("bound verdadeiro vem marcado; sem bound, o resultado não traz o campo", async () => {
+  const bound = createWhenExtractor({ ollama: fakeOllama({ period_quote: "mais cedo que 9", period: "morning", hour_quote: "9", time: "09:00", day_quote: null, bound: true }) });
+  assert.deepEqual(await bound({ text: "teria mais cedo que 9?" }), { time: "09:00", period: null, namesDay: false, bound: true });
+  const exact = createWhenExtractor({ ollama: fakeOllama({ period_quote: null, period: null, hour_quote: "às 14h", time: "14:00", ...noDay, bound: false }) });
+  assert.deepEqual(await exact({ text: "quero marcar às 14h" }), { time: "14:00", period: null, namesDay: false });
+});
+
 test("saída fora do esquema vira nulo nos três campos", async () => {
   const when = createWhenExtractor({ ollama: fakeOllama(null) });
   assert.deepEqual(await when({ text: "quero marcar" }), { time: null, period: null, namesDay: null });

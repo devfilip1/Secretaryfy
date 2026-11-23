@@ -184,6 +184,24 @@ export function parseTimeOfDay(text: string): number | null {
   return hours * 60 + minutes;
 }
 
+/**
+ * O horário HH:MM está escrito na mensagem do cliente, em qualquer forma ("9", "9h", "9:30", "9h30", "9 am", "3pm")? Um número
+ * sem am/pm vale para as duas metades do dia ("3" é 03:00 ou 15:00). Serve para saber se uma ponta de janela é do cliente.
+ */
+export function clockTimeWritten(text: string, hhmm: string): boolean {
+  const target = Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
+  const t = stripAccents(text.toLowerCase()).replace(/\./g, "");
+  for (const m of t.matchAll(/\b(\d{1,2})(?:(?::|h)(\d{2}))?(?:\s*(am|pm))?\b/g)) {
+    const hours = Number(m[1]);
+    const minutes = Number(m[2] ?? 0);
+    if (minutes > 59 || hours > 23) continue;
+    const meridiem = m[3];
+    const hourOptions = meridiem ? [(hours % 12) + (meridiem === "pm" ? 12 : 0)] : hours < 12 ? [hours, hours + 12] : [hours];
+    if (hourOptions.some((h) => h * 60 + minutes === target)) return true;
+  }
+  return false;
+}
+
 /** Minutos desde a meia-noite de um instante, no fuso da clínica. */
 export function minutesOfDay(at: Date, timeZone: string): number {
   const dt = DateTime.fromJSDate(at, { zone: timeZone });
