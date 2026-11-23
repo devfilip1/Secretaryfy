@@ -2,6 +2,7 @@ import type { SchedulingStep } from "../../../db/schema.js";
 import type { Interpretation, When } from "../interpret.js";
 import { asksForWhen, isChoiceLike, mayBeNoise, type Intent } from "../intents.js";
 import type { Agreement } from "./agreement.js";
+import { findExplicitDatesInText, namesTheWeekend, weekdaysNamedInText } from "../dates.js";
 
 /** Quando a chamada focada de horário/parte do dia/dia deve rodar; com uma janela também, pois ela diz se a janela é o pedido */
 export function wantsWhen(interpretation: Interpretation, step: SchedulingStep | null | undefined): boolean {
@@ -18,7 +19,22 @@ export function wantsWhen(interpretation: Interpretation, step: SchedulingStep |
  * de confirmação, então a intenção do modelo segue e applyWhen a aplica.
  */
 export function citesWhen(when: When | null): boolean {
-  return Boolean(when?.period || when?.time || when?.namesDay === true);
+  return Boolean(when?.period || when?.time || when?.namesDay === true || when?.weekend === true);
+}
+
+/** A frase e a data de hoje: a chamada focada diz o fim de semana, e aqui se confere se a frase cita um dia */
+export interface WhenInput {
+  text: string;
+  now: Date;
+  timeZone: string;
+}
+
+/** A chamada focada disse o fim de semana, e a frase não cita data nem um dia da semana sozinho ("sábado e domingo" conta como fim de semana) */
+function asksTheWeekend(when: When | null, input: WhenInput): boolean {
+  if (when?.weekend !== true) return false;
+  if (findExplicitDatesInText(input.text, input).length > 0) return false;
+  const days = weekdaysNamedInText(input.text);
+  return days.length === 0 || namesTheWeekend(input.text);
 }
 
 /**
@@ -27,7 +43,7 @@ export function citesWhen(when: When | null): boolean {
  * Período vence horário inventado; chamada que rodou (namesDay booleano) manda no horário; data sem dia citado some (e tooFar some
  * junto); com horários na tela (step choose_slot) horário ou período vira escolha. Devolve o mesmo objeto quando nada muda.
  */
-export function applyWhen(interpretation: Interpretation, when: When | null, step: SchedulingStep | null | undefined): Interpretation {
+export function applyWhen(interpretation: Interpretation, when: When | null, step: SchedulingStep | null | undefined, input: WhenInput): Interpretation {
   if (interpretation.timeWindow && when?.bound === true) return interpretation;
   // O que a frase pede no tempo ("as 14h", "de manhã"): a parte do dia vence um horário que o modelo tenha inventado ("de manhã" não é 09:00), e então não há horário
   const period = when?.period ?? null;
@@ -43,9 +59,15 @@ export function applyWhen(interpretation: Interpretation, when: When | null, ste
   const read = invented ? { ...unwindowed, date: null, tooFar: undefined } : unwindowed;
   // Com os horários na tela, um horário ou uma parte do dia ("prefiro à noite") é uma escolha dentro do dia da tela, mesmo que o modelo tenha lido "mais", "não entendi" ou "outro dia"
   const toChoice = Boolean((time || period) && step === "choose_slot" && isChoiceLike(interpretation.intent));
-  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation;
+  // O fim de semana inteiro sem dia citado: a data que o modelo deu é chute, e a opção da tela não vale
+  const weekend = asksTheWeekend(when, input);
+  const weekendChanged = weekend && (interpretation.weekend !== true || interpretation.date !== null || interpretation.option !== null || interpretation.intent === "unclear");
+  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation || weekendChanged;
   if (!changed) return interpretation;
-  return { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) };
+  const next = { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) };
+  if (!weekend) return next;
+  // "não entendi" sobre o fim de semana vira disponibilidade: a pergunta é de horários, e o fluxo oferece sábado e domingo
+  return { ...next, date: null, option: null, tooFar: undefined, weekend: true, intent: next.intent === "unclear" ? "availability" : next.intent };
 }
 
 /**
@@ -60,7 +82,8 @@ export function needsPick(interpretation: Interpretation, optionCount: number): 
     (interpretation.option === null || interpretation.source === "model") &&
     !interpretation.time &&
     !interpretation.period &&
-    !interpretation.date
+    !interpretation.date &&
+    !interpretation.weekend
   );
 }
 

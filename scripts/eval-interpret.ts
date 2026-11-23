@@ -31,7 +31,7 @@ interface Case {
   /** Mais de uma intenção vale quando o fluxo trata todas do mesmo jeito (um dia citado na lista de dias) */
   intent: Interpretation["intent"] | Interpretation["intent"][];
   option?: number;
-  date?: string;
+  date?: string | null;
   /** O horário esperado (HH:mm, null = nenhum), quando a frase cita um que não está na lista */
   time?: string | null;
   /** A parte do dia esperada (null = nenhuma), quando a frase pede uma sem citar horário */
@@ -220,7 +220,7 @@ for (const k of cases) {
   const first = wantsSense(interpreted) ? applySense(interpreted, (await interpreter.mentionedSense({ text: k.text })) ?? null) : interpreted;
   // Como o roteador: a chamada focada lê a frase (horário ou parte do dia), e a posição da opção quando o modelo não a leu
   const when = wantsWhen(first, k.step) ? ((await interpreter.mentionedWhen({ text: k.text })) ?? null) : null;
-  const timed = applyWhen(first, when, k.step);
+  const timed = applyWhen(first, when, k.step, { text: k.text, now: scene.now, timeZone });
   const shown = k.step === "choose_day" ? scene.options.length : k.step === "choose_slot" ? slots.length : 0;
   const got = needsPick(timed, shown) ? applyPick(timed, (await interpreter.mentionedOption({ text: k.text, count: shown })) ?? null) : timed;
   latencies.push(Date.now() - started);

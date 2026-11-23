@@ -237,7 +237,7 @@ export function createSchedulingRouter({ interpreter, flow, store, inbox, connec
     // O horário e a parte do dia citados, e a posição da opção: as chamadas focadas leem a mensagem (ver understanding/resolve.ts)
     // A chamada já feita acima (topicOnly) vale; senão, ela roda quando a intenção pede horário
     const when = focusedWhen !== undefined ? focusedWhen : wantsWhen(interpretation, session?.step) ? ((await interpreter.mentionedWhen?.({ text, log })) ?? null) : null;
-    const timed = applyWhen(interpretation, when, session?.step);
+    const timed = applyWhen(interpretation, when, session?.step, { text, now: at, timeZone });
     const count = session?.options?.length ?? 0;
     // A posição só vale com a citação no texto (o modelo principal a inventa para "sim, pode ser"): quando a chamada focada roda, ela decide
     const picking = needsPick(timed, count);

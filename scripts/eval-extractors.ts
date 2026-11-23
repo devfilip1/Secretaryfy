@@ -47,6 +47,23 @@ const whenCases: [string, string | null, DayPeriod | null, boolean][] = [
   ["Do you have anything tomorrow?", null, null, true],
 ];
 
+// [frase, o fim de semana inteiro (sábado e domingo juntos) é citado]
+const weekendCases: [string, boolean][] = [
+  ["vocês atendem no fim de semana?", true],
+  ["do you work on weekends?", true],
+  ["abren los fines de semana?", true],
+  ["sábado e domingo tem horário?", true],
+  ["funcionam sábados e domingos?", true],
+  ["sábado de manhã", false],
+  ["dia 14", false],
+  ["qualquer dia", false],
+  ["à tarde", false],
+  ["voces atendem aos sabados?", false],
+  ["tem horario sab?", false],
+  ["abrem aos domingos?", false],
+  ["do you open on Saturdays?", false],
+];
+
 // [frase, posição esperada na lista de opções (ou null)]
 const optionCases: [string, number | null][] = [
   ["the first one", 1],
@@ -155,4 +172,14 @@ for (const [text, expected] of senseCases) {
 }
 const sensePassed = summarize("mentionedSense", senseOk, senseCases.length);
 
-process.exitCode = whenPassed && optionPassed && sensePassed ? 0 : 1;
+console.log("\nTabela 4: mentionedWhen (fim de semana: sábado e domingo juntos, sem um dia nem uma data)");
+let weekendOk = 0;
+for (const [text, expected] of weekendCases) {
+  const got = await interpreter.mentionedWhen({ text });
+  const right = (got.weekend ?? false) === expected;
+  if (right) weekendOk++;
+  console.log(`${right ? "ok  " : "FAIL"} ${text}  ->  weekend=${got.weekend ?? false}${right ? "" : `   esperado ${expected}`}`);
+}
+const weekendPassed = summarize("mentionedWhen weekend", weekendOk, weekendCases.length);
+
+process.exitCode = whenPassed && optionPassed && sensePassed && weekendPassed ? 0 : 1;
