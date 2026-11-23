@@ -54,21 +54,6 @@ const MAY_BE_NOISE_INTENTS: readonly Intent[] = ["rude", "manipulation", "off_to
 /** Podem levar uma janela de horários do dia (timeWindow, em validate.ts), filtrada em flow/window.ts */
 const CAN_FILTER_TIME_INTENTS: readonly Intent[] = ["choose", "more", "availability", "book", "unclear"];
 
-/** Os grupos por nome, só para o teste de intents.test.ts fotografar os membros; o código usa os predicados */
-export const INTENT_GROUPS = {
-  ASKS_FOR_WHEN: ASKS_FOR_WHEN_INTENTS,
-  CAN_CARRY_A_WHEN: CAN_CARRY_A_WHEN_INTENTS,
-  STEP_ONLY: STEP_ONLY_INTENTS,
-  STARTS_SCHEDULING: STARTS_SCHEDULING_INTENTS,
-  PICKS_OFFERED_DAY: PICKS_OFFERED_DAY_INTENTS,
-  CHOICE_LIKE: CHOICE_LIKE_INTENTS,
-  TOO_FAR: TOO_FAR_INTENTS,
-  ASKS_PERIOD_OF_SCREEN: ASKS_PERIOD_OF_SCREEN_INTENTS,
-  MAY_BE_NOISE: MAY_BE_NOISE_INTENTS,
-  CARRY_A_CITED_DAY: CARRY_A_CITED_DAY_INTENTS,
-  CAN_FILTER_TIME: CAN_FILTER_TIME_INTENTS,
-} as const;
-
 /** Pede um dia ou um horário (ver ASKS_FOR_WHEN_INTENTS) */
 export const asksForWhen = (intent: Intent): boolean => ASKS_FOR_WHEN_INTENTS.includes(intent);
 /** Pode levar o horário ou o dia citados na frase */

@@ -181,7 +181,6 @@ See [decisions/](decisions/README.md):
 - **Single process only.** The calendar lock, send queue, debouncer, event bus, login limiter and reminder scheduler live in memory ([ADR 0007](decisions/0007-single-process-in-memory-coordination.md)). Two server instances could double-book or exceed the anti-ban limits.
 - **Ban risk.** The unofficial connection can get the number banned regardless of the gate ([ADR 0004](decisions/0004-evolution-api-unofficial-whatsapp.md)).
 - **Local model latency.** The first message after Ollama unloads the model is slow. The interpreter keeps it loaded for 30 min (`keep_alive`), and the RAG timeout is 30 s to cover cold starts.
-- **Unused Claude dependency.** `@anthropic-ai/sdk` and a required `ANTHROPIC_API_KEY` with no caller.
 - **No deployment setup.** No Dockerfile for the server or the RAG service, no CI, no backups. Everything assumes one developer machine (e.g. Postgres on port 5434).
 - **English-only retrieval.** The RAG synonyms are English, so Portuguese questions can retrieve the wrong section.
 - **Panel phone input** can't express North American numbers ([BR-SCH-12](business-rules.md#br-sch-12--panel-bookings-use-the-same-engine-and-send-nothing)).

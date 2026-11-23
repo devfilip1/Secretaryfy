@@ -5,11 +5,8 @@ import type { useFormats } from "../i18n/formats";
 import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DayField, DurationField, StartField, type DayRange } from "./booking-pickers";
+import { DayField, DurationField, NameAndServiceFields, StartField, type DayRange } from "./booking-pickers";
 import { parseDuration, validateDuration, formatMinutes } from "./duration";
-import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
 import { Title } from "./Title";
@@ -178,25 +175,7 @@ export function EditAppointmentDialog({
         </DialogHeader>
         <DialogBody className="grid gap-4">
           <div className="grid items-start gap-3 md:grid-cols-2">
-            <Field>
-              {t("form.name")}
-              <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-            </Field>
-            <Field>
-              {t("form.service")}
-              <Select value={service} onValueChange={setService}>
-                <SelectTrigger>
-                  <SelectValue placeholder={services === null ? t("form.loadingServices") : undefined} />
-                </SelectTrigger>
-                <SelectContent>
-                  {services?.map((s) => (
-                    <SelectItem key={s.name} value={s.name}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+            <NameAndServiceFields name={name} onNameChange={setName} services={services} service={service} onServiceChange={setService} />
           </div>
 
           <DayField formats={formats} days={days} range={range} status={status} day={day} onPick={pickDay} />

@@ -1,11 +1,7 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, cancelAppointment, type Appointment } from "../api";
 import type { useFormats } from "../i18n/formats";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Notice } from "./Notice";
-import { Title } from "./Title";
+import { ActionConfirmDialog } from "./ActionConfirmDialog";
 
 /** Confirmação antes de cancelar um agendamento: remove o evento da agenda e não avisa o cliente. */
 export function CancelAppointmentDialog({
@@ -23,8 +19,6 @@ export function CancelAppointmentDialog({
   onGone: () => void;
 }) {
   const { t } = useTranslation("appointments");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const start = new Date(appointment.startsAt);
   const when = t("cancelDialog.when", { day: formats.day.format(start), time: formats.time.format(start) });
@@ -32,53 +26,36 @@ export function CancelAppointmentDialog({
     ? t("cancelDialog.who", { name: appointment.customerName, service: appointment.service })
     : appointment.customerName;
 
-  /** Mensagem para o erro do cancelamento; not_found fecha o diálogo e recarrega a lista (em confirm). */
+  /** Mensagem para o erro do cancelamento. */
   function cancelReason(err: unknown): string {
     if (err instanceof ApiError && err.error === "calendar_disconnected") return t("errors.calendar_disconnected");
     return t("errors.cancel");
   }
 
-  async function confirm() {
-    setBusy(true);
-    setError(null);
+  /** Cancela; devolve a mensagem de erro, ou null quando o diálogo pode fechar. not_found fecha e recarrega a lista. */
+  async function cancel(): Promise<string | null> {
     try {
       await cancelAppointment(appointment.id);
       onCancelled();
+      return null;
     } catch (err) {
-      setBusy(false);
-      if (err instanceof ApiError && err.error === "not_found") onGone();
-      else setError(cancelReason(err));
+      if (err instanceof ApiError && err.error === "not_found") {
+        onGone();
+        return null;
+      }
+      return cancelReason(err);
     }
   }
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !busy) onKeep();
-      }}
-    >
-      <DialogContent role="alertdialog" className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle asChild>
-            <Title level={3}>{t("cancelDialog.title")}</Title>
-          </DialogTitle>
-          <DialogDescription>{t("cancelDialog.description", { who, when })}</DialogDescription>
-        </DialogHeader>
-        {error ? (
-          <DialogBody>
-            <Notice role="alert">{error}</Notice>
-          </DialogBody>
-        ) : null}
-        <DialogFooter>
-          <Button variant="secondary" onClick={onKeep} disabled={busy} autoFocus>
-            {t("cancelDialog.keep")}
-          </Button>
-          <Button variant="destructive" onClick={confirm} disabled={busy}>
-            {busy ? t("cancelDialog.busy") : t("cancelDialog.confirm")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ActionConfirmDialog
+      title={t("cancelDialog.title")}
+      description={t("cancelDialog.description", { who, when })}
+      keepLabel={t("cancelDialog.keep")}
+      confirmLabel={t("cancelDialog.confirm")}
+      busyLabel={t("cancelDialog.busy")}
+      onKeep={onKeep}
+      run={cancel}
+    />
   );
 }

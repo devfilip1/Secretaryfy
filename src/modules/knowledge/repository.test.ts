@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { createTestDb } from "../../test/db.js";
-import { parseBrochure } from "./import-markdown.js";
+import { importBrochure } from "./import-markdown.js";
 import { createKnowledgeRepository, KnowledgeOrderError, type KnowledgeRepository } from "./repository.js";
 import { toSections } from "./render.js";
 import { hoursLines } from "./hours.js";
@@ -43,15 +43,15 @@ test("list is empty before any import", async () => {
 });
 
 test("replaceAll stores the rows and list gives them back in position order", async () => {
-  const rows = parseBrochure(BROCHURE);
+  const rows = importBrochure(BROCHURE).rows;
   await repo.replaceAll(rows);
   assert.deepEqual(toSections(await repo.list(), "pt", HOURS_PT), toSections(rows, "pt", HOURS_PT));
   assert.deepEqual((await repo.list()).map((row) => row.key), rows.map((row) => row.key));
 });
 
 test("replaceAll twice keeps only the second content (idempotent import)", async () => {
-  await repo.replaceAll(parseBrochure(BROCHURE));
-  const second = parseBrochure("## Só esta\nLinha\n");
+  await repo.replaceAll(importBrochure(BROCHURE).rows);
+  const second = importBrochure("## Só esta\nLinha\n").rows;
   await repo.replaceAll(second);
   await repo.replaceAll(second);
   assert.deepEqual(toSections(await repo.list(), "pt", HOURS_PT), toSections(second, "pt", HOURS_PT));

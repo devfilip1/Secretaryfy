@@ -93,12 +93,6 @@ export function createRagAnswerer(
   };
 }
 
-/** Só o folheto, como na feature 001 (usado quando não há agendamento). */
-export function createRagReplier(ask: (question: string) => Promise<RagAnswer>, options: { unavailable: string }): Replier {
-  const answer = createRagAnswerer(ask, options);
-  return async ({ message }, log) => ({ text: await answer(message.text ?? "", log, message.phone), split: true });
-}
-
 /** A primeira palavra, em minúsculas e sem pontuação: "Claro!" e "Claro, sim" começam com a mesma palavra */
 const firstWord = (text: string) => text.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") ?? "";
 

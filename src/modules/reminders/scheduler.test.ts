@@ -9,7 +9,7 @@ import type { ActiveConnection } from "../google/connection.js";
 import { createInboxRepository, type InboxRepository } from "../inbox/repository.js";
 import { createInboxService, type InboxService } from "../inbox/service.js";
 import { createSchedulingStore, type SchedulingStore } from "../scheduling/sessions.js";
-import { createReminderScheduler, type ReminderScheduler } from "./scheduler.js";
+import { createReminderScheduler } from "./scheduler.js";
 import { testReplies } from "../../test/clinic.js";
 
 const tz = "America/Bahia";
@@ -28,7 +28,7 @@ let now: Date;
 let blockReason: BlockReason | null;
 let sendOutcome: "sent" | "failed" | "blocked";
 let sent: { conversationId: string; text: string }[];
-let scheduler: ReminderScheduler;
+let scheduler: ReturnType<typeof createReminderScheduler>;
 
 before(async () => {
   testDb = await createTestDb();

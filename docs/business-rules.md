@@ -318,5 +318,4 @@ The panel is off unless `OPERATOR_PASSWORD` (12+ characters) is set. A login cre
 ## Inconsistencies found
 
 - `package.json` still describes the project as an assistant "for sending emails"; no email feature exists.
-- `ANTHROPIC_API_KEY` is required by [env.ts](../src/config/env.ts), but no code calls the Claude API.
 - The service catalog is the knowledge table ([ADR 0014](decisions/0014-booking-services-are-the-clinics-treatments.md)): the panel reads it from `GET /api/services` and keeps no copy. A treatment's key is what appointments store, so renaming a key does not rename the bookings made before.

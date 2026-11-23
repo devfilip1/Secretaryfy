@@ -11,7 +11,6 @@ export function formatPhone(phone: string): string {
 }
 
 /** Formatadores de dia e hora no fuso da clínica (agenda, agendamento e clientes). */
-export type ClinicFormats = ReturnType<typeof clinicFormats>;
 export function clinicFormats(timeZone: string | undefined, locale = "en-US") {
   return {
     day: new Intl.DateTimeFormat(locale, { timeZone, weekday: "short", month: "short", day: "numeric" }),

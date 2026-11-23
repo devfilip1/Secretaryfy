@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { CLINIC_HOURS } from "../../test/hours.js";
 import type { Language } from "../scheduling/dates.js";
 import { hoursLines } from "./hours.js";
-import { importBrochure, parseBrochure } from "./import-markdown.js";
+import { importBrochure } from "./import-markdown.js";
 import { FACTS_SEPARATOR, toDocument, toSections } from "./render.js";
 import { knowledgeRowSchema, type Fact, type KnowledgeRow } from "./types.js";
 
@@ -66,7 +66,7 @@ for (const [file, language] of [
   test(`${file}: importing and rendering gives back the same titles and lines`, () => {
     const markdown = source(file);
     // O importador liga o aviso de avaliação no preço; o texto original não o tem
-    const rows = parseBrochure(markdown);
+    const rows = importBrochure(markdown).rows;
     const withoutNotes = rows.map((row) =>
       row.kind === "treatment" ? { ...row, data: { ...row.data, facts: row.data.facts.map(({ label, value }) => ({ label, value })) } } : row,
     );
@@ -78,7 +78,7 @@ for (const [file, language] of [
   });
 
   test(`${file}: 8 treatments, one clinic section and 2 info sections`, () => {
-    const rows = parseBrochure(source(file));
+    const rows = importBrochure(source(file)).rows;
     assert.equal(rows.filter((row) => row.kind === "treatment").length, 8);
     assert.equal(rows.filter((row) => row.kind === "clinic").length, 1);
     assert.equal(rows.filter((row) => row.kind === "info").length, 2);
@@ -86,7 +86,7 @@ for (const [file, language] of [
 }
 
 test("the clinic section of the Portuguese brochure: intro, address, contact and closing, with no hours stored", () => {
-  const [clinic] = parseBrochure(source("sorrisopleno.md")).filter((row) => row.kind === "clinic");
+  const [clinic] = importBrochure(source("sorrisopleno.md")).rows.filter((row) => row.kind === "clinic");
   assert.deepEqual(clinic.kind === "clinic" && clinic.data.address, ["Avenida Atlântica, 125, Sala 204", "Rio de Janeiro, RJ, 22010-000, Brasil"]);
   assert.equal(clinic.kind === "clinic" && clinic.data.phone, "(21) 5555-0148");
   assert.equal(clinic.kind === "clinic" && clinic.data.email, "agendamentos@sorrisopleno.example");
@@ -95,7 +95,7 @@ test("the clinic section of the Portuguese brochure: intro, address, contact and
 });
 
 test("the rendered clinic section, in Portuguese, with the hours from the rules", () => {
-  const rows = parseBrochure(CLINIC_BLOCK);
+  const rows = importBrochure(CLINIC_BLOCK).rows;
   assert.equal(rows[0].kind, "clinic");
   assert.deepEqual(sectionsOf(rows, "pt"), [
     {
@@ -119,7 +119,7 @@ test("the rendered clinic section, in Portuguese, with the hours from the rules"
 });
 
 test("the rendered clinic section, in English, uses the English headings and time format", () => {
-  const body = sectionsOf(parseBrochure(CLINIC_BLOCK), "en")[0].body;
+  const body = sectionsOf(importBrochure(CLINIC_BLOCK).rows, "en")[0].body;
   assert.deepEqual(body.slice(0, 4), ["Bem-vinda", "LOCATION", "Rua A, 1", "Bairro B"]);
   assert.ok(body.includes("HOURS"));
   assert.ok(body.includes("Monday–Friday: 9:00 AM–6:00 PM"));
@@ -133,7 +133,7 @@ test("import: the hours lines are dropped and returned, so the owner can check t
 });
 
 test("import: an email alone in the contact block is the email, with no phone", () => {
-  const rows = parseBrochure("## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\nCONTATO\nagenda@teste.example\n");
+  const rows = importBrochure("## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\nCONTATO\nagenda@teste.example\n").rows;
   assert.equal(rows[0].kind, "clinic");
   assert.deepEqual(rows[0].kind === "clinic" && rows[0].data, { intro: [], address: ["Rua A"], email: "agenda@teste.example", closing: [] });
 });
@@ -141,12 +141,12 @@ test("import: an email alone in the contact block is the email, with no phone", 
 test("import: a section with only some of the three headings, or an email before the closing text, stays info", () => {
   const missingContact = "## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\n";
   const emailInClosing = "## Clínica — Info\nENDEREÇO\nRua A\nHORÁRIO\nSábado: 9h às 14h\nCONTATO\nTexto\nagenda@teste.example\n";
-  assert.equal(parseBrochure(missingContact)[0].kind, "info");
-  assert.equal(parseBrochure(emailInClosing)[0].kind, "info");
+  assert.equal(importBrochure(missingContact).rows[0].kind, "info");
+  assert.equal(importBrochure(emailInClosing).rows[0].kind, "info");
 });
 
 test("the version changes when the hours change, since the hours are part of the document", () => {
-  const rows = parseBrochure(CLINIC_BLOCK);
+  const rows = importBrochure(CLINIC_BLOCK).rows;
   const other = { ...CLINIC_HOURS, "6": { start: "09:00", end: "12:00" } };
   assert.notEqual(
     toDocument("Clínica", rows, "pt", hoursLines(CLINIC_HOURS, "pt")).version,
@@ -155,21 +155,21 @@ test("the version changes when the hours change, since the hours are part of the
 });
 
 test("the version changes when any field of the brochure changes", () => {
-  const before = toDocument("Clínica", parseBrochure(SAMPLE), "pt", hoursLines(CLINIC_HOURS, "pt")).version;
-  const after = toDocument("Clínica", parseBrochure(SAMPLE.replace("Até 8 tons", "Até 9 tons")), "pt", hoursLines(CLINIC_HOURS, "pt")).version;
+  const before = toDocument("Clínica", importBrochure(SAMPLE).rows, "pt", hoursLines(CLINIC_HOURS, "pt")).version;
+  const after = toDocument("Clínica", importBrochure(SAMPLE.replace("Até 8 tons", "Até 9 tons")).rows, "pt", hoursLines(CLINIC_HOURS, "pt")).version;
   assert.notEqual(before, after);
 });
 
 test("the version is stable when nothing changes, and the name is part of it", () => {
-  const rows = parseBrochure(SAMPLE);
+  const rows = importBrochure(SAMPLE).rows;
   const hours = hoursLines(CLINIC_HOURS, "pt");
-  assert.equal(toDocument("Clínica", rows, "pt", hours).version, toDocument("Clínica", parseBrochure(SAMPLE), "pt", hours).version);
+  assert.equal(toDocument("Clínica", rows, "pt", hours).version, toDocument("Clínica", importBrochure(SAMPLE).rows, "pt", hours).version);
   assert.match(toDocument("Clínica", rows, "pt", hours).version, /^[0-9a-f]{64}$/);
   assert.notEqual(toDocument("Clínica", rows, "pt", hours).version, toDocument("Outra", rows, "pt", hours).version);
 });
 
 test("sections come out in position order, whatever the order of the rows", () => {
-  const rows = parseBrochure(SAMPLE);
+  const rows = importBrochure(SAMPLE).rows;
   assert.deepEqual(sectionsOf([...rows].reverse()), sectionsOf(rows));
   assert.deepEqual(
     sectionsOf(rows).map((section) => section.title),
@@ -178,20 +178,20 @@ test("sections come out in position order, whatever the order of the rows", () =
 });
 
 test("o slogan do tratamento sai com ': ' no documento do RAG, e o travessão da brochura continua sendo lido na importação", () => {
-  const [row] = parseBrochure("## Canal — Dor\nComo funciona: Ultrassom.\nDuração: 1 a 3 sessões   |   Preço: R$ 40\nResultado: Imediato\n");
+  const [row] = importBrochure("## Canal — Dor\nComo funciona: Ultrassom.\nDuração: 1 a 3 sessões   |   Preço: R$ 40\nResultado: Imediato\n").rows;
   assert.equal(row.tagline, "Dor");
   assert.equal(sectionsOf([row])[0].title, "Canal: Dor");
   assert.equal(sectionsOf([{ ...row, tagline: null }])[0].title, "Canal");
 });
 
 test("a section that cannot be parsed is stored as info, with its lines", () => {
-  const rows = parseBrochure("## Canal — Dor\nDuração: 1 a 3 sessões\nAlívio já na primeira sessão\n");
+  const rows = importBrochure("## Canal — Dor\nDuração: 1 a 3 sessões\nAlívio já na primeira sessão\n").rows;
   assert.equal(rows[0].kind, "info");
   assert.deepEqual(sectionsOf(rows), [{ title: "Canal — Dor", body: ["Duração: 1 a 3 sessões", "Alívio já na primeira sessão"] }]);
 });
 
 test("text before the first section is refused, not lost", () => {
-  assert.throws(() => parseBrochure("Texto solto\n## Seção\nLinha\n"));
+  assert.throws(() => importBrochure("Texto solto\n## Seção\nLinha\n").rows);
 });
 
 test("a fact flagged assessment carries its note in Portuguese, inside the same fact", () => {
@@ -237,7 +237,7 @@ test("the version changes when the assessment flag is toggled, and when the clin
 });
 
 test("the importer turns the assessment note on for price facts only", () => {
-  const treatments = parseBrochure(source("sorrisopleno.md")).filter((row) => row.kind === "treatment");
+  const treatments = importBrochure(source("sorrisopleno.md")).rows.filter((row) => row.kind === "treatment");
   for (const row of treatments) {
     for (const fact of row.data.facts) assert.equal(fact.assessment === true, fact.label === "Preço", `${row.title}: ${fact.label}`);
   }

@@ -4,11 +4,10 @@ import { ApiError, bookingDays, bookingSlots, bookingStarts, createAppointment, 
 import { useInboxEvents } from "../useEvents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFormats } from "../i18n/formats";
 import { useActivePanelLanguage } from "../i18n/usePanelLanguage";
 import { defaultDuration, formatMinutes, parseDuration, validateDuration } from "./duration";
-import { DayField, DurationField, StartField, type DayRange } from "./booking-pickers";
+import { DayField, DurationField, NameAndServiceFields, StartField, type DayRange } from "./booking-pickers";
 import { Field } from "./Field";
 import { Muted } from "./Muted";
 import { Notice } from "./Notice";
@@ -206,25 +205,7 @@ export function NewAppointment({ onBooked, onCancel }: { onBooked: (a: Appointme
           />
           {phoneError && <Muted tone="destructive">{phoneError}</Muted>}
         </Field>
-        <Field>
-          {t("form.name")}
-          <Input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <Field>
-          {t("form.service")}
-          <Select value={service} onValueChange={setService}>
-            <SelectTrigger>
-              <SelectValue placeholder={services === null ? t("form.loadingServices") : undefined} />
-            </SelectTrigger>
-            <SelectContent>
-              {services?.map((s) => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        <NameAndServiceFields name={name} onNameChange={setName} services={services} service={service} onServiceChange={setService} />
       </div>
 
       {existing && (
