@@ -8,7 +8,7 @@ Everything Secretaryfy does for a patient starts with a WhatsApp message and end
 |---|---|---|
 | 1. Webhook | Authenticate, parse, answer 200 at once | [evolution-webhook.ts](../src/routes/evolution-webhook.ts), [evolution.ts](../src/modules/whatsapp/evolution.ts) |
 | 2. Record | Store the message once, update the conversation, notify the panel | [inbox/service.ts](../src/modules/inbox/service.ts) |
-| 3. Burst | Wait for 3 s of silence, join the patient's unanswered messages, one round per conversation at a time | [burst.ts](../src/modules/whatsapp/burst.ts) |
+| 3. Burst | Wait for 5 s of silence, join the patient's unanswered messages, one round per conversation at a time | [burst.ts](../src/modules/whatsapp/burst.ts) |
 | 4. Handle | Opt-out/opt-in, paused conversation, then ask for a reply | [handle-message.ts](../src/modules/whatsapp/handle-message.ts) |
 | 5. Route | Known name, reminder answer, interpret, then scheduling or brochure | [router.ts](../src/modules/scheduling/router.ts) |
 | 6a. Interpret | Rules first; the model only when rules can't decide | [interpret.ts](../src/modules/scheduling/interpret.ts), [interpret/](../src/modules/scheduling/interpret/), [ollama.ts](../src/modules/scheduling/ollama.ts) |
@@ -33,7 +33,7 @@ sequenceDiagram
   W-->>E: 200 (immediately)
   W->>I: recordIncoming (unique wa_message_id)
   I-->>W: created
-  Note over W: burst: 3 s of silence
+  Note over W: burst: 5 s of silence
   W->>H: all unanswered patient texts, joined
   H->>H: opt-out? opted out? paused?
   H->>H: known name, awaiting name / reminder
@@ -55,7 +55,7 @@ sequenceDiagram
 `inbox.recordIncoming` inserts the message with `on conflict (wa_message_id) do nothing`. A repeated event returns `created: false` and stops here, which makes the whole pipeline idempotent. Messages sent from the clinic's own phone (`fromMe`) are recorded with origin `phone` and never answered. Media is recorded but not answered. The panel gets `message.created` and `conversation.updated` over SSE.
 
 ### 3. Debounce
-Opt-out/opt-in commands skip the wait and are handled immediately. Other texts restart a 3 s timer per conversation (`ANTIBAN_DEBOUNCE_MS`). When it fires, the round gets all patient texts since the assistant's last reply, joined with newlines, as one message.
+Opt-out/opt-in commands skip the wait and are handled immediately. Other texts restart a 5 s timer per conversation (`ANTIBAN_DEBOUNCE_MS`). When it fires, the round gets all patient texts since the assistant's last reply, joined with newlines, as one message.
 
 **Bursts.** A round never runs next to another round of the same conversation: `createSerialLanes` queues it behind the one in progress. So the second round reads the history with the first reply in it, and the greeting (first reply only) is not repeated. A round that waited behind another one passes `bypass: ["unanswered"]` to the gate: the patient wrote while we were answering, so the insistence rule does not count those replies against them. The loop rule still applies. Messages that arrive during a reply are answered by the next round, in order. An operator message cancels the pending timer (`cancelPendingReply`). A two-message gap longer than the quiet window is two rounds by design; raise `ANTIBAN_DEBOUNCE_MS` to join them.
 

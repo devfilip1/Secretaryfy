@@ -13,7 +13,7 @@ The same event delivered twice, even after a restart, is stored once and answere
 - **Where:** unique `messages.wa_message_id`, insert with `on conflict do nothing` in [inbox/repository.ts](../src/modules/inbox/repository.ts)
 
 ### BR-CNV-03 · Consecutive messages get one reply
-The assistant waits for 3 s of silence (`ANTIBAN_DEBOUNCE_MS`) and answers everything the patient sent since its last reply in one go. Two rounds of the same conversation never run at once: a message that arrives during a reply is answered next, in order.
+The assistant waits for 5 s of silence (`ANTIBAN_DEBOUNCE_MS`) and answers everything the patient sent since its last reply in one go. Two rounds of the same conversation never run at once: a message that arrives during a reply is answered next, in order.
 - **Where:** [debounce.ts](../src/modules/antiban/debounce.ts), [burst.ts](../src/modules/whatsapp/burst.ts) (`createBursts`, wired in [evolution-webhook.ts](../src/routes/evolution-webhook.ts))
 
 ### BR-CNV-04 · A message goes to scheduling or to the brochure
