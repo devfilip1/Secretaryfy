@@ -16,7 +16,7 @@ import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createReplies } from "../src/modules/scheduling/replies.js";
 import { createClinicContext } from "../src/modules/clinic/context.js";
 import { createInterpreter } from "../src/modules/scheduling/interpret.js";
-import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
+import { createModelClientFromEnv } from "../src/modules/scheduling/model-client.js";
 import { createSchedulingRouter } from "../src/modules/scheduling/router.js";
 import { DEFAULT_RULES } from "../src/modules/scheduling/rules.js";
 import { createSchedulingStore } from "../src/modules/scheduling/sessions.js";
@@ -52,12 +52,11 @@ delete process.env.DATABASE_URL_TEST;
 const tz = fixture.timeZone;
 const now = DateTime.fromISO(fixture.now).toJSDate();
 const local = (iso: string) => DateTime.fromISO(iso, { zone: tz }).toJSDate();
-const model = process.env.AGENT_MODEL ?? "qwen3:8b";
-const ollama = createOllamaClient({
-  url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
-  model,
-  timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
-});
+const ollama = createModelClientFromEnv(process.env);
+const model = ollama.model;
+const provider = process.env.MODEL_PROVIDER ?? "ollama";
+console.log(`modelo: ${provider} / ${ollama.model}`);
+if (provider !== "ollama") console.log("aviso: modelo na nuvem; estas avaliações enviam só frases inventadas, nunca conversas reais.");
 // A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
 const clinic = createClinicContext({
   name: process.env.CLINIC_NAME || "DentalSafe",
@@ -128,7 +127,7 @@ for (const scenario of scenarios) {
 
   const connection = { getForUse: async () => ({ refreshToken: "t", calendarId: "primary", timeZone: tz, status: "connected" as const }) };
   const customers = createCustomerRepository(testDb.db as never);
-  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now, replies, catalog });
+  const flow = createSchedulingFlow({ calendar: fake.gateway, connection, rules: { get: async () => rules }, store, inbox, customers, now: () => now, replies, catalog, clinic });
   const reply = createSchedulingRouter({
     interpreter,
     flow,
@@ -211,4 +210,8 @@ const checks: [string, boolean, string][] = [
 ];
 console.log("\nResumo");
 for (const [label, pass, value] of checks) console.log(`${pass ? "✔" : "✖"} ${label}: ${value}`);
-process.exit(checks.every(([, pass]) => pass) ? 0 : 1);
+const modelStats = ollama.stats?.() ?? { calls: 0, rateLimited: 0, failed: 0 };
+console.log(`\nchamadas ao modelo: ${modelStats.calls}, limite 429: ${modelStats.rateLimited}, falhas de infraestrutura: ${modelStats.failed}`);
+const modelInvalid = modelStats.rateLimited > 0 || modelStats.failed > 0;
+if (modelInvalid) console.log("RESULTADO INVALIDO: houve falha de infraestrutura (limite, tempo esgotado ou erro HTTP); refaça a rodada, estes números não medem o modelo.");
+process.exit(modelInvalid ? 2 : checks.every(([, pass]) => pass) ? 0 : 1);

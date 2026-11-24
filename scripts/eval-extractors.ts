@@ -4,7 +4,7 @@
 import { createClinicContext } from "../src/modules/clinic/context.js";
 import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { createInterpreter, type DayPeriod } from "../src/modules/scheduling/interpret.js";
-import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
+import { createModelClientFromEnv } from "../src/modules/scheduling/model-client.js";
 
 /** Abaixo deste percentual de acertos a rodada falha (exit 1) */
 const MIN_RATE = 0.9;
@@ -132,11 +132,10 @@ const senseCases: [string, boolean][] = [
   ["quanto é 15 vezes 4?", false],
 ];
 
-const ollama = createOllamaClient({
-  url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
-  model: process.env.AGENT_MODEL ?? "qwen3:8b",
-  timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
-});
+const ollama = createModelClientFromEnv(process.env);
+const provider = process.env.MODEL_PROVIDER ?? "ollama";
+console.log(`modelo: ${provider} / ${ollama.model}`);
+if (provider !== "ollama") console.log("aviso: modelo na nuvem; estas avaliações enviam só frases inventadas, nunca conversas reais.");
 // A mesma clínica e o mesmo catálogo do eval-interpret
 const clinic = createClinicContext({
   name: process.env.CLINIC_NAME || "DentalSafe",
@@ -195,3 +194,9 @@ for (const [text, expected] of weekendCases) {
 const weekendPassed = summarize("mentionedWhen weekend", weekendOk, weekendCases.length);
 
 process.exitCode = whenPassed && optionPassed && sensePassed && weekendPassed ? 0 : 1;
+const modelStats = ollama.stats?.() ?? { calls: 0, rateLimited: 0, failed: 0 };
+console.log(`\nchamadas ao modelo: ${modelStats.calls}, limite 429: ${modelStats.rateLimited}, falhas de infraestrutura: ${modelStats.failed}`);
+if (modelStats.rateLimited > 0 || modelStats.failed > 0) {
+  console.log("RESULTADO INVALIDO: houve falha de infraestrutura (limite, tempo esgotado ou erro HTTP); refaça a rodada, estes números não medem o modelo.");
+  process.exitCode = 2;
+}

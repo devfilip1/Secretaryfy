@@ -6,6 +6,7 @@ const senseFormat = {
   type: "object",
   properties: { meaningless: { type: "boolean" } },
   required: ["meaningless"],
+  additionalProperties: false,
 };
 const SENSE_PROMPT = [
   "You read one WhatsApp message that a customer sent to a clinic's booking assistant.",

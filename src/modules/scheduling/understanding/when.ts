@@ -39,6 +39,7 @@ const whenFormat = {
     weekend: { type: ["boolean", "null"], description: "true when the customer asks whether the clinic works at the weekend: Saturday and Sunday together, as one block, with no single day and no date named" },
   },
   required: ["period_quote", "period", "hour_quote", "time", "day_quote", "bound", "weekend"],
+  additionalProperties: false,
 };
 const WHEN_PROMPT = [
   "You read one WhatsApp message of a customer who is booking an appointment at a clinic.",

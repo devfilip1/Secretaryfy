@@ -7,6 +7,7 @@ const pickFormat = {
   type: "object",
   properties: { quote: { type: ["string", "null"] }, option: { type: ["integer", "null"] } },
   required: ["quote", "option"],
+  additionalProperties: false,
 };
 const pickPrompt = (count: number) =>
   [

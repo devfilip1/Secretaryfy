@@ -39,6 +39,7 @@ export function formatFor(catalog: ServiceCatalog, language: Language) {
           pick: { type: ["string", "null"], enum: [null, "earliest", "latest"] },
         },
         required: ["after", "before", "near", "pick"],
+        additionalProperties: false,
       },
       name: { type: ["string", "null"] },
       service: {
@@ -47,7 +48,8 @@ export function formatFor(catalog: ServiceCatalog, language: Language) {
         description: "the treatment the customer wants or has been talking about, exactly as listed; null when none",
       },
     },
-    required: ["intent", "service", "timeWindow"],
+    required: ["intent", "option", "date", "time", "weekday", "urgent", "timeWindow", "name", "service"],
+    additionalProperties: false,
   };
 }
 
@@ -67,6 +69,7 @@ export function mentionFormat(catalog: ServiceCatalog, language: Language) {
       service: { type: ["string", "null"], enum: [null, ...mentionLabels(catalog, language)] },
     },
     required: ["quote", "service"],
+    additionalProperties: false,
   };
 }
 

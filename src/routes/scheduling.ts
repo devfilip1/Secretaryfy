@@ -6,7 +6,7 @@ import { bus } from "../modules/inbox/events.js";
 import { createBooking } from "../modules/scheduling/booking.js";
 import { createSchedulingFlow } from "../modules/scheduling/flow.js";
 import { createHumanizer } from "../modules/scheduling/humanize.js";
-import { createOllamaClient } from "../modules/scheduling/ollama.js";
+import { createModelClientFromEnv } from "../modules/scheduling/model-client.js";
 import { createSchedulingStore, withAppointmentEvents } from "../modules/scheduling/sessions.js";
 import { createKnowledgeCatalog } from "../modules/scheduling/catalog.js";
 import { createKnowledgeRepository } from "../modules/knowledge/repository.js";
@@ -38,7 +38,7 @@ export const schedulingReplies = createReplies({ clinic, catalog });
 /** Reescrita opcional das respostas do fluxo (HUMANIZE_REPLIES=1); sem ela, vale o texto fixo. */
 export const humanize = env.HUMANIZE_REPLIES
   ? createHumanizer({
-      ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
+      ollama: createModelClientFromEnv(process.env),
       clinic,
     }).humanize
   : undefined;

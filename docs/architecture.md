@@ -10,7 +10,7 @@
 | Validation | Zod | 4 | Env vars, request bodies, interpreter output |
 | Dates | Luxon | 3.7 | All scheduling math in the calendar's time zone |
 | Panel | React + Vite | React 19, Vite 8 | Plain CSS, no component library, in [`web/`](../web) |
-| Message interpreter | Ollama `qwen3:8b` (8B, Q4_K_M) | — | Local; JSON-schema-constrained output |
+| Message interpreter | Ollama `qwen3:8b` (8B, Q4_K_M) by default; any OpenAI-compatible model with `MODEL_PROVIDER=openai` | — | Local by default; JSON-schema-constrained output. See [integrations](integrations.md#model-provider) |
 | Brochure answers (RAG) | Python, FastAPI, LangChain, Chroma, rank-bm25 | Python 3.14 | Separate service in [`rag/`](../rag), copied from RagLab |
 | WhatsApp | Evolution API | v2.3.7 | Docker; Baileys-based (WhatsApp Web protocol) |
 | Calendar | Google Calendar API (`googleapis`) | 186 | OAuth with offline access |

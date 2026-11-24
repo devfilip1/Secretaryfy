@@ -6,7 +6,7 @@ import { ptCatalog, testCatalog } from "../src/test/catalog.js";
 import { ASSESSMENT } from "../src/modules/scheduling/catalog.js";
 import { createInterpreter, type DayPeriod, type Interpretation, type InterpretInput, type TimeWindow } from "../src/modules/scheduling/interpret.js";
 import { applyPick, applySense, applyWhen, needsPick, wantsSense, wantsWhen } from "../src/modules/scheduling/understanding/resolve.js";
-import { createOllamaClient } from "../src/modules/scheduling/ollama.js";
+import { createModelClientFromEnv } from "../src/modules/scheduling/model-client.js";
 
 // Terça, 20/10/2026, 15:00 em Salvador
 const now = new Date("2026-10-20T18:00:00Z");
@@ -196,11 +196,10 @@ const cases: Case[] = [
   c(null, "blá blá blá sapato voador", "unclear"),
 ];
 
-const ollama = createOllamaClient({
-  url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
-  model: process.env.AGENT_MODEL ?? "qwen3:8b",
-  timeoutMs: Number(process.env.AGENT_TIMEOUT_MS ?? 20000),
-});
+const ollama = createModelClientFromEnv(process.env);
+const provider = process.env.MODEL_PROVIDER ?? "ollama";
+console.log(`modelo: ${provider} / ${ollama.model}`);
+if (provider !== "ollama") console.log("aviso: modelo na nuvem; estas avaliações enviam só frases inventadas, nunca conversas reais.");
 // A clínica como o .env a descreve (os mesmos padrões da configuração do servidor)
 const clinic = createClinicContext({
   name: process.env.CLINIC_NAME || "DentalSafe",
@@ -239,3 +238,9 @@ for (const k of cases) {
 }
 latencies.sort((a, b) => a - b);
 console.log(`\n${ok}/${cases.length} certos, mediana ${latencies[Math.floor(latencies.length / 2)]} ms, máx ${latencies.at(-1)} ms`);
+const modelStats = ollama.stats?.() ?? { calls: 0, rateLimited: 0, failed: 0 };
+console.log(`\nchamadas ao modelo: ${modelStats.calls}, limite 429: ${modelStats.rateLimited}, falhas de infraestrutura: ${modelStats.failed}`);
+if (modelStats.rateLimited > 0 || modelStats.failed > 0) {
+  console.log("RESULTADO INVALIDO: houve falha de infraestrutura (limite, tempo esgotado ou erro HTTP); refaça a rodada, estes números não medem o modelo.");
+  process.exitCode = 2;
+}

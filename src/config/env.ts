@@ -44,6 +44,14 @@ const envSchema = z.object({
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),
   AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  // Modelo de linguagem: "ollama" (local, padrão) ou "openai" (API compatível com a da OpenAI, ex.: NVIDIA Build). Ver docs/integrations.md#model-provider
+  MODEL_PROVIDER: z.enum(["ollama", "openai"]).default("ollama"),
+  MODEL_BASE_URL: z.url().optional(),
+  MODEL_API_KEY: z.string().min(1).optional(),
+  MODEL_NAME: z.string().min(1).optional(),
+  // Objeto JSON com campos extras do corpo da requisição (ex.: desligar o raciocínio de modelos que o têm)
+  MODEL_EXTRA_BODY: z.string().optional(),
+  MODEL_MAX_TOKENS: z.coerce.number().int().positive().optional(),
   // Reescreve as respostas do agendamento para soarem humanas (opt-in, uma chamada extra ao modelo; humanize.ts)
   HUMANIZE_REPLIES: z.stringbool().default(true),
   // Endereço do painel para a volta do OAuth do Google; sem a variável, vale PUBLIC_URL
@@ -122,6 +130,10 @@ const parsed = envSchema
   .superRefine((v, ctx) => {
     const refusal = calendarModeRefusal(v.CALENDAR_MODE, v.NODE_ENV);
     if (refusal) ctx.addIssue({ code: "custom", path: ["CALENDAR_MODE"], message: refusal });
+    if (v.MODEL_PROVIDER === "openai") {
+      const missing = (["MODEL_BASE_URL", "MODEL_API_KEY", "MODEL_NAME"] as const).filter((k) => !v[k]);
+      if (missing.length) ctx.addIssue({ code: "custom", path: ["MODEL_PROVIDER"], message: `MODEL_PROVIDER=openai exige ${missing.join(", ")}` });
+    }
     for (const [low, high] of ANTIBAN_RANGES) {
       if (v[low] > v[high]) ctx.addIssue({ code: "custom", path: [low], message: `${low} não pode ser maior que ${high}` });
     }
