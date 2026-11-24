@@ -61,7 +61,11 @@ All are validated at startup by [env.ts](../src/config/env.ts); a bad value stop
 | `CALENDAR_MODE` | no | `google` (default) or `fake`: in-memory calendar for development only, see [Offline calendar](#offline-calendar) |
 | `PANEL_URL` | no | Where Google returns after consent; `http://localhost:5173` in development |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | no | RAG service address (`http://127.0.0.1:8001`) and timeout (30000) |
-| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Interpreter: Ollama address, model (`qwen3:8b`), timeout (20000) |
+| `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` | no | Chat model when `MODEL_PROVIDER=ollama`: Ollama address, model (`qwen3:8b`), timeout (20000) |
+| `MODEL_PROVIDER` | no | `ollama` (default), `openai-compatible` (any server speaking the OpenAI protocol) or `nvidia` (NVIDIA Build preset, development only; refused when `NODE_ENV=production`), see [Model provider](integrations.md#model-provider) |
+| `MODEL_BASE_URL`, `MODEL_API_KEY`, `MODEL_NAME` | with `openai-compatible` | API base URL, its key (never commit it), and the model name. All three are required with `openai-compatible`. With `nvidia` only `MODEL_API_KEY` is required; the other two come from the preset and override it when set |
+| `MODEL_EXTRA_BODY`, `MODEL_MAX_TOKENS` | no | JSON object merged into each request body (e.g. turning a reasoning model's thinking off; with `nvidia` it replaces the preset object), and the answer token limit. Used with `openai-compatible` and `nvidia` |
+| `MODEL_MAX_PER_MINUTE` | no | Client-side limit on requests per minute, `openai-compatible` and `nvidia` (preset `35`; e.g. `35` for a 40 per minute limit). The client waits so attempts stay spaced, so the provider's 429 is not hit. Unset with `openai-compatible` = no wait |
 | `HUMANIZE_REPLIES` | no | `1` (default) lets the model reword scheduling replies in a warm, kind tone (one extra model call, ~1 s; a code guard falls back to the fixed text). `0` turns it off |
 | `REMINDER_LEAD_MINUTES`, `REMINDER_CUTOFF_MINUTES`, `REMINDER_TICK_MS` | no | Reminder window (1440 / 120 min) and scheduler tick (60000 ms). Shorten only to test |
 | `REMINDER_OUTSIDE_WINDOW` | no | `1` (default): the reminder also goes to patients silent for more than 24 h (ADR 0013); `0`: only inside the 24 h window |
@@ -105,6 +109,8 @@ npx tsx --env-file=.env scripts/eval-scheduling.ts                    # 23 scrip
 npx tsx --env-file=.env scripts/eval-scheduling.ts --only "name"      # one scenario
 AGENT_MODEL=llama3 npx tsx --env-file=.env scripts/eval-scheduling.ts   # compare another model
 ```
+
+Each run ends with `chamadas ao modelo: N, limite 429: X, falhas de infraestrutura: Y`. When X or Y is above 0 the run is void: it prints `RESULTADO INVALIDO` and exits with code 2. Repeat it; those numbers do not measure the model.
 
 Scenarios are in [scheduling-scenarios.json](../scripts/fixtures/scheduling-scenarios.json). It checks that offered times follow the rules, nothing is double-booked, nothing is booked without "yes", the right time is booked in at least 90% of scenarios, replies take under 30 s, and the service is in the event title. Run it after any change to the interpreter, the router or the flow.
 

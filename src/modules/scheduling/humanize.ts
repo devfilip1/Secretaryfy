@@ -13,6 +13,7 @@ const FORMAT = {
   type: "object",
   properties: { message: { type: "string" } },
   required: ["message"],
+  additionalProperties: false,
 } as const;
 
 /** Com temperatura 0 o modelo devolve o texto igual; a guarda cuida dos fatos, então há espaço para variar o tom. */

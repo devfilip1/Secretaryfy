@@ -10,6 +10,7 @@ const agreementFormat = {
   type: "object",
   properties: { answer: { type: "string", enum: [...AGREEMENTS] } },
   required: ["answer"],
+  additionalProperties: false,
 };
 const AGREEMENT_PROMPT = [
   "You read one WhatsApp message that a customer sent to a clinic's booking assistant. The assistant had just asked the customer a yes or no question.",

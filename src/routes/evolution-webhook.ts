@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 import { createRagClient } from "../modules/rag/client.js";
 import { createInterpreter } from "../modules/scheduling/interpret.js";
-import { createOllamaClient } from "../modules/scheduling/ollama.js";
+import { createModelClientFromEnv } from "../modules/scheduling/model-client.js";
 import { createSchedulingRouter } from "../modules/scheduling/router.js";
 import { createBursts } from "../modules/whatsapp/burst.js";
 import { matchCommand } from "../modules/antiban/opt-out.js";
@@ -35,7 +35,7 @@ const reply = createSchedulingRouter({
   interpreter: createInterpreter({
     clinic,
     catalog,
-    ollama: createOllamaClient({ url: env.OLLAMA_URL, model: env.AGENT_MODEL, timeoutMs: env.AGENT_TIMEOUT_MS }),
+    ollama: createModelClientFromEnv(process.env),
   }),
   flow: schedulingFlow,
   replies: schedulingReplies,

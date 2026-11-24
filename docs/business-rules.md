@@ -183,6 +183,7 @@ A question that asks which services or treatments the clinic offers or can book 
 
 ### BR-SCH-21 · A part of the day filters the times and never repeats the page
 "De manhã", "à tarde" or "à noite" offers only the free times of that part of the day (morning from 05:00, afternoon from 12:00, evening from 18:00, the split of `dayPeriod`). When the day has none in that part, the assistant says so and offers the nearest free times: the first ones after the start of the part, or the last ones of the day when none come later. A request for more times that would show the page already on screen gets the rest of the day, never the same list again.
+The closing hint of a slot list ("Se quiser ver mais horários ou outro dia, é só pedir.") is shown once per scheduling session: on the first slot list only. While the customer is already on a slot list (session step `choose_slot`), a re-list (a later time, a part of the day, another day, a time window) ends on the question, with no hint (`isFirstSlotList` in [flow/offers.ts](../src/modules/scheduling/flow/offers.ts)).
 - **Where:** `offerPeriod` and `periodOfScreen` in [flow/offers.ts](../src/modules/scheduling/flow/offers.ts); `slotsInPeriod` and `slotsNearPeriod` in [flow/period.ts](../src/modules/scheduling/flow/period.ts); `dayPeriod` in [replies.ts](../src/modules/scheduling/replies.ts)
 
 ### BR-SCH-22 · A date the customer names is kept

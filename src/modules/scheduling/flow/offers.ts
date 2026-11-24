@@ -11,6 +11,13 @@ import type { Run } from "./run.js";
 /** Até 6 dias ou horários por resposta (FR-013). */
 export const PAGE = 6;
 
+/**
+ * O aviso do fim da lista ("mais horários ou outro dia") sai só na primeira lista de horários da sessão. Com a etapa
+ * choose_slot já na tela, o cliente está pedindo outro horário e o aviso já foi dado. run.session é a sessão de antes
+ * desta mensagem (run.save não a altera), então a etapa lida é a que o cliente via.
+ */
+const isFirstSlotList = (run: Run) => run.session?.step !== "choose_slot";
+
 // --- Oferta de dias e horários ---
 
 /** Dias com vaga em toda a janela, numa consulta só à agenda. */
@@ -71,7 +78,7 @@ export async function offerWindow(run: Run, date: string, window: TimeWindow, on
   if (picked.shown.length === 0) return offerDay(run, date);
   await saveSlots(run, picked.shown);
   if (!picked.matched) return { reply: run.replies.noneInWindow(date, picked.shown, run.tz) };
-  return { reply: run.replies.offerSlots(date, picked.shown, run.tz, picked.more) };
+  return { reply: run.replies.offerSlots(date, picked.shown, run.tz, picked.more, isFirstSlotList(run)) };
 }
 
 /** Todos os sábados e domingos da janela de agendamento, do primeiro que ainda vem. */
@@ -128,7 +135,7 @@ async function offerPeriod(run: Run, date: string, slots: Date[], period: DayPer
   const near = slotsNearPeriod(slots, period, run.tz, PAGE);
   if (sameStarts(near.shown, onScreen)) return moreSlots(run);
   await saveSlots(run, near.shown);
-  return { reply: run.replies.periodEmpty(date, period, near.shown, run.tz, near.more) };
+  return { reply: run.replies.periodEmpty(date, period, near.shown, run.tz, near.more, isFirstSlotList(run)) };
 }
 
 /** Os mesmos inícios, na mesma ordem: a resposta seria o texto que já está na tela. */
@@ -151,7 +158,7 @@ async function offerSlots(run: Run, date: string, slots: Date[], kind: "offer" |
   const page = slots.slice(0, PAGE);
   await saveSlots(run, page);
   const reply =
-    kind === "taken" ? run.replies.slotTaken(date, page, run.tz) : run.replies.offerSlots(date, page, run.tz, slots.length > PAGE);
+    kind === "taken" ? run.replies.slotTaken(date, page, run.tz) : run.replies.offerSlots(date, page, run.tz, slots.length > PAGE, isFirstSlotList(run));
   return { reply };
 }
 

@@ -148,6 +148,15 @@ test("parte do dia sem horário livre: diz a parte e oferece os outros horários
   assert.match(pt.periodEmpty("2026-10-21", "evening", slots, tz, true), /horário livre à noite/);
 });
 
+test("aviso do fim da lista em pt: com showHint falso a lista acaba em 'Qual prefere?', com ou sem mais horários", () => {
+  assert.ok(pt.offerSlots("2026-10-21", slots, tz, true, false).endsWith("\n• 10:00\nQual prefere?"));
+  assert.ok(pt.offerSlots("2026-10-21", slots, tz, false, false).endsWith("\n• 10:00\nQual prefere?"));
+  assert.ok(pt.offerSlots("2026-10-21", slots, tz, true).endsWith("Qual prefere? Se quiser ver mais horários ou outro dia, é só pedir."));
+  assert.ok(pt.offerSlots("2026-10-21", slots, tz, false).endsWith("Qual prefere? Se preferir outro dia, é só pedir."));
+  assert.ok(pt.periodEmpty("2026-10-21", "morning", slots, tz, true, false).endsWith("\n• 09:00\n• 10:00\nQual prefere?"));
+  assert.ok(pt.periodEmpty("2026-10-21", "morning", slots, tz, false).endsWith("Qual prefere? Se preferir outro dia, é só pedir."));
+});
+
 test("com o nome do cliente, as respostas o chamam pelo primeiro nome", () => {
   const r = createReplies({ clinic: { name: "Sorriso Pleno", language: "pt" }, catalog: testCatalog });
   assert.match(r.booked(start, tz, "Paulo Lima"), /^Tudo certo, Paulo, seu horário está marcado!/);

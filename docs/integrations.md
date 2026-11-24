@@ -4,7 +4,7 @@
 |---|---|---|---|
 | Evolution API v2.3.7 | WhatsApp connection: receive, send, read receipts, QR code | REST calls with an API key; webhook to `/webhooks/evolution` | `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`, `EVOLUTION_WEBHOOK_TOKEN`, `WEBHOOK_BASE_URL` |
 | Google Calendar API | Free/busy, create, move, rename and delete events | `googleapis` with OAuth 2 (offline refresh token) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PUBLIC_URL`, `PANEL_URL` |
-| Ollama (`qwen3:8b`) | Interpreting patient messages | `POST /api/chat` with a JSON Schema `format` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
+| Chat model: Ollama (`qwen3:8b`, default) or any OpenAI-compatible API | Interpreting patient messages and rewording replies | `POST /api/chat` (Ollama) or `POST /chat/completions` with a JSON Schema `response_format` | `MODEL_PROVIDER` and, per provider, the variables in [Model provider](#model-provider) |
 | RAG service (`rag/`) | Answering questions from the brochure | `POST /answer` on the local Python service | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` |
 
 Values never go in the docs; see [development](development.md#environment-variables) for what each variable is and where to get it.
@@ -40,6 +40,29 @@ Local model server. Secretaryfy calls it for interpretation ([ollama.ts](../src/
 - Interpreter call: `POST {OLLAMA_URL}/api/chat` with `stream: false`, `format: <JSON Schema>`, `temperature: 0`, `keep_alive: "30m"`, and a 20 s timeout. Non-JSON output or any error raises `InterpreterUnavailable`.
 - The model in use is `qwen3:8b`: 8.2B parameters, Q4_K_M quantization, 40k context, with its thinking turned off (`think: false` in this client, `OLLAMA_THINKING` in the RAG). One chat model serves the RAG and the interpreter, so the GPU holds it and the embedding model together. `AGENT_MODEL` switches it; `scripts/eval-scheduling.ts` compares models: `qwen3:8b` and `llama3` both pass its 23 scenarios.
 - Most messages never reach the model: the interpreter's rules handle numbers, yes/no, dates, times and names; the model reads the services ([message pipeline](message-pipeline.md#6a-interpret)).
+
+## Model provider
+
+The interpreter and the reply rewriter ([humanize.ts](../src/modules/scheduling/humanize.ts)) call one chat model through [model-client.ts](../src/modules/scheduling/model-client.ts), built by `createModelClientFromEnv`. `MODEL_PROVIDER` chooses where it runs:
+
+| `MODEL_PROVIDER` | Where the model runs | Variables |
+|---|---|---|
+| `ollama` (default) | Local Ollama: `POST {OLLAMA_URL}/api/chat` | `OLLAMA_URL`, `AGENT_MODEL`, `AGENT_TIMEOUT_MS` |
+| `openai-compatible` | Any server that speaks the OpenAI protocol: `POST {MODEL_BASE_URL}/chat/completions` (the name is the protocol, not a company; it also fits Azure, vLLM and others) | `MODEL_BASE_URL`, `MODEL_API_KEY`, `MODEL_NAME` (all three required), optional `MODEL_EXTRA_BODY`, `MODEL_MAX_TOKENS`, `MODEL_MAX_PER_MINUTE` |
+| `nvidia` | Preset of the [NVIDIA Build](https://build.nvidia.com) API, over the `openai-compatible` protocol. For development and evaluation only | Only `MODEL_API_KEY` is required. Preset defaults: `MODEL_BASE_URL=https://integrate.api.nvidia.com/v1`, `MODEL_NAME=nvidia/nemotron-3-ultra-550b-a55b`, `MODEL_EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}}`, `MODEL_MAX_PER_MINUTE=35`, `AGENT_TIMEOUT_MS=60000` |
+
+With `ollama`, `MODEL_NAME`, when set, overrides `AGENT_MODEL`.
+
+**Presets.** A preset is a table of default values for a known provider (`PROVIDER_PRESETS` in [model-client.ts](../src/modules/scheduling/model-client.ts)). Every `MODEL_*` variable and `AGENT_TIMEOUT_MS`, when set, overrides the preset value; `MODEL_EXTRA_BODY`, when set, replaces the preset extra body as a whole. The code default stays `ollama` on purpose: a missing configuration must never silently send patients' messages to a cloud.
+
+The boot check in [env.ts](../src/config/env.ts) stops the server when `MODEL_PROVIDER=openai-compatible` lacks one of the three required variables, or `MODEL_PROVIDER=nvidia` lacks `MODEL_API_KEY`; the error names the variables only, never their values. It also refuses `MODEL_PROVIDER=nvidia` when `NODE_ENV=production`: the free NVIDIA Build tier is for development and evaluation only and must not receive real patient conversations (LGPD).
+
+- **Structured output:** the `openai-compatible` and `nvidia` providers send the same JSON Schema the Ollama client sends as `format`, under `response_format: { type: "json_schema", ... }`, so the interpreter gets the same shape from either provider. Output that is not JSON is treated as "did not understand", as with Ollama. Every schema is strict-compatible: all properties are in `required` (an absent value is `null`) and every object has `additionalProperties: false`, so any provider, including Azure OpenAI strict mode, accepts it (checked by `schema-strict.test.ts`).
+- **Rate limits (429):** a 429 response is retried, up to 3 attempts in total, waiting the `retry-after` header (at most 30 s; 2 s without it). If it still fails, the call raises `InterpreterUnavailable`, as any other failure, and the patient gets the fixed text.
+- **Client-side limit:** `MODEL_MAX_PER_MINUTE` (e.g. `35` for a limit of 40 per minute) spaces the HTTP attempts at least `60000 / MODEL_MAX_PER_MINUTE` ms apart, retries after a 429 included; calls wait in line. Unset, nothing waits. Set it below the provider's limit so the 429 does not happen at all.
+- **Reasoning models:** a model that thinks before answering can put its reasoning in the output and break the JSON. Turn the thinking off with `MODEL_EXTRA_BODY`, for example `{"chat_template_kwargs":{"enable_thinking":false}}`, which is merged into each request body. `MODEL_MAX_TOKENS` caps the answer length.
+- **Privacy (LGPD):** a cloud provider receives the text of patients' messages, which is health-related personal data. The free NVIDIA Build tier is for development and evaluation only: use invented phrases, never real conversations. `MODEL_PROVIDER=nvidia` is refused in production. Keep `MODEL_PROVIDER=ollama` for real clinic data unless the clinic has a processing agreement with the provider.
+- **Scripts:** `scripts/eval-scheduling.ts` and `scripts/eval-interpret.ts` use the same client, so the provider they measure is the one in `.env`. Each run ends with `chamadas ao modelo: N, limite 429: X, falhas de infraestrutura: Y` (from the client's `stats()`); when X or Y is above 0 the run is invalid: it prints `RESULTADO INVALIDO` and exits with code 2. Repeat it, since those numbers say nothing about the model.
 
 ## Knowledge endpoint
 

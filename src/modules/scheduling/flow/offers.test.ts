@@ -105,6 +105,17 @@ test("agenda desconectada ou fora do ar: calendar_unavailable, sem quebrar", asy
   assert.match((await say(conv, I("availability"))).reply, /can't book appointments right now/);
 });
 
+test("o aviso do fim da lista sai só na primeira lista: 'mais' e 'depois das 16h' na tela de horários vêm sem ele", async () => {
+  const conv = await conversation();
+  const first = await say(conv, I("availability", { date: "2026-10-21" }));
+  assert.match(first.reply, /Which one would you like\? I can show more times or another day if you like\.$/);
+  const more = await say(conv, I("more"));
+  assert.match(more.reply, /^On Wednesday, October 21 I have these times:\n• 3:00 PM\n• 4:00 PM\n• 5:00 PM\nWhich one would you like\?$/);
+  const later = await say(conv, I("choose", { timeWindow: { notBefore: "16:00" } }));
+  assert.match(later.reply, /^On Wednesday, October 21 I have these times:\n• 5:00 PM\nWhich one would you like\?$/);
+  assert.equal((await sessionOf(conv))?.step, "choose_slot");
+});
+
 test("sessão vencida é descartada", async () => {
   const conv = await conversation();
   await say(conv, I("availability"));

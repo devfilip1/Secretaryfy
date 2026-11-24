@@ -165,7 +165,7 @@ export function pendingPrompt(run: Run, s: SchedulingSessionRow): string {
       return run.replies.offerDays(run.optionDays(s.options), run.tz, run.replies.daysIntro());
     case "choose_slot": {
       const slots = run.optionSlots(s.options);
-      return run.replies.offerSlots(run.isoDate(slots[0]), slots, run.tz, false);
+      return run.replies.offerSlots(run.isoDate(slots[0]), slots, run.tz, false, false);
     }
     case "ask_name":
       return run.replies.askName();
