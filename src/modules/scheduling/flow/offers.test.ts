@@ -73,6 +73,15 @@ test("na tela de horários, 'de tarde' oferece a tarde desse mesmo dia", async (
   assert.equal((await sessionOf(conv))?.step, "choose_slot");
 });
 
+test("escolha de dia com parte do dia (quarta à tarde): mostra só os horários da tarde desse dia, não a manhã", async () => {
+  const conv = await conversation();
+  await say(conv, I("availability"));
+  const { reply } = await say(conv, I("choose", { option: 2, period: "afternoon" }));
+  assert.match(reply, /^On Wednesday, October 21 I have these times:\n• 12:00 PM\n• 1:00 PM\n• 2:00 PM\n• 3:00 PM\n• 4:00 PM\n• 5:00 PM\n/);
+  assert.doesNotMatch(reply, /9:00 AM|11:00 AM/);
+  assert.equal((await sessionOf(conv))?.step, "choose_slot");
+});
+
 test("dia fechado nas regras semanais: avisa que não atende e oferece os dias mais próximos", async () => {
   const conv = await conversation();
   const { reply } = await say(conv, I("availability", { date: "2026-10-25" }));

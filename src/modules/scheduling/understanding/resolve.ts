@@ -7,9 +7,11 @@ import { findExplicitDatesInText, namesTheWeekend, weekdaysNamedInText } from ".
 /** Quando a chamada focada de horário/parte do dia/dia deve rodar; com uma janela também, pois ela diz se a janela é o pedido */
 export function wantsWhen(interpretation: Interpretation, step: SchedulingStep | null | undefined): boolean {
   // O horário citado ("as 14h"): o campo do interpretador vem às vezes vazio, então uma chamada focada o procura (ADR 0015)
+  // Uma escolha pode vir com parte do dia ou horário ("quinta à tarde"): o modelo principal só mapeia o dia para a opção da lista,
+  // e a parte do dia sai desta chamada focada; por isso ela roda para toda escolha, com opção ou não (flow/dispatch lê o período junto da opção).
   return (
     asksForWhen(interpretation.intent) ||
-    (interpretation.intent === "choose" && (interpretation.option === null || step === "choose_slot")) ||
+    interpretation.intent === "choose" ||
     step === "choose_slot"
   );
 }
@@ -62,7 +64,7 @@ export function applyWhen(interpretation: Interpretation, when: When | null, ste
   // O fim de semana inteiro sem dia citado: a data que o modelo deu é chute, e a opção da tela não vale
   const weekend = asksTheWeekend(when, input);
   const weekendChanged = weekend && (interpretation.weekend !== true || interpretation.date !== null || interpretation.option !== null || interpretation.intent === "unclear");
-  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation || weekendChanged;
+  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation || weekendChanged || toChoice;
   if (!changed) return interpretation;
   const next = { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) };
   if (!weekend) return next;

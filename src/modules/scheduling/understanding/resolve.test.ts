@@ -38,12 +38,12 @@ test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => 
   for (const [intent, step, expected] of cases) assert.equal(wantsWhen(base({ intent }), step), expected, `${intent} ${step}`);
 });
 
-test("wantsWhen: choose pede a chamada sem opção ou na etapa choose_slot", () => {
+test("wantsWhen: choose pede a chamada também com opção, porque a parte do dia da escolha (quinta à tarde) vem dela", () => {
   const cases: [number | null, SchedulingStep | null, boolean][] = [
     [null, "choose_day", true],
     [null, null, true],
     [2, "choose_slot", true],
-    [2, "choose_day", false],
+    [2, "choose_day", true],
   ];
   for (const [option, step, expected] of cases) assert.equal(wantsWhen(base({ intent: "choose", option }), step), expected, `option ${option} ${step}`);
 });
@@ -117,6 +117,42 @@ test("applyWhen: fora de choose_slot, ou com intenção fora da lista, a intenç
   assert.equal(byOtherIntent.time, "14:00");
 });
 
+test("applyWhen: choose_slot com horário igual ao do modelo principal ainda vira escolha (a chamada focada já tinha lido o mesmo horário)", () => {
+  const result = applyWhen(base({ intent: "availability", time: "09:30", option: null, date: null }), when({ time: "09:30", period: null, namesDay: false }), "choose_slot");
+  assert.equal(result.intent, "choose");
+  assert.equal(result.option, null);
+  assert.equal(result.time, "09:30");
+});
+
+test("applyWhen: choose_slot com horário ou parte do dia igual ao do modelo vira escolha em more, unclear e other_day", () => {
+  const intents: Intent[] = ["more", "unclear", "other_day"];
+  for (const intent of intents) {
+    const byTime = applyWhen(base({ intent, time: "09:30" }), when({ time: "09:30", period: null, namesDay: false }), "choose_slot");
+    assert.equal(byTime.intent, "choose", `${intent} com horário igual`);
+    assert.equal(byTime.option, null);
+    const byPeriod = applyWhen(base({ intent, period: "evening" }), when({ period: "evening", namesDay: false }), "choose_slot");
+    assert.equal(byPeriod.intent, "choose", `${intent} com período igual`);
+    assert.equal(byPeriod.option, null);
+  }
+});
+
+test("applyWhen: fora de choose_slot (choose_day ou sem etapa) o horário igual não muda a disponibilidade", () => {
+  const interpretation = base({ intent: "availability", time: "09:30", option: null, date: null });
+  const focused = when({ time: "09:30", period: null, namesDay: false });
+  assert.equal(applyWhen(interpretation, focused, "choose_day"), interpretation);
+  assert.equal(applyWhen(interpretation, focused, null), interpretation);
+});
+
+test("applyWhen: choose_slot com intenção que não é de escolha (book) e horário igual não muda a interpretação", () => {
+  const interpretation = base({ intent: "book", time: "09:30" });
+  assert.equal(applyWhen(interpretation, when({ time: "09:30", period: null, namesDay: false }), "choose_slot"), interpretation);
+});
+
+test("applyWhen: data citada (namesDay verdadeiro) sem horário nem período não vira escolha, mesmo em choose_slot", () => {
+  const interpretation = base({ intent: "availability", date: "2026-11-20", time: null, option: null });
+  assert.equal(applyWhen(interpretation, when({ time: null, period: null, namesDay: true }), "choose_slot"), interpretation);
+});
+
 test("weekend: a frase que cita uma data ou um dia da semana sozinho não vira fim de semana", () => {
   const focused = when({ weekend: true, namesDay: true });
   assert.equal(applyWhen(base({ intent: "availability" }), focused, null, "tem vaga dia 25?").weekend, undefined);
@@ -146,6 +182,17 @@ test("applyWhen: nada muda devolve o mesmo objeto", () => {
   const withDate = base({ date: "2026-10-21" });
   assert.equal(applyWhen(withDate, when({ namesDay: false }), null).date, null);
   assert.equal(applyWhen(base(), null, "choose_slot").intent, "book");
+});
+
+test("applyWhen: escolha de dia com parte do dia (quinta à tarde) mantém a opção e a data e põe o período", () => {
+  const interpretation = base({ intent: "choose", option: 2, date: "2026-11-20" });
+  const result = applyWhen(interpretation, when({ period: "afternoon", time: null, namesDay: true }), "choose_day");
+  assert.deepEqual([result.intent, result.option, result.date, result.period, result.time], ["choose", 2, "2026-11-20", "afternoon", null]);
+});
+
+test("applyWhen: escolha de dia sem parte do dia nem horário lidos pela chamada focada devolve o mesmo objeto (o primeiro não muda)", () => {
+  const interpretation = base({ intent: "choose", option: 1, date: null });
+  assert.equal(applyWhen(interpretation, when({ period: null, time: null, namesDay: false }), "choose_day"), interpretation);
 });
 
 test("needsPick: com opções na tela, intenção de escolha ou não entendida (mesmo com opção do modelo), e sem horário, período ou data", () => {
