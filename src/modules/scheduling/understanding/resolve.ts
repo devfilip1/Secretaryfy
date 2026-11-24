@@ -62,7 +62,7 @@ export function applyWhen(interpretation: Interpretation, when: When | null, ste
   // O fim de semana inteiro sem dia citado: a data que o modelo deu é chute, e a opção da tela não vale
   const weekend = asksTheWeekend(when, input);
   const weekendChanged = weekend && (interpretation.weekend !== true || interpretation.date !== null || interpretation.option !== null || interpretation.intent === "unclear");
-  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation || weekendChanged;
+  const changed = time !== (interpretation.time ?? null) || Boolean(period) || invented || unwindowed !== interpretation || weekendChanged || toChoice;
   if (!changed) return interpretation;
   const next = { ...read, time, period, ...(toChoice ? { intent: "choose" as const, option: null } : {}) };
   if (!weekend) return next;

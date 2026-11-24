@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { testCatalog } from "../../test/catalog.js";
 import { createClinicContext } from "../clinic/context.js";
 import type { KnowledgeRepository } from "../knowledge/repository.js";
@@ -104,23 +105,28 @@ test("catálogo dos testes: nove serviços, o nome igual ao rótulo e a avaliaç
   assert.deepEqual(panelList(), list());
 });
 
-const CHUNKS = new URL("../../../rag/data/index/section/chunks.json", import.meta.url);
+const BROCHURE = new URL("../../../rag/data/source/dentalsafe.md", import.meta.url);
 
-/** Títulos (primeira linha de cada trecho) do índice gerado; vazio quando ele não existe. */
-const indexTitles: string[] = existsSync(CHUNKS)
-  ? (JSON.parse(readFileSync(CHUNKS, "utf8")) as { content: string }[]).map((c) => c.content.split("\n")[0].split(" — ")[0].trim())
-  : [];
+/** Títulos das seções `## Título — subtítulo` do folheto de referência (tabelado no repositório). */
+const brochureTitles = (): string[] => {
+  assert.ok(existsSync(BROCHURE), `folheto de referência não encontrado: ${fileURLToPath(BROCHURE)}`);
+  return readFileSync(BROCHURE, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("## "))
+    .map((line) => line.slice(3).split(" — ")[0].trim());
+};
 
-/** O índice tem de ser o do folheto que o catálogo de teste espelha (DentalSafe); outro índice (outra clínica ou língua) pula o teste. */
-const brochureSkip: string | false = !existsSync(CHUNKS)
-  ? "índice do RAG não gerado"
-  : !indexTitles.includes("DentalSafe") && "índice do RAG de outra clínica/língua";
-
-test("o catálogo dos testes cobre todos os tratamentos do folheto", { skip: brochureSkip }, () => {
+test("o catálogo dos testes cobre todos os tratamentos do folheto", () => {
   const notTreatments = new Set(["DentalSafe", "Why Choose DentalSafe?", "Schedule Your Assessment Today"]);
-  const titles = indexTitles.filter((t) => !notTreatments.has(t));
+  const titles = brochureTitles().filter((t) => !notTreatments.has(t));
+  assert.ok(titles.length > 0, "nenhum tratamento encontrado no folheto de referência");
   const names = list().map((s) => s.name);
   for (const title of new Set(titles)) assert.ok(names.includes(title), `${title} não está no catálogo`);
+  const brochure = new Set(titles);
+  for (const name of names) {
+    if (name === ASSESSMENT) continue;
+    assert.ok(brochure.has(name), `${name} não está no folheto`);
+  }
 });
 
 test("minutes: o tempo do tratamento, ou undefined para a duração padrão (a avaliação inclusive)", async () => {
