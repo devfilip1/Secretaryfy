@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { calendarModeRefusal } from "../modules/google/fake-mode.js";
+import { assertProviderAllowed, MODEL_PROVIDERS } from "../modules/scheduling/model-client.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
@@ -43,9 +44,10 @@ const envSchema = z.object({
   // Agendamento: o Ollama interpreta as mensagens do cliente (specs/003, research.md R2)
   OLLAMA_URL: z.url().default("http://127.0.0.1:11434"),
   AGENT_MODEL: z.string().min(1).default("qwen3:8b"),
-  AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
-  // Modelo de linguagem: "ollama" (local, padrão) ou "openai" (API compatível com a da OpenAI, ex.: NVIDIA Build). Ver docs/integrations.md#model-provider
-  MODEL_PROVIDER: z.enum(["ollama", "openai"]).default("ollama"),
+  // Sem valor: 20 s (ollama e openai-compatible) ou 60 s (nvidia); ver resolveOpenAICompatibleConfig em model-client.ts
+  AGENT_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  // Modelo de linguagem: "ollama" (local, padrão), "openai-compatible" (protocolo chat/completions, qualquer servidor) ou "nvidia" (preset do NVIDIA Build, só para desenvolvimento). Ver docs/integrations.md#model-provider
+  MODEL_PROVIDER: z.enum(MODEL_PROVIDERS).default("ollama"),
   MODEL_BASE_URL: z.url().optional(),
   MODEL_API_KEY: z.string().min(1).optional(),
   MODEL_NAME: z.string().min(1).optional(),
@@ -130,9 +132,13 @@ const parsed = envSchema
   .superRefine((v, ctx) => {
     const refusal = calendarModeRefusal(v.CALENDAR_MODE, v.NODE_ENV);
     if (refusal) ctx.addIssue({ code: "custom", path: ["CALENDAR_MODE"], message: refusal });
-    if (v.MODEL_PROVIDER === "openai") {
-      const missing = (["MODEL_BASE_URL", "MODEL_API_KEY", "MODEL_NAME"] as const).filter((k) => !v[k]);
-      if (missing.length) ctx.addIssue({ code: "custom", path: ["MODEL_PROVIDER"], message: `MODEL_PROVIDER=openai exige ${missing.join(", ")}` });
+    const providerRefusal = assertProviderAllowed(v.MODEL_PROVIDER, v.NODE_ENV);
+    if (providerRefusal) ctx.addIssue({ code: "custom", path: ["MODEL_PROVIDER"], message: providerRefusal });
+    if (v.MODEL_PROVIDER === "openai-compatible" || v.MODEL_PROVIDER === "nvidia") {
+      // nvidia tem URL e modelo padrão no preset; só a chave é obrigatória
+      const required = v.MODEL_PROVIDER === "nvidia" ? (["MODEL_API_KEY"] as const) : (["MODEL_BASE_URL", "MODEL_API_KEY", "MODEL_NAME"] as const);
+      const missing = required.filter((k) => !v[k]);
+      if (missing.length) ctx.addIssue({ code: "custom", path: ["MODEL_PROVIDER"], message: `MODEL_PROVIDER=${v.MODEL_PROVIDER} exige ${missing.join(", ")}` });
     }
     for (const [low, high] of ANTIBAN_RANGES) {
       if (v[low] > v[high]) ctx.addIssue({ code: "custom", path: [low], message: `${low} não pode ser maior que ${high}` });

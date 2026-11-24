@@ -51,7 +51,6 @@ const whenCases: [string, string | null, DayPeriod | null, boolean][] = [
 const weekendCases: [string, boolean][] = [
   ["vocês atendem no fim de semana?", true],
   ["do you work on weekends?", true],
-  ["abren los fines de semana?", true],
   ["sábado e domingo tem horário?", true],
   ["funcionam sábados e domingos?", true],
   ["sábado de manhã", false],

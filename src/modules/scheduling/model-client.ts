@@ -181,52 +181,104 @@ function withCounters(client: Pick<ModelClient, "model" | "chat">): ModelClient 
   };
 }
 
+/** Provedores aceitos em MODEL_PROVIDER. "openai-compatible" é o protocolo (qualquer servidor que fala chat/completions), não uma empresa. */
+export const MODEL_PROVIDERS = ["ollama", "openai-compatible", "nvidia"] as const;
+export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
+
+/** Padrões de um provedor conhecido: cada MODEL_* do ambiente, e AGENT_TIMEOUT_MS, substitui o seu. */
+export type ProviderPreset = {
+  baseUrl: string;
+  model: string;
+  /** Substituído inteiro por MODEL_EXTRA_BODY quando esta variável está definida. */
+  extraBody?: Record<string, unknown>;
+  maxPerMinute: number;
+  timeoutMs: number;
+};
+
+export const PROVIDER_PRESETS: Partial<Record<ModelProvider, ProviderPreset>> = {
+  nvidia: {
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    model: "nvidia/nemotron-3-ultra-550b-a55b",
+    extraBody: { chat_template_kwargs: { enable_thinking: false } },
+    maxPerMinute: 35,
+    timeoutMs: 60000,
+  },
+};
+
+const DEFAULT_TIMEOUT_MS = 20000;
+
+export type OpenAICompatibleConfig = {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  extraBody?: Record<string, unknown>;
+  maxTokens?: number;
+  maxPerMinute?: number;
+};
+
+function isModelProvider(value: string): value is ModelProvider {
+  return (MODEL_PROVIDERS as readonly string[]).includes(value);
+}
+
+/** Recusa MODEL_PROVIDER=nvidia em produção (LGPD). Devolve a mensagem de recusa, ou undefined se o provedor pode rodar. */
+export function assertProviderAllowed(provider: string, nodeEnv: string | undefined): string | undefined {
+  if (provider !== "nvidia" || nodeEnv !== "production") return undefined;
+  return "MODEL_PROVIDER=nvidia não pode rodar com NODE_ENV=production: o nível gratuito do NVIDIA Build é só para desenvolvimento e avaliação e não pode receber conversas reais de pacientes (LGPD)";
+}
+
+/** Junta o provedor com o ambiente: MODEL_* e AGENT_TIMEOUT_MS do ambiente vencem o preset. Erros nomeiam variáveis, nunca valores. */
+export function resolveOpenAICompatibleConfig(
+  env: Record<string, string | undefined>,
+  provider: Exclude<ModelProvider, "ollama">,
+): OpenAICompatibleConfig {
+  const preset: Partial<ProviderPreset> = PROVIDER_PRESETS[provider] ?? {};
+  const baseUrl = env.MODEL_BASE_URL ?? preset.baseUrl;
+  const apiKey = env.MODEL_API_KEY;
+  const model = env.MODEL_NAME ?? preset.model;
+  if (!baseUrl || !apiKey || !model) {
+    const missing = [
+      ["MODEL_BASE_URL", baseUrl],
+      ["MODEL_API_KEY", apiKey],
+      ["MODEL_NAME", model],
+    ]
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+    throw new Error(`MODEL_PROVIDER=${provider} precisa das variáveis: ${missing.join(", ")}`);
+  }
+  return {
+    baseUrl,
+    apiKey,
+    model,
+    timeoutMs: Number(env.AGENT_TIMEOUT_MS ?? preset.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    extraBody: env.MODEL_EXTRA_BODY ? parseExtraBody(env.MODEL_EXTRA_BODY) : preset.extraBody,
+    maxTokens: env.MODEL_MAX_TOKENS ? Number(env.MODEL_MAX_TOKENS) : undefined,
+    maxPerMinute: env.MODEL_MAX_PER_MINUTE ? Number(env.MODEL_MAX_PER_MINUTE) : preset.maxPerMinute,
+  };
+}
+
 /** Lê o provedor e as credenciais do ambiente. Erros dizem o nome das variáveis, nunca o valor. */
 export function createModelClientFromEnv(
   env: Record<string, string | undefined>,
   { fetch: doFetch }: { fetch?: typeof fetch } = {},
 ): ModelClient {
   const provider = env.MODEL_PROVIDER ?? "ollama";
-  const timeoutMs = Number(env.AGENT_TIMEOUT_MS ?? 20000);
+  if (!isModelProvider(provider)) {
+    throw new Error(`MODEL_PROVIDER desconhecido: ${provider} (use ${MODEL_PROVIDERS.map((p) => `"${p}"`).join(", ")})`);
+  }
 
   if (provider === "ollama") {
     return withCounters(
       createOllamaClient({
         url: env.OLLAMA_URL ?? "http://127.0.0.1:11434",
         model: env.MODEL_NAME ?? env.AGENT_MODEL ?? "qwen3:8b",
-        timeoutMs,
+        timeoutMs: Number(env.AGENT_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS),
         fetch: doFetch,
       }),
     );
   }
 
-  if (provider === "openai") {
-    const baseUrl = env.MODEL_BASE_URL;
-    const apiKey = env.MODEL_API_KEY;
-    const model = env.MODEL_NAME;
-    if (!baseUrl || !apiKey || !model) {
-      const missing = [
-        ["MODEL_BASE_URL", baseUrl],
-        ["MODEL_API_KEY", apiKey],
-        ["MODEL_NAME", model],
-      ]
-        .filter(([, value]) => !value)
-        .map(([name]) => name);
-      throw new Error(`MODEL_PROVIDER=openai precisa das variáveis: ${missing.join(", ")}`);
-    }
-    return createOpenAICompatClient({
-      baseUrl,
-      apiKey,
-      model,
-      timeoutMs,
-      extraBody: parseExtraBody(env.MODEL_EXTRA_BODY),
-      maxTokens: env.MODEL_MAX_TOKENS ? Number(env.MODEL_MAX_TOKENS) : undefined,
-      maxPerMinute: env.MODEL_MAX_PER_MINUTE ? Number(env.MODEL_MAX_PER_MINUTE) : undefined,
-      fetch: doFetch,
-    });
-  }
-
-  throw new Error(`MODEL_PROVIDER desconhecido: ${provider} (use "ollama" ou "openai")`);
+  return createOpenAICompatClient({ ...resolveOpenAICompatibleConfig(env, provider), fetch: doFetch });
 }
 
 function parseExtraBody(raw: string | undefined): Record<string, unknown> | undefined {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { InterpreterUnavailable } from "./ollama.js";
-import { createModelClientFromEnv, createOpenAICompatClient } from "./model-client.js";
+import { assertProviderAllowed, createModelClientFromEnv, createOpenAICompatClient, resolveOpenAICompatibleConfig } from "./model-client.js";
 
 const KEY = "sk-teste-nao-real-123";
 const FORMAT = { type: "object", properties: { intent: { type: "string" } }, required: ["intent"] };
@@ -273,11 +273,11 @@ test("fábrica Ollama aceita AGENT_MODEL como nome do modelo", () => {
   assert.equal(client.model, "llama3");
 });
 
-test("fábrica openai com todas as variáveis monta o cliente com extraBody e maxTokens", async () => {
+test("fábrica openai-compatible com todas as variáveis monta o cliente com extraBody e maxTokens", async () => {
   const fake = fakeFetch([content('{"intent":"ok"}')]);
   const client = createModelClientFromEnv(
     {
-      MODEL_PROVIDER: "openai",
+      MODEL_PROVIDER: "openai-compatible",
       MODEL_BASE_URL: "https://modelo.test/v1",
       MODEL_API_KEY: KEY,
       MODEL_NAME: "modelo-x",
@@ -295,9 +295,9 @@ test("fábrica openai com todas as variáveis monta o cliente com extraBody e ma
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
 });
 
-test("fábrica openai sem variáveis lança erro que nomeia só as variáveis faltando", () => {
+test("fábrica openai-compatible sem variáveis lança erro que nomeia só as variáveis faltando", () => {
   assert.throws(
-    () => createModelClientFromEnv({ MODEL_PROVIDER: "openai", MODEL_API_KEY: KEY }),
+    () => createModelClientFromEnv({ MODEL_PROVIDER: "openai-compatible", MODEL_API_KEY: KEY }),
     (err: Error) => {
       assert.match(err.message, /MODEL_BASE_URL/);
       assert.match(err.message, /MODEL_NAME/);
@@ -308,16 +308,102 @@ test("fábrica openai sem variáveis lança erro que nomeia só as variáveis fa
   );
 });
 
-test("fábrica openai recusa MODEL_EXTRA_BODY que não é JSON", () => {
-  const env = { MODEL_PROVIDER: "openai", MODEL_BASE_URL: "https://m.test", MODEL_API_KEY: KEY, MODEL_NAME: "m", MODEL_EXTRA_BODY: "{nao e json" };
+test("fábrica openai-compatible recusa MODEL_EXTRA_BODY que não é JSON", () => {
+  const env = { MODEL_PROVIDER: "openai-compatible", MODEL_BASE_URL: "https://m.test", MODEL_API_KEY: KEY, MODEL_NAME: "m", MODEL_EXTRA_BODY: "{nao e json" };
   assert.throws(() => createModelClientFromEnv(env), /MODEL_EXTRA_BODY não é JSON válido/);
 });
 
-test("fábrica openai recusa MODEL_EXTRA_BODY que não é objeto", () => {
-  const env = { MODEL_PROVIDER: "openai", MODEL_BASE_URL: "https://m.test", MODEL_API_KEY: KEY, MODEL_NAME: "m", MODEL_EXTRA_BODY: "[1,2]" };
+test("fábrica openai-compatible recusa MODEL_EXTRA_BODY que não é objeto", () => {
+  const env = { MODEL_PROVIDER: "openai-compatible", MODEL_BASE_URL: "https://m.test", MODEL_API_KEY: KEY, MODEL_NAME: "m", MODEL_EXTRA_BODY: "[1,2]" };
   assert.throws(() => createModelClientFromEnv(env), /precisa ser um objeto JSON/);
 });
 
-test("fábrica recusa provedor desconhecido", () => {
-  assert.throws(() => createModelClientFromEnv({ MODEL_PROVIDER: "outro" }), /MODEL_PROVIDER desconhecido: outro/);
+test("fábrica nvidia chama o endpoint do preset com o extraBody padrão", async () => {
+  const fake = fakeFetch([content('{"intent":"ok"}')]);
+  const client = createModelClientFromEnv({ MODEL_PROVIDER: "nvidia", MODEL_API_KEY: KEY }, { fetch: fake.fetch });
+  assert.equal(client.model, "nvidia/nemotron-3-ultra-550b-a55b");
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+
+  assert.equal(fake.calls[0].url, "https://integrate.api.nvidia.com/v1/chat/completions");
+  const body = JSON.parse(String(fake.calls[0].init.body));
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+});
+
+test("nvidia sem MODEL_API_KEY lança erro que nomeia só MODEL_API_KEY", () => {
+  assert.throws(
+    () => createModelClientFromEnv({ MODEL_PROVIDER: "nvidia" }),
+    (err: Error) => {
+      assert.equal(err.message, "MODEL_PROVIDER=nvidia precisa das variáveis: MODEL_API_KEY");
+      return true;
+    },
+  );
+});
+
+test("nvidia sem variáveis extras usa os padrões do preset", () => {
+  assert.deepEqual(resolveOpenAICompatibleConfig({ MODEL_API_KEY: KEY }, "nvidia"), {
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    apiKey: KEY,
+    model: "nvidia/nemotron-3-ultra-550b-a55b",
+    timeoutMs: 60000,
+    extraBody: { chat_template_kwargs: { enable_thinking: false } },
+    maxTokens: undefined,
+    maxPerMinute: 35,
+  });
+});
+
+test("cada variável do ambiente vence o preset nvidia, e MODEL_EXTRA_BODY substitui o extraBody inteiro", () => {
+  const config = resolveOpenAICompatibleConfig(
+    {
+      MODEL_API_KEY: KEY,
+      MODEL_BASE_URL: "https://outro.test/v1",
+      MODEL_NAME: "outro-modelo",
+      MODEL_EXTRA_BODY: '{"x":1}',
+      MODEL_MAX_TOKENS: "300",
+      MODEL_MAX_PER_MINUTE: "10",
+      AGENT_TIMEOUT_MS: "5000",
+    },
+    "nvidia",
+  );
+  assert.deepEqual(config, {
+    baseUrl: "https://outro.test/v1",
+    apiKey: KEY,
+    model: "outro-modelo",
+    timeoutMs: 5000,
+    extraBody: { x: 1 },
+    maxTokens: 300,
+    maxPerMinute: 10,
+  });
+});
+
+test("AGENT_TIMEOUT_MS ausente: 60 s com nvidia e 20 s com openai-compatible", () => {
+  const env = { MODEL_API_KEY: KEY, MODEL_BASE_URL: "https://m.test", MODEL_NAME: "m" };
+  assert.equal(resolveOpenAICompatibleConfig(env, "nvidia").timeoutMs, 60000);
+  assert.equal(resolveOpenAICompatibleConfig(env, "openai-compatible").timeoutMs, 20000);
+});
+
+test("openai-compatible não tem preset: sem extraBody nem limite por minuto", () => {
+  const config = resolveOpenAICompatibleConfig({ MODEL_API_KEY: KEY, MODEL_BASE_URL: "https://m.test", MODEL_NAME: "m" }, "openai-compatible");
+  assert.equal(config.extraBody, undefined);
+  assert.equal(config.maxPerMinute, undefined);
+});
+
+test("fábrica recusa provedor desconhecido e lista os valores válidos, sem alias para o nome antigo", () => {
+  for (const provider of ["outro", "openai"]) {
+    assert.throws(
+      () => createModelClientFromEnv({ MODEL_PROVIDER: provider }),
+      (err: Error) => {
+        assert.match(err.message, new RegExp(`MODEL_PROVIDER desconhecido: ${provider} `));
+        assert.match(err.message, /"ollama", "openai-compatible", "nvidia"/);
+        return true;
+      },
+    );
+  }
+});
+
+test("assertProviderAllowed recusa nvidia só em produção", () => {
+  assert.match(assertProviderAllowed("nvidia", "production") ?? "", /LGPD/);
+  assert.equal(assertProviderAllowed("nvidia", "development"), undefined);
+  assert.equal(assertProviderAllowed("nvidia", undefined), undefined);
+  assert.equal(assertProviderAllowed("openai-compatible", "production"), undefined);
+  assert.equal(assertProviderAllowed("ollama", "production"), undefined);
 });
