@@ -33,14 +33,14 @@ export function createPortugueseReplies({ clinic, catalog }: { clinic: Pick<Clin
       return `${intro}\n${bullets(days.map((d) => formatDayLong(d, tz, pt)))}\nQual deles fica melhor para você? Se preferir outra data, é só me dizer.`;
     },
 
-    offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean) {
-      const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
-      return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
+    offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean, showHint = true) {
+      const tail = !showHint ? "" : hasMore ? " Se quiser ver mais horários ou outro dia, é só pedir." : " Se preferir outro dia, é só pedir.";
+      return `${onDay(date, tz, true)}, tenho estes horários:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere?${tail}`;
     },
 
-    periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean) {
-      const tail = hasMore ? "Se quiser ver mais horários ou outro dia, é só pedir." : "Se preferir outro dia, é só pedir.";
-      return `Não tenho horário livre ${PERIOD_PT[period]} ${onDay(date, tz)}, mas tenho estes:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere? ${tail}`;
+    periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean, showHint = true) {
+      const tail = !showHint ? "" : hasMore ? " Se quiser ver mais horários ou outro dia, é só pedir." : " Se preferir outro dia, é só pedir.";
+      return `Não tenho horário livre ${PERIOD_PT[period]} ${onDay(date, tz)}, mas tenho estes:\n${bullets(slots.map((s) => formatTime(s, tz, pt)))}\nQual prefere?${tail}`;
     },
 
     noneInWindow(date: string, slots: Date[], tz: string) {

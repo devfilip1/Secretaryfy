@@ -10,9 +10,10 @@ import { createPortugueseReplies } from "./replies.pt.js";
  */
 export interface Replies {
   offerDays(days: string[], tz: string, intro?: string): string;
-  offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean): string;
+  /** `showHint` falso tira o aviso do fim (mais horários ou outro dia): só a primeira lista da sessão o leva (flow/offers.ts) */
+  offerSlots(date: string, slots: Date[], tz: string, hasMore: boolean, showHint?: boolean): string;
   /** O cliente pediu uma parte do dia sem horário livre nela, mas o dia tem outros: oferece esses (`slots`) */
-  periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean): string;
+  periodEmpty(date: string, period: DayPeriod, slots: Date[], tz: string, hasMore: boolean, showHint?: boolean): string;
   dayFull(date: string, closest: string[], tz: string): string;
   /** O dia pedido é um dia em que a clínica não atende (regras semanais do painel) */
   /** A clínica não atende nesses dias da semana (ISO, 1 = segunda): todos de uma vez, para "fim de semana?" também ter resposta */

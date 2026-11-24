@@ -42,7 +42,7 @@ test("noite sem horário e o dia com mais horários antes: mostra os mais tarde 
     /^I have nothing free in the evening on Thursday, November 19, but these are open:\n• 12:00 PM\n• 1:00 PM\n• 2:00 PM\n• 3:00 PM\n• 4:00 PM\n• 5:00 PM\n/,
   );
   assert.doesNotMatch(reply, /9:00 AM|10:00 AM|11:00 AM/);
-  assert.match(reply, /I can show more times or another day if you like\.$/);
+  assert.match(reply, /Which one would you like\?$/);
   const s = await sessionOf(conv);
   assert.equal(s?.step, "choose_slot");
   assert.equal(s?.options.length, 6);

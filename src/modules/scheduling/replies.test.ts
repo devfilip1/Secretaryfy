@@ -53,6 +53,18 @@ test("parte do dia sem horário livre: diz a parte e oferece os outros horários
   assert.match(replies.periodEmpty("2026-10-21", "evening", slots, tz, true), /I can show more times or another day if you like\.$/);
 });
 
+test("aviso do fim da lista: com showHint falso a lista acaba na pergunta, com ou sem mais horários", () => {
+  const slots = [new Date("2026-10-21T12:00:00Z"), new Date("2026-10-21T13:00:00Z")];
+  const slotsText = "On Wednesday, October 21 I have these times:\n• 9:00 AM\n• 10:00 AM\nWhich one would you like?";
+  assert.equal(replies.offerSlots("2026-10-21", slots, tz, true, false), slotsText);
+  assert.equal(replies.offerSlots("2026-10-21", slots, tz, false, false), slotsText);
+  assert.equal(replies.offerSlots("2026-10-21", slots, tz, false), slotsText.replace("?", "? I can also check another day if you like."));
+  assert.equal(
+    replies.periodEmpty("2026-10-21", "morning", slots, tz, true, false),
+    "I have nothing free in the morning on Wednesday, October 21, but these are open:\n• 9:00 AM\n• 10:00 AM\nWhich one would you like?",
+  );
+});
+
 test("pedido de nome e nome recebido: textos do contrato, sem convite para agendar", () => {
   const asks = [0, 0.4, 0.9].map((r) => replies.askNameFollowUp(() => r));
   assert.deepEqual(new Set(asks), new Set(["By the way, may I have your name?", "By the way, what's your name?", "Before I forget, may I have your name?"]));
