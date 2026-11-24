@@ -38,12 +38,12 @@ test("wantsWhen: book, availability e reschedule pedem a chamada focada", () => 
   for (const [intent, step, expected] of cases) assert.equal(wantsWhen(base({ intent }), step), expected, `${intent} ${step}`);
 });
 
-test("wantsWhen: choose pede a chamada sem opção ou na etapa choose_slot", () => {
+test("wantsWhen: choose pede a chamada também com opção, porque a parte do dia da escolha (quinta à tarde) vem dela", () => {
   const cases: [number | null, SchedulingStep | null, boolean][] = [
     [null, "choose_day", true],
     [null, null, true],
     [2, "choose_slot", true],
-    [2, "choose_day", false],
+    [2, "choose_day", true],
   ];
   for (const [option, step, expected] of cases) assert.equal(wantsWhen(base({ intent: "choose", option }), step), expected, `option ${option} ${step}`);
 });
@@ -182,6 +182,17 @@ test("applyWhen: nada muda devolve o mesmo objeto", () => {
   const withDate = base({ date: "2026-10-21" });
   assert.equal(applyWhen(withDate, when({ namesDay: false }), null).date, null);
   assert.equal(applyWhen(base(), null, "choose_slot").intent, "book");
+});
+
+test("applyWhen: escolha de dia com parte do dia (quinta à tarde) mantém a opção e a data e põe o período", () => {
+  const interpretation = base({ intent: "choose", option: 2, date: "2026-11-20" });
+  const result = applyWhen(interpretation, when({ period: "afternoon", time: null, namesDay: true }), "choose_day");
+  assert.deepEqual([result.intent, result.option, result.date, result.period, result.time], ["choose", 2, "2026-11-20", "afternoon", null]);
+});
+
+test("applyWhen: escolha de dia sem parte do dia nem horário lidos pela chamada focada devolve o mesmo objeto (o primeiro não muda)", () => {
+  const interpretation = base({ intent: "choose", option: 1, date: null });
+  assert.equal(applyWhen(interpretation, when({ period: null, time: null, namesDay: false }), "choose_day"), interpretation);
 });
 
 test("needsPick: com opções na tela, intenção de escolha ou não entendida (mesmo com opção do modelo), e sem horário, período ou data", () => {
