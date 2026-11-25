@@ -8,9 +8,10 @@ from rich.console import Console
 from rich.markup import escape
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn
 
-from evaluation import calibrate, history, report
+from evaluation import calibrate, embedding_compare, history, report
 from evaluation.aggregate import aggregate, variance
 from evaluation.compare import compare
+from evaluation.cloud_run import INVALID_MESSAGE, CloudRun
 from evaluation.dataset import AnswerKeyError, coverage, load_answer_key, load_source_text, select_subset, validate
 from assistant.settings import SettingsError
 
@@ -87,7 +88,20 @@ def _questions(answer_key):
     return {item.id: item.question for item in answer_key.items}
 
 
+def _default_providers():
+    from assistant.storage import factory
+
+    return factory.default_generator(), factory.default_embeddings()
+
+
+def _cloud_run():
+    from assistant.config import MODEL_SETTINGS
+
+    return CloudRun(MODEL_SETTINGS, _default_providers)
+
+
 def cmd_run(args):
+
     answer_key = _load_valid_answer_key()
     if answer_key is None:
         return EXIT_USAGE
@@ -95,7 +109,6 @@ def cmd_run(args):
     from assistant.composition import build_clinic_provider
     from assistant.config import OLLAMA_BASE_URL
     from assistant.retrieval.pipeline import RagConfig
-
     from evaluation.judge import judge_model_name, make_judge
     from evaluation.runner import eval_config, preflight, run_evaluation, warm_up
 
@@ -106,10 +119,15 @@ def cmd_run(args):
         return EXIT_ERROR
     config = eval_config(RagConfig.from_experiment(experiment))
     clinic = build_clinic_provider().load()
-    judge_model = None if args.no_judge else judge_model_name(config.chat_model)
+    cloud_run = _cloud_run()
+    cloud = cloud_run.is_cloud
+    if cloud:
+        console.print(cloud_run.banner())
+    judge_model = None if args.no_judge or not cloud_run.judge_allowed() else judge_model_name(config.chat_model)
 
-    problems = preflight([config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])],
-                         OLLAMA_BASE_URL)
+    problems = preflight(
+        [config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])], OLLAMA_BASE_URL
+    ) if cloud_run.needs_ollama_preflight() else []
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -131,6 +149,10 @@ def cmd_run(args):
         task = progress.add_task(f"Evaluating ({report.SUBSET_LABELS[subset]})", total=len(items) * args.repeat)
         outcome = run_evaluation(items, answer_key, config, judge_fn, args.repeat, lambda: progress.advance(task))
 
+    stats = cloud_run.stats() if cloud else None
+    if stats is not None:
+        console.print(cloud_run.summary_line(stats))
+    invalid = stats is not None and cloud_run.is_invalid(stats)
     items_by_id = answer_key.by_id()
     agreement = calibrate.load_agreement(judge_model) if judge_model else {}
     repetitions = outcome["repetitions"]
@@ -149,6 +171,10 @@ def cmd_run(args):
         "metrics": aggregate(repetitions[0], items_by_id, agreement),
         "skipped": outcome["skipped"],
     }
+    if stats is not None:
+        run["model_stats"] = stats
+    if invalid:
+        run["invalid"] = True
     if complete and args.repeat > 1:
         run["variance"] = variance([aggregate(results, items_by_id) for results in repetitions])
 
@@ -162,6 +188,9 @@ def cmd_run(args):
     report.write_report(run, answer_key, folder / "report.md")
     report.print_scoreboard(run, answer_key, console)
     console.print(f"Saved in {folder}\n")
+    if invalid:
+        console.print(f"[red]INVALID run:[/red] {INVALID_MESSAGE}")
+        return EXIT_USAGE
 
     baseline_id = history.get_baseline(subset)
     if baseline_id and baseline_id != run["run_id"]:
@@ -197,7 +226,7 @@ def cmd_retrieval(args):
 
 def cmd_experiments(args):
     from assistant import settings
-    from assistant.config import OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL
+    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, OLLAMA_BASE_URL
 
     from evaluation import experiments as bench
     from evaluation.runner import preflight
@@ -207,8 +236,8 @@ def cmd_experiments(args):
     if answer_key is None:
         return EXIT_USAGE
 
-    models = [OLLAMA_EMBEDDING_MODEL] + ([OLLAMA_CHAT_MODEL] if any(e.use_hyde for e in chosen) else [])
-    problems = preflight(models, OLLAMA_BASE_URL)
+    models = [EMBEDDING_MODEL] + ([CHAT_MODEL] if any(e.use_hyde for e in chosen) else [])
+    problems = preflight(models, OLLAMA_BASE_URL) if _cloud_run().needs_ollama_preflight() else []
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -230,7 +259,7 @@ def cmd_experiments(args):
 
     ordered = bench.sort_results(results)
     report.print_experiments(ordered, console)
-    summary_path, questions_path = bench.write_csv(ordered, started_at, answer_key.version, OLLAMA_EMBEDDING_MODEL)
+    summary_path, questions_path = bench.write_csv(ordered, started_at, answer_key.version, EMBEDDING_MODEL)
     console.print(f"Results saved in:\n  {summary_path}\n  {questions_path}\n")
     return EXIT_OK if any(result.status == bench.OK for result in results) else EXIT_ERROR
 
@@ -386,6 +415,11 @@ def build_parser():
     bench.add_argument("names", nargs="*", metavar="NAME", help="experiments to run (default: all)")
     bench.add_argument("--verbose", action="store_true", help="show one line per question: question;hit;score")
     bench.set_defaults(handler=cmd_experiments)
+
+    embed = commands.add_parser("embeddings", help="compare an embedding model on the 102 informal questions "
+                                                  "(vector search only, no chat model)")
+    embedding_compare.add_arguments(embed)
+    embed.set_defaults(handler=embedding_compare.run_command)
 
     commands.add_parser("list", help="list the complete evaluations").set_defaults(handler=cmd_list)
     kb_check = commands.add_parser("kb-check", help="check the knowledge base")

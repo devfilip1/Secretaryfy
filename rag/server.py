@@ -17,7 +17,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StringConstraints
 
-from assistant.config import INTERNAL_TOKEN, OLLAMA_BASE_URL
+from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, INTERNAL_TOKEN, MODEL_SETTINGS, OLLAMA_BASE_URL
 from assistant.index import (
     CURRENT, IndexUnavailable, built_from, check_embedding_dimensions, index_state, require_index,
     require_index_for_http_source,
@@ -97,7 +97,7 @@ def create_app(config, *, service: RagService | None = None, deps: RagDeps | Non
 
     @app.get("/health")
     def health():
-        reachable = ollama_reachable()
+        reachable = MODEL_SETTINGS.provider != "ollama" or ollama_reachable()  # only Ollama is probed
         source = knowledge()
         kind = "http" if isinstance(source, HttpKnowledgeSource) else "file"
         strategy = get_strategy(config.strategy)
@@ -113,7 +113,9 @@ def create_app(config, *, service: RagService | None = None, deps: RagDeps | Non
         body = {
             "status": "ready" if ready else "unavailable",
             "experiment": config.experiment,
-            "ollama": {"reachable": reachable, "url": OLLAMA_BASE_URL},
+                        "model": {"provider": MODEL_SETTINGS.provider, "chat": CHAT_MODEL, "embedding": EMBEDDING_MODEL},
+            **({"ollama": {"reachable": reachable, "url": OLLAMA_BASE_URL}} if MODEL_SETTINGS.provider == "ollama" else {}),
+
             "index": {"strategy": config.strategy, "state": state, "reason": reason,
                       "built_from": built_from(strategy.name)},
             "knowledge": knowledge_body,

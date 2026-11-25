@@ -8,10 +8,9 @@ import numpy as np
 from assistant.clinic.profile import ClinicProfile, ClinicProfileSource
 from assistant.config import (
     MAX_ANSWER_TOKENS,
-    OLLAMA_CHAT_MODEL,
-    OLLAMA_EMBEDDING_MODEL,
-    RAG_GROUNDED,
-    RAG_VERIFY_SUPPORT,
+    CHAT_MODEL,
+    EMBEDDING_MODEL,
+    RAG_GROUNDED,    RAG_VERIFY_SUPPORT,
     TEMPERATURE,
 )
 from assistant.generation.grounded import (
@@ -54,8 +53,8 @@ class RagConfig:
     match_threshold: float | None = None
     use_hyde: bool | None = None
     prompt: str | None = None  # "rules" (the assistant's) or "original" (the baseline)
-    chat_model: str = OLLAMA_CHAT_MODEL
-    embedding_model: str = OLLAMA_EMBEDDING_MODEL
+    chat_model: str = CHAT_MODEL
+    embedding_model: str = EMBEDDING_MODEL
     temperature: float | None = TEMPERATURE
     seed: int | None = None
     max_answer_tokens: int | None = MAX_ANSWER_TOKENS

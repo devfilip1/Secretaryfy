@@ -4,7 +4,8 @@ from typing import Protocol
 from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
-from assistant.config import OLLAMA_BASE_URL, OLLAMA_EMBEDDING_MODEL
+from assistant.config import MODEL_SETTINGS, OLLAMA_BASE_URL, OLLAMA_EMBEDDING_MODEL, ModelSettings
+from assistant.rate_limiter import shared_limiter
 
 
 class EmbeddingProvider(Protocol):
@@ -42,5 +43,12 @@ class PrefixedEmbeddings(Embeddings):
         return self._inner.embed_query(text)
 
 
-def build_embeddings(model=OLLAMA_EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL) -> EmbeddingProvider:
-    return PrefixedEmbeddings(model, base_url)
+def build_embeddings(model=OLLAMA_EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL,
+                     settings: ModelSettings = MODEL_SETTINGS) -> EmbeddingProvider:
+    """The embedding model of the provider in settings. Only Ollama gets the task prefixes (PrefixedEmbeddings)."""
+    if settings.provider == "ollama":
+        return PrefixedEmbeddings(model, base_url)
+    from assistant.openai_compat import OpenAICompatEmbeddings  # imported here: that module imports this one
+
+    return OpenAICompatEmbeddings(settings.base_url, settings.api_key, settings.embedding_model,
+                                  limiter=shared_limiter(settings), timeout_s=settings.timeout_s)
