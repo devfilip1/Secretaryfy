@@ -8,9 +8,10 @@ from rich.console import Console
 from rich.markup import escape
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn
 
-from evaluation import calibrate, history, report
+from evaluation import calibrate, embedding_compare, history, report
 from evaluation.aggregate import aggregate, variance
 from evaluation.compare import compare
+from evaluation.cloud_run import INVALID_MESSAGE, CloudRun
 from evaluation.dataset import AnswerKeyError, coverage, load_answer_key, load_source_text, select_subset, validate
 from assistant.settings import SettingsError
 
@@ -87,23 +88,16 @@ def _questions(answer_key):
     return {item.id: item.question for item in answer_key.items}
 
 
-def _cloud_line():
-    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, MODEL_SETTINGS
-
-    return (f"Cloud run: provider {MODEL_SETTINGS.provider}, chat model {CHAT_MODEL}, embedding model {EMBEDDING_MODEL}. "
-            "The questions are invented; the free tier is for development and evaluation only. "
-            "Judge metrics are off (the judge runs on Ollama).")
-
-
-def _model_stats():
-    """Calls, rate-limited responses and failures of the cloud model in this process."""
+def _default_providers():
     from assistant.storage import factory
 
-    totals = {"calls": 0, "rate_limited": 0, "failed": 0}
-    for provider in (factory.default_generator(), factory.default_embeddings()):
-        for name, value in provider.stats().items():
-            totals[name] += value
-    return totals
+    return factory.default_generator(), factory.default_embeddings()
+
+
+def _cloud_run():
+    from assistant.config import MODEL_SETTINGS
+
+    return CloudRun(MODEL_SETTINGS, _default_providers)
 
 
 def cmd_run(args):
@@ -113,7 +107,7 @@ def cmd_run(args):
         return EXIT_USAGE
 
     from assistant.composition import build_clinic_provider
-    from assistant.config import MODEL_SETTINGS, OLLAMA_BASE_URL
+    from assistant.config import OLLAMA_BASE_URL
     from assistant.retrieval.pipeline import RagConfig
     from evaluation.judge import judge_model_name, make_judge
     from evaluation.runner import eval_config, preflight, run_evaluation, warm_up
@@ -125,13 +119,15 @@ def cmd_run(args):
         return EXIT_ERROR
     config = eval_config(RagConfig.from_experiment(experiment))
     clinic = build_clinic_provider().load()
-    cloud = MODEL_SETTINGS.provider != "ollama"
+    cloud_run = _cloud_run()
+    cloud = cloud_run.is_cloud
     if cloud:
-        console.print(_cloud_line())
-    judge_model = None if args.no_judge or cloud else judge_model_name(config.chat_model)
+        console.print(cloud_run.banner())
+    judge_model = None if args.no_judge or not cloud_run.judge_allowed() else judge_model_name(config.chat_model)
 
-    problems = [] if cloud else preflight(
-        [config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])], OLLAMA_BASE_URL)
+    problems = preflight(
+        [config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])], OLLAMA_BASE_URL
+    ) if cloud_run.needs_ollama_preflight() else []
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -153,10 +149,10 @@ def cmd_run(args):
         task = progress.add_task(f"Evaluating ({report.SUBSET_LABELS[subset]})", total=len(items) * args.repeat)
         outcome = run_evaluation(items, answer_key, config, judge_fn, args.repeat, lambda: progress.advance(task))
 
-    stats = _model_stats() if cloud else None
+    stats = cloud_run.stats() if cloud else None
     if stats is not None:
-        console.print(f"model calls: {stats['calls']}, rate limited: {stats['rate_limited']}, failed: {stats['failed']}")
-    invalid = stats is not None and bool(stats["rate_limited"] or stats["failed"])
+        console.print(cloud_run.summary_line(stats))
+    invalid = stats is not None and cloud_run.is_invalid(stats)
     items_by_id = answer_key.by_id()
     agreement = calibrate.load_agreement(judge_model) if judge_model else {}
     repetitions = outcome["repetitions"]
@@ -193,7 +189,7 @@ def cmd_run(args):
     report.print_scoreboard(run, answer_key, console)
     console.print(f"Saved in {folder}\n")
     if invalid:
-        console.print("[red]INVALID run:[/red] the cloud model was rate limited or failed; do not use it as a reference.")
+        console.print(f"[red]INVALID run:[/red] {INVALID_MESSAGE}")
         return EXIT_USAGE
 
     baseline_id = history.get_baseline(subset)
@@ -230,7 +226,7 @@ def cmd_retrieval(args):
 
 def cmd_experiments(args):
     from assistant import settings
-    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, MODEL_SETTINGS, OLLAMA_BASE_URL
+    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, OLLAMA_BASE_URL
 
     from evaluation import experiments as bench
     from evaluation.runner import preflight
@@ -241,7 +237,7 @@ def cmd_experiments(args):
         return EXIT_USAGE
 
     models = [EMBEDDING_MODEL] + ([CHAT_MODEL] if any(e.use_hyde for e in chosen) else [])
-    problems = [] if MODEL_SETTINGS.provider != "ollama" else preflight(models, OLLAMA_BASE_URL)
+    problems = preflight(models, OLLAMA_BASE_URL) if _cloud_run().needs_ollama_preflight() else []
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -419,6 +415,11 @@ def build_parser():
     bench.add_argument("names", nargs="*", metavar="NAME", help="experiments to run (default: all)")
     bench.add_argument("--verbose", action="store_true", help="show one line per question: question;hit;score")
     bench.set_defaults(handler=cmd_experiments)
+
+    embed = commands.add_parser("embeddings", help="compare an embedding model on the 102 informal questions "
+                                                  "(vector search only, no chat model)")
+    embedding_compare.add_arguments(embed)
+    embed.set_defaults(handler=embedding_compare.run_command)
 
     commands.add_parser("list", help="list the complete evaluations").set_defaults(handler=cmd_list)
     kb_check = commands.add_parser("kb-check", help="check the knowledge base")

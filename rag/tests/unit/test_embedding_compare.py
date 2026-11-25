@@ -1,5 +1,10 @@
+import argparse
+import json
+from pathlib import Path
+
 import pytest
 
+from evaluation import embedding_compare
 from evaluation.embedding_compare import (
     cosine_scores,
     embed_all,
@@ -177,3 +182,49 @@ def test_embed_all_times_each_question_and_embeds_the_chunks_once():
     assert chunk_vectors == [[1.0], [0.0]]
     assert query_vectors == [[1.0], [0.0]]
     assert len(milliseconds) == 2 and all(ms >= 0 for ms in milliseconds)
+
+
+def test_add_arguments_parses_the_embeddings_options(tmp_path):
+    parser = argparse.ArgumentParser()
+    embedding_compare.add_arguments(parser)
+
+    args = parser.parse_args(["--model", "embeddinggemma", "--json", "out.json", "--limit", "5"])
+
+    assert args.model == "embeddinggemma"
+    assert args.json == Path("out.json") and args.limit == 5
+    assert args.questions == embedding_compare.QUESTIONS_PATH and args.knowledge == embedding_compare.KNOWLEDGE_PATH
+
+
+def test_the_embeddings_subcommand_runs_run_command():
+    from evaluation.cli import build_parser
+
+    args = build_parser().parse_args(["embeddings", "--model", "m", "--limit", "3"])
+
+    assert args.handler is embedding_compare.run_command
+    assert args.model == "m" and args.limit == 3
+
+
+def test_run_command_refuses_a_limit_below_one(capsys):
+    args = argparse.Namespace(limit=0)
+
+    assert embedding_compare.run_command(args) == 2
+    assert "--limit must be at least 1" in capsys.readouterr().err
+
+
+def test_run_command_scores_the_questions_and_saves_the_numbers(tmp_path, monkeypatch, capsys):
+    questions = tmp_path / "questions.json"
+    questions.write_text(json.dumps({"sections": {"c": CLEANING},
+                                     "questions": [{"q": "limpeza?", "section": "c"}]}), encoding="utf-8")
+    provider = FakeEmbeddings({"a": [1.0, 0.0], "b": [0.0, 1.0], "limpeza?": [1.0, 0.0]})
+    monkeypatch.setattr(embedding_compare, "load_chunks", lambda path: (["a", "b"], [CLEANING, ROOT]))
+    monkeypatch.setattr(embedding_compare, "build_provider", lambda model=None: provider)
+    out = tmp_path / "out.json"
+    parser = argparse.ArgumentParser()
+    embedding_compare.add_arguments(parser)
+    args = parser.parse_args(["--questions", str(questions), "--knowledge", "unused.md", "--json", str(out)])
+
+    assert embedding_compare.run_command(args) == 0
+
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert saved["scored"] == 1 and saved["top1"]["count"] == 1
+    assert "Right section first" in capsys.readouterr().out

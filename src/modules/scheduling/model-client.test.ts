@@ -28,7 +28,7 @@ const content = (text: string | null) => json({ choices: [{ message: { content: 
 
 function clientWithQueue(
   queue: (Response | Error)[],
-  extra: { extraBody?: Record<string, unknown>; maxTokens?: number; maxPerMinute?: number; now?: () => number } = {},
+  extra: { extraBody?: Record<string, unknown>; maxTokens?: number; maxPerMinute?: number; now?: () => number; jitter?: () => number } = {},
 ) {
   const fake = fakeFetch(queue);
   const waits: number[] = [];
@@ -38,6 +38,7 @@ function clientWithQueue(
     model: "modelo-x",
     timeoutMs: 1000,
     fetch: fake.fetch,
+    jitter: () => 0,
     sleep: async (ms) => {
       waits.push(ms);
     },
@@ -110,15 +111,39 @@ test("retry-after acima de 30 s é limitado a 30 s", async () => {
   assert.deepEqual(waits, [30000]);
 });
 
-test("429 três vezes seguidas lança InterpreterUnavailable após 3 chamadas", async () => {
-  const { client, calls, waits } = clientWithQueue([json({}, 429), json({}, 429), json({}, 429)]);
+test("retry-after menor que o recuo não vence; maior vence", async () => {
+  const { client, waits } = clientWithQueue([
+    json({}, 429, { "retry-after": "1" }),
+    json({}, 429),
+    json({}, 429, { "retry-after": "10" }),
+    json({}, 429),
+    content('{"intent":"ok"}'),
+  ]);
+  assert.deepEqual(await client.chat({ messages: MESSAGES, format: FORMAT }), { intent: "ok" });
+  // 1 s < recuo de 2 s; 10 s > recuo de 8 s; sem cabeçalho, recuo de 4 s e 16 s
+  assert.deepEqual(waits, [2000, 4000, 10000, 16000]);
+});
+
+test("jitter soma até 25 % ao recuo, e o teto de 30 s vale depois do jitter", async () => {
+  const { client, waits } = clientWithQueue([json({}, 429), json({}, 429, { "retry-after": "30" }), content('{"intent":"ok"}')], {
+    jitter: () => 0.25,
+  });
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  // 2 s + 25 % = 2500 ms; 30 s + 25 % passaria do teto, então fica em 30 s
+  assert.deepEqual(waits, [2500, 30000]);
+});
+
+test("429 cinco vezes seguidas lança InterpreterUnavailable após 5 chamadas, com recuo exponencial", async () => {
+  const { client, calls, waits } = clientWithQueue([json({}, 429), json({}, 429), json({}, 429), json({}, 429), json({}, 429)]);
   await assert.rejects(client.chat({ messages: MESSAGES, format: FORMAT }), (err: Error) => {
     assert.ok(err instanceof InterpreterUnavailable);
     assert.match(err.message, /limite de requisições/);
+    assert.match(err.message, /5 tentativas/);
     return true;
   });
-  assert.equal(calls.length, 3);
-  assert.deepEqual(waits, [2000, 2000]);
+  assert.equal(calls.length, 5);
+  assert.deepEqual(waits, [2000, 4000, 8000, 16000]);
+  assert.deepEqual(client.stats?.(), { calls: 1, rateLimited: 5, failed: 1 });
 });
 
 test("erro 500 lança InterpreterUnavailable sem vazar a chave", async () => {
@@ -143,15 +168,16 @@ test("timeout lança InterpreterUnavailable", async () => {
 });
 
 test("stats conta 429 repetidos mesmo quando a chamada depois dá certo", async () => {
-  const { client } = clientWithQueue([json({}, 429), json({}, 429), content('{"intent":"ok"}')]);
+  const { client, waits } = clientWithQueue([json({}, 429), json({}, 429), content('{"intent":"ok"}')]);
   await client.chat({ messages: MESSAGES, format: FORMAT });
   assert.deepEqual(client.stats?.(), { calls: 1, rateLimited: 2, failed: 0 });
+  assert.deepEqual(waits, [2000, 4000]);
 });
 
 test("stats conta falha depois de esgotar as tentativas de 429", async () => {
-  const { client } = clientWithQueue([json({}, 429), json({}, 429), json({}, 429)]);
+  const { client } = clientWithQueue([json({}, 429), json({}, 429), json({}, 429), json({}, 429), json({}, 429)]);
   await assert.rejects(client.chat({ messages: MESSAGES, format: FORMAT }), InterpreterUnavailable);
-  assert.deepEqual(client.stats?.(), { calls: 1, rateLimited: 3, failed: 1 });
+  assert.deepEqual(client.stats?.(), { calls: 1, rateLimited: 5, failed: 1 });
 });
 
 test("stats conta todas as chamadas, inclusive as que deram certo", async () => {
@@ -175,31 +201,79 @@ test("stats conta erro HTTP 500 como falha, sem contar 429", async () => {
   assert.deepEqual(client.stats?.(), { calls: 1, rateLimited: 0, failed: 1 });
 });
 
-test("maxPerMinute espaça as tentativas pelo relógio injetado", async () => {
-  let clock = 0;
-  const waits: number[] = [];
-  const fake = fakeFetch([content('{"intent":"a"}'), content('{"intent":"b"}'), content('{"intent":"c"}')]);
+/** Cliente com limite por minuto; sleep avança o relógio injetado, como o tempo real faria. */
+function limitedClient(responses: Response[], maxPerMinute: number, clock: { now: number }, waits: number[], burst?: number) {
+  const fake = fakeFetch(responses);
   const client = createOpenAICompatClient({
     baseUrl: "https://modelo.test/v1",
     apiKey: KEY,
     model: "modelo-x",
     timeoutMs: 1000,
-    maxPerMinute: 60,
+    maxPerMinute,
+    burst,
     fetch: fake.fetch,
-    now: () => clock,
+    jitter: () => 0,
+    now: () => clock.now,
     sleep: async (ms) => {
       waits.push(ms);
-      clock += ms;
+      clock.now += ms;
     },
   });
-  await client.chat({ messages: MESSAGES, format: FORMAT });
-  await client.chat({ messages: MESSAGES, format: FORMAT });
-  await client.chat({ messages: MESSAGES, format: FORMAT });
-  assert.equal(fake.calls.length, 3);
-  assert.deepEqual(waits, [1000, 1000]);
+  return { client, calls: fake.calls };
+}
+
+test("maxPerMinute: as 4 primeiras chamadas seguidas (rajada) não esperam", async () => {
+  const waits: number[] = [];
+  const responses = Array.from({ length: 4 }, (_, i) => content('{"intent":"' + i + '"}'));
+  const { client, calls } = limitedClient(responses, 35, { now: 0 }, waits);
+  for (let i = 0; i < 4; i++) await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.equal(calls.length, 4);
+  assert.deepEqual(waits, []);
 });
 
-test("maxPerMinute enfileira chamadas simultâneas, uma intervalo depois da outra", async () => {
+test("maxPerMinute: a 5ª chamada seguida espera 60000/N ms, arredondados para cima", async () => {
+  const waits: number[] = [];
+  const responses = Array.from({ length: 5 }, () => content('{"intent":"a"}'));
+  const { client } = limitedClient(responses, 35, { now: 0 }, waits);
+  for (let i = 0; i < 5; i++) await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.deepEqual(waits, [Math.ceil(60000 / 35)]);
+});
+
+test("maxPerMinute: uma rajada de 2 chamadas com limite 35 não espera", async () => {
+  const waits: number[] = [];
+  const { client, calls } = limitedClient([content('{"intent":"a"}'), content('{"intent":"b"}')], 35, { now: 0 }, waits, 2);
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.equal(calls.length, 2);
+  assert.deepEqual(waits, []);
+});
+
+test("maxPerMinute: a ficha gasta volta depois de 60000/N ms", async () => {
+  const clock = { now: 0 };
+  const waits: number[] = [];
+  const { client } = limitedClient([content('{"intent":"a"}'), content('{"intent":"b"}')], 35, clock, waits, 1);
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  clock.now = Math.ceil(60000 / 35);
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.deepEqual(waits, []);
+});
+
+test("maxPerMinute: a reposição nunca passa da capacidade do balde", async () => {
+  const clock = { now: 0 };
+  const waits: number[] = [];
+  const responses = Array.from({ length: 5 }, () => content('{"intent":"a"}'));
+  const { client } = limitedClient(responses, 35, clock, waits, 2);
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  clock.now = 600000;
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.deepEqual(waits, []);
+  await client.chat({ messages: MESSAGES, format: FORMAT });
+  assert.deepEqual(waits, [Math.ceil(60000 / 35)]);
+});
+
+test("maxPerMinute: chamadas simultâneas com o balde vazio entram na fila, cada uma no seu horário", async () => {
   const waits: number[] = [];
   const fake = fakeFetch([content('{"intent":"a"}'), content('{"intent":"b"}'), content('{"intent":"c"}')]);
   const client = createOpenAICompatClient({
@@ -207,7 +281,8 @@ test("maxPerMinute enfileira chamadas simultâneas, uma intervalo depois da outr
     apiKey: KEY,
     model: "modelo-x",
     timeoutMs: 1000,
-    maxPerMinute: 60,
+    maxPerMinute: 1,
+    burst: 1,
     fetch: fake.fetch,
     now: () => 0,
     sleep: async (ms) => {
@@ -220,29 +295,15 @@ test("maxPerMinute enfileira chamadas simultâneas, uma intervalo depois da outr
     client.chat({ messages: MESSAGES, format: FORMAT }),
   ]);
   assert.equal(fake.calls.length, 3);
-  assert.deepEqual(waits, [1000, 2000]);
+  assert.deepEqual(waits, [60000, 120000]);
 });
 
-test("retry após 429 também passa pelo limitador", async () => {
-  let clock = 0;
+test("maxPerMinute: o retry após 429 também passa pelo limitador", async () => {
   const waits: number[] = [];
-  const fake = fakeFetch([json({}, 429, { "retry-after": "0.5" }), content('{"intent":"ok"}')]);
-  const client = createOpenAICompatClient({
-    baseUrl: "https://modelo.test/v1",
-    apiKey: KEY,
-    model: "modelo-x",
-    timeoutMs: 1000,
-    maxPerMinute: 60,
-    fetch: fake.fetch,
-    now: () => clock,
-    sleep: async (ms) => {
-      waits.push(ms);
-      clock += ms;
-    },
-  });
+  const { client } = limitedClient([json({}, 429, { "retry-after": "0.5" }), content('{"intent":"ok"}')], 1, { now: 0 }, waits, 1);
   assert.deepEqual(await client.chat({ messages: MESSAGES, format: FORMAT }), { intent: "ok" });
-  // 500 ms do retry-after, e mais 500 ms para completar o intervalo de 1 s entre tentativas
-  assert.deepEqual(waits, [500, 500]);
+  // 2 s de recuo (maior que os 500 ms do retry-after); depois o balde (1 ficha por minuto, já gasta) segura o retry até a ficha voltar: 58000 ms
+  assert.deepEqual(waits, [2000, 58000]);
 });
 
 test("sem maxPerMinute não espera nada entre chamadas", async () => {

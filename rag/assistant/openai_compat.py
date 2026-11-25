@@ -2,10 +2,11 @@
 and nvidia. The local Ollama stays in generation/model.py and storage/embeddings.py.
 
 OpenAICompatClient holds everything the two endpoints share: the HTTP client, the Bearer key, the retries after 429 (with
-retry-after), the client-side limiter, the counters and the error text with the key masked. The subclasses only build
+retry-after), the limiter it is given, the counters and the error text with the key masked. The subclasses only build
 their request and read their reply.
 """
 import math
+import random
 import threading
 import time
 from collections.abc import Callable
@@ -15,12 +16,14 @@ import httpx
 from langchain_core.embeddings import Embeddings
 
 from assistant.generation.model import TextGenerator
+from assistant.model_stats import HasModelStats, ModelStats
+from assistant.rate_limiter import RateLimiter
 from assistant.storage.embeddings import EmbeddingProvider
 
-MAX_ATTEMPTS = 3
-DEFAULT_WAIT_S = 2.0
+MAX_ATTEMPTS = 5
+BASE_WAIT_S = 2.0
 MAX_WAIT_S = 30.0
-MINUTE_S = 60.0
+MAX_JITTER = 0.25
 EMBEDDING_BATCH = 16
 ERROR_SNIPPET_CHARS = 200
 REPLY_SCHEMA_NAME = "reply"
@@ -32,55 +35,54 @@ class ModelUnavailable(Exception):
     Its message never carries the API key."""
 
 
-def _retry_wait(response):
-    """The wait the server asks for in retry-after, in seconds, at most 30; 2 seconds without a valid value."""
+def _retry_after(response):
+    """The retry-after header in seconds, at most 30; 0 without a valid value."""
     try:
         seconds = float(response.headers.get("retry-after"))
     except (TypeError, ValueError):
-        return DEFAULT_WAIT_S
+        return 0.0
     if not math.isfinite(seconds) or seconds < 0:
-        return DEFAULT_WAIT_S
+        return 0.0
     return min(seconds, MAX_WAIT_S)
 
 
-class OpenAICompatClient:
-    """One OpenAI-compatible endpoint: POST JSON with a Bearer key, retry after 429, at most max_per_minute HTTP requests
-    per minute, and counters (calls, rate_limited, failed) for stats()."""
+def _random_jitter():
+    return random.uniform(0.0, MAX_JITTER)
 
-    def __init__(self, base_url, api_key, *, timeout_s, max_per_minute=None, transport=None,
-                 sleep=time.sleep, now=time.monotonic):
+
+def _backoff_wait(response, retry_index, jitter):
+    """The wait before the retry that follows the retry_index-th 429 (0 based): 2, 4, 8, 16 seconds, or the retry-after
+    when the server asks for longer, plus jitter. Each wait is capped at 30 seconds."""
+    wait = max(_retry_after(response), BASE_WAIT_S * 2 ** retry_index)
+    return min(wait * (1 + jitter()), MAX_WAIT_S)
+
+
+class OpenAICompatClient(HasModelStats):
+    """One OpenAI-compatible endpoint: POST JSON with a Bearer key, retry after 429. Every HTTP request, retries included,
+    waits for a slot of the limiter it is given (no limit by default), and counters (calls, rate_limited, failed) for stats()."""
+
+    def __init__(self, base_url, api_key, *, timeout_s, limiter: RateLimiter | None = None, transport=None,
+                 sleep=time.sleep, jitter=_random_jitter):
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
-        self._spacing_s = MINUTE_S / max_per_minute if max_per_minute else 0.0
-        self._next_slot = 0.0
-        self._slot_lock = threading.Lock()
+        self._limiter = limiter if limiter is not None else RateLimiter(None)
         self._counter_lock = threading.Lock()
         self._counters = {"calls": 0, "rate_limited": 0, "failed": 0}
         self._sleep = sleep
-        self._now = now
+        self._jitter = jitter
 
-    def stats(self):
+    def stats(self) -> ModelStats:
         with self._counter_lock:
-            return dict(self._counters)
+            return ModelStats(calls=self._counters["calls"], rate_limited=self._counters["rate_limited"],
+                              failed=self._counters["failed"])
 
     def _count(self, name):
         with self._counter_lock:
             self._counters[name] += 1
 
-    def _wait_for_slot(self):
-        """Reserves the next free moment for an HTTP request and sleeps until it. Requests get their turn in call order."""
-        if not self._spacing_s:
-            return
-        with self._slot_lock:
-            current = self._now()
-            slot = max(current, self._next_slot)
-            self._next_slot = slot + self._spacing_s
-        if slot > current:
-            self._sleep(slot - current)
-
     def _attempt(self, path, body):
-        self._wait_for_slot()
+        self._limiter.wait_for_slot()
         try:
             return self._client.post(f"{self._base_url}{path}", json=body,
                                      headers={"Authorization": f"Bearer {self._api_key}"})
@@ -99,7 +101,7 @@ class OpenAICompatClient:
             if response.status_code == 429:
                 self._count("rate_limited")
                 if attempt < MAX_ATTEMPTS:
-                    self._sleep(_retry_wait(response))
+                    self._sleep(_backoff_wait(response, attempt - 1, self._jitter))
                     continue
                 raise ModelUnavailable(f"rate limit (429) after {MAX_ATTEMPTS} attempts")
             if not response.is_success:

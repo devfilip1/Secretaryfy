@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from assistant.config import KEEP_ALIVE, MODEL_SETTINGS, OLLAMA_BASE_URL, OLLAMA_THINKING, THINKING_ANSWER_TOKENS, ModelSettings
+from assistant.rate_limiter import shared_limiter
 
 MAX_CACHED_MODELS = 4
 # Models that think before answering unless told not to. Thinking is off unless OLLAMA_THINKING is on: it uses the answer budget and slows every answer.
@@ -75,5 +76,5 @@ def build_generator(base_url=OLLAMA_BASE_URL, keep_alive=KEEP_ALIVE, thinking=OL
     from assistant.openai_compat import OpenAICompatChat  # imported here: that module imports this one
 
     return OpenAICompatChat(settings.base_url, settings.api_key, extra_body=settings.extra_body,
-                            max_tokens=settings.max_tokens, max_per_minute=settings.max_per_minute,
+                            max_tokens=settings.max_tokens, limiter=shared_limiter(settings),
                             timeout_s=settings.timeout_s)

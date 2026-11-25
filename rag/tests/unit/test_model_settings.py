@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from assistant.config import NVIDIA_PRODUCTION_REFUSAL, resolve_model_settings
+from assistant.model_settings import NVIDIA_PRODUCTION_REFUSAL, index_dir_name, load_shared_env, resolve_model_settings
 from assistant.generation.model import OllamaChat, build_generator
 from assistant.openai_compat import OpenAICompatChat, OpenAICompatEmbeddings
 from assistant.storage.embeddings import PrefixedEmbeddings, build_embeddings
@@ -163,3 +163,37 @@ def test_build_embeddings_chooses_the_class_of_the_provider():
     provider = build_embeddings(settings=cloud)
     assert isinstance(provider, OpenAICompatEmbeddings)
     assert provider._model == "nvidia/nemotron-3.5-embed-8b"
+
+
+def test_load_shared_env_copies_only_model_keys_and_node_env(tmp_path):
+    root_env = tmp_path / ".env"
+    root_env.write_text("MODEL_PROVIDER=nvidia\nNODE_ENV=development\nINTERNAL_TOKEN=leaked\nOTHER=x\n", encoding="utf-8")
+    environ = {}
+
+    load_shared_env(root_env, environ)
+
+    assert environ == {"MODEL_PROVIDER": "nvidia", "NODE_ENV": "development"}
+
+
+def test_load_shared_env_never_overrides_a_value_already_set(tmp_path):
+    root_env = tmp_path / ".env"
+    root_env.write_text("MODEL_PROVIDER=nvidia\n", encoding="utf-8")
+    environ = {"MODEL_PROVIDER": "ollama"}
+
+    load_shared_env(root_env, environ)
+
+    assert environ == {"MODEL_PROVIDER": "ollama"}
+
+
+def test_load_shared_env_is_a_no_op_when_the_file_is_missing(tmp_path):
+    environ = {"MODEL_PROVIDER": "ollama"}
+
+    load_shared_env(tmp_path / "absent.env", environ)
+
+    assert environ == {"MODEL_PROVIDER": "ollama"}
+
+
+@pytest.mark.parametrize("provider, expected", [("ollama", "index"), ("nvidia", "index-nvidia"),
+                                                ("openai-compatible", "index-openai-compatible")])
+def test_index_dir_name_keeps_ollama_and_suffixes_the_cloud_providers(provider, expected):
+    assert index_dir_name(provider) == expected

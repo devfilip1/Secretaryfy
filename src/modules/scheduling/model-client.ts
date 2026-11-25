@@ -10,21 +10,30 @@ export type ModelClient = { model: string; chat: OllamaClient["chat"]; stats?: (
 
 type ChatArgs = Parameters<OllamaClient["chat"]>[0];
 
-const MAX_ATTEMPTS = 3;
-const DEFAULT_WAIT_MS = 2000;
+const MAX_ATTEMPTS = 5;
+const BASE_WAIT_MS = 2000;
 const MAX_WAIT_MS = 30000;
+const MAX_JITTER = 0.25;
 const MINUTE_MS = 60000;
+const DEFAULT_BURST = 4;
 const DEFAULT_MAX_TOKENS = 1024;
 const ERROR_SNIPPET_LENGTH = 200;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Espera pedida pelo cabeçalho retry-after (em segundos), limitada a 30 s; sem cabeçalho válido, 2 s. */
-function waitFromHeader(res: Response): number {
+/** Espera pedida pelo cabeçalho retry-after (em segundos), limitada a 30 s; sem cabeçalho válido, undefined. */
+function retryAfterMs(res: Response): number | undefined {
   const value = res.headers.get("retry-after");
   const seconds = Number(value);
-  if (value === null || !Number.isFinite(seconds) || seconds < 0) return DEFAULT_WAIT_MS;
+  if (value === null || !Number.isFinite(seconds) || seconds < 0) return undefined;
   return Math.min(seconds * 1000, MAX_WAIT_MS);
+}
+
+/** Espera após o 429 de índice retryIndex (0 = primeiro): o maior entre retry-after e o recuo 2 s, 4 s, 8 s…, mais jitter, sempre no máximo 30 s. */
+function backoffWaitMs(res: Response, retryIndex: number, jitter: () => number): number {
+  const exponential = BASE_WAIT_MS * 2 ** retryIndex;
+  const base = Math.max(retryAfterMs(res) ?? 0, exponential);
+  return Math.min(base * (1 + jitter()), MAX_WAIT_MS);
 }
 
 /** Corpo do erro sem a chave de API e cortado, para não vazar segredo nem encher o log. */
@@ -79,9 +88,11 @@ export function createOpenAICompatClient({
   extraBody,
   maxTokens,
   maxPerMinute,
+  burst,
   fetch: doFetch = fetch,
   sleep = wait,
   now = Date.now,
+  jitter = () => Math.random() * MAX_JITTER,
 }: {
   baseUrl: string;
   apiKey: string;
@@ -90,25 +101,32 @@ export function createOpenAICompatClient({
   /** Campos específicos do provedor (ex.: chat_template_kwargs); entram por último e podem sobrescrever os padrões. */
   extraBody?: Record<string, unknown>;
   maxTokens?: number;
-  /** Limite de tentativas HTTP por minuto, repetidas após 429 incluídas; sem valor, sem limite. */
+  /** Limite de tentativas HTTP por minuto (balde de fichas), repetidas após 429 incluídas; sem valor, sem limite. */
   maxPerMinute?: number;
+  /** Fichas do balde: rajada de chamadas seguidas sem espera. O provedor limita rajadas, então o padrão é pequeno (4). */
+  burst?: number;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  /** Fração (0 a 0,25) somada ao recuo após cada 429; os testes injetam () => 0 para ter esperas exatas. */
+  jitter?: () => number;
 }): ModelClient {
   const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
-  const spacingMs = maxPerMinute ? MINUTE_MS / maxPerMinute : 0;
   const counters: ModelStats = { calls: 0, rateLimited: 0, failed: 0 };
-  // Próximo horário livre para uma tentativa; reservado na hora da chamada, então quem chega antes entra antes na fila
-  let nextSlotAt = 0;
+  // Balde de fichas em unidades de "ficha × ms" (uma ficha vale MINUTE_MS): cada ms repõe maxPerMinute, e a conta fica inteira
+  const capacity = (burst ?? DEFAULT_BURST) * MINUTE_MS;
+  let units = capacity;
+  let lastRefill = now();
 
-  /** Espera o próximo horário livre antes de cada tentativa HTTP. */
+  /** Balde de fichas: repõe o tempo passado até a capacidade, gasta uma ficha e, se faltar, espera até ela existir. A conta é feita na hora da chamada, então quem chega antes entra antes na fila. */
   async function waitForSlot(): Promise<void> {
-    if (spacingMs === 0) return;
+    if (!maxPerMinute) return;
     const current = now();
-    const slot = Math.max(current, nextSlotAt);
-    nextSlotAt = slot + spacingMs;
-    if (slot > current) await sleep(slot - current);
+    units = Math.min(capacity, units + (current - lastRefill) * maxPerMinute);
+    lastRefill = current;
+    units -= MINUTE_MS;
+    if (units >= 0) return;
+    await sleep(Math.ceil(-units / maxPerMinute));
   }
 
   /** Uma tentativa HTTP: passa pelo limitador e conta cada 429 recebido. */
@@ -130,8 +148,8 @@ export function createOpenAICompatClient({
     });
 
     let res = await attempt(body);
-    for (let retry = 1; res.status === 429 && retry < MAX_ATTEMPTS; retry++) {
-      await sleep(waitFromHeader(res));
+    for (let retryIndex = 0; res.status === 429 && retryIndex < MAX_ATTEMPTS - 1; retryIndex++) {
+      await sleep(backoffWaitMs(res, retryIndex, jitter));
       res = await attempt(body);
     }
     if (res.status === 429) {

@@ -2,7 +2,7 @@
 
 Measures the quality of the assistant's answers with a fixed set of questions (the answer key) and stores the result of each run, so you can compare before and after a change.
 
-Every command runs from the project root, with the virtual environment active and Ollama running.
+Every command runs from the project root, with the virtual environment active and Ollama running (a cloud run does not need Ollama).
 
 ## Workflow
 
@@ -34,6 +34,7 @@ While adjusting, use `--smoke` (10 questions) and `--no-judge` to get an answer 
 | `retrieval [--experiment NAME]` | Search detail of one experiment: metrics per source and the questions in which the evidence did not reach the model |
 | `compare [BASE] [CANDIDATE]` | Compares two runs; with no arguments, the reference against the most recent one |
 | `baseline set [ID]` / `baseline show` | Sets or shows the reference run |
+| `embeddings` | Compares an embedding model on the 102 informal questions, vector search only (see Cloud models) |
 | `list` | Lists the saved runs |
 | `kb-check [--strategy NAME]` | Checks the index of a strategy, without using a model |
 | `validate` | Validates the configuration and the answer key; lists the strategies, the state of each index, and the experiments |
@@ -251,15 +252,17 @@ Thinking fixed the in-office duration of whitening (English) and made the instal
 Limits: 44 questions in the search table (one question is 2.3 points), the translation keeps the structure of the English brochure, and 21 holdout questions are 4.8 points each.
 
 Vector search only, no chat model, on the 102 second-round questions; the first column of the table above is comparable to it:
-`python -m evaluation.embedding_compare [--model NAME] [--json PATH] [--limit N]`: embeds the sections of `data/source/sorrisopleno.md` and every question, ranks the sections by cosine similarity, and prints the right section first (count and percent), the right section in the top 3, MRR, the query latency (median and max) and each miss.
+`python -m evaluation embeddings [--model NAME] [--json PATH] [--limit N]`: embeds the sections of `data/source/sorrisopleno.md` and every question, ranks the sections by cosine similarity, and prints the right section first (count and percent), the right section in the top 3, MRR, the query latency (median and max) and each miss.
 Without `--model` it uses the provider of the environment (`MODEL_PROVIDER`); `--model NAME` builds that Ollama embedding model, so Ollama must be running for it.
 `--json PATH` saves the same numbers to a file, and `--limit N` runs a smoke test on the first N questions.
-Run it from the `rag` folder with the virtual environment active: `python -m evaluation.embedding_compare --model embeddinggemma --limit 10`.
+Run it from the `rag` folder with the virtual environment active: `python -m evaluation embeddings --model embeddinggemma --limit 10` (the older `python -m evaluation.embedding_compare` with the same options still works).
 The unit tests of the module (`tests/unit/test_embedding_compare.py`) use fake vectors and need neither Ollama nor a model.
 
 ### Cloud models (2026-11-24)
 
-Retrieval only, on the 102 informal questions, vector search (`python -m evaluation.embedding_compare`). "Right section first" is the count and percent of questions whose right section ranks first; "top 3" counts questions whose right section is among the first three.
+A cloud run (`$env:MODEL_PROVIDER = 'nvidia'; python -m evaluation run`) skips the Ollama preflight, prints the `Cloud run` banner and leaves the judge metrics off. At the end it prints `model calls: N, rate limited: X, failed: Y`. A rate-limited response (X above 0) or a failed call (Y above 0) marks the saved run `invalid` and the command exits with code 2; such a run is not a reference. With no limit and no failure the run is valid.
+
+Retrieval only, on the 102 informal questions, vector search (`python -m evaluation embeddings`; the older `python -m evaluation.embedding_compare` still works). "Right section first" is the count and percent of questions whose right section ranks first; "top 3" counts questions whose right section is among the first three.
 
 | Embedding model | Right section first | Top 3 | MRR | Dimension | Query latency |
 |---|---|---|---|---|---|
@@ -279,7 +282,7 @@ Typical answer time with the cloud models: 1.7 to 2.1 s.
 
 Notes:
 
-- The "median 1714 ms" seen when running `embedding_compare` with the default limiter is the client-side limiter, not the network. To measure latency, set `MODEL_MAX_PER_MINUTE` high.
+- The "median 1714 ms" seen when running `embeddings` with the default limiter is the client-side limiter, not the network. To measure latency, set `MODEL_MAX_PER_MINUTE` high.
 - The first measurements, on 22 easy questions, favored the 1B model over the 8B by one question. The harder 102-question set reversed that, so the decision rests on the harder set.
 - The cloud runs send only the invented evaluation questions and the brochure text to the provider. The free NVIDIA Build tier is for development only.
 

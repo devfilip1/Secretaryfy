@@ -4,13 +4,15 @@ Each question names the section that holds its answer. The chunks are the sectio
 `section` strategy), embedded with the environment's provider (or Ollama's --model NAME), and ranked by cosine similarity.
 The numbers are comparable to the second-round table of evaluation/README.md (Portuguese, Stage 6c).
 
-    python -m evaluation.embedding_compare [--model NAME] [--json PATH] [--limit N]
+    python -m evaluation embeddings [--model NAME] [--json PATH] [--limit N]
+    (python -m evaluation.embedding_compare with the same options still works)
 
 The functions above the I/O section are pure: they take the vectors and the section names and return the numbers.
 """
 import argparse
 import json
 import statistics
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -186,21 +188,19 @@ def format_report(result, provider_name, model):
     return "\n".join(lines)
 
 
-def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Compare embedding models on the Portuguese retrieval questions.")
+def add_arguments(parser):
     parser.add_argument("--model", help="Ollama embedding model name; without it, the environment's provider is used")
     parser.add_argument("--json", type=Path, help="also save the numbers to this file")
     parser.add_argument("--limit", type=int, help="use only the first N questions (smoke run)")
     parser.add_argument("--questions", type=Path, default=QUESTIONS_PATH, help="questions file")
     parser.add_argument("--knowledge", type=Path, default=KNOWLEDGE_PATH, help="knowledge Markdown file")
-    args = parser.parse_args(argv)
+
+
+def run_command(args):
+    """Runs the comparison with the parsed arguments; returns the exit code."""
     if args.limit is not None and args.limit < 1:
-        parser.error("--limit must be at least 1")
-    return args
-
-
-def main(argv=None):
-    args = parse_args(argv)
+        print("error: --limit must be at least 1", file=sys.stderr)
+        return 2
     data = json.loads(args.questions.read_text(encoding="utf-8"))
     items = load_questions(data)
     if args.limit:
@@ -219,6 +219,12 @@ def main(argv=None):
     if args.json:
         args.json.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Compare embedding models on the Portuguese retrieval questions.")
+    add_arguments(parser)
+    return run_command(parser.parse_args(argv))
 
 
 if __name__ == "__main__":

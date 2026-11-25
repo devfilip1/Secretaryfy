@@ -5,6 +5,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
 from assistant.config import MODEL_SETTINGS, OLLAMA_BASE_URL, OLLAMA_EMBEDDING_MODEL, ModelSettings
+from assistant.rate_limiter import shared_limiter
 
 
 class EmbeddingProvider(Protocol):
@@ -50,4 +51,4 @@ def build_embeddings(model=OLLAMA_EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL,
     from assistant.openai_compat import OpenAICompatEmbeddings  # imported here: that module imports this one
 
     return OpenAICompatEmbeddings(settings.base_url, settings.api_key, settings.embedding_model,
-                                  max_per_minute=settings.max_per_minute, timeout_s=settings.timeout_s)
+                                  limiter=shared_limiter(settings), timeout_s=settings.timeout_s)
