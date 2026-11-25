@@ -87,15 +87,34 @@ def _questions(answer_key):
     return {item.id: item.question for item in answer_key.items}
 
 
+def _cloud_line():
+    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, MODEL_SETTINGS
+
+    return (f"Cloud run: provider {MODEL_SETTINGS.provider}, chat model {CHAT_MODEL}, embedding model {EMBEDDING_MODEL}. "
+            "The questions are invented; the free tier is for development and evaluation only. "
+            "Judge metrics are off (the judge runs on Ollama).")
+
+
+def _model_stats():
+    """Calls, rate-limited responses and failures of the cloud model in this process."""
+    from assistant.storage import factory
+
+    totals = {"calls": 0, "rate_limited": 0, "failed": 0}
+    for provider in (factory.default_generator(), factory.default_embeddings()):
+        for name, value in provider.stats().items():
+            totals[name] += value
+    return totals
+
+
 def cmd_run(args):
+
     answer_key = _load_valid_answer_key()
     if answer_key is None:
         return EXIT_USAGE
 
     from assistant.composition import build_clinic_provider
-    from assistant.config import OLLAMA_BASE_URL
+    from assistant.config import MODEL_SETTINGS, OLLAMA_BASE_URL
     from assistant.retrieval.pipeline import RagConfig
-
     from evaluation.judge import judge_model_name, make_judge
     from evaluation.runner import eval_config, preflight, run_evaluation, warm_up
 
@@ -106,10 +125,13 @@ def cmd_run(args):
         return EXIT_ERROR
     config = eval_config(RagConfig.from_experiment(experiment))
     clinic = build_clinic_provider().load()
-    judge_model = None if args.no_judge else judge_model_name(config.chat_model)
+    cloud = MODEL_SETTINGS.provider != "ollama"
+    if cloud:
+        console.print(_cloud_line())
+    judge_model = None if args.no_judge or cloud else judge_model_name(config.chat_model)
 
-    problems = preflight([config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])],
-                         OLLAMA_BASE_URL)
+    problems = [] if cloud else preflight(
+        [config.chat_model, config.embedding_model, *([judge_model] if judge_model else [])], OLLAMA_BASE_URL)
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -131,6 +153,10 @@ def cmd_run(args):
         task = progress.add_task(f"Evaluating ({report.SUBSET_LABELS[subset]})", total=len(items) * args.repeat)
         outcome = run_evaluation(items, answer_key, config, judge_fn, args.repeat, lambda: progress.advance(task))
 
+    stats = _model_stats() if cloud else None
+    if stats is not None:
+        console.print(f"model calls: {stats['calls']}, rate limited: {stats['rate_limited']}, failed: {stats['failed']}")
+    invalid = stats is not None and bool(stats["rate_limited"] or stats["failed"])
     items_by_id = answer_key.by_id()
     agreement = calibrate.load_agreement(judge_model) if judge_model else {}
     repetitions = outcome["repetitions"]
@@ -149,6 +175,10 @@ def cmd_run(args):
         "metrics": aggregate(repetitions[0], items_by_id, agreement),
         "skipped": outcome["skipped"],
     }
+    if stats is not None:
+        run["model_stats"] = stats
+    if invalid:
+        run["invalid"] = True
     if complete and args.repeat > 1:
         run["variance"] = variance([aggregate(results, items_by_id) for results in repetitions])
 
@@ -162,6 +192,9 @@ def cmd_run(args):
     report.write_report(run, answer_key, folder / "report.md")
     report.print_scoreboard(run, answer_key, console)
     console.print(f"Saved in {folder}\n")
+    if invalid:
+        console.print("[red]INVALID run:[/red] the cloud model was rate limited or failed; do not use it as a reference.")
+        return EXIT_USAGE
 
     baseline_id = history.get_baseline(subset)
     if baseline_id and baseline_id != run["run_id"]:
@@ -197,7 +230,7 @@ def cmd_retrieval(args):
 
 def cmd_experiments(args):
     from assistant import settings
-    from assistant.config import OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL
+    from assistant.config import CHAT_MODEL, EMBEDDING_MODEL, MODEL_SETTINGS, OLLAMA_BASE_URL
 
     from evaluation import experiments as bench
     from evaluation.runner import preflight
@@ -207,8 +240,8 @@ def cmd_experiments(args):
     if answer_key is None:
         return EXIT_USAGE
 
-    models = [OLLAMA_EMBEDDING_MODEL] + ([OLLAMA_CHAT_MODEL] if any(e.use_hyde for e in chosen) else [])
-    problems = preflight(models, OLLAMA_BASE_URL)
+    models = [EMBEDDING_MODEL] + ([CHAT_MODEL] if any(e.use_hyde for e in chosen) else [])
+    problems = [] if MODEL_SETTINGS.provider != "ollama" else preflight(models, OLLAMA_BASE_URL)
     if problems:
         for problem in problems:
             console.print(f"[red]Error:[/red] {problem}")
@@ -230,7 +263,7 @@ def cmd_experiments(args):
 
     ordered = bench.sort_results(results)
     report.print_experiments(ordered, console)
-    summary_path, questions_path = bench.write_csv(ordered, started_at, answer_key.version, OLLAMA_EMBEDDING_MODEL)
+    summary_path, questions_path = bench.write_csv(ordered, started_at, answer_key.version, EMBEDDING_MODEL)
     console.print(f"Results saved in:\n  {summary_path}\n  {questions_path}\n")
     return EXIT_OK if any(result.status == bench.OK for result in results) else EXIT_ERROR
 

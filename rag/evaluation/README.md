@@ -250,6 +250,39 @@ Thinking fixed the in-office duration of whitening (English) and made the instal
 
 Limits: 44 questions in the search table (one question is 2.3 points), the translation keeps the structure of the English brochure, and 21 holdout questions are 4.8 points each.
 
+Vector search only, no chat model, on the 102 second-round questions; the first column of the table above is comparable to it:
+`python -m evaluation.embedding_compare [--model NAME] [--json PATH] [--limit N]`: embeds the sections of `data/source/sorrisopleno.md` and every question, ranks the sections by cosine similarity, and prints the right section first (count and percent), the right section in the top 3, MRR, the query latency (median and max) and each miss.
+Without `--model` it uses the provider of the environment (`MODEL_PROVIDER`); `--model NAME` builds that Ollama embedding model, so Ollama must be running for it.
+`--json PATH` saves the same numbers to a file, and `--limit N` runs a smoke test on the first N questions.
+Run it from the `rag` folder with the virtual environment active: `python -m evaluation.embedding_compare --model embeddinggemma --limit 10`.
+The unit tests of the module (`tests/unit/test_embedding_compare.py`) use fake vectors and need neither Ollama nor a model.
+
+### Cloud models (2026-11-24)
+
+Retrieval only, on the 102 informal questions, vector search (`python -m evaluation.embedding_compare`). "Right section first" is the count and percent of questions whose right section ranks first; "top 3" counts questions whose right section is among the first three.
+
+| Embedding model | Right section first | Top 3 | MRR | Dimension | Query latency |
+|---|---|---|---|---|---|
+| `embeddinggemma` (local, Ollama) | 94 (92.2%) | 101 | 0.951 | 768 | median 12 ms |
+| `nvidia/nemotron-3.5-embed-1b` | 94 (92.2%) | 100 | 0.953 | 2048 | median 104 ms (one isolated query) |
+| `nvidia/nemotron-3.5-embed-8b` | 98 (96.1%) | 102 (100%) | 0.980 | 4096 | median 250 ms, max 1.4 s |
+
+End to end, Portuguese, with Nemotron 3 Ultra answering (`nvidia/nemotron-3-ultra-550b-a55b`, thinking off), experiment `section_hybrid`, no judge. Every run is valid: 0 rate-limited requests, 0 failures.
+
+| Embedding model | Dev (51 questions) | Holdout (21 questions) |
+|---|---|---|
+| `nvidia/nemotron-3.5-embed-1b` | 94.1% (3 wrong: clinic-address-01, clinic-email-01, out-installments-01) | 100% |
+| `nvidia/nemotron-3.5-embed-8b` | 98.0% (1 wrong: clinic-email-01, a search failure on the opening block of the brochure, a known weak point of the hybrid search in Portuguese) | 100% |
+| Reference: `qwen3:8b` + `embeddinggemma` (local) | 92.2% | 95.2% |
+
+Typical answer time with the cloud models: 1.7 to 2.1 s.
+
+Notes:
+
+- The "median 1714 ms" seen when running `embedding_compare` with the default limiter is the client-side limiter, not the network. To measure latency, set `MODEL_MAX_PER_MINUTE` high.
+- The first measurements, on 22 easy questions, favored the 1B model over the 8B by one question. The harder 102-question set reversed that, so the decision rests on the harder set.
+- The cloud runs send only the invented evaluation questions and the brochure text to the provider. The free NVIDIA Build tier is for development only.
+
 ## Limits of what is measured
 
 - The check is by value, not by sentence. If the answer assigns the duration of the cleaning to the whitening and both values are facts of the question, the deterministic score does not notice. The judge's "faithfulness" criterion exists for those cases.

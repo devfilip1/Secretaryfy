@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from assistant.config import INDEX_DIR, OLLAMA_EMBEDDING_MODEL
+from assistant.config import EMBEDDING_MODEL, INDEX_DIR
 from assistant.ingestion.http_source import KnowledgeUnavailable
 
 CURRENT, STALE, MISSING, UNKNOWN = "current", "stale", "missing", "unknown"  # UNKNOWN: the knowledge source cannot be read
@@ -66,7 +66,7 @@ def write_manifest(strategy, chunk_count, base=None, source=None, embedding_mode
         "strategy": strategy.name,
         "definition_hash": strategy.definition_hash(),
         "source_hash": source or source_hash(),
-        "embedding_model": embedding_model or OLLAMA_EMBEDDING_MODEL,
+        "embedding_model": embedding_model or EMBEDDING_MODEL,
         "chunk_count": chunk_count,
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
@@ -108,7 +108,7 @@ def index_changes(strategy, base=None, source=None, embedding_model=None, compar
         changed.append(DEFINITION_CHANGED)
     if compare_source and manifest.get("source_hash") != (source or source_hash()):
         changed.append(SOURCE_CHANGED)
-    if manifest.get("embedding_model") != (embedding_model or OLLAMA_EMBEDDING_MODEL):
+    if manifest.get("embedding_model") != (embedding_model or EMBEDDING_MODEL):
         changed.append(MODEL_CHANGED)
     return (STALE if changed else CURRENT), changed
 

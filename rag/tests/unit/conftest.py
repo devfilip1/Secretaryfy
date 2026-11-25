@@ -1,3 +1,9 @@
+import os
+
+# The unit tests run on the local Ollama setup. The repository's root .env sets MODEL_PROVIDER for the Node server, and
+# assistant.config would copy it: pin it here, before any import of assistant.
+os.environ["MODEL_PROVIDER"] = "ollama"
+
 import pytest
 
 from evaluation.aggregate import aggregate

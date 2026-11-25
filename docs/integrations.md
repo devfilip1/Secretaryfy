@@ -82,8 +82,10 @@ The RAG reads the clinic's name and kind from `GET /internal/clinic` when `CLINI
 
 The DentalSafe assistant from the RagLab project, copied into [`rag/`](../rag) and wrapped in a small FastAPI server ([ADR 0001](decisions/0001-reuse-raglab-as-separate-service.md)).
 
-- **Contract:** `POST /answer {question, history[≤20]}` → `{answer, chunks, latency_s, experiment}`; `GET /health` → 200 only when Ollama answers and the index is current; `POST /retrieve` for debugging. See [rag/README.md](../rag/README.md).
+- **Contract:** `POST /answer {question, history[≤20]}` → `{answer, chunks, latency_s, experiment}`; `GET /health` → 200 only when the model answers (Ollama with the default provider) and the index is current; `POST /retrieve` for debugging. See [rag/README.md](../rag/README.md).
 - **Pipeline:** standalone-question rewrite from the history → hybrid search (`section_hybrid`: Chroma vectors + BM25, reciprocal rank fusion, section-sized chunks of `rag/data/source/DentalSafe.pdf`) → `llama3` answers only from the retrieved chunks or says "I don't have that information right now."
+- **Model:** Ollama by default (qwen3:8b, mbeddinggemma). `MODEL_PROVIDER=nvidia` or `openai-compatible` moves the chat and the embeddings to a cloud model through the OpenAI-compatible protocol, each provider with its own index folder. See [rag/README.md](../rag/README.md#cloud-models).
+- **Quality:** measured
 - **Quality:** measured with RagLab's bench right after the copy: 96.1% (49 of 51) on the answer key, with no regression against the reference run.
 - **Client:** [rag/client.ts](../src/modules/rag/client.ts) sends the last 6 turns with a 30 s timeout. Any failure becomes the "unavailable" message to the patient; a late answer is never sent because the request is aborted.
 - **Rule from RagLab:** any change to the prompt, synonyms, chunking or search must be measured with the evaluation bench before it's kept ([rag/README.md](../rag/README.md#rules-that-still-apply)).
